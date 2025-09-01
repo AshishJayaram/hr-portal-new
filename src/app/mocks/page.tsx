@@ -2,7 +2,7 @@
 
 import { i } from "framer-motion/client";
 import Card from "../../components/Card";
-import Calendar from "../../components/Calender";
+import Calendar from "../../components/Calendar";
 export default function Mocks() {
   // --- Mock Data ---
   const mockStats = {
