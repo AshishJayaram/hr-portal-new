@@ -53,8 +53,8 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
     mutation.mutate({
       type,
       reason,
-      startDate,
-      endDate: endDate || startDate,
+      from: startDate,
+      to: endDate || startDate,
       startHalf,
       endHalf,
       days: calculatedDays, // 👈 send to backend
@@ -151,10 +151,10 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
         {/* Submit */}
         <button
           type="submit"
-          disabled={mutation.isLoading}
+          disabled={mutation.isPending}
           className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 rounded font-semibold disabled:opacity-50"
         >
-          {mutation.isLoading ? "Submitting..." : "Submit Leave Request"}
+          {mutation.isPending ? "Submitting..." : "Submit Leave Request"}
         </button>
       </form>
     </div>

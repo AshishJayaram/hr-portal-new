@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function SignInPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json();
@@ -26,6 +26,7 @@ export default function SignInPage() {
 
       // store in localStorage/session
       localStorage.setItem("user", JSON.stringify(data.data.user));
+      localStorage.setItem("token", data.data.token || data.data.accessToken);
 
       router.push("/");
     } catch (err: any) {
@@ -34,7 +35,7 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950">
       <form
         onSubmit={handleLogin}
         className="bg-white/10 backdrop-blur p-8 rounded-xl shadow-lg space-y-4 w-full max-w-md"
@@ -43,8 +44,8 @@ export default function SignInPage() {
         <input
           type="string"
           placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           className="w-full p-3 rounded bg-white/20 text-white"
         />
         <input

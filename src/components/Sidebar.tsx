@@ -4,19 +4,49 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { canManageUsers, canManageDocuments, canManageSalarySlips, canManageHolidays, isManager } from "@/lib/api";
+import RoleGuard from "./RoleGuard";
 
-const links = [
+const baseLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
   { href: "/leaves", label: "Leaves", icon: "🌴" },
+];
+
+const hrAdminLinks = [
+  { href: "/employees", label: "Employees", icon: "👤" },
   { href: "/documents", label: "Documents", icon: "📑" },
   { href: "/salary-slips", label: "Salary Slips", icon: "💰" },
+  { href: "/holidays", label: "Holidays", icon: "📅" },
+];
+
+const managerLinks = [
   { href: "/team", label: "Team", icon: "👥" },
 ];
 
+const employeeLinks = [
+  { href: "/documents", label: "Documents", icon: "📑" },
+  { href: "/salary-slips", label: "Salary Slips", icon: "💰" },
+];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  const getLinks = () => {
+    const links = [...baseLinks];
+    
+    if (canManageUsers()) {
+      links.push(...hrAdminLinks);
+    } else if (isManager()) {
+      links.push(...managerLinks);
+    } else {
+      links.push(...employeeLinks);
+    }
+    
+    return links;
+  };
+
+  const links = getLinks();
 
   return (
     <>

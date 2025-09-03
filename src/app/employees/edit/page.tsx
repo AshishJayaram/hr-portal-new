@@ -1,46 +1,142 @@
 "use client";
 
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { getUsers, updateUser } from "../../../lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getUser, updateUser } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Loader from "@/components/ui/Loader";
+import { toast } from "sonner";
 
-export default function EditEmployeePage({ params }: { params: { id: string } }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["user", params.id],
-    queryFn: () => getUsers({ id: params.id }),
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function EditEmployeePage({ params }: PageProps) {
+  const { id } = await params;
+  
+  return <EditEmployeeForm id={id} />;
+}
+
+function EditEmployeeForm({ id }: { id: string }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    role: "Employee" as "Employee" | "Manager" | "HR" | "Admin",
+    department: "",
   });
+
+  const { data: user, isLoading } = useQuery({
+    queryKey: ["user", id],
+    queryFn: () => getUser(id),
+  });
+
+  useEffect(() => {
+    if (user?.data) {
+      setFormData({
+        name: user.data.name,
+        email: user.data.email,
+        role: user.data.role,
+        department: user.data.department || "",
+      });
+    }
+  }, [user]);
 
   const mutation = useMutation({
-    mutationFn: (body: any) => updateUser(params.id, body),
+    mutationFn: (body: any) => updateUser(id, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Employee updated successfully");
+      router.push("/employees");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update employee");
+    },
   });
 
-  if (isLoading) return <p>Loading...</p>;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    mutation.mutate(formData);
+  };
 
-  const user = data?.data?.[0];
+  if (isLoading) return <Loader />;
+
+  if (!user?.data) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-400">Employee not found</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Edit {user?.name}</h1>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const formData = new FormData(e.currentTarget as HTMLFormElement);
-          const updates = Object.fromEntries(formData.entries());
-          mutation.mutate(updates);
-        }}
-        className="space-y-3"
-      >
-        <input name="position" defaultValue={user?.position} />
-        <input name="department" defaultValue={user?.department} />
-        <select name="role" defaultValue={user?.role}>
-          <option>EMPLOYEE</option>
-          <option>MANAGER</option>
-          <option>HR</option>
-          <option>ADMIN</option>
-        </select>
-        <button className="bg-green-600 text-white p-2 rounded">
-          Save Changes
-        </button>
-      </form>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Edit Employee</h1>
+        <Button
+          variant="outline"
+          onClick={() => router.back()}
+        >
+          Back
+        </Button>
+      </div>
+
+      <Card>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            <Input
+              label="Name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
+            />
+            <Select
+              label="Role"
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+              options={[
+                { value: "Employee", label: "Employee" },
+                { value: "Manager", label: "Manager" },
+                { value: "HR", label: "HR" },
+                { value: "Admin", label: "Admin" },
+              ]}
+            />
+            <Input
+              label="Department"
+              value={formData.department}
+              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              type="submit"
+              loading={mutation.isPending}
+            >
+              Update Employee
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }

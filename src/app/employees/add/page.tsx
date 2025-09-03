@@ -40,10 +40,10 @@ export default function AddEmployeePage() {
       <input name="department" placeholder="Department" onChange={handleChange} />
       <input name="position" placeholder="Position" onChange={handleChange} />
       <select name="role" onChange={handleChange}>
-        <option value="EMPLOYEE">Employee</option>
-        <option value="MANAGER">Manager</option>
+        <option value="Employee">Employee</option>
+        <option value="Manager">Manager</option>
         <option value="HR">HR</option>
-        <option value="ADMIN">Admin</option>
+        <option value="Admin">Admin</option>
       </select>
       <input name="managerId" placeholder="Manager ID" onChange={handleChange} />
       <input name="hrId" placeholder="HR ID" onChange={handleChange} />
