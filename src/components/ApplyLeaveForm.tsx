@@ -6,7 +6,7 @@ import { applyLeave } from "../lib/api";
 import { calculateLeaveDays } from "../lib/leaveUtils";
 
 export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: any[] }) {
-  const [type, setType] = useState<"Sick" | "Vacation" | "Personal">("Vacation");
+  const [type, setType] = useState<"Sick" | "Casual" | "Professional">("Casual");
   const [reason, setReason] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -37,7 +37,7 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
     mutationFn: applyLeave,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaves"] });
-      setType("Vacation");
+      setType("Casual");
       setReason("");
       setStartDate("");
       setEndDate("");
@@ -60,20 +60,19 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
 
   return (
     <div className="bg-white/10 backdrop-blur rounded-xl shadow-md">
-      <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
+      <form onSubmit={handleSubmit} className="px-6 pt-6 pb-6 space-y-4">
         {/* Leave Type */}
-        <div>
+        <div className="space-y-2">
           <label className="block text-sm mb-1">Leave Type</label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="w-full p-2 rounded bg-white/20 text-white"
+            className="w-full p-3 rounded bg-white/20 text-white"
           >
-            <option value="ANNUAL">Annual</option>
-            <option value="SICK">Sick</option>
-            <option value="PERSONAL">Personal</option>
-            <option value="CASUAL">Casual</option>
-            <option value="UNPAID">Unpaid</option>
+            <option value="Casual">Casual</option>
+            <option value="Sick">Sick</option>
+            <option value="Professional">Professional</option>
+            <option value="PTO">PTO</option>
           </select>
         </div>
 

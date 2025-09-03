@@ -17,7 +17,7 @@ export interface User {
 export interface Leave {
   id: string;
   userId: string;
-  type: 'Sick' | 'Vacation' | 'Personal';
+  type: 'Sick' | 'Casual' | 'Professional';
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   from: string; // ISO date string
   to: string;   // ISO date string
@@ -25,7 +25,7 @@ export interface Leave {
 }
 
 export type LeaveBalance =
-  | { type: 'Sick' | 'Vacation' | 'Personal'; balance: number }
+  | { type: 'Sick' | 'Casual' | 'Professional'; balance: number }
   | { id?: string; userId?: string; type: string; total: number; used: number; remaining: number };
 
 export interface Document {
@@ -123,15 +123,15 @@ const mockUsers = (): User[] => [
 ];
 
 const mockLeaveBalances = (userId: string): LeaveBalance[] => [
-  { type: 'Vacation', total: 24, used: 8, remaining: 16 },
+  { type: 'Casual', total: 24, used: 8, remaining: 16 },
   { type: 'Sick', total: 10, used: 2, remaining: 8 },
-  { type: 'Personal', total: 5, used: 1, remaining: 4 },
+  { type: 'Professional', total: 5, used: 1, remaining: 4 },
 ];
 
 const mockLeaves = (userId?: string): Leave[] => [
-  { id: '101', userId: userId || '4', type: 'Vacation', status: 'approved', from: '2025-05-10', to: '2025-05-12', createdAt: new Date().toISOString() },
+  { id: '101', userId: userId || '4', type: 'Casual', status: 'approved', from: '2025-05-10', to: '2025-05-12', createdAt: new Date().toISOString() },
   { id: '102', userId: userId || '4', type: 'Sick', status: 'pending', from: '2025-06-02', to: '2025-06-02', createdAt: new Date().toISOString() },
-  { id: '103', userId: userId || '4', type: 'Personal', status: 'rejected', from: '2025-04-20', to: '2025-04-21', createdAt: new Date().toISOString() },
+  { id: '103', userId: userId || '4', type: 'Professional', status: 'rejected', from: '2025-04-20', to: '2025-04-21', createdAt: new Date().toISOString() },
 ];
 
 const mockDocuments = (): Document[] => [
@@ -199,11 +199,29 @@ export const getUser = (id: string) =>
     return { data: mapped } as ApiResponse<User>;
   }).catch(() => ({ data: mockUsers()[0] } as ApiResponse<User>));
 
-export const createUser = (body: Partial<User>) =>
-  fetcher<ApiResponse<User>>("/users", {
+export const createUser = (body: Partial<User> & any) => {
+  // Support backend schema: { username, password, role, department, manager_id }
+  const hasRaw = body?.username || body?.password || typeof body?.manager_id !== 'undefined';
+  const payload = hasRaw
+    ? {
+        username: body.username,
+        password: body.password,
+        role: body.role,
+        department: body.department,
+        manager_id: body.manager_id,
+      }
+    : {
+        name: body.name,
+        email: body.email,
+        role: body.role,
+        department: body.department,
+        managerId: body.managerId,
+      };
+  return fetcher<ApiResponse<User>>("/users", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
+};
 
 export const updateUser = (id: string, body: Partial<User>) =>
   fetcher<ApiResponse<User>>(`/users/${id}`, {
@@ -242,7 +260,7 @@ export const getLeaves = (params?: Record<string, string>) =>
     const mapped: Leave[] = items.map((l: any) => ({
       id: String(l.id),
       userId: String(l.user_id ?? l.userId ?? ''),
-      type: (l.type === 'Sick' || l.type === 'Vacation' || l.type === 'Personal') ? l.type : 'Personal',
+      type: (l.type === 'Sick' || l.type === 'Casual' || l.type === 'Professional') ? l.type : 'Professional',
       status: String(l.status || 'Pending').toLowerCase() as any,
       from: l.from ?? l.from_date,
       to: l.to ?? l.to_date,
@@ -268,7 +286,7 @@ export const applyLeave = (body: Partial<Leave>) =>
     const mapped: Leave = {
       id: String(l.id),
       userId: String(l.user_id ?? l.userId ?? ''),
-      type: (l.type === 'Sick' || l.type === 'Vacation' || l.type === 'Personal') ? l.type : (body.type as any),
+      type: (l.type === 'Sick' || l.type === 'Casual' || l.type === 'Professional') ? l.type : (body.type as any),
       status: String(l.status || 'Pending').toLowerCase() as any,
       from: l.from ?? l.from_date ?? (body.from as string),
       to: l.to ?? l.to_date ?? (body.to as string) ?? (body.from as string),

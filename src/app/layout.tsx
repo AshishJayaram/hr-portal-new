@@ -25,7 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Sidebar />
                 <div className="flex-1 flex flex-col">
                   <Topbar />
-                  <main className="flex-1 overflow-y-auto p-6">{children}</main>
+                  <main className="flex-1 overflow-y-auto p-6">
+                    <div className="mx-auto w-full max-w-7xl">{children}</div>
+                  </main>
                 </div>
               </>
             </AuthGuard>

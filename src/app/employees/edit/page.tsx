@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUser, updateUser } from "@/lib/api";
+import { getUser, updateUser, getUsers, toCanonicalRole } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Card from "@/components/ui/Card";
@@ -22,24 +22,31 @@ function EditEmployeeForm({ id }: { id: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
+    username: "",
     role: "Employee" as "Employee" | "Manager" | "HR" | "Admin",
     department: "",
+    manager_id: "",
   });
+  const [managerQuery, setManagerQuery] = useState("");
+  const [selectedManagerName, setSelectedManagerName] = useState("");
 
   const { data: user, isLoading } = useQuery({
     queryKey: ["user", id],
     queryFn: () => getUser(id),
   });
 
+  const { data: managers } = useQuery({
+    queryKey: ["users", managerQuery],
+    queryFn: () => getUsers(managerQuery ? { q: managerQuery } : {}),
+  });
+
   useEffect(() => {
     if (user?.data) {
       setFormData({
-        name: user.data.name,
-        email: user.data.email,
+        username: user.data.name || user.data.email || "",
         role: user.data.role,
         department: user.data.department || "",
+        manager_id: (user.data as any).managerId || (user.data as any).manager_id || "",
       });
     }
   }, [user]);
@@ -58,7 +65,12 @@ function EditEmployeeForm({ id }: { id: string }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    mutation.mutate(formData);
+    mutation.mutate({
+      username: formData.username,
+      role: toCanonicalRole(formData.role),
+      department: formData.department,
+      manager_id: formData.manager_id ? Number(formData.manager_id) : undefined,
+    } as any);
   };
 
   if (isLoading) return <Loader />;
@@ -87,16 +99,9 @@ function EditEmployeeForm({ id }: { id: string }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <Input
-              label="Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-            <Input
-              label="Email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              label="Username (name or email)"
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               required
             />
             <Select
@@ -115,6 +120,25 @@ function EditEmployeeForm({ id }: { id: string }) {
               value={formData.department}
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
             />
+            <div>
+              <label className="block text-sm mb-2">Manager (search and select)</label>
+              <Input value={managerQuery} onChange={(e) => setManagerQuery(e.target.value)} placeholder="Search by name or ID..." />
+              <div className="mt-2 max-h-48 overflow-y-auto border border-white/10 rounded">
+                {(managers?.data || []).map((u: any) => (
+                  <button
+                    type="button"
+                    key={u.id}
+                    className={`w-full text-left px-3 py-2 hover:bg-white/10 ${String(formData.manager_id) === String(u.id) ? 'bg-white/5' : ''}`}
+                    onClick={() => { setFormData({ ...formData, manager_id: String(u.id) }); setManagerQuery(`${u.name} (ID: ${u.id})`); setSelectedManagerName(u.name); }}
+                  >
+                    {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
+                  </button>
+                ))}
+                {(!managers?.data || managers.data.length === 0) && (
+                  <div className="px-3 py-2 text-sm text-gray-400">No users</div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-3">

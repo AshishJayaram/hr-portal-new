@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips } from "@/lib/api";
+import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers } from "@/lib/api";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import Card from "@/components/ui/Card";
 import RoleGuard from "@/components/RoleGuard";
@@ -17,11 +20,19 @@ export default function SalarySlipsPage() {
     year: new Date().getFullYear(),
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [userQuery, setUserQuery] = useState("");
+  const [selectedUserName, setSelectedUserName] = useState("");
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["salary-slips"],
     queryFn: () => getSalarySlips(canManageSalarySlips() ? {} : { userId: userId }),
+  });
+
+  const { data: usersData } = useQuery({
+    queryKey: ["users", userQuery],
+    queryFn: () => getUsers(userQuery ? { q: userQuery } : {}),
+    enabled: canManageSalarySlips(),
   });
 
   const uploadMutation = useMutation({
@@ -77,14 +88,32 @@ export default function SalarySlipsPage() {
             <h2 className="text-xl font-semibold mb-4">Upload Salary Slip</h2>
             <form onSubmit={handleUpload} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Employee ID</label>
+                <label className="block text-sm font-medium mb-1">Employee</label>
                 <input
                   type="text"
-                  value={uploadData.userId}
-                  onChange={(e) => setUploadData({ ...uploadData, userId: e.target.value })}
-                  className="w-full p-2 rounded bg-white/10 border border-white/20"
-                  required
+                  value={userQuery}
+                  onChange={(e) => setUserQuery(e.target.value)}
+                  placeholder="Search by name or ID..."
+                  className="w-full p-2 rounded bg-white/10 border border-white/20 mb-2"
                 />
+                <div className="max-h-40 overflow-y-auto border border-white/10 rounded">
+                  {(usersData?.data || []).map((u: any) => (
+                    <button
+                      type="button"
+                      key={u.id}
+                      className={`w-full text-left px-3 py-2 hover:bg-white/10 ${uploadData.userId === String(u.id) ? 'bg-white/5' : ''}`}
+                      onClick={() => { setUploadData({ ...uploadData, userId: String(u.id) }); setUserQuery(`${u.name} (ID: ${u.id})`); setSelectedUserName(u.name); }}
+                    >
+                      {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
+                    </button>
+                  ))}
+                  {(usersData?.data || []).length === 0 && (
+                    <div className="px-3 py-2 text-sm text-gray-400">No users</div>
+                  )}
+                </div>
+                {uploadData.userId && (
+                  <p className="text-xs text-gray-400 mt-1">Selected: {selectedUserName || 'User'} (ID: {uploadData.userId})</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -146,51 +175,66 @@ export default function SalarySlipsPage() {
       </RoleGuard>
 
       <Card title={canManageSalarySlips() ? "All Salary Slips" : "My Salary Slips"}>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {data?.data?.map((slip: any) => (
-            <div key={slip.id} className="p-4 border border-white/10 rounded-lg">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold">
-                    {new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { 
-                      month: 'long', 
-                      year: 'numeric' 
-                    })}
-                  </h3>
-                  {canManageSalarySlips() && (
-                    <p className="text-sm text-gray-400">Employee ID: {slip.userId}</p>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    Uploaded: {new Date(slip.createdAt).toLocaleDateString()}
-                  </p>
+        {canManageSalarySlips() ? (
+          <div className="space-y-4">
+            {/* Group by employee */}
+            {[...new Set((data?.data || []).map((s: any) => s.userId))].map((uid) => (
+              <details key={uid} className="rounded-lg border border-white/10 bg-white/5">
+                <summary className="list-none p-4 cursor-pointer flex items-center justify-between">
+                  <span className="font-semibold">Employee ID: {uid}</span>
+                  <span className="text-xs text-gray-400">Click to view slips</span>
+                </summary>
+                <div className="p-4 pt-0 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-gray-400">
+                      <tr>
+                        <th className="py-2">Month</th>
+                        <th className="py-2">Year</th>
+                        <th className="py-2">Uploaded</th>
+                        <th className="py-2">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data?.data || []).filter((s: any) => s.userId === uid).map((s: any) => (
+                        <tr key={s.id} className="border-t border-white/10">
+                          <td className="py-2">{new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' })}</td>
+                          <td className="py-2">{s.year}</td>
+                          <td className="py-2">{new Date(s.createdAt).toLocaleDateString()}</td>
+                          <td className="py-2">
+                            <a href={s.fileUrl} target="_blank" className="text-green-400 hover:text-green-300">Download</a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="flex gap-2">
-                  <a
-                    href={slip.fileUrl}
-                    target="_blank"
-                    className="text-green-400 hover:text-green-300"
-                  >
-                    Download
-                  </a>
-                  {/* <RoleGuard allowedRoles={["HR", "Admin"]}>
-                    <button
-                      onClick={() => {
-                        if (confirm("Are you sure you want to delete this salary slip?")) {
-                          deleteMutation.mutate(slip.id);
-                        }
-                      }}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      Delete
-                    </button>
-                  </RoleGuard> */}
+              </details>
+            ))}
+            {(!data?.data || data.data.length === 0) && (
+              <p className="text-gray-400 text-center py-8">No salary slips found</p>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {(data?.data || []).map((slip: any) => (
+              <div key={slip.id} className="p-4 border border-white/10 rounded-lg">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-semibold">
+                      {new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { 
+                        month: 'long', 
+                        year: 'numeric' 
+                      })}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Uploaded: {new Date(slip.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <a href={slip.fileUrl} target="_blank" className="text-green-400 hover:text-green-300">Download</a>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-        {(!data?.data || data.data.length === 0) && (
-          <p className="text-gray-400 text-center py-8">No salary slips found</p>
+            ))}
+          </div>
         )}
       </Card>
     </div>

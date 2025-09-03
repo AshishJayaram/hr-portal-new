@@ -76,24 +76,55 @@ export default function DashboardPage() {
       <LeaveBalanceCard balance={balance?.data || []} />
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Calendar */}
+        {/* Calendar or List (responsive) */}
         <Card title="Upcoming Leaves & Holidays">
-          <Calendar
-            events={[
+          <div className="hidden sm:block">
+            <Calendar
+              events={[
+                ...(leaves?.data || []).map((l: any) => ({
+                  title: l.type,
+                  start: new Date(l.from),
+                  end: new Date(l.to),
+                  color: "#3b82f6",
+                })),
+                ...(holidays?.data || []).map((h: any) => ({
+                  title: `Holiday: ${h.name}`,
+                  start: new Date(h.date),
+                  end: new Date(h.date),
+                  color: "#ef4444",
+                })),
+              ]}
+            />
+          </div>
+          <div className="sm:hidden space-y-3">
+            {[
               ...(leaves?.data || []).map((l: any) => ({
+                id: `leave-${l.id}`,
+                dateLabel: new Date(l.from).toLocaleDateString(),
+                range: l.from === l.to ? null : `${new Date(l.from).toLocaleDateString()} - ${new Date(l.to).toLocaleDateString()}`,
                 title: l.type,
-                start: new Date(l.from),
-                end: new Date(l.to),
-                color: "#3b82f6",
+                color: 'bg-indigo-500',
               })),
               ...(holidays?.data || []).map((h: any) => ({
+                id: `holiday-${h.id}`,
+                dateLabel: new Date(h.date).toLocaleDateString(),
+                range: null,
                 title: `Holiday: ${h.name}`,
-                start: new Date(h.date),
-                end: new Date(h.date),
-                color: "#ef4444",
+                color: 'bg-red-500',
               })),
-            ]}
-          />
+            ]
+              .filter((e) => new Date(e.dateLabel) >= new Date(new Date().toDateString()))
+              .slice(0, 10)
+              .map((e) => (
+                <div key={e.id} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div className={`w-2 h-8 rounded ${e.color}`} />
+                  <div>
+                    <div className="text-sm text-gray-300">{e.title}</div>
+                    <div className="text-xs text-gray-400">{e.range || e.dateLabel}</div>
+                  </div>
+                </div>
+              ))}
+          </div>
         </Card>
 
         {/* Recent Documents */}

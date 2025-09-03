@@ -1,10 +1,13 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { getTeam, getCurrentUser, isManager } from "../../lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getTeam, updateUser, getCurrentUser, isManager } from "../../lib/api";
 import Loader from "../../components/Loader";
 import Card from "../../components/Card";
 import RoleGuard from "../../components/RoleGuard";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
 
 export default function TeamPage() {
   const user = getCurrentUser();
@@ -12,6 +15,11 @@ export default function TeamPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["team"],
     queryFn: () => getTeam(),
+  });
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => updateUser(id, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["team"] }),
   });
 
   if (isLoading) return <Loader />;
@@ -39,20 +47,16 @@ export default function TeamPage() {
                     <p className="text-sm text-gray-400">{member.email}</p>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm">
-                    <span className="text-gray-400">Role:</span> {member.role}
-                  </p>
-                  {member.department && (
-                    <p className="text-sm">
-                      <span className="text-gray-400">Department:</span> {member.department}
-                    </p>
-                  )}
-                  {member.managerId && (
-                    <p className="text-sm">
-                      <span className="text-gray-400">Manager:</span> {member.manager?.name || "Unknown"}
-                    </p>
-                  )}
+                <div className="space-y-3">
+                  <Input label="Name" defaultValue={member.name} onBlur={(e) => mutation.mutate({ id: String(member.id), body: { name: e.target.value } })} />
+                  <Input label="Email" type="email" defaultValue={member.email} onBlur={(e) => mutation.mutate({ id: String(member.id), body: { email: e.target.value } })} />
+                  <Select
+                    label="Role"
+                    defaultValue={member.role}
+                    onChange={(e) => mutation.mutate({ id: String(member.id), body: { role: e.target.value } })}
+                    options={[{ value: "Employee", label: "Employee" }, { value: "Manager", label: "Manager" }, { value: "HR", label: "HR" }, { value: "Admin", label: "Admin" }]}
+                  />
+                  <Input label="Department" defaultValue={member.department || ''} onBlur={(e) => mutation.mutate({ id: String(member.id), body: { department: e.target.value } })} />
                 </div>
               </div>
             ))}

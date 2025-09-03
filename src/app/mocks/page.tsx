@@ -21,8 +21,8 @@ export default function Mocks() {
 
   const mockDocs = [
     { id: "d1", title: "Employee Handbook", category: "POLICY" },
-    { id: "d2", title: "Offer Letter", category: "PERSONAL" },
-    { id: "d3", title: "Form 16", category: "PERSONAL" },
+    { id: "d2", title: "Offer Letter", category: "Professional" },
+    { id: "d3", title: "Form 16", category: "Professional" },
     { id: "d4", title: "Leave Policy", category: "POLICY" },
   ];
 
