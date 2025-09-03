@@ -45,7 +45,7 @@ export default function Topbar() {
       <h2 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">{title}</h2>
 
       <div className="flex items-center gap-4">
-        <ThemeToggle />
+        {/* <ThemeToggle /> */}
         <div className="flex items-center gap-2 text-sm">
           <span className="text-gray-300">{user?.name || "User"}</span>
           <span className="px-2 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded text-xs text-white shadow">{user?.role || "Employee"}</span>

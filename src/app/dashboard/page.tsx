@@ -1,13 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getDashboardStats, getLeaveBalance, getDocuments, getSalarySlips, getLeaves, getCurrentUser } from "../../lib/api";
+import { getDashboardStats, getLeaveBalance, getDocuments, getSalarySlips, getLeaves, getCurrentUser, getHolidays } from "../../lib/api";
 import Loader from "../../components/Loader";
 import LeaveBalanceCard from "../../components/LeaveBalanceCard";
 import Calendar from "../../components/Calendar";
 import Card from "@/components/ui/Card";
 import { motion } from "framer-motion";
 import RoleGuard from "../../components/RoleGuard";
+import Link from "next/link";
 
 export default function DashboardPage() {
   const user = getCurrentUser();
@@ -38,7 +39,12 @@ export default function DashboardPage() {
     queryFn: () => getSalarySlips({ userId: userId }),
   });
 
-  if (loadingStats || loadingBalance || loadingLeaves || loadingDocs || loadingSlips)
+  const { data: holidays, isLoading: loadingHolidays } = useQuery({
+    queryKey: ["holidays", "dashboard"],
+    queryFn: () => getHolidays(),
+  });
+
+  if (loadingStats || loadingBalance || loadingLeaves || loadingDocs || loadingSlips || loadingHolidays)
     return <Loader />;
 
   return (
@@ -49,16 +55,18 @@ export default function DashboardPage() {
       <RoleGuard allowedRoles={["HR", "Admin"]}>
         <div className="grid md:grid-cols-4 gap-4">
           {[
-            { label: "Total Employees", value: stats?.data?.totalEmployees || 0, color: "text-indigo-400" },
-            { label: "Pending Leaves", value: stats?.data?.pendingLeaves || 0, color: "text-yellow-400" },
-            { label: "Approved Leaves", value: stats?.data?.approvedLeaves || 0, color: "text-green-400" },
-            { label: "Total Documents", value: stats?.data?.totalDocuments || 0, color: "text-purple-400" },
+            { label: "Total Employees", value: stats?.data?.totalEmployees || 0, color: "text-indigo-400", href: "/employees" },
+            { label: "Pending Leaves", value: stats?.data?.pendingLeaves || 0, color: "text-yellow-400", href: "/leaves" },
+            { label: "Approved Leaves", value: stats?.data?.approvedLeaves || 0, color: "text-green-400", href: "/leaves" },
+            { label: "Total Documents", value: stats?.data?.totalDocuments || 0, color: "text-purple-400", href: "/documents" },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Card className="text-center hover:-translate-y-0.5 transition-transform">
-                <div className="text-2xl font-bold {s.color}">{s.value}</div>
-                <div className="text-sm text-gray-400">{s.label}</div>
-              </Card>
+              <Link href={s.href} className="block">
+                <Card className="text-center hover:-translate-y-0.5 transition-transform cursor-pointer">
+                  <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-sm text-gray-400">{s.label}</div>
+                </Card>
+              </Link>
             </motion.div>
           ))}
         </div>
@@ -69,14 +77,22 @@ export default function DashboardPage() {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Calendar */}
-        <Card title="Upcoming Leaves">
+        <Card title="Upcoming Leaves & Holidays">
           <Calendar
-            events={(leaves?.data || []).map((l: any) => ({
-              title: l.type,
-              start: new Date(l.from),
-              end: new Date(l.to),
-              color: "#3b82f6",
-            }))}
+            events={[
+              ...(leaves?.data || []).map((l: any) => ({
+                title: l.type,
+                start: new Date(l.from),
+                end: new Date(l.to),
+                color: "#3b82f6",
+              })),
+              ...(holidays?.data || []).map((h: any) => ({
+                title: `Holiday: ${h.name}`,
+                start: new Date(h.date),
+                end: new Date(h.date),
+                color: "#ef4444",
+              })),
+            ]}
           />
         </Card>
 

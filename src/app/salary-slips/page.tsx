@@ -172,7 +172,7 @@ export default function SalarySlipsPage() {
                   >
                     Download
                   </a>
-                  <RoleGuard allowedRoles={["HR", "Admin"]}>
+                  {/* <RoleGuard allowedRoles={["HR", "Admin"]}>
                     <button
                       onClick={() => {
                         if (confirm("Are you sure you want to delete this salary slip?")) {
@@ -183,7 +183,7 @@ export default function SalarySlipsPage() {
                     >
                       Delete
                     </button>
-                  </RoleGuard>
+                  </RoleGuard> */}
                 </div>
               </div>
             </div>
