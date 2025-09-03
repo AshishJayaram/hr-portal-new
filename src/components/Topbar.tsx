@@ -41,7 +41,7 @@ export default function Topbar() {
   };
 
   return (
-    <header className="sticky top-0 z-20 flex justify-between items-center px-6 py-4 bg-white/5 backdrop-blur-xl border-b border-white/10">
+    <header className="sticky top-0 z-20 flex justify-between items-center px-6 py-4 bg-white/5 border-b border-white/10">
       <h2 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">{title}</h2>
 
       <div className="flex items-center gap-4">
