@@ -61,7 +61,7 @@ export default function Topbar() {
           </button>
           {open && (
             <div className="absolute right-0 mt-2 w-44 bg-white/10 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl p-2">
-              <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10">Profile</button>
+              <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10" onClick={() => { setOpen(false); router.push('/profile'); }}>Profile</button>
               <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10">Settings</button>
               <div className="my-1 h-px bg-white/10" />
               <button onClick={handleLogout} className="w-full text-left px-3 py-2 rounded bg-red-500/10 text-red-300 hover:bg-red-500/20">Sign Out</button>
