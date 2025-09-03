@@ -6,7 +6,7 @@ import { applyLeave } from "../lib/api";
 import { calculateLeaveDays } from "../lib/leaveUtils";
 
 export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: any[] }) {
-  const [type, setType] = useState("ANNUAL");
+  const [type, setType] = useState<"Sick" | "Vacation" | "Personal">("Vacation");
   const [reason, setReason] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -37,7 +37,7 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
     mutationFn: applyLeave,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaves"] });
-      setType("ANNUAL");
+      setType("Vacation");
       setReason("");
       setStartDate("");
       setEndDate("");
@@ -55,9 +55,6 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
       reason,
       from: startDate,
       to: endDate || startDate,
-      startHalf,
-      endHalf,
-      days: calculatedDays, // 👈 send to backend
     });
   };
 

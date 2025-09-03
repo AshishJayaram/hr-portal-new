@@ -6,6 +6,7 @@ import Loader from "../../components/Loader";
 import LeaveBalanceCard from "../../components/LeaveBalanceCard";
 import Calendar from "../../components/Calendar";
 import Card from "@/components/ui/Card";
+import { motion } from "framer-motion";
 import RoleGuard from "../../components/RoleGuard";
 
 export default function DashboardPage() {
@@ -42,35 +43,24 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
+      <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Dashboard</h1>
 
       {/* Stats Overview - HR/Admin only */}
       <RoleGuard allowedRoles={["HR", "Admin"]}>
         <div className="grid md:grid-cols-4 gap-4">
-          <Card>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-indigo-400">{stats?.data?.totalEmployees || 0}</div>
-              <div className="text-sm text-gray-400">Total Employees</div>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-400">{stats?.data?.pendingLeaves || 0}</div>
-              <div className="text-sm text-gray-400">Pending Leaves</div>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-400">{stats?.data?.approvedLeaves || 0}</div>
-              <div className="text-sm text-gray-400">Approved Leaves</div>
-            </div>
-          </Card>
-          <Card>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-400">{stats?.data?.totalDocuments || 0}</div>
-              <div className="text-sm text-gray-400">Total Documents</div>
-            </div>
-          </Card>
+          {[
+            { label: "Total Employees", value: stats?.data?.totalEmployees || 0, color: "text-indigo-400" },
+            { label: "Pending Leaves", value: stats?.data?.pendingLeaves || 0, color: "text-yellow-400" },
+            { label: "Approved Leaves", value: stats?.data?.approvedLeaves || 0, color: "text-green-400" },
+            { label: "Total Documents", value: stats?.data?.totalDocuments || 0, color: "text-purple-400" },
+          ].map((s, i) => (
+            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+              <Card className="text-center hover:-translate-y-0.5 transition-transform">
+                <div className="text-2xl font-bold {s.color}">{s.value}</div>
+                <div className="text-sm text-gray-400">{s.label}</div>
+              </Card>
+            </motion.div>
+          ))}
         </div>
       </RoleGuard>
 

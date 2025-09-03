@@ -1,31 +1,43 @@
 "use client";
 
 import { LeaveBalance } from "@/lib/api";
+import Card from "./ui/Card";
+import { motion } from "framer-motion";
 
 export default function LeaveBalanceCard({ balance }: { balance: LeaveBalance[] }) {
   if (!balance || balance.length === 0) {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-400">No leave balance information available</p>
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((s) => (
+          <Card key={s} className="animate-pulse">
+            <div className="h-4 w-24 bg-white/10 rounded mb-3" />
+            <div className="h-8 w-16 bg-white/15 rounded mb-2" />
+            <div className="h-3 w-32 bg-white/10 rounded" />
+          </Card>
+        ))}
       </div>
     );
   }
 
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {balance.map((item) => (
-        <div
+      {balance.map((item, idx) => (
+        <motion.div
           key={item.type}
-          className="bg-white/10 p-4 rounded-xl shadow-md text-center hover:bg-white/15 transition-colors"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: idx * 0.05, duration: 0.25 }}
         >
-          <h3 className="font-semibold text-gray-200 capitalize">{item.type}</h3>
-          <p className="text-2xl font-bold text-indigo-400">
-            {item.remaining}
-          </p>
-          <p className="text-sm text-gray-400">
-            {item.used} used of {item.total}
-          </p>
-        </div>
+          <Card className="text-center hover:shadow-xl hover:-translate-y-0.5 transition-all">
+            <h3 className="font-semibold text-gray-200 capitalize">{item.type}</h3>
+            <p className="text-3xl font-extrabold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+              {item.remaining}
+            </p>
+            <p className="text-sm text-gray-400">
+              {item.used} used of {item.total}
+            </p>
+          </Card>
+        </motion.div>
       ))}
     </div>
   );

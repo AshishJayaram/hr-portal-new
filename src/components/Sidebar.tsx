@@ -14,6 +14,7 @@ const baseLinks = [
 
 const hrAdminLinks = [
   { href: "/employees", label: "Employees", icon: "👤" },
+  { href: "/team", label: "Team", icon: "👤" },
   { href: "/documents", label: "Documents", icon: "📑" },
   { href: "/salary-slips", label: "Salary Slips", icon: "💰" },
   { href: "/holidays", label: "Holidays", icon: "📅" },
@@ -61,10 +62,10 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center px-4 py-2 rounded-lg transition-all ${
+              className={`flex items-center px-4 py-2 rounded-lg transition-all will-change-transform ${
                 pathname === link.href
-                  ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md"
-                  : "hover:bg-white/10"
+                  ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-900/30"
+                  : "hover:bg-white/10 hover:shadow hover:shadow-indigo-900/20"
               }`}
             >
               <span className="mr-3 text-lg">{link.icon}</span>

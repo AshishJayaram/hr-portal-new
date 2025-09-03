@@ -15,7 +15,6 @@ export default function HolidaysPage() {
   const [formData, setFormData] = useState({
     name: "",
     date: "",
-    description: "",
   });
 
   useEffect(() => {
@@ -44,7 +43,7 @@ export default function HolidaysPage() {
       }
       setShowForm(false);
       setEditingHoliday(null);
-      setFormData({ name: "", date: "", description: "" });
+      setFormData({ name: "", date: "" });
       loadHolidays();
     } catch (err: any) {
       setError(err.message);
@@ -56,7 +55,6 @@ export default function HolidaysPage() {
     setFormData({
       name: holiday.name,
       date: holiday.date,
-      description: holiday.description || "",
     });
     setShowForm(true);
   };
@@ -120,15 +118,7 @@ export default function HolidaysPage() {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full p-2 rounded bg-white/10 border border-white/20"
-                  rows={3}
-                />
-              </div>
+              
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -141,7 +131,7 @@ export default function HolidaysPage() {
                   onClick={() => {
                     setShowForm(false);
                     setEditingHoliday(null);
-                    setFormData({ name: "", date: "", description: "" });
+                    setFormData({ name: "", date: "" });
                   }}
                   className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded"
                 >
@@ -162,9 +152,7 @@ export default function HolidaysPage() {
                 <p className="text-sm text-gray-400">
                   {new Date(holiday.date).toLocaleDateString()}
                 </p>
-                {holiday.description && (
-                  <p className="text-sm text-gray-300 mt-1">{holiday.description}</p>
-                )}
+                
               </div>
               <RoleGuard allowedRoles={["HR", "Admin"]}>
                 <div className="flex gap-1">

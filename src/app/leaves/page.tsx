@@ -23,6 +23,8 @@ import { toast } from "sonner";
 import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User } from "lucide-react";
 import { formatDate, capitalize } from "@/lib/utils";
 import ApplyLeaveForm from "@/components/ApplyLeaveForm";
+import LeaveBalanceCard from "@/components/LeaveBalanceCard";
+import { motion } from "framer-motion";
 
 export default function LeavesPage() {
   const user = getCurrentUser();
@@ -158,22 +160,10 @@ export default function LeavesPage() {
       </div>
 
       {/* Leave Balance */}
-      <Card title="Leave Balance">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {balance?.data?.map((item: any) => (
-            <div key={item.type} className="text-center p-4 bg-white/5 rounded-lg">
-              <div className="text-2xl font-bold text-indigo-400">{item.remaining}</div>
-              <div className="text-sm text-gray-400 capitalize">{item.type}</div>
-              <div className="text-xs text-gray-500">
-                {item.used} used of {item.total}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <LeaveBalanceCard balance={balance?.data || []} />
 
       {/* Apply Leave Form - Employees only */}
-      <RoleGuard allowedRoles={["employee", "manager"]}>
+      <RoleGuard allowedRoles={["Employee", "Manager"]}>
         <Card title="Apply for Leave">
           <ApplyLeaveForm />
         </Card>
@@ -205,9 +195,12 @@ export default function LeavesPage() {
       {/* Leaves List */}
       <Card title={canApproveLeaves() ? "All Leave Requests" : "My Leave Requests"}>
         <div className="space-y-4">
-          {filteredLeaves.map((leave) => (
-            <div
+          {filteredLeaves.map((leave, idx) => (
+            <motion.div
               key={leave.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.03 }}
               className="p-4 border border-white/10 rounded-lg hover:bg-white/5 transition-colors"
             >
               <div className="flex items-start justify-between">
@@ -287,7 +280,7 @@ export default function LeavesPage() {
                   )}
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
         

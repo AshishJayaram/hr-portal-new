@@ -11,13 +11,10 @@ import Select from "@/components/ui/Select";
 import Loader from "@/components/ui/Loader";
 import { toast } from "sonner";
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default async function EditEmployeePage({ params }: PageProps) {
-  const { id } = await params;
-  
+export default function EditEmployeePage() {
+  // Read id from search params (?id=123)
+  const search = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const id = search?.get('id') || '';
   return <EditEmployeeForm id={id} />;
 }
 
