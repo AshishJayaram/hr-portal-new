@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getDocuments, uploadDocument, deleteDocument, canManageDocuments, isManager } from "@/lib/api";
+import { getDocuments, uploadDocument, deleteDocument, canManageDocuments } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -21,7 +21,7 @@ export default function DocumentsPage() {
   const [uploadData, setUploadData] = useState({
     title: "",
     category: "",
-    isPublic: false,
+    isPublic: true,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
@@ -91,10 +91,6 @@ export default function DocumentsPage() {
       filtered = filtered.filter(doc => doc.category === filters.category);
     }
     
-    if (filters.isPublic) {
-      filtered = filtered.filter(doc => doc.isPublic === (filters.isPublic === 'true'));
-    }
-    
     setFilteredDocuments(filtered);
   };
 
@@ -107,7 +103,6 @@ export default function DocumentsPage() {
   if (error) return <p className="text-red-400">Error loading documents</p>;
 
   const publicDocs = filteredDocuments.filter(d => d.isPublic);
-  const privateDocs = filteredDocuments.filter(d => !d.isPublic);
 
   return (
     <div className="space-y-6">
@@ -141,14 +136,6 @@ export default function DocumentsPage() {
             key: "category",
             label: "Category",
             options: categories,
-          },
-          {
-            key: "isPublic",
-            label: "Visibility",
-            options: [
-              { value: "true", label: "Public" },
-              { value: "false", label: "Private" },
-            ],
           },
         ]}
       />
@@ -221,7 +208,7 @@ export default function DocumentsPage() {
         )}
       </RoleGuard>
 
-      {/* Public Documents */}
+      {/* Documents */}
       <h2 className="text-xl font-semibold">Public</h2>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {publicDocs.map((doc) => (
@@ -266,10 +253,8 @@ export default function DocumentsPage() {
             
             <div className="mt-4 space-y-2">
               <div className="flex items-center gap-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  doc.isPublic ? 'bg-green-500' : 'bg-yellow-500'
-                }`}>
-                  {doc.isPublic ? 'Public' : 'Private'}
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500">
+                  Public
                 </span>
                 <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-600">
                   {doc.category}
@@ -295,79 +280,7 @@ export default function DocumentsPage() {
         ))}
       </div>
 
-      {/* Private Documents */}
-      <h2 className="text-xl font-semibold">Private</h2>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {privateDocs.map((doc) => (
-          <Card key={doc.id} className="group hover:bg-white/10 transition-all duration-300">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white">
-                  <FileText className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white group-hover:text-indigo-300 transition-colors">
-                    {doc.title}
-                  </h3>
-                  <p className="text-sm text-gray-400">{doc.category}</p>
-                </div>
-              </div>
-              <RoleGuard allowedRoles={["HR", "Admin", "Manager"]}>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(doc.fileUrl, '_blank')}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm("Are you sure you want to delete this document?")) {
-                        deleteMutation.mutate(doc.id);
-                      }
-                    }}
-                    className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </RoleGuard>
-            </div>
-            
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  doc.isPublic ? 'bg-green-500' : 'bg-yellow-500'
-                }`}>
-                  {doc.isPublic ? 'Public' : 'Private'}
-                </span>
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-600">
-                  {doc.category}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500">
-                Uploaded by {doc.uploadedBy} on {formatDate(doc.createdAt)}
-              </p>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-white/10">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(doc.fileUrl, '_blank')}
-                className="w-full flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                View Document
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
+      
 
       {filteredDocuments.length === 0 && (
         <Card className="text-center py-12">

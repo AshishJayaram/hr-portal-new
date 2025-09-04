@@ -8,8 +8,13 @@ import AuthGuard from "../components/AuthGuard";
 import { usePathname } from "next/navigation";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const isAuthPage = pathname === "/signin"; // 👈 sign-in page
+  // Defer pathname usage to client only to avoid hydration mismatch
+  let isAuthPage = false;
+  try {
+    // usePathname() is client-side. Guard to avoid SSR mismatch.
+    const p = usePathname();
+    isAuthPage = p === "/signin";
+  } catch {}
 
   return (
     <html lang="en" className="dark">

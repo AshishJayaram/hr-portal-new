@@ -392,6 +392,43 @@ export const deleteSalarySlip = (id: string) =>
     method: "DELETE",
   });
 
+// Per-employee private documents
+export const getUserDocuments = (userId: string) =>
+  fetcher<any>(`/users/${userId}/documents`).then((raw) => {
+    const items = (raw?.data || raw || []) as any[];
+    const mapped: Document[] = items.map((d: any) => ({
+      id: String(d.id),
+      title: d.title,
+      category: d.category ?? 'Payslip Document',
+      isPublic: Boolean(d.is_public ?? d.isPublic ?? false),
+      fileUrl: d.fileUrl ?? d.file_path,
+      createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
+    }));
+    return { data: mapped } as ApiResponse<Document[]>;
+  }).catch(() => {
+    // Fallback: filter all documents by userId if endpoint not available
+    return fetcher<any>(`/documents?userId=${encodeURIComponent(userId)}`).then((raw2) => {
+      const items = (raw2?.data || raw2 || []) as any[];
+      const mapped: Document[] = items.map((d: any) => ({
+        id: String(d.id),
+        title: d.title,
+        category: d.category ?? 'Payslip Document',
+        isPublic: Boolean(d.is_public ?? d.isPublic ?? false),
+        fileUrl: d.fileUrl ?? d.file_path,
+        createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
+      }));
+      return { data: mapped } as ApiResponse<Document[]>;
+    });
+  });
+
+export const uploadUserDocument = (userId: string, formData: FormData) => {
+  // Ensure private by default for employee-scoped docs
+  if (!formData.has('isPublic')) formData.append('isPublic', 'false');
+  if (!formData.has('userId')) formData.append('userId', userId);
+  return uploadFile<ApiResponse<Document>>(`/users/${userId}/documents`, formData)
+    .catch(() => uploadFile<ApiResponse<Document>>('/documents', formData));
+};
+
 // -------------------- Holidays --------------------
 export const getHolidays = (params?: Record<string, string>) =>
   fetcher<any>(`/holidays?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
@@ -471,6 +508,47 @@ export const getTeam = (params?: Record<string, string>) =>
     }));
     return { data: mapped.length ? mapped : mockUsers() } as ApiResponse<User[]>;
   }).catch(() => ({ data: mockUsers() } as ApiResponse<User[]>));
+
+// -------------------- Company Payroll Settings --------------------
+import type { PayrollSettings } from "./payroll";
+
+const localSettingsKey = (companyId: string) => `payroll_settings:${companyId}`;
+
+export const getCompanySettings = async (companyId: string): Promise<ApiResponse<PayrollSettings>> => {
+  try {
+    const res = await fetcher<any>(`/companies/${companyId}/payroll-settings`);
+    if (res?.data) return { data: res.data as PayrollSettings };
+  } catch (_) {
+    // ignore and fallback
+  }
+  // fallback to localStorage
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(localSettingsKey(companyId));
+    if (saved) {
+      try {
+        return { data: JSON.parse(saved) as PayrollSettings };
+      } catch {}
+    }
+  }
+  const { defaultPayrollSettings } = await import("./payroll");
+  return { data: defaultPayrollSettings };
+};
+
+export const updateCompanySettings = async (companyId: string, settings: PayrollSettings): Promise<ApiResponse<PayrollSettings>> => {
+  try {
+    const res = await fetcher<any>(`/companies/${companyId}/payroll-settings`, {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+    if (res?.data) return { data: res.data as PayrollSettings };
+  } catch (_) {
+    // ignore and persist locally
+  }
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(localSettingsKey(companyId), JSON.stringify(settings));
+  }
+  return { data: settings };
+};
 
 // -------------------- Current User --------------------
 export const toCanonicalRole = (inputRole: string | undefined | null): Role => {

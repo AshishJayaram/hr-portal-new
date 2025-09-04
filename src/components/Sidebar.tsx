@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { canManageUsers, isManager, getCurrentUser } from "@/lib/api";
+import { canManageUsers, isManager, getCurrentUser, hasRole } from "@/lib/api";
 import RoleGuard from "./RoleGuard";
 
 const baseLinks = [
@@ -33,11 +33,13 @@ const employeeLinks = [
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname();
+  // Avoid hydration mismatch: compute pathname on client
+  const pathname = typeof window !== 'undefined' ? usePathname() : undefined;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const user = getCurrentUser();
+  const canAccessSettings = hasRole(["HR", "Admin"]);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -113,7 +115,9 @@ export default function Sidebar() {
           {userMenuOpen && (
             <div className="absolute bottom-14 left-0 w-full bg-white/10 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl p-2">
               <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10" onClick={() => { setUserMenuOpen(false); router.push('/profile'); }}>Profile</button>
-              <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10" onClick={() => { setUserMenuOpen(false); router.push('/settings'); }}>Settings</button>
+              {canAccessSettings && (
+                <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10" onClick={() => { setUserMenuOpen(false); router.push('/company/settings'); }}>Settings</button>
+              )}
               <div className="my-1 h-px bg-white/10" />
               <button
                 className="w-full text-left px-3 py-2 rounded bg-red-500/10 text-red-300 hover:bg-red-500/20"

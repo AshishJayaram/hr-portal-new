@@ -7,6 +7,8 @@ import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { createUser, toCanonicalRole, getUsers } from "@/lib/api";
+import { getCompanySettings } from "@/lib/api";
+import { computePayslipFromCTC } from "@/lib/payroll";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -22,6 +24,14 @@ export default function AddEmployeePage() {
   });
   const [managerQuery, setManagerQuery] = useState("");
   const [selectedManagerName, setSelectedManagerName] = useState("");
+  const [annualCTC, setAnnualCTC] = useState<number>(1330000);
+  const [lop, setLop] = useState<number>(0);
+  const [tds, setTds] = useState<number>(0);
+  const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
+  const { data: companySettings } = useQuery({
+    queryKey: ["company-settings", companyId],
+    queryFn: () => getCompanySettings(companyId),
+  });
 
   const mutation = useMutation({
     mutationFn: (body: any) => createUser({
@@ -75,6 +85,39 @@ export default function AddEmployeePage() {
           </div>
         </form>
       </Card>
+
+      <details className="rounded-2xl bg-white/10 backdrop-blur p-6 border border-white/10">
+        <summary className="cursor-pointer text-lg font-semibold">CTC → Monthly Breakdown (Preview)</summary>
+        <div className="mt-4 grid md:grid-cols-3 gap-6">
+          <div className="space-y-3">
+            <Input type="number" label="Annual CTC" value={String(annualCTC)} onChange={(e) => setAnnualCTC(Number(e.target.value))} />
+            <div className="text-sm text-gray-400">Using company settings</div>
+            <Input type="number" label="LOP Days" value={String(lop)} onChange={(e) => setLop(Number(e.target.value))} />
+            <Input type="number" label="TDS (override)" value={String(tds)} onChange={(e) => setTds(Number(e.target.value))} />
+          </div>
+          {companySettings?.data && (() => {
+            const b = computePayslipFromCTC(annualCTC, companySettings.data, { lopDays: lop, tdsOverride: tds });
+            return (
+              <>
+                <div className="space-y-2">
+                  <div className="font-semibold">Earnings</div>
+                  {Object.entries(b.earnings).map(([k, v]) => (
+                    <div key={k} className="flex justify-between text-sm"><span className="capitalize">{k}</span><span>₹{v.toLocaleString('en-IN')}</span></div>
+                  ))}
+                  <div className="flex justify-between text-sm border-t border-white/10 pt-2"><span>Total</span><span>₹{b.totals.totalEarnings.toLocaleString('en-IN')}</span></div>
+                </div>
+                <div className="space-y-2">
+                  <div className="font-semibold">Deductions</div>
+                  <div className="flex justify-between text-sm"><span>Employee PF</span><span>₹{b.deductions.empPF.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-sm"><span>Professional Tax</span><span>₹{b.deductions.professionalTax.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-sm"><span>ESI</span><span>₹{b.deductions.esi.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between font-semibold"><span>Net Pay</span><span>₹{b.totals.netPay.toLocaleString('en-IN')}</span></div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </details>
     </div>
   );
 }

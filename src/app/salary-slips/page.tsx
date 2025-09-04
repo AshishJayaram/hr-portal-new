@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers } from "@/lib/api";
+import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getCompanySettings, uploadUserDocument, getUserDocuments } from "@/lib/api";
+import { computePayslipFromCTC } from "@/lib/payroll";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
@@ -22,6 +23,7 @@ export default function SalarySlipsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [userQuery, setUserQuery] = useState("");
   const [selectedUserName, setSelectedUserName] = useState("");
+  const [uploadDocState, setUploadDocState] = useState<Record<string, { file: File | null; title: string }>>({});
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -34,6 +36,36 @@ export default function SalarySlipsPage() {
     queryFn: () => getUsers(userQuery ? { q: userQuery } : {}),
     enabled: canManageSalarySlips(),
   });
+
+  const getUserName = (id: string) => {
+    const list = (usersData?.data || []) as any[];
+    const found = list.find((u) => String(u.id) === String(id));
+    return found?.name || `Employee`;
+  };
+
+  const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
+  const { data: companySettings } = useQuery({
+    queryKey: ["company-settings", companyId],
+    queryFn: () => getCompanySettings(companyId),
+  });
+
+  const setDocTitle = (uid: string, title: string) => setUploadDocState((s) => ({ ...s, [uid]: { file: s[uid]?.file || null, title } }));
+  const setDocFile = (uid: string, file: File | null) => setUploadDocState((s) => ({ ...s, [uid]: { file, title: s[uid]?.title || "" } }));
+
+  const handlePrivateDocUpload = async (uid: string) => {
+    const state = uploadDocState[uid];
+    if (!state?.file) return;
+    const formData = new FormData();
+    formData.append('file', state.file);
+    formData.append('title', state.title || state.file.name);
+    formData.append('isPublic', 'false');
+    try {
+      await uploadUserDocument(String(uid), formData);
+      setUploadDocState((s) => ({ ...s, [uid]: { file: null, title: '' } }));
+    } catch {
+      setUploadDocState((s) => ({ ...s, [uid]: { file: null, title: '' } }));
+    }
+  };
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -181,7 +213,7 @@ export default function SalarySlipsPage() {
             {[...new Set((data?.data || []).map((s: any) => s.userId))].map((uid) => (
               <details key={uid} className="rounded-lg border border-white/10 bg-white/5">
                 <summary className="list-none p-4 cursor-pointer flex items-center justify-between">
-                  <span className="font-semibold">Employee ID: {uid}</span>
+                  <span className="font-semibold">Employee: {getUserName(String(uid))} (ID: {uid})</span>
                   <span className="text-xs text-gray-400">Click to view slips</span>
                 </summary>
                 <div className="p-4 pt-0 overflow-x-auto">
@@ -191,6 +223,7 @@ export default function SalarySlipsPage() {
                         <th className="py-2">Month</th>
                         <th className="py-2">Year</th>
                         <th className="py-2">Uploaded</th>
+                        <th className="py-2">Net Pay</th>
                         <th className="py-2">Action</th>
                       </tr>
                     </thead>
@@ -200,13 +233,56 @@ export default function SalarySlipsPage() {
                           <td className="py-2">{new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' })}</td>
                           <td className="py-2">{s.year}</td>
                           <td className="py-2">{new Date(s.createdAt).toLocaleDateString()}</td>
+                          <td className="py-2">{companySettings?.data ? `₹${computePayslipFromCTC(1330000, companySettings.data).totals.netPay.toLocaleString('en-IN')}` : '-'}</td>
                           <td className="py-2">
-                            <a href={s.fileUrl} target="_blank" className="text-green-400 hover:text-green-300">Download</a>
+                            <details>
+                              <summary className="cursor-pointer text-indigo-300">View breakdown</summary>
+                              {companySettings?.data && (() => {
+                                const b = computePayslipFromCTC(1330000, companySettings.data);
+                                return (
+                                  <div className="mt-2 grid md:grid-cols-3 gap-4">
+                                    <div>
+                                      <div className="font-semibold">Earnings</div>
+                                      {Object.entries(b.earnings).map(([k, v]) => (
+                                        <div key={k} className="flex justify-between text-xs"><span className="capitalize">{k}</span><span>₹{v.toLocaleString('en-IN')}</span></div>
+                                      ))}
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold">Deductions</div>
+                                      <div className="flex justify-between text-xs"><span>Employee PF</span><span>₹{b.deductions.empPF.toLocaleString('en-IN')}</span></div>
+                                      <div className="flex justify-between text-xs"><span>Professional Tax</span><span>₹{b.deductions.professionalTax.toLocaleString('en-IN')}</span></div>
+                                      <div className="flex justify-between text-xs"><span>ESI</span><span>₹{b.deductions.esi.toLocaleString('en-IN')}</span></div>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold">Employer PF</div>
+                                      <div className="flex justify-between text-xs"><span>Total PF</span><span>₹{b.employer.totalPF.toLocaleString('en-IN')}</span></div>
+                                      <div className="flex justify-between text-xs"><span>EPS</span><span>₹{b.employer.eps.toLocaleString('en-IN')}</span></div>
+                                      <div className="flex justify-between text-xs"><span>EPF</span><span>₹{b.employer.epf.toLocaleString('en-IN')}</span></div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                              <a href={s.fileUrl} target="_blank" className="inline-block mt-2 text-green-400 hover:text-green-300">Download PDF</a>
+                            </details>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  {/* Private Documents for this employee */}
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold">Private Documents</h3>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Input label="Title" value={uploadDocState[uid]?.title || ''} onChange={(e) => setDocTitle(String(uid), e.target.value)} />
+                        <input type="file" onChange={(e) => setDocFile(String(uid), e.target.files?.[0] || null)} className="w-full p-2 rounded bg-white/10 border border-white/20" />
+                        <button onClick={() => handlePrivateDocUpload(String(uid))} className="px-3 py-2 rounded bg-indigo-600 text-white disabled:opacity-50" disabled={!uploadDocState[uid]?.file}>Upload Private Document</button>
+                      </div>
+                      <EmployeeDocsList userId={String(uid)} />
+                    </div>
+                  </div>
                 </div>
               </details>
             ))}
@@ -237,6 +313,32 @@ export default function SalarySlipsPage() {
           </div>
         )}
       </Card>
+    </div>
+  );
+}
+
+function EmployeeDocsList({ userId }: { userId: string }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["user-docs", userId],
+    queryFn: () => getUserDocuments(userId),
+  });
+  if (isLoading) return <div className="text-sm text-gray-400">Loading documents...</div>;
+  if (error) return <div className="text-sm text-red-400">Failed to load documents</div> as any;
+  const docs = data?.data || [];
+  return (
+    <div className="space-y-2">
+      {docs.map((doc: any) => (
+        <div key={doc.id} className="p-3 rounded border border-white/10 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium">{doc.title}</div>
+            <div className="text-xs text-gray-400">{new Date(doc.createdAt).toLocaleDateString()}</div>
+          </div>
+          <a href={doc.fileUrl} target="_blank" className="text-indigo-300 hover:text-indigo-200">View</a>
+        </div>
+      ))}
+      {docs.length === 0 && (
+        <div className="text-sm text-gray-400">No private documents uploaded.</div>
+      )}
     </div>
   );
 }
