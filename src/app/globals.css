@@ -4,31 +4,157 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
-}
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light theme - refined neutrals */
+  --background: #f7f9fc;
+  --foreground: #0f172a;
+  --card-background: #ffffff;
+  --card-border: #e5e7eb;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #6b7280;
+
+  /* Background decoration (light) */
+  --bg-1: #f8fafc;
+  --bg-2: #eef2ff;
+  --bg-spot-1: rgba(99, 102, 241, 0.12);  /* indigo */
+  --bg-spot-2: rgba(14, 165, 233, 0.10);  /* sky */
+  --grid-color: rgba(15, 23, 42, 0.06);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+.dark {
+  /* Dark theme - greys & black with purple accents */
+  --background: #0b0b0c;            /* near-black */
+  --foreground: #e5e5e5;            /* light grey text */
+  --card-background: #121214;       /* dark grey surface */
+  --card-border: #262629;           /* subtle border */
+  --text-primary: #f3f4f6;          /* almost white */
+  --text-secondary: #d1d5db;        /* soft grey */
+  --text-muted: #9ca3af;            /* muted grey */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Background decoration (dark) → purple accents only */
+  --bg-1: #0a0a0b;
+  --bg-2: #121214;
+  --bg-spot-1: rgba(147, 51, 234, 0.22); /* purple-600 */
+  --bg-spot-2: rgba(168, 85, 247, 0.18); /* purple-500 */
+  --grid-color: rgba(255, 255, 255, 0.06);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+/* Adaptive gradient + subtle grid background */
+.app-bg {
+  position: relative;
+  isolation: isolate;
+}
+.app-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(42rem 28rem at 15% -5%, var(--bg-spot-1), transparent 40%),
+    radial-gradient(48rem 32rem at 85% -10%, var(--bg-spot-2), transparent 45%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%),
+    linear-gradient(to bottom, transparent 0, transparent calc(100% - 1px), var(--grid-color) calc(100% - 1px));
+  background-size:
+    auto,
+    auto,
+    100% 100%,
+    100% 44px; /* grid row height */
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  mask-image: radial-gradient(1200px 800px at 50% -10%, black 55%, transparent 100%);
+}
+
+/* Custom utility classes for better theming */
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.bg-card {
+  background: var(--card-background);
+}
+
+.border-card {
+  border-color: var(--card-border);
+}
+
+/* Enhanced dark mode backgrounds → neutral glass (white alpha) */
+.dark .bg-white\/5 {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .bg-white\/10 {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .border-white\/10 {
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.dark .border-white\/20 {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Light mode backgrounds */
+.bg-white\/5 {
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.bg-white\/10 {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.border-white\/10 {
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+.border-white\/20 {
+  border-color: rgba(226, 232, 240, 0.9);
+}
+
+/* Header text improvements */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+}
+
+/* Table headers */
+th {
+  color: var(--text-secondary) !important;
+}
+
+/* Form labels */
+label {
+  color: var(--text-primary);
+}
+
+/* Better contrast for interactive elements */
+.dark .text-gray-400 {
+  color: #94a3b8;
+}
+
+.dark .text-gray-500 {
+  color: #64748b;
+}
+
+.text-gray-400 {
+  color: #64748b;
+}
+
+.text-gray-500 {
+  color: #475569;
 }

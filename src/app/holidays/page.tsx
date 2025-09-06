@@ -143,28 +143,62 @@ export default function HolidaysPage() {
         )}
       </RoleGuard>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {holidays.map((holiday) => (
+      <div className="space-y-3">
+        {holidays
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .map((holiday) => (
           <Card key={holiday.id}>
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-semibold">{holiday.name}</h3>
-                <p className="text-sm text-gray-400">
-                  {new Date(holiday.date).toLocaleDateString()}
-                </p>
-                
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="text-2xl">
+                  {(() => {
+                    const month = new Date(holiday.date).getMonth();
+                    const day = new Date(holiday.date).getDate();
+                    
+                    // Holiday icons based on month and common holidays
+                    if (month === 0 && day === 1) return "🎊"; // New Year
+                    if (month === 1 && day === 14) return "💕"; // Valentine's
+                    if (month === 2 && day === 8) return "👩"; // Women's Day
+                    if (month === 3 && day === 1) return "🐣"; // April Fools/Easter-ish
+                    if (month === 4 && day === 1) return "🌷"; // May Day
+                    if (month === 6 && day === 4) return "🇺🇸"; // Independence Day
+                    if (month === 9 && day === 31) return "🎃"; // Halloween
+                    if (month === 10 && day === 25) return "🦃"; // Thanksgiving
+                    if (month === 11 && day === 25) return "🎄"; // Christmas
+                    if (month === 11 && day === 31) return "🎆"; // New Year's Eve
+                    
+                    // Default icons based on season
+                    if (month >= 2 && month <= 4) return "🌸"; // Spring
+                    if (month >= 5 && month <= 7) return "☀️"; // Summer
+                    if (month >= 8 && month <= 10) return "🍂"; // Fall
+                    return "❄️"; // Winter
+                  })()}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-primary">{holiday.name}</h3>
+                  <p className="text-sm text-secondary">
+                    {new Date(holiday.date).toLocaleDateString('en-US', { 
+                      weekday: 'long',
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </p>
+                </div>
               </div>
               <RoleGuard allowedRoles={["HR", "Admin"]}>
                 <div className="flex gap-1">
                   <button
                     onClick={() => handleEdit(holiday)}
-                    className="p-1 text-blue-400 hover:text-blue-300"
+                    className="p-2 text-blue-400 hover:text-blue-300 hover:bg-white/10 rounded transition-colors"
+                    title="Edit holiday"
                   >
                     ✏️
                   </button>
                   <button
                     onClick={() => handleDelete(holiday.id)}
-                    className="p-1 text-red-400 hover:text-red-300"
+                    className="p-2 text-red-400 hover:text-red-300 hover:bg-white/10 rounded transition-colors"
+                    title="Delete holiday"
                   >
                     🗑️
                   </button>

@@ -10,6 +10,7 @@ import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import Card from "@/components/ui/Card";
 import RoleGuard from "@/components/RoleGuard";
+import { toast } from "sonner";
 
 export default function SalarySlipsPage() {
   const user = getCurrentUser();
@@ -89,12 +90,22 @@ export default function SalarySlipsPage() {
     mutationFn: deleteSalarySlip,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
+      toast.success("Salary slip deleted successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to delete salary slip");
     },
   });
 
   const handleUpload = (e: React.FormEvent) => {
     e.preventDefault();
     uploadMutation.mutate();
+  };
+
+  const handleDeleteSlip = (slipId: string, employeeName: string, month: string, year: number) => {
+    if (confirm(`Are you sure you want to delete the salary slip for ${employeeName} (${month} ${year})? This action cannot be undone.`)) {
+      deleteMutation.mutate(slipId);
+    }
   };
 
   if (isLoading) return <Loader />;
@@ -213,62 +224,105 @@ export default function SalarySlipsPage() {
             {[...new Set((data?.data || []).map((s: any) => s.userId))].map((uid) => (
               <details key={uid} className="rounded-lg border border-white/10 bg-white/5">
                 <summary className="list-none p-4 cursor-pointer flex items-center justify-between">
-                  <span className="font-semibold">Employee: {getUserName(String(uid))} (ID: {uid})</span>
+                  <span className="font-semibold">{getUserName(String(uid))} (ID: {uid})</span>
                   <span className="text-xs text-gray-400">Click to view slips</span>
                 </summary>
-                <div className="p-4 pt-0 overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-left text-gray-400">
-                      <tr>
-                        <th className="py-2">Month</th>
-                        <th className="py-2">Year</th>
-                        <th className="py-2">Uploaded</th>
-                        <th className="py-2">Net Pay</th>
-                        <th className="py-2">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(data?.data || []).filter((s: any) => s.userId === uid).map((s: any) => (
-                        <tr key={s.id} className="border-t border-white/10">
-                          <td className="py-2">{new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' })}</td>
-                          <td className="py-2">{s.year}</td>
-                          <td className="py-2">{new Date(s.createdAt).toLocaleDateString()}</td>
-                          <td className="py-2">{companySettings?.data ? `₹${computePayslipFromCTC(1330000, companySettings.data).totals.netPay.toLocaleString('en-IN')}` : '-'}</td>
-                          <td className="py-2">
-                            <details>
-                              <summary className="cursor-pointer text-indigo-300">View breakdown</summary>
-                              {companySettings?.data && (() => {
-                                const b = computePayslipFromCTC(1330000, companySettings.data);
-                                return (
-                                  <div className="mt-2 grid md:grid-cols-3 gap-4">
-                                    <div>
-                                      <div className="font-semibold">Earnings</div>
-                                      {Object.entries(b.earnings).map(([k, v]) => (
-                                        <div key={k} className="flex justify-between text-xs"><span className="capitalize">{k}</span><span>₹{v.toLocaleString('en-IN')}</span></div>
-                                      ))}
-                                    </div>
-                                    <div>
-                                      <div className="font-semibold">Deductions</div>
-                                      <div className="flex justify-between text-xs"><span>Employee PF</span><span>₹{b.deductions.empPF.toLocaleString('en-IN')}</span></div>
-                                      <div className="flex justify-between text-xs"><span>Professional Tax</span><span>₹{b.deductions.professionalTax.toLocaleString('en-IN')}</span></div>
-                                      <div className="flex justify-between text-xs"><span>ESI</span><span>₹{b.deductions.esi.toLocaleString('en-IN')}</span></div>
-                                    </div>
-                                    <div>
-                                      <div className="font-semibold">Employer PF</div>
-                                      <div className="flex justify-between text-xs"><span>Total PF</span><span>₹{b.employer.totalPF.toLocaleString('en-IN')}</span></div>
-                                      <div className="flex justify-between text-xs"><span>EPS</span><span>₹{b.employer.eps.toLocaleString('en-IN')}</span></div>
-                                      <div className="flex justify-between text-xs"><span>EPF</span><span>₹{b.employer.epf.toLocaleString('en-IN')}</span></div>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                              <a href={s.fileUrl} target="_blank" className="inline-block mt-2 text-green-400 hover:text-green-300">Download PDF</a>
-                            </details>
-                          </td>
+                <div className="p-4 pt-0 space-y-4">
+                  {/* Common Net Pay Section */}
+                  {companySettings?.data && (
+                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                      <h4 className="font-semibold mb-3 text-lg">Salary Breakdown</h4>
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <div>
+                          <div className="font-semibold mb-2">Earnings</div>
+                          {Object.entries(computePayslipFromCTC(1000000, companySettings.data).earnings).map(([k, v]) => (
+                            <div key={k} className="flex justify-between text-sm mb-1">
+                              <span className="capitalize">{k}</span>
+                              <span>₹{v.toLocaleString('en-IN')}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <div className="font-semibold mb-2">Deductions</div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Employee PF</span>
+                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).deductions.empPF.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Professional Tax</span>
+                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).deductions.professionalTax.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>ESI</span>
+                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).deductions.esi.toLocaleString('en-IN')}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-semibold mb-2">Employer PF</div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Total PF</span>
+                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).employer.totalPF.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>EPS</span>
+                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).employer.eps.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>EPF</span>
+                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).employer.epf.toLocaleString('en-IN')}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-white/10">
+                        <div className="flex justify-between text-lg font-bold">
+                          <span>Net Pay:</span>
+                          <span className="text-green-400">₹{computePayslipFromCTC(1000000, companySettings.data).totals.netPay.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Salary Slips Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-left text-gray-400">
+                        <tr>
+                          <th className="py-2">Month</th>
+                          <th className="py-2">Year</th>
+                          <th className="py-2">Uploaded</th>
+                          <th className="py-2">Action</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {(data?.data || []).filter((s: any) => s.userId === uid).map((s: any) => (
+                          <tr key={s.id} className="border-t border-white/10">
+                            <td className="py-2">{new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' })}</td>
+                            <td className="py-2">{s.year}</td>
+                            <td className="py-2">{new Date(s.createdAt).toLocaleDateString()}</td>
+                            <td className="py-2">
+                              <div className="flex items-center gap-2">
+                                <a href={s.fileUrl} target="_blank" className="text-green-400 hover:text-green-300 underline">Download PDF</a>
+                                <RoleGuard allowedRoles={["HR", "Admin"]}>
+                                  <button
+                                    onClick={() => handleDeleteSlip(
+                                      s.id, 
+                                      getUserName(String(uid)), 
+                                      new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' }), 
+                                      s.year
+                                    )}
+                                    disabled={deleteMutation.isPending}
+                                    className="text-red-400 hover:text-red-300 underline disabled:opacity-50"
+                                  >
+                                    Delete
+                                  </button>
+                                </RoleGuard>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                   {/* Private Documents for this employee */}
                   <div className="mt-6">
                     <div className="flex items-center justify-between mb-2">
@@ -306,7 +360,23 @@ export default function SalarySlipsPage() {
                       Uploaded: {new Date(slip.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <a href={slip.fileUrl} target="_blank" className="text-green-400 hover:text-green-300">Download</a>
+                  <div className="flex items-center gap-2">
+                    <a href={slip.fileUrl} target="_blank" className="text-green-400 hover:text-green-300">Download</a>
+                    <RoleGuard allowedRoles={["HR", "Admin"]}>
+                      <button
+                        onClick={() => handleDeleteSlip(
+                          slip.id, 
+                          "Employee", 
+                          new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { month: 'long' }), 
+                          slip.year
+                        )}
+                        disabled={deleteMutation.isPending}
+                        className="text-red-400 hover:text-red-300 underline disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </RoleGuard>
+                  </div>
                 </div>
               </div>
             ))}

@@ -17,8 +17,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   } catch {}
 
   return (
-    <html lang="en" className="dark">
-      <body className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-gray-100">
+    <html lang="en">
+      <body className="flex h-screen overflow-hidden app-bg text-gray-900 dark:text-gray-100">
+        {/* Ensure dark mode is applied ASAP based on saved preference or system */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => { try { const mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)'); if (!mql) return; const apply = () => { if (mql.matches) { document.documentElement.classList.add('dark'); } else { document.documentElement.classList.remove('dark'); } }; apply(); try { mql.addEventListener('change', apply); } catch { mql.addListener(apply); } } catch (e) {} })();`,
+          }}
+        />
         <Providers>
           {isAuthPage ? (
             // Auth pages → no sidebar/topbar

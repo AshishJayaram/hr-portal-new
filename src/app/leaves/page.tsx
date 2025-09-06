@@ -150,10 +150,10 @@ export default function LeavesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold text-primary">
             Leave Management
           </h1>
-          <p className="text-gray-400 mt-1">
+          <p className="text-secondary mt-1">
             {canApproveLeaves() ? "Review and manage leave requests" : "Apply for and track your leaves"}
           </p>
         </div>
@@ -163,7 +163,7 @@ export default function LeavesPage() {
       <LeaveBalanceCard balance={balance?.data || []} />
 
       {/* Apply Leave Form - Employees only */}
-      <RoleGuard allowedRoles={["Employee", "Manager"]}>
+      <RoleGuard allowedRoles={["Employee", "Manager", "HR"]}>
         <Card title="Apply for Leave">
           <ApplyLeaveForm />
         </Card>
@@ -201,7 +201,7 @@ export default function LeavesPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.03 }}
-              className="p-4 border border-white/10 rounded-lg hover:bg-white/5 transition-colors"
+              className="p-4 border rounded-lg transition-colors border-card bg-white/60 hover:bg-white/80 dark:border-white/10 dark:bg-transparent dark:hover:bg-white/5"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
@@ -210,7 +210,7 @@ export default function LeavesPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-white">{leave.type}</h3>
+                      <h3 className="font-semibold text-primary">{leave.type}</h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
                         {capitalize(leave.status)}
                       </span>
@@ -225,12 +225,12 @@ export default function LeavesPage() {
                       </div>
                     )}
                     
-                    <div className="text-sm text-gray-400 mb-2">
+                    <div className="text-sm text-secondary mb-2">
                       {formatDate(leave.from)} → {formatDate(leave.to)}
                     </div>
                     
                     {leave.reason && (
-                      <p className="text-sm text-gray-300">{leave.reason}</p>
+                      <p className="text-sm text-secondary">{leave.reason}</p>
                     )}
                   </div>
                 </div>

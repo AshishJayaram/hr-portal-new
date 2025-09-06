@@ -59,15 +59,15 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
   };
 
   return (
-    <div className="bg-white/10 backdrop-blur rounded-xl shadow-md">
+    <div className="bg-white rounded-xl shadow-sm border border-card dark:bg-white/10 dark:border-white/10">
       <form onSubmit={handleSubmit} className="px-6 pt-6 pb-6 space-y-4">
         {/* Leave Type */}
         <div className="space-y-2">
-          <label className="block text-sm mb-1">Leave Type</label>
+          <label className="block text-sm mb-1 text-primary">Leave Type</label>
           <select
             value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="w-full p-3 rounded bg-white/20 text-white"
+            onChange={(e) => setType(e.target.value as "Sick" | "Casual" | "Professional")}
+            className="w-full p-3 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
           >
             <option value="Casual">Casual</option>
             <option value="Sick">Sick</option>
@@ -80,19 +80,19 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
         <div className="grid md:grid-cols-2 gap-4">
           {/* Start Date */}
           <div>
-            <label className="block text-sm mb-1">Start Date</label>
+            <label className="block text-sm mb-1 text-primary">Start Date</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full p-2 rounded bg-white/20 text-white"
+              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
             />
             <select
               value={startHalf}
               onChange={(e) =>
                 setStartHalf(e.target.value as "FULL" | "AM" | "PM")
               }
-              className="w-full mt-2 p-2 rounded bg-white/20 text-white"
+              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
             >
               <option value="FULL">Full Day</option>
               <option value="AM">First Half</option>
@@ -102,17 +102,17 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
 
           {/* End Date */}
           <div>
-            <label className="block text-sm mb-1">End Date</label>
+            <label className="block text-sm mb-1 text-primary">End Date</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full p-2 rounded bg-white/20 text-white"
+              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
             />
             <select
               value={endHalf}
               onChange={(e) => setEndHalf(e.target.value as "FULL" | "AM" | "PM")}
-              className="w-full mt-2 p-2 rounded bg-white/20 text-white"
+              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
             >
               <option value="FULL">Full Day</option>
               <option value="AM">First Half</option>
@@ -123,21 +123,21 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
 
         {/* Reason */}
         <div>
-          <label className="block text-sm mb-1">Reason</label>
+          <label className="block text-sm mb-1 text-primary">Reason</label>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            className="w-full p-2 rounded bg-white/20 text-white"
+            className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
             placeholder="Enter reason for leave..."
           />
         </div>
 
         {/* Calculated Days */}
         {calculatedDays > 0 && (
-          <p className="text-sm text-gray-300">
+          <p className="text-sm text-secondary">
             This leave will use{" "}
-            <span className="font-semibold text-indigo-400">
+            <span className="font-semibold text-indigo-600 dark:text-indigo-400">
               {calculatedDays}
             </span>{" "}
             day(s) after excluding weekends & bank holidays.
@@ -148,7 +148,7 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
         <button
           type="submit"
           disabled={mutation.isPending}
-          className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 rounded font-semibold disabled:opacity-50"
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded font-semibold disabled:opacity-50"
         >
           {mutation.isPending ? "Submitting..." : "Submit Leave Request"}
         </button>

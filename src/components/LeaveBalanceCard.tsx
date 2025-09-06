@@ -29,11 +29,11 @@ export default function LeaveBalanceCard({ balance }: { balance: LeaveBalance[] 
           transition={{ delay: idx * 0.05, duration: 0.25 }}
         >
           <Card className="text-center hover:shadow-xl hover:-translate-y-0.5 transition-all">
-            <h3 className="font-semibold text-gray-200 capitalize">{item.type}</h3>
-            <p className="text-3xl font-extrabold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+            <h3 className="font-semibold text-primary capitalize">{item.type}</h3>
+            <p className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-purple-400">
               {item.remaining}
             </p>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-secondary">
               {item.used} used of {item.total}
             </p>
           </Card>

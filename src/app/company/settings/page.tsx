@@ -23,7 +23,7 @@ export default function CompanySettingsPage() {
     queryFn: () => getCompanySettings(companyId),
   });
   const [settings, setSettings] = useState<PayrollSettings>(defaultPayrollSettings);
-  const [annualCTC, setAnnualCTC] = useState<number>(1330000);
+  const [annualCTC, setAnnualCTC] = useState<number>(1000000);
   const [lop, setLop] = useState<number>(0);
   const [tds, setTds] = useState<number>(0);
 

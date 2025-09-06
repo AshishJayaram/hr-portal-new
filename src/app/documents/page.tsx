@@ -209,7 +209,6 @@ export default function DocumentsPage() {
       </RoleGuard>
 
       {/* Documents */}
-      <h2 className="text-xl font-semibold">Public</h2>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {publicDocs.map((doc) => (
           <Card key={doc.id} className="group hover:bg-white/10 transition-all duration-300">
@@ -253,9 +252,6 @@ export default function DocumentsPage() {
             
             <div className="mt-4 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500">
-                  Public
-                </span>
                 <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-600">
                   {doc.category}
                 </span>

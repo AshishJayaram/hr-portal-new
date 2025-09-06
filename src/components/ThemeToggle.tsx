@@ -8,8 +8,8 @@ export default function ThemeToggle() {
   // Run only on the client
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("theme");
-      setDark(saved === "dark");
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setDark(prefersDark);
     }
   }, []);
 
@@ -17,13 +17,29 @@ export default function ThemeToggle() {
     if (typeof window !== "undefined") {
       if (dark) {
         document.documentElement.classList.add("dark");
-        localStorage.setItem("theme", "dark");
+        // Explicit user choice overrides system until next reload
       } else {
         document.documentElement.classList.remove("dark");
-        localStorage.setItem("theme", "light");
+        // Explicit user choice overrides system until next reload
       }
     }
   }, [dark]);
+
+  // Follow system changes live
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      setDark(e.matches);
+    };
+    try {
+      mql.addEventListener('change', handler);
+      return () => mql.removeEventListener('change', handler);
+    } catch {
+      mql.addListener(handler);
+      return () => mql.removeListener(handler);
+    }
+  }, []);
 
   return (
     <button

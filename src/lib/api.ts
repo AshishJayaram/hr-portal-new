@@ -10,6 +10,7 @@ export interface User {
   role: Role;
   department?: string;
   managerId?: string;
+  ctc?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -273,13 +274,14 @@ export const getLeaves = (params?: Record<string, string>) =>
 export const getLeave = (id: string) =>
   fetcher<ApiResponse<Leave>>(`/leaves/${id}`);
 
-export const applyLeave = (body: Partial<Leave>) =>
+export const applyLeave = (body: Partial<Leave> & { reason?: string }) =>
   fetcher<any>("/leaves", {
     method: "POST",
     body: JSON.stringify({
       type: body.type,
       from_date: body.from,
       to_date: body.to ?? body.from,
+      reason: body.reason,
     }),
   }).then((raw) => {
     const l = raw?.data ?? raw;
@@ -503,6 +505,7 @@ export const getTeam = (params?: Record<string, string>) =>
       name: u.name ?? u.username ?? 'User',
       role: toCanonicalRole(u.role) as Role,
       department: u.department,
+      ctc: u.ctc ? Number(u.ctc) : undefined,
       createdAt: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updatedAt: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     }));
