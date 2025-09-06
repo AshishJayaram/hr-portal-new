@@ -11,6 +11,7 @@ export interface User {
   department?: string;
   managerId?: string;
   ctc?: number;
+  organizationId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +22,7 @@ export interface LeaveCategory {
   description?: string;
   defaultDays: number;
   isActive: boolean;
+  organizationId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +62,7 @@ export interface Document {
   isPublic: boolean;
   fileUrl: string;
   uploadedBy?: string;
+  organizationId?: string;
   createdAt: string;
 }
 
@@ -76,6 +79,7 @@ export interface Holiday {
   id: string;
   name: string;
   date: string; // yyyy-mm-dd
+  organizationId?: string;
   createdAt?: string;
 }
 
@@ -100,14 +104,18 @@ export interface ApiError {
 
 async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const organizationId = typeof window !== "undefined" ? localStorage.getItem("organizationId") : null;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(organizationId ? { "X-Organization-ID": organizationId } : {}),
+    ...(options.headers as Record<string, string> || {}),
+  };
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
+    headers,
     credentials: "include", // Include cookies for NextAuth
   });
 
@@ -122,12 +130,16 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
 // Helper for multipart form data
 async function uploadFile<T>(path: string, formData: FormData): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const organizationId = typeof window !== "undefined" ? localStorage.getItem("organizationId") : null;
+
+  const headers: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(organizationId ? { "X-Organization-ID": organizationId } : {}),
+  };
 
   const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers,
     body: formData,
     credentials: "include",
   });
@@ -200,7 +212,7 @@ const mockStats = (): DashboardStats => ({
 
 // -------------------- Auth --------------------
 export const login = (username: string, password: string) =>
-  fetcher<ApiResponse<{ user: User; token: string }>>("/auth/login", {
+  fetcher<ApiResponse<{ user: User; token: string; organizationId: string }>>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
