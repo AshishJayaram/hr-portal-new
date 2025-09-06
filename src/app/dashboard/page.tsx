@@ -56,8 +56,8 @@ export default function DashboardPage() {
         <div className="grid md:grid-cols-4 gap-4">
           {[
             { label: "Total Employees", value: stats?.data?.totalEmployees || 0, color: "text-indigo-400", href: "/employees" },
-            { label: "Pending Leaves", value: stats?.data?.pendingLeaves || 0, color: "text-yellow-400", href: "/leaves" },
-            { label: "Approved Leaves", value: stats?.data?.approvedLeaves || 0, color: "text-green-400", href: "/leaves" },
+            { label: "Pending Leave Requests", value: stats?.data?.pendingLeaves || 0, color: "text-yellow-400", href: "/leaves" },
+            { label: "Approved Leave Requests", value: stats?.data?.approvedLeaves || 0, color: "text-green-400", href: "/leaves" },
             { label: "Total Documents", value: stats?.data?.totalDocuments || 0, color: "text-purple-400", href: "/documents" },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>

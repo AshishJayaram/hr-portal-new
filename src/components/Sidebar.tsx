@@ -110,7 +110,6 @@ export default function Sidebar() {
                 <div className="text-xs text-gray-400">Menu</div>
               </div>
             </div>
-            <span className="text-xs px-2 py-1 rounded bg-white/10">{user?.role || 'Employee'}</span>
           </button>
           {userMenuOpen && (
             <div className="absolute bottom-14 left-0 w-full bg-white/10 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl p-2">
@@ -153,7 +152,7 @@ export default function Sidebar() {
             transition={{ type: "tween", duration: 0.3 }}
             className="fixed inset-y-0 left-0 w-64 bg-white/10 backdrop-blur-xl border-r border-white/10 p-6 z-40"
           >
-            <h1 className="text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-yellow-400 bg-clip-text text-transparent">
+            <h1 className="pl-8 text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-yellow-400 bg-clip-text text-transparent">
               HR Portal
             </h1>
 
@@ -190,7 +189,6 @@ export default function Sidebar() {
                     <div className="text-xs text-gray-400">View profile</div>
                   </div>
                 </div>
-                <span className="text-xs px-2 py-1 rounded bg-white/10">{user?.role || 'Employee'}</span>
               </button>
               <button
                 onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); setOpen(false); router.push('/signin'); }}
