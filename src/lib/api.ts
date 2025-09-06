@@ -15,6 +15,29 @@ export interface User {
   updatedAt: string;
 }
 
+export interface LeaveCategory {
+  id: string;
+  name: string;
+  description?: string;
+  defaultDays: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaveAllocation {
+  id: string;
+  userId: string;
+  categoryId: string;
+  categoryName: string;
+  totalDays: number;
+  usedDays: number;
+  remainingDays: number;
+  year: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Leave {
   id: string;
   userId: string;
@@ -27,7 +50,8 @@ export interface Leave {
 
 export type LeaveBalance =
   | { type: 'Sick' | 'Casual' | 'Professional'; balance: number }
-  | { id?: string; userId?: string; type: string; total: number; used: number; remaining: number };
+  | { id?: string; userId?: string; type: string; total: number; used: number; remaining: number }
+  | LeaveAllocation;
 
 export interface Document {
   id: string;
@@ -122,6 +146,23 @@ const mockUsers = (): User[] => [
   { id: '3', email: 'manager@example.com', name: 'Eng Manager', role: 'Manager', department: 'Engineering', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   { id: '4', email: 'employee@example.com', name: 'Employee One', role: 'Employee', department: 'Engineering', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 ];
+
+const mockLeaveCategories = (): LeaveCategory[] => [
+  { id: '1', name: 'Casual Leave', description: 'General purpose leave', defaultDays: 24, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '2', name: 'Sick Leave', description: 'Medical leave', defaultDays: 10, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '3', name: 'Professional Leave', description: 'Training and development', defaultDays: 5, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '4', name: 'Maternity Leave', description: 'Maternity and childcare', defaultDays: 90, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '5', name: 'Paternity Leave', description: 'Paternity and childcare', defaultDays: 15, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+];
+
+const mockLeaveAllocations = (userId: string, year?: number): LeaveAllocation[] => {
+  const currentYear = year || new Date().getFullYear();
+  return [
+    { id: '1', userId, categoryId: '1', categoryName: 'Casual Leave', totalDays: 24, usedDays: 8, remainingDays: 16, year: currentYear, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: '2', userId, categoryId: '2', categoryName: 'Sick Leave', totalDays: 10, usedDays: 2, remainingDays: 8, year: currentYear, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: '3', userId, categoryId: '3', categoryName: 'Professional Leave', totalDays: 5, usedDays: 1, remainingDays: 4, year: currentYear, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  ];
+};
 
 const mockLeaveBalances = (userId: string): LeaveBalance[] => [
   { type: 'Casual', total: 24, used: 8, remaining: 16 },
@@ -235,7 +276,76 @@ export const deleteUser = (id: string) =>
     method: "DELETE",
   });
 
-// -------------------- Leave Balance --------------------
+// -------------------- Leave Categories --------------------
+export const getLeaveCategories = () =>
+  fetcher<any>("/leave-categories").then((raw) => {
+    const items = (raw?.data || raw || []) as any[];
+    const mapped: LeaveCategory[] = items.map((c: any) => ({
+      id: String(c.id),
+      name: c.name,
+      description: c.description,
+      defaultDays: Number(c.defaultDays ?? c.default_days ?? 0),
+      isActive: Boolean(c.isActive ?? c.is_active ?? true),
+      createdAt: c.createdAt ?? c.created_at ?? new Date().toISOString(),
+      updatedAt: c.updatedAt ?? c.updated_at ?? new Date().toISOString(),
+    }));
+    return { data: mapped.length ? mapped : mockLeaveCategories() } as ApiResponse<LeaveCategory[]>;
+  }).catch(() => ({ data: mockLeaveCategories() } as ApiResponse<LeaveCategory[]>));
+
+export const createLeaveCategory = (body: Partial<LeaveCategory>) =>
+  fetcher<ApiResponse<LeaveCategory>>("/leave-categories", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const updateLeaveCategory = (id: string, body: Partial<LeaveCategory>) =>
+  fetcher<ApiResponse<LeaveCategory>>(`/leave-categories/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+
+export const deleteLeaveCategory = (id: string) =>
+  fetcher<ApiResponse<void>>(`/leave-categories/${id}`, {
+    method: "DELETE",
+  });
+
+// -------------------- Leave Allocations --------------------
+export const getLeaveAllocations = (userId: string, year?: number) =>
+  fetcher<any>(`/users/${userId}/leave-allocations${year ? `?year=${year}` : ''}`).then((raw) => {
+    const items = (raw?.data || raw || []) as any[];
+    const mapped: LeaveAllocation[] = items.map((a: any) => ({
+      id: String(a.id),
+      userId: String(a.userId ?? a.user_id ?? userId),
+      categoryId: String(a.categoryId ?? a.category_id ?? ''),
+      categoryName: a.categoryName ?? a.category_name ?? '',
+      totalDays: Number(a.totalDays ?? a.total_days ?? 0),
+      usedDays: Number(a.usedDays ?? a.used_days ?? 0),
+      remainingDays: Number(a.remainingDays ?? a.remaining_days ?? 0),
+      year: Number(a.year ?? new Date().getFullYear()),
+      createdAt: a.createdAt ?? a.created_at ?? new Date().toISOString(),
+      updatedAt: a.updatedAt ?? a.updated_at ?? new Date().toISOString(),
+    }));
+    return { data: mapped.length ? mapped : mockLeaveAllocations(userId, year) } as ApiResponse<LeaveAllocation[]>;
+  }).catch(() => ({ data: mockLeaveAllocations(userId, year) } as ApiResponse<LeaveAllocation[]>));
+
+export const createLeaveAllocation = (userId: string, body: Partial<LeaveAllocation>) =>
+  fetcher<ApiResponse<LeaveAllocation>>(`/users/${userId}/leave-allocations`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const updateLeaveAllocation = (userId: string, allocationId: string, body: Partial<LeaveAllocation>) =>
+  fetcher<ApiResponse<LeaveAllocation>>(`/users/${userId}/leave-allocations/${allocationId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+
+export const deleteLeaveAllocation = (userId: string, allocationId: string) =>
+  fetcher<ApiResponse<void>>(`/users/${userId}/leave-allocations/${allocationId}`, {
+    method: "DELETE",
+  });
+
+// -------------------- Leave Balance (Legacy Support) --------------------
 export const getLeaveBalance = (userId: string) =>
   fetcher<any>(`/users/${userId}/leave-balance`).then((raw) => {
     const items = (raw?.data || raw || []) as any[];

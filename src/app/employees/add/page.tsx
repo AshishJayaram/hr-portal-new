@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import React from "react";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { createUser, toCanonicalRole, getUsers } from "@/lib/api";
+import { createUser, toCanonicalRole, getUsers, getLeaveCategories, createLeaveAllocation } from "@/lib/api";
 import { getCompanySettings } from "@/lib/api";
 import { computePayslipFromCTC } from "@/lib/payroll";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { LeaveCategory, LeaveAllocation } from "@/lib/api";
 
 export default function AddEmployeePage() {
   const router = useRouter();
@@ -27,23 +29,53 @@ export default function AddEmployeePage() {
   const [annualCTC, setAnnualCTC] = useState<number>(1000000);
   const [lop, setLop] = useState<number>(0);
   const [tds, setTds] = useState<number>(0);
+  const [leaveAllocations, setLeaveAllocations] = useState<Record<string, number>>({});
   const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
   const { data: companySettings } = useQuery({
     queryKey: ["company-settings", companyId],
     queryFn: () => getCompanySettings(companyId),
   });
+  const { data: leaveCategories } = useQuery({
+    queryKey: ["leave-categories"],
+    queryFn: () => getLeaveCategories(),
+  });
 
   const mutation = useMutation({
-    mutationFn: (body: any) => createUser({
-      username: body.username,
-      password: body.password,
-      department: body.department,
-      role: toCanonicalRole(body.role),
-      manager_id: body.manager_id ? Number(body.manager_id) : undefined,
-    }),
+    mutationFn: async (body: any) => {
+      const user = await createUser({
+        username: body.username,
+        password: body.password,
+        department: body.department,
+        role: toCanonicalRole(body.role),
+        manager_id: body.manager_id ? Number(body.manager_id) : undefined,
+      });
+      
+      // Create leave allocations for the new user
+      if (user.data?.id && leaveCategories?.data) {
+        const currentYear = new Date().getFullYear();
+        const allocationPromises = Object.entries(body.leaveAllocations || {}).map(([categoryId, days]) => {
+          const category = leaveCategories.data.find(c => c.id === categoryId);
+          if (category && Number(days) > 0) {
+            return createLeaveAllocation(user.data.id, {
+              categoryId,
+              categoryName: category.name,
+              totalDays: Number(days),
+              usedDays: 0,
+              remainingDays: Number(days),
+              year: currentYear,
+            });
+          }
+          return Promise.resolve();
+        });
+        await Promise.all(allocationPromises);
+      }
+      
+      return user;
+    },
     onSuccess: () => {
-      toast.success("Employee created");
+      toast.success("Employee created with leave allocations");
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-allocations"] });
       router.push("/employees");
     },
     onError: (err: any) => toast.error(err.message || "Failed to create employee"),
@@ -51,8 +83,21 @@ export default function AddEmployeePage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    mutation.mutate(form);
+    mutation.mutate({ ...form, leaveAllocations });
   };
+
+  // Initialize leave allocations with default values
+  React.useEffect(() => {
+    if (leaveCategories?.data && Object.keys(leaveAllocations).length === 0) {
+      const defaultAllocations: Record<string, number> = {};
+      leaveCategories.data.forEach(category => {
+        if (category.isActive) {
+          defaultAllocations[category.id] = category.defaultDays;
+        }
+      });
+      setLeaveAllocations(defaultAllocations);
+    }
+  }, [leaveCategories, leaveAllocations]);
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -79,6 +124,37 @@ export default function AddEmployeePage() {
               selectedId={form.manager_id}
             />
           </div>
+          
+          {/* Leave Allocations Section */}
+          {leaveCategories?.data && (
+            <div>
+              <h3 className="text-lg font-semibold mb-4 text-primary">Leave Allocations</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                {leaveCategories.data.filter(category => category.isActive).map((category) => (
+                  <div key={category.id} className="space-y-2">
+                    <label className="block text-sm font-medium text-secondary">
+                      {category.name}
+                      <span className="text-xs text-muted ml-2">(Default: {category.defaultDays} days)</span>
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={String(leaveAllocations[category.id] || category.defaultDays)}
+                      onChange={(e) => setLeaveAllocations(prev => ({
+                        ...prev,
+                        [category.id]: Number(e.target.value) || 0
+                      }))}
+                      placeholder={String(category.defaultDays)}
+                    />
+                    {category.description && (
+                      <p className="text-xs text-muted">{category.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <div className="flex gap-3">
             <Button type="submit" loading={mutation.isPending}>Create</Button>
             <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>

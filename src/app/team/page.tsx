@@ -299,7 +299,7 @@ export default function TeamPage() {
         )}
       </RoleGuard>
 
-      <RoleGuard allowedRoles={["employee"]} fallback={
+      {/* <RoleGuard allowedRoles={["employee"]} fallback={
         <div className="text-center py-8">
           <p className="text-muted">You need manager access to view team information.</p>
         </div>
@@ -309,7 +309,7 @@ export default function TeamPage() {
             Team information is only available to managers and HR personnel.
           </p>
         </Card>
-      </RoleGuard>
+      </RoleGuard> */}
 
       {/* Edit Modal */}
       {editingMember && (
