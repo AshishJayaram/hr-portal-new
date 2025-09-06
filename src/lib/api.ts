@@ -79,7 +79,11 @@ export interface SalarySlip {
 export interface Holiday {
   id: string;
   name: string;
-  date: string; // yyyy-mm-dd
+  date?: string; // yyyy-mm-dd - optional for notices
+  type: 'holiday' | 'event' | 'notice';
+  description?: string;
+  isCalendarEvent: boolean;
+  color?: string; // For calendar display
   organizationId?: string;
   createdAt?: string;
 }
@@ -200,8 +204,42 @@ const mockSlips = (userId?: string): SalarySlip[] => [
 ];
 
 const mockHolidays = (): Holiday[] => [
-  { id: '401', name: 'New Year', date: '2025-01-01', createdAt: new Date().toISOString() },
-  { id: '402', name: 'Independence Day', date: '2025-07-04', createdAt: new Date().toISOString() },
+  { 
+    id: '401', 
+    name: 'New Year', 
+    date: '2025-01-01', 
+    type: 'holiday',
+    isCalendarEvent: true,
+    color: '#ef4444',
+    createdAt: new Date().toISOString() 
+  },
+  { 
+    id: '402', 
+    name: 'Independence Day', 
+    date: '2025-07-04', 
+    type: 'holiday',
+    isCalendarEvent: true,
+    color: '#ef4444',
+    createdAt: new Date().toISOString() 
+  },
+  { 
+    id: '403', 
+    name: 'Company Annual Meeting', 
+    date: '2025-03-15', 
+    type: 'event',
+    description: 'Annual company meeting for all employees',
+    isCalendarEvent: true,
+    color: '#3b82f6',
+    createdAt: new Date().toISOString() 
+  },
+  { 
+    id: '404', 
+    name: 'System Maintenance Notice', 
+    type: 'notice',
+    description: 'HR system will be under maintenance from 6 PM to 8 PM',
+    isCalendarEvent: false,
+    createdAt: new Date().toISOString() 
+  },
 ];
 
 const mockStats = (): DashboardStats => ({
@@ -568,6 +606,10 @@ export const getHolidays = (params?: Record<string, string>) =>
       id: String(h.id),
       name: h.name,
       date: h.date,
+      type: h.type || 'holiday',
+      description: h.description,
+      isCalendarEvent: h.isCalendarEvent ?? h.is_calendar_event ?? true,
+      color: h.color,
       createdAt: h.createdAt ?? h.created_at,
     }));
     return { data: mapped.length ? mapped : mockHolidays() } as ApiResponse<Holiday[]>;
@@ -576,12 +618,23 @@ export const getHolidays = (params?: Record<string, string>) =>
 export const createHoliday = (body: Partial<Holiday>) =>
   fetcher<any>("/holidays", {
     method: "POST",
-    body: JSON.stringify({ name: body.name, date: body.date }),
+    body: JSON.stringify({ 
+      name: body.name, 
+      date: body.date,
+      type: body.type || 'holiday',
+      description: body.description,
+      isCalendarEvent: body.isCalendarEvent ?? true,
+      color: body.color
+    }),
   }).then((raw) => ({
     data: {
       id: String(raw?.data?.id ?? raw.id),
       name: raw?.data?.name ?? raw.name,
       date: raw?.data?.date ?? raw.date,
+      type: raw?.data?.type ?? raw.type ?? 'holiday',
+      description: raw?.data?.description ?? raw.description,
+      isCalendarEvent: raw?.data?.isCalendarEvent ?? raw?.data?.is_calendar_event ?? raw.isCalendarEvent ?? true,
+      color: raw?.data?.color ?? raw.color,
       createdAt: raw?.data?.created_at ?? raw?.data?.createdAt ?? raw?.created_at,
     },
   } as ApiResponse<Holiday>));
@@ -589,12 +642,23 @@ export const createHoliday = (body: Partial<Holiday>) =>
 export const updateHoliday = (id: string, body: Partial<Holiday>) =>
   fetcher<any>(`/holidays/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ name: body.name, date: body.date }),
+    body: JSON.stringify({ 
+      name: body.name, 
+      date: body.date,
+      type: body.type,
+      description: body.description,
+      isCalendarEvent: body.isCalendarEvent,
+      color: body.color
+    }),
   }).then((raw) => ({
     data: {
       id: String(raw?.data?.id ?? raw.id ?? id),
       name: raw?.data?.name ?? raw.name ?? (body.name as string),
       date: raw?.data?.date ?? raw.date ?? (body.date as string),
+      type: raw?.data?.type ?? raw.type ?? body.type ?? 'holiday',
+      description: raw?.data?.description ?? raw.description ?? body.description,
+      isCalendarEvent: raw?.data?.isCalendarEvent ?? raw?.data?.is_calendar_event ?? raw.isCalendarEvent ?? body.isCalendarEvent ?? true,
+      color: raw?.data?.color ?? raw.color ?? body.color,
       createdAt: raw?.data?.created_at ?? raw?.data?.createdAt ?? raw?.created_at,
     },
   } as ApiResponse<Holiday>));

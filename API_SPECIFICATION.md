@@ -746,7 +746,11 @@ X-Organization-ID: <organizationId>
     {
       "id": "string",
       "name": "string",
-      "date": "string",
+      "date": "string", // Optional for notices
+      "type": "holiday" | "event" | "notice",
+      "description": "string",
+      "isCalendarEvent": "boolean",
+      "color": "string",
       "organizationId": "string",
       "createdAt": "string"
     }
@@ -766,7 +770,11 @@ X-Organization-ID: <organizationId>
 ```json
 {
   "name": "string",
-  "date": "string"
+  "date": "string", // Optional for notices
+  "type": "holiday" | "event" | "notice",
+  "description": "string",
+  "isCalendarEvent": "boolean",
+  "color": "string"
 }
 ```
 
@@ -776,7 +784,11 @@ X-Organization-ID: <organizationId>
   "data": {
     "id": "string",
     "name": "string",
-    "date": "string",
+    "date": "string", // Optional for notices
+    "type": "holiday" | "event" | "notice",
+    "description": "string",
+    "isCalendarEvent": "boolean",
+    "color": "string",
     "organizationId": "string",
     "createdAt": "string"
   }
@@ -790,7 +802,11 @@ X-Organization-ID: <organizationId>
 ```json
 {
   "name": "string",
-  "date": "string"
+  "date": "string", // Optional for notices
+  "type": "holiday" | "event" | "notice",
+  "description": "string",
+  "isCalendarEvent": "boolean",
+  "color": "string"
 }
 ```
 
@@ -1048,7 +1064,11 @@ CREATE TABLE documents (
 CREATE TABLE holidays (
     id VARCHAR(255) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    date DATE NOT NULL,
+    date DATE NULL, -- Optional for notices
+    type ENUM('holiday', 'event', 'notice') DEFAULT 'holiday',
+    description TEXT,
+    isCalendarEvent BOOLEAN DEFAULT TRUE,
+    color VARCHAR(7),
     organizationId VARCHAR(255) NOT NULL,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (organizationId) REFERENCES organizations(id),

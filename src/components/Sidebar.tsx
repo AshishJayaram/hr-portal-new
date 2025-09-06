@@ -14,10 +14,10 @@ const baseLinks = [
 
 const hrAdminLinks = [
   { href: "/employees", label: "Employees", icon: "👤" },
-  { href: "/team", label: "Team", icon: "👤" },
+  { href: "/team", label: "Team", icon: " 🏢" },
   { href: "/documents", label: "Documents", icon: "📑" },
   { href: "/salary-slips", label: "Salary Slips", icon: "💰" },
-  { href: "/holidays", label: "Holidays", icon: "📅" },
+  { href: "/holidays", label: "Events and Notices", icon: "📅" },
 ];
 
 const managerLinks = [

@@ -5,6 +5,9 @@ import { getHolidays, createHoliday, updateHoliday, deleteHoliday, Holiday, canM
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
 
 export default function HolidaysPage() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -15,6 +18,10 @@ export default function HolidaysPage() {
   const [formData, setFormData] = useState({
     name: "",
     date: "",
+    type: "holiday" as "holiday" | "event" | "notice",
+    description: "",
+    isCalendarEvent: true,
+    color: "#ef4444",
   });
 
   useEffect(() => {
@@ -43,7 +50,7 @@ export default function HolidaysPage() {
       }
       setShowForm(false);
       setEditingHoliday(null);
-      setFormData({ name: "", date: "" });
+      setFormData({ name: "", date: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444" });
       loadHolidays();
     } catch (err: any) {
       setError(err.message);
@@ -54,7 +61,11 @@ export default function HolidaysPage() {
     setEditingHoliday(holiday);
     setFormData({
       name: holiday.name,
-      date: holiday.date,
+      date: holiday.date || "",
+      type: holiday.type || "holiday",
+      description: holiday.description || "",
+      isCalendarEvent: holiday.isCalendarEvent ?? true,
+      color: holiday.color || "#ef4444",
     });
     setShowForm(true);
   };
@@ -74,13 +85,13 @@ export default function HolidaysPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Holidays</h1>
+        <h1 className="text-2xl font-bold">Holidays & Events</h1>
         <RoleGuard allowedRoles={["HR", "Admin"]}>
           <button
             onClick={() => setShowForm(true)}
             className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700"
           >
-            Add Holiday
+            Add Event/Notice
           </button>
         </RoleGuard>
       </div>
@@ -95,48 +106,80 @@ export default function HolidaysPage() {
         {showForm && (
           <Card>
             <h2 className="text-xl font-semibold mb-4">
-              {editingHoliday ? "Edit Holiday" : "Add Holiday"}
+              {editingHoliday ? "Edit Event/Notice" : "Add Event/Notice"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
-                <input
-                  type="text"
+              <div className="grid md:grid-cols-2 gap-4">
+                <Input
+                  label="Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-2 rounded bg-white/10 border border-white/20"
                   required
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Date</label>
-                <input
+                <Input
+                  label="Date"
                   type="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full p-2 rounded bg-white/10 border border-white/20"
-                  required
+                  required={formData.type !== 'notice'}
                 />
+                <Select
+                  label="Type"
+                  value={formData.type}
+                  onChange={(e) => {
+                    const newType = e.target.value as "holiday" | "event" | "notice";
+                    setFormData({ 
+                      ...formData, 
+                      type: newType,
+                      date: newType === 'notice' ? '' : formData.date, // Clear date for notices
+                      color: newType === "holiday" ? "#ef4444" : newType === "event" ? "#3b82f6" : "#10b981"
+                    });
+                  }}
+                  options={[
+                    { value: "holiday", label: "Holiday" },
+                    { value: "event", label: "Event" },
+                    { value: "notice", label: "Notice" }
+                  ]}
+                />
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isCalendarEvent"
+                    checked={formData.isCalendarEvent}
+                    onChange={(e) => setFormData({ ...formData, isCalendarEvent: e.target.checked })}
+                    className="rounded"
+                  />
+                  <label htmlFor="isCalendarEvent" className="text-sm font-medium">
+                    Show on Calendar
+                  </label>
+                </div>
               </div>
               
+              <Input
+                label="Description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Optional description..."
+              />
+              
               <div className="flex gap-2">
-                <button
+                <Button
                   type="submit"
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded"
+                  loading={false}
                 >
                   {editingHoliday ? "Update" : "Create"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => {
                     setShowForm(false);
                     setEditingHoliday(null);
-                    setFormData({ name: "", date: "" });
+                    setFormData({ name: "", date: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444" });
                   }}
-                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </Card>
@@ -145,13 +188,25 @@ export default function HolidaysPage() {
 
       <div className="space-y-3">
         {holidays
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .sort((a, b) => {
+            // Notices without dates go to the end
+            if (!a.date && !b.date) return 0;
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return new Date(a.date).getTime() - new Date(b.date).getTime();
+          })
           .map((holiday) => (
           <Card key={holiday.id}>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
+            <div className="flex justify-between items-start">
+              <div className="flex items-start gap-3">
                 <div className="text-2xl">
                   {(() => {
+                    const type = holiday.type || 'holiday';
+                    if (type === 'event') return "📅";
+                    if (type === 'notice') return "📢";
+                    
+                    if (!holiday.date) return "📢"; // Default for notices without dates
+                    
                     const month = new Date(holiday.date).getMonth();
                     const day = new Date(holiday.date).getDate();
                     
@@ -174,16 +229,36 @@ export default function HolidaysPage() {
                     return "❄️"; // Winter
                   })()}
                 </div>
-                <div>
-                  <h3 className="font-semibold text-primary">{holiday.name}</h3>
-                  <p className="text-sm text-secondary">
-                    {new Date(holiday.date).toLocaleDateString('en-US', { 
-                      weekday: 'long',
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
-                  </p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-primary">{holiday.name}</h3>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      holiday.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
+                      holiday.type === 'event' ? 'bg-blue-500/20 text-blue-400' :
+                      'bg-green-500/20 text-green-400'
+                    }`}>
+                      {holiday.type || 'holiday'}
+                    </span>
+                  </div>
+                  {holiday.date && (
+                    <p className="text-sm text-secondary mb-1">
+                      {new Date(holiday.date).toLocaleDateString('en-US', { 
+                        weekday: 'long',
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </p>
+                  )}
+                  {!holiday.date && holiday.type === 'notice' && (
+                    <p className="text-sm text-secondary mb-1">📢 Ongoing Notice</p>
+                  )}
+                  {holiday.description && (
+                    <p className="text-sm text-gray-400">{holiday.description}</p>
+                  )}
+                  {!holiday.isCalendarEvent && (
+                    <p className="text-xs text-orange-400 mt-1">📌 Notice only (not on calendar)</p>
+                  )}
                 </div>
               </div>
               <RoleGuard allowedRoles={["HR", "Admin"]}>

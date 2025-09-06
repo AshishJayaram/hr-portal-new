@@ -75,6 +75,81 @@ export default function DashboardPage() {
       {/* Leave Balances */}
       <LeaveBalanceCard balance={balance?.data || []} />
 
+      {/* Events & Notices */}
+      <Card title="Upcoming Events & Notices">
+        <div className="space-y-3">
+          {(holidays?.data || [])
+            .filter((h: any) => {
+              // Include notices without dates, and dated events that are today or future
+              if (!h.date && h.type === 'notice') return true;
+              if (!h.date) return false;
+              const eventDate = new Date(h.date);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              return eventDate >= today;
+            })
+            .sort((a: any, b: any) => {
+              // Notices without dates go first, then sort by date
+              if (!a.date && !b.date) return 0;
+              if (!a.date) return -1;
+              if (!b.date) return 1;
+              return new Date(a.date).getTime() - new Date(b.date).getTime();
+            })
+            .slice(0, 5)
+            .map((event: any) => (
+              <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                <div className="text-lg">
+                  {event.type === 'event' ? "📅" : event.type === 'notice' ? "📢" : "🎊"}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="font-medium text-primary">{event.name}</h4>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      event.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
+                      event.type === 'event' ? 'bg-blue-500/20 text-blue-400' :
+                      'bg-green-500/20 text-green-400'
+                    }`}>
+                      {event.type || 'holiday'}
+                    </span>
+                  </div>
+                  {event.date ? (
+                    <p className="text-sm text-secondary">
+                      {new Date(event.date).toLocaleDateString('en-US', { 
+                        weekday: 'short',
+                        month: 'short', 
+                        day: 'numeric' 
+                      })}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-secondary">📢 Ongoing Notice</p>
+                  )}
+                  {event.description && (
+                    <p className="text-sm text-gray-400 mt-1">{event.description}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          {(holidays?.data || []).filter((h: any) => {
+            // Include notices without dates, and dated events that are today or future
+            if (!h.date && h.type === 'notice') return true;
+            if (!h.date) return false;
+            const eventDate = new Date(h.date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return eventDate >= today;
+          }).length === 0 && (
+            <div className="text-center text-gray-400 py-4">
+              No upcoming events or notices
+            </div>
+          )}
+        </div>
+        <div className="mt-4 pt-4 border-t border-white/10">
+          <Link href="/holidays" className="text-sm text-indigo-400 hover:text-indigo-300">
+            View all events & notices →
+          </Link>
+        </div>
+      </Card>
+
       <div className="space-y-6">
         {/* Calendar or List (responsive) */}
         <Card title="Upcoming Leaves & Holidays">
@@ -87,12 +162,14 @@ export default function DashboardPage() {
                   end: new Date(l.to),
                   color: "#3b82f6",
                 })),
-                ...(holidays?.data || []).map((h: any) => ({
-                  title: `${h.name}`,
-                  start: new Date(h.date),
-                  end: new Date(h.date),
-                  color: "#ef4444",
-                })),
+                ...(holidays?.data || [])
+                  .filter((h: any) => h.isCalendarEvent !== false && h.date)
+                  .map((h: any) => ({
+                    title: h.name,
+                    start: new Date(h.date),
+                    end: new Date(h.date),
+                    color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#3b82f6" : "#10b981"),
+                  })),
               ]}
             />
           </div>
@@ -105,13 +182,15 @@ export default function DashboardPage() {
                 title: l.type,
                 color: 'bg-indigo-500',
               })),
-              ...(holidays?.data || []).map((h: any) => ({
-                id: `holiday-${h.id}`,
-                dateLabel: new Date(h.date).toLocaleDateString(),
-                range: null,
-                title: `Holiday: ${h.name}`,
-                color: 'bg-red-500',
-              })),
+              ...(holidays?.data || [])
+                .filter((h: any) => h.isCalendarEvent !== false && h.date)
+                .map((h: any) => ({
+                  id: `holiday-${h.id}`,
+                  dateLabel: new Date(h.date).toLocaleDateString(),
+                  range: null,
+                  title: `${h.type === 'holiday' ? 'Holiday' : h.type === 'event' ? 'Event' : 'Notice'}: ${h.name}`,
+                  color: h.type === 'holiday' ? 'bg-red-500' : h.type === 'event' ? 'bg-blue-500' : 'bg-green-500',
+                })),
             ]
               .filter((e) => new Date(e.dateLabel) >= new Date(new Date().toDateString()))
               .slice(0, 10)
