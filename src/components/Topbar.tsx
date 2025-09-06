@@ -30,7 +30,6 @@ export default function Topbar() {
             {user?.role || "Employee"}
           </span>
         )}
-        <ThemeToggle />
       </div>
     </header>
   );
