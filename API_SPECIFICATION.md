@@ -56,18 +56,19 @@ X-Organization-ID: <organizationId>
 ```json
 {
   "data": {
-    "user": {
-      "id": "string",
-      "email": "string",
-      "name": "string",
-      "role": "Employee" | "Manager" | "HR" | "Admin",
-      "department": "string",
-      "managerId": "string",
-      "ctc": "number",
-      "organizationId": "string",
-      "createdAt": "string",
-      "updatedAt": "string"
-    },
+      "user": {
+        "id": "string",
+        "email": "string",
+        "name": "string",
+        "role": "Employee" | "Manager" | "HR" | "Admin",
+        "designation": "string",
+        "department": "string",
+        "managerId": "string",
+        "ctc": "number",
+        "organizationId": "string",
+        "createdAt": "string",
+        "updatedAt": "string"
+      },
     "token": "string",
     "organizationId": "string"
   },
@@ -112,6 +113,7 @@ X-Organization-ID: <organizationId>
       "email": "string",
       "name": "string",
       "role": "Employee" | "Manager" | "HR" | "Admin",
+      "designation": "string",
       "department": "string",
       "managerId": "string",
       "ctc": "number",
@@ -162,6 +164,7 @@ X-Organization-ID: <organizationId>
 {
   "username": "string",
   "password": "string",
+  "designation": "string",
   "role": "Employee" | "Manager" | "HR" | "Admin",
   "department": "string",
   "manager_id": "number"
@@ -193,6 +196,7 @@ X-Organization-ID: <organizationId>
 ```json
 {
   "username": "string",
+  "designation": "string",
   "role": "Employee" | "Manager" | "HR" | "Admin",
   "department": "string",
   "manager_id": "number",
@@ -865,6 +869,7 @@ X-Organization-ID: <organizationId>
       "email": "string",
       "name": "string",
       "role": "Employee" | "Manager" | "HR" | "Admin",
+      "designation": "string",
       "department": "string",
       "ctc": "number",
       "createdAt": "string",
@@ -937,6 +942,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role ENUM('Employee', 'Manager', 'HR', 'Admin') NOT NULL,
+    designation VARCHAR(255),
     department VARCHAR(255),
     managerId VARCHAR(255),
     ctc DECIMAL(15,2),
@@ -1086,6 +1092,10 @@ def create_user(user_data, organization_id):
         manager = get_user_by_id(user_data['managerId'])
         if manager.organizationId != organization_id:
             raise ValidationError("Manager must belong to same organization")
+    
+    # Handle designation field (optional)
+    if not user_data.get('designation'):
+        user_data['designation'] = None
     
     return create_user_in_db(user_data)
 ```
