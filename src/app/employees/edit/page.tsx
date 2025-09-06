@@ -25,6 +25,7 @@ function EditEmployeeForm({ id }: { id: string }) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     username: "",
+    designation: "",
     role: "Employee" as "Employee" | "Manager" | "HR" | "Admin",
     department: "",
     manager_id: "",
@@ -71,6 +72,7 @@ function EditEmployeeForm({ id }: { id: string }) {
     if (user?.data) {
       setFormData({
         username: user.data.name || user.data.email || "",
+        designation: user.data.designation || "",
         role: user.data.role,
         department: user.data.department || "",
         manager_id: (user.data as any).managerId || (user.data as any).manager_id || "",
@@ -173,6 +175,7 @@ function EditEmployeeForm({ id }: { id: string }) {
     e.preventDefault();
     mutation.mutate({
       username: formData.username,
+      designation: formData.designation,
       role: toCanonicalRole(formData.role),
       department: formData.department,
       manager_id: formData.manager_id ? Number(formData.manager_id) : undefined,
@@ -246,6 +249,12 @@ function EditEmployeeForm({ id }: { id: string }) {
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   required
                 />
+                <Input
+                  label="Designation"
+                  value={formData.designation}
+                  onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                  placeholder="e.g., Software Engineer, Manager"
+                />
                 <Select
                   label="Role"
                   value={formData.role}
@@ -254,7 +263,6 @@ function EditEmployeeForm({ id }: { id: string }) {
                     { value: "Employee", label: "Employee" },
                     { value: "Manager", label: "Manager" },
                     { value: "HR", label: "HR" },
-                    { value: "Admin", label: "Admin" },
                   ]}
                 />
             <Input

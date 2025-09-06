@@ -75,7 +75,7 @@ export default function DashboardPage() {
       {/* Leave Balances */}
       <LeaveBalanceCard balance={balance?.data || []} />
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="space-y-6">
         {/* Calendar or List (responsive) */}
         <Card title="Upcoming Leaves & Holidays">
           <div className="hidden sm:block">
@@ -88,7 +88,7 @@ export default function DashboardPage() {
                   color: "#3b82f6",
                 })),
                 ...(holidays?.data || []).map((h: any) => ({
-                  title: `Holiday: ${h.name}`,
+                  title: `${h.name}`,
                   start: new Date(h.date),
                   end: new Date(h.date),
                   color: "#ef4444",
@@ -127,30 +127,8 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* Recent Documents */}
-        <Card title="Recent Documents">
-          <ul className="divide-y divide-gray-700">
-            {(docs?.data || []).slice(0, 3).map((doc: any) => (
-              <li key={doc.id} className="py-2 flex justify-between items-center">
-                <span>{doc.title}</span>
-                <a
-                  href={doc.fileUrl}
-                  target="_blank"
-                  className="text-indigo-400 hover:underline"
-                >
-                  View
-                </a>
-              </li>
-            ))}
-            {(docs?.data?.length || 0) === 0 && (
-              <li className="text-gray-400">No documents</li>
-            )}
-          </ul>
-        </Card>
-      </div>
-
-      {/* Recent Payslips */}
-      <Card title="Recent Payslips">
+        {/* Recent Payslips */}
+        <Card title="Recent Payslips">
         <ul className="divide-y divide-gray-700">
           {(slips?.data || []).slice(0, 3).map((s: any) => (
             <li key={s.id} className="py-2 flex justify-between items-center">
@@ -171,6 +149,24 @@ export default function DashboardPage() {
           )}
         </ul>
       </Card>
+
+        {/* Recent Documents - compact */}
+        <Card title="Recent Documents" className="p-4">
+          <ul className="divide-y divide-gray-700 text-sm">
+            {(docs?.data || []).slice(0, 3).map((doc: any) => (
+              <li key={doc.id} className="py-2 flex justify-between items-center">
+                <span className="truncate pr-3">{doc.title}</span>
+                <a href={doc.fileUrl} target="_blank" className="text-indigo-400 hover:underline">
+                  View
+                </a>
+              </li>
+            ))}
+            {(docs?.data?.length || 0) === 0 && (
+              <li className="text-gray-400">No documents</li>
+            )}
+          </ul>
+        </Card>
+      </div>
     </div>
   );
 }

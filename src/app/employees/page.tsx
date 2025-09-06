@@ -46,6 +46,7 @@ export default function EmployeesPage() {
                 <div>
                   <p className="font-bold">{u.name}</p>
                   <p className="text-sm text-gray-400">{u.email}</p>
+                  {u.designation && <p className="text-xs text-gray-500">{u.designation}</p>}
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm text-gray-400">

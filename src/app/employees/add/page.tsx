@@ -20,6 +20,7 @@ export default function AddEmployeePage() {
   const [form, setForm] = useState({
     username: "",
     password: "",
+    designation: "",
     department: "HR",
     role: "Employee",
     manager_id: "",
@@ -64,6 +65,7 @@ export default function AddEmployeePage() {
       const user = await createUser({
         username: body.username,
         password: body.password,
+        designation: body.designation,
         department: body.department,
         role: toCanonicalRole(body.role),
         manager_id: body.manager_id ? Number(body.manager_id) : undefined,
@@ -139,8 +141,9 @@ export default function AddEmployeePage() {
             <div className="grid md:grid-cols-2 gap-6">
               <Input label="Username (name or email)" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required />
               <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+              <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} placeholder="e.g., Software Engineer, Manager" />
               <Input label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
-              <Select label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} options={[{ value: "Employee", label: "Employee" },{ value: "Manager", label: "Manager" },{ value: "HR", label: "HR" },{ value: "Admin", label: "Admin" }]} />
+              <Select label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} options={[{ value: "Employee", label: "Employee" },{ value: "Manager", label: "Manager" },{ value: "HR", label: "HR" }]} />
             </div>
             <div>
               <label className="block text-sm mb-2">Manager (search and select)</label>

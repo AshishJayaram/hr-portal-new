@@ -15,6 +15,7 @@ interface TeamMember {
   name: string;
   email: string;
   role: string;
+  designation?: string;
   department?: string;
   managerId?: string;
   ctc?: number;
@@ -32,6 +33,7 @@ export default function TeamPage() {
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
+    designation: "",
     role: "",
     department: "",
     ctc: "",
@@ -105,6 +107,7 @@ export default function TeamPage() {
     setEditForm({
       name: member.name,
       email: member.email,
+      designation: member.designation || "",
       role: member.role,
       department: member.department || "",
       ctc: member.ctc ? String(member.ctc) : "",
@@ -118,6 +121,7 @@ export default function TeamPage() {
       body: {
         name: editForm.name,
         email: editForm.email,
+        designation: editForm.designation,
         role: editForm.role,
         department: editForm.department,
         ctc: editForm.ctc ? Number(editForm.ctc) : undefined,
@@ -152,6 +156,7 @@ export default function TeamPage() {
                     <div className="flex-1">
                       <div className="font-semibold text-primary">{manager.name}</div>
                       <div className="text-sm text-secondary">ID: {manager.id} • {manager.role}</div>
+                      {manager.designation && <div className="text-xs text-gray-500">{manager.designation}</div>}
                     </div>
                     {manager.ctc && (
                       <div className="text-sm text-secondary">
@@ -185,6 +190,7 @@ export default function TeamPage() {
                     <div className="flex-1">
                       <div className="font-semibold text-primary">{member.name}</div>
                       <div className="text-sm text-secondary">ID: {member.id} • {member.role}</div>
+                      {member.designation && <div className="text-xs text-gray-500">{member.designation}</div>}
                     </div>
                     {member.ctc && (
                       <div className="text-sm text-secondary">
@@ -221,6 +227,7 @@ export default function TeamPage() {
           <div className="flex-1">
             <div className="font-semibold text-primary">{node.name}</div>
             <div className="text-sm text-secondary">ID: {node.id}</div>
+            {node.designation && <div className="text-xs text-gray-500">{node.designation}</div>}
             {node.department && (
               <div className="text-xs text-muted">{node.department}</div>
             )}
@@ -233,7 +240,7 @@ export default function TeamPage() {
         {/* Render children */}
         {node.children.length > 0 && (
           <div className="mt-2 space-y-2">
-            {node.children.map(child => renderHierarchyNode(child, level + 1))}
+            {node.children.map(child => renderHierarchyNode(child as TeamMember & { children: TeamMember[] }, level + 1))}
           </div>
         )}
       </div>
@@ -290,7 +297,7 @@ export default function TeamPage() {
         ) : (
           <Card title="Team Hierarchy">
             <div className="space-y-4">
-              {hierarchy.map(node => renderHierarchyNode(node))}
+              {hierarchy.map(node => renderHierarchyNode(node as TeamMember & { children: TeamMember[] }))}
               {hierarchy.length === 0 && (
                 <p className="text-muted text-center py-8">No team members found</p>
               )}
@@ -327,6 +334,12 @@ export default function TeamPage() {
                 type="email"
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              />
+              <Input
+                label="Designation"
+                value={editForm.designation}
+                onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                placeholder="e.g., Software Engineer, Manager"
               />
               <Select
                 label="Role"

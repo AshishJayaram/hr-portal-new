@@ -19,10 +19,11 @@ export default function Calendar({ events }: { events: CalendarEvent[] }) {
         initialView="dayGridMonth"
         events={events}
         height="auto"
+        displayEventTime={false}
         headerToolbar={{
           left: "prev,next today",
           center: "title",
-          right: "dayGridMonth,dayGridWeek,dayGridDay",
+          right: "dayGridMonth,dayGridWeek",
         }}
         eventDisplay="block"
         eventClick={(info) => {

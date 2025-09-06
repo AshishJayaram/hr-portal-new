@@ -25,9 +25,12 @@ export default function Topbar() {
       <h2 className="text-xl font-bold text-primary dark:text-white">{title}</h2>
 
       <div className="flex items-center gap-3 text-sm">
-        <span className="px-2 py-1 rounded text-xs text-white bg-indigo-600 dark:bg-gradient-to-r dark:from-indigo-600 dark:to-purple-600 shadow">
-          {user?.role || "Employee"}
-        </span>
+        {user?.role !== 'Employee' && (
+          <span className="px-2 py-1 rounded text-xs text-white bg-indigo-600 dark:bg-gradient-to-r dark:from-indigo-600 dark:to-purple-600 shadow">
+            {user?.role || "Employee"}
+          </span>
+        )}
+        <ThemeToggle />
       </div>
     </header>
   );
