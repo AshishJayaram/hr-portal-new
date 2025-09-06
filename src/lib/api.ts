@@ -289,6 +289,12 @@ export const deleteUser = (id: string) =>
     method: "DELETE",
   });
 
+export const changePassword = (currentPassword: string, newPassword: string) =>
+  fetcher<ApiResponse<void>>("/users/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+
 // -------------------- Leave Categories --------------------
 export const getLeaveCategories = () =>
   fetcher<any>("/leave-categories").then((raw) => {

@@ -232,6 +232,25 @@ X-Organization-ID: <organizationId>
 }
 ```
 
+### POST /users/change-password
+**Description**: Change user's password (for current authenticated user)
+
+**Request Body**:
+```json
+{
+  "currentPassword": "string",
+  "newPassword": "string"
+}
+```
+
+**Response**:
+```json
+{
+  "data": null,
+  "message": "Password changed successfully"
+}
+```
+
 ---
 
 ## 3. Leave Categories Management
