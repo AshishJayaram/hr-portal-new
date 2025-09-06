@@ -39,22 +39,37 @@ export default function CompanySettingsPage() {
 
   const saveMutation = useMutation({
     mutationFn: () => updateCompanySettings(companyId, settings),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    },
   });
 
   const createCategoryMutation = useMutation({
     mutationFn: (category: Partial<LeaveCategory>) => createLeaveCategory(category),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["leave-categories"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leave-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-allocations"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+    },
   });
 
   const updateCategoryMutation = useMutation({
     mutationFn: ({ id, category }: { id: string; category: Partial<LeaveCategory> }) => updateLeaveCategory(id, category),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["leave-categories"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leave-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-allocations"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+    },
   });
 
   const deleteCategoryMutation = useMutation({
     mutationFn: (id: string) => deleteLeaveCategory(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["leave-categories"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leave-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-allocations"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+    },
   });
 
   const breakdown = useMemo(() => computePayslipFromCTC(annualCTC, settings, { lopDays: lop, tdsOverride: tds }), [annualCTC, settings, lop, tds]);

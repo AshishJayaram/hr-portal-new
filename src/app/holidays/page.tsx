@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { getHolidays, createHoliday, updateHoliday, deleteHoliday, Holiday, canManageHolidays } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
@@ -10,6 +11,7 @@ import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 
 export default function HolidaysPage() {
+  const queryClient = useQueryClient();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -51,7 +53,9 @@ export default function HolidaysPage() {
       setShowForm(false);
       setEditingHoliday(null);
       setFormData({ name: "", date: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444" });
-      loadHolidays();
+      // Invalidate all related queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["holidays"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
     } catch (err: any) {
       setError(err.message);
     }
@@ -74,7 +78,9 @@ export default function HolidaysPage() {
     if (!confirm("Are you sure you want to delete this holiday?")) return;
     try {
       await deleteHoliday(holidayId);
-      loadHolidays();
+      // Invalidate all related queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["holidays"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
     } catch (err: any) {
       setError(err.message);
     }

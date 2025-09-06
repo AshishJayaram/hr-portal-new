@@ -100,7 +100,10 @@ export default function AddEmployeePage() {
     onSuccess: () => {
       toast.success("Employee created with leave allocations");
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["team"] });
       queryClient.invalidateQueries({ queryKey: ["leave-allocations"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       router.push("/employees");
     },
     onError: (err: any) => toast.error(err.message || "Failed to create employee"),

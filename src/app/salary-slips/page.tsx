@@ -80,6 +80,8 @@ export default function SalarySlipsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       setShowUpload(false);
       setUploadData({ userId: "", month: new Date().getMonth() + 1, year: new Date().getFullYear() });
       setSelectedFile(null);
@@ -90,6 +92,8 @@ export default function SalarySlipsPage() {
     mutationFn: deleteSalarySlip,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Salary slip deleted successfully");
     },
     onError: (err: any) => {

@@ -37,6 +37,8 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
     mutationFn: applyLeave,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       setType("Casual");
       setReason("");
       setStartDate("");

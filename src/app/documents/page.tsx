@@ -50,6 +50,7 @@ export default function DocumentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       setShowUpload(false);
       setUploadData({ title: "", category: "", isPublic: false });
       setSelectedFile(null);
@@ -64,6 +65,7 @@ export default function DocumentsPage() {
     mutationFn: deleteDocument,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Document deleted successfully");
     },
     onError: (err: any) => {

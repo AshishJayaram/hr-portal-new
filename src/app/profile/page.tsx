@@ -5,10 +5,11 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { getCurrentUser, changePassword } from "@/lib/api";
 import { useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 export default function ProfilePage() {
+  const queryClient = useQueryClient();
   const user = getCurrentUser();
   const initials = useMemo(() => (user?.name ? user.name.split(' ').map(p => p[0]).slice(0,2).join('').toUpperCase() : 'U'), [user]);
   
@@ -23,6 +24,8 @@ export default function ProfilePage() {
     mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
       changePassword(currentPassword, newPassword),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["current-user"] });
+      queryClient.invalidateQueries({ queryKey: ["user"] });
       toast.success("Password changed successfully");
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       setShowPasswordForm(false);

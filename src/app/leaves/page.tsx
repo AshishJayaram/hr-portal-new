@@ -58,6 +58,8 @@ export default function LeavesPage() {
       updateLeave(leaveId, { status: "cancelled" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Leave cancelled successfully");
     },
     onError: (err: any) => {
@@ -70,6 +72,8 @@ export default function LeavesPage() {
     mutationFn: approveLeave,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Leave approved successfully");
     },
     onError: (err: any) => {
@@ -83,6 +87,8 @@ export default function LeavesPage() {
       rejectLeave(leaveId, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaves"] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Leave rejected successfully");
     },
     onError: (err: any) => {

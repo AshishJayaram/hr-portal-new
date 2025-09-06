@@ -105,6 +105,9 @@ function EditEmployeeForm({ id }: { id: string }) {
     mutationFn: (body: any) => updateUser(id, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["user", id] });
+      queryClient.invalidateQueries({ queryKey: ["team"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Employee updated successfully");
       router.push("/employees");
     },
@@ -152,6 +155,8 @@ function EditEmployeeForm({ id }: { id: string }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leave-allocations", id] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance", id] });
+      queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
       toast.success("Leave allocations updated successfully");
     },
     onError: (error: any) => {
@@ -164,6 +169,9 @@ function EditEmployeeForm({ id }: { id: string }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", id] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["team"] });
+      queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("CTC updated successfully");
     },
     onError: (error: any) => {

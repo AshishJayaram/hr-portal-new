@@ -50,6 +50,8 @@ export default function TeamPage() {
     mutationFn: ({ id, body }: { id: string; body: any }) => updateUser(id, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       setEditingMember(null);
     },
   });
