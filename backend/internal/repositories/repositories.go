@@ -1,0 +1,245 @@
+package repositories
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"hr-portal-backend/internal/models"
+
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
+)
+
+// Repositories holds all repository interfaces
+type Repositories struct {
+	User           UserRepository
+	Organization   OrganizationRepository
+	Leave          LeaveRepository
+	LeaveCategory  LeaveCategoryRepository
+	LeaveAllocation LeaveAllocationRepository
+	Document       DocumentRepository
+	SalarySlip     SalarySlipRepository
+	Holiday        HolidayRepository
+	CompanySettings CompanySettingsRepository
+}
+
+// New creates a new instance of Repositories
+func New(db *gorm.DB, rdb *redis.Client) *Repositories {
+	return &Repositories{
+		User:            NewUserRepository(db, rdb),
+		Organization:   NewOrganizationRepository(db, rdb),
+		Leave:          NewLeaveRepository(db, rdb),
+		LeaveCategory:  NewLeaveCategoryRepository(db, rdb),
+		LeaveAllocation: NewLeaveAllocationRepository(db, rdb),
+		Document:       NewDocumentRepository(db, rdb),
+		SalarySlip:     NewSalarySlipRepository(db, rdb),
+		Holiday:        NewHolidayRepository(db, rdb),
+		CompanySettings: NewCompanySettingsRepository(db, rdb),
+	}
+}
+
+// BaseRepository provides common database operations
+type BaseRepository struct {
+	db  *gorm.DB
+	rdb *redis.Client
+}
+
+// NewBaseRepository creates a new base repository
+func NewBaseRepository(db *gorm.DB, rdb *redis.Client) *BaseRepository {
+	return &BaseRepository{
+		db:  db,
+		rdb: rdb,
+	}
+}
+
+// UserRepository interface for user operations
+type UserRepository interface {
+	Create(user *models.User) error
+	GetByID(id string) (*models.User, error)
+	GetByEmail(email, organizationID string) (*models.User, error)
+	GetByUsername(username, organizationID string) (*models.User, error)
+	List(organizationID string, filters map[string]interface{}) ([]models.User, error)
+	Update(user *models.User) error
+	Delete(id string) error
+	IsSubordinate(organizationID, managerID, subordinateID string) (bool, error)
+	GetSubordinates(organizationID, managerID string) ([]models.User, error)
+	UpdateLastLogin(id string) error
+}
+
+// OrganizationRepository interface for organization operations
+type OrganizationRepository interface {
+	Create(org *models.Organization) error
+	GetByID(id string) (*models.Organization, error)
+	GetByDomain(domain string) (*models.Organization, error)
+	List() ([]models.Organization, error)
+	Update(org *models.Organization) error
+	Delete(id string) error
+}
+
+// LeaveRepository interface for leave operations
+type LeaveRepository interface {
+	Create(leave *models.Leave) error
+	GetByID(id string) (*models.Leave, error)
+	List(organizationID string, filters map[string]interface{}) ([]models.Leave, error)
+	Update(leave *models.Leave) error
+	Delete(id string) error
+	GetByUserID(userID string, filters map[string]interface{}) ([]models.Leave, error)
+	GetPendingApprovals(managerID string) ([]models.Leave, error)
+	Approve(id, approverID string) error
+	Reject(id, rejecterID, reason string) error
+}
+
+// LeaveCategoryRepository interface for leave category operations
+type LeaveCategoryRepository interface {
+	Create(category *models.LeaveCategory) error
+	GetByID(id string) (*models.LeaveCategory, error)
+	List(organizationID string) ([]models.LeaveCategory, error)
+	Update(category *models.LeaveCategory) error
+	Delete(id string) error
+}
+
+// LeaveAllocationRepository interface for leave allocation operations
+type LeaveAllocationRepository interface {
+	Create(allocation *models.LeaveAllocation) error
+	GetByID(id string) (*models.LeaveAllocation, error)
+	GetByUserID(userID string, year int) ([]models.LeaveAllocation, error)
+	List(organizationID string, filters map[string]interface{}) ([]models.LeaveAllocation, error)
+	Update(allocation *models.LeaveAllocation) error
+	Delete(id string) error
+	UpdateUsedDays(userID, categoryID string, year int, days int) error
+}
+
+// DocumentRepository interface for document operations
+type DocumentRepository interface {
+	Create(document *models.Document) error
+	GetByID(id string) (*models.Document, error)
+	List(organizationID string, filters map[string]interface{}) ([]models.Document, error)
+	Update(document *models.Document) error
+	Delete(id string) error
+	GetByUserID(userID string) ([]models.Document, error)
+}
+
+// SalarySlipRepository interface for salary slip operations
+type SalarySlipRepository interface {
+	Create(salarySlip *models.SalarySlip) error
+	GetByID(id string) (*models.SalarySlip, error)
+	List(organizationID string, filters map[string]interface{}) ([]models.SalarySlip, error)
+	Update(salarySlip *models.SalarySlip) error
+	Delete(id string) error
+	GetByUserID(userID string) ([]models.SalarySlip, error)
+}
+
+// HolidayRepository interface for holiday operations
+type HolidayRepository interface {
+	Create(holiday *models.Holiday) error
+	GetByID(id string) (*models.Holiday, error)
+	List(organizationID string, filters map[string]interface{}) ([]models.Holiday, error)
+	Update(holiday *models.Holiday) error
+	Delete(id string) error
+	GetUpcoming(organizationID string, limit int) ([]models.Holiday, error)
+}
+
+// CompanySettingsRepository interface for company settings operations
+type CompanySettingsRepository interface {
+	Create(settings *models.CompanySettings) error
+	GetByOrganizationID(organizationID string) (*models.CompanySettings, error)
+	Update(settings *models.CompanySettings) error
+	Delete(organizationID string) error
+}
+
+// Common query helpers
+func (r *BaseRepository) buildQuery(query *gorm.DB, filters map[string]interface{}) *gorm.DB {
+	for key, value := range filters {
+		switch key {
+		case "page":
+			page := value.(int)
+			if page > 0 {
+				offset := (page - 1) * 20 // Default page size
+				query = query.Offset(offset)
+			}
+		case "limit":
+			limit := value.(int)
+			if limit > 0 && limit <= 100 {
+				query = query.Limit(limit)
+			}
+		case "search":
+			search := value.(string)
+			if search != "" {
+				query = query.Where("name ILIKE ? OR email ILIKE ?", "%"+search+"%", "%"+search+"%")
+			}
+		case "role":
+			role := value.(string)
+			if role != "" {
+				query = query.Where("role = ?", role)
+			}
+		case "department":
+			department := value.(string)
+			if department != "" {
+				query = query.Where("department = ?", department)
+			}
+		case "status":
+			status := value.(string)
+			if status != "" {
+				query = query.Where("status = ?", status)
+			}
+		case "user_id":
+			userID := value.(string)
+			if userID != "" {
+				query = query.Where("user_id = ?", userID)
+			}
+		case "from_date":
+			fromDate := value.(time.Time)
+			query = query.Where("from_date >= ?", fromDate)
+		case "to_date":
+			toDate := value.(time.Time)
+			query = query.Where("to_date <= ?", toDate)
+		case "year":
+			year := value.(int)
+			if year > 0 {
+				query = query.Where("year = ?", year)
+			}
+		case "month":
+			month := value.(int)
+			if month > 0 && month <= 12 {
+				query = query.Where("month = ?", month)
+			}
+		case "is_public":
+			isPublic := value.(bool)
+			query = query.Where("is_public = ?", isPublic)
+		case "type":
+			docType := value.(string)
+			if docType != "" {
+				query = query.Where("type = ?", docType)
+			}
+		case "is_calendar_event":
+			isCalendarEvent := value.(bool)
+			query = query.Where("is_calendar_event = ?", isCalendarEvent)
+		}
+	}
+	return query
+}
+
+// Cache helpers
+func (r *BaseRepository) getCacheKey(prefix, id string) string {
+	return fmt.Sprintf("%s:%s", prefix, id)
+}
+
+func (r *BaseRepository) invalidateCache(pattern string) error {
+	if r.rdb == nil {
+		return nil
+	}
+	
+	ctx := context.Background()
+	keys, err := r.rdb.Keys(ctx, pattern).Result()
+	if err != nil {
+		return err
+	}
+	
+	if len(keys) > 0 {
+		return r.rdb.Del(ctx, keys...).Err()
+	}
+	
+	return nil
+}
