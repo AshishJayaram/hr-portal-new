@@ -131,15 +131,6 @@ type SalarySlipRepository interface {
 	GetByUserID(userID string) ([]models.SalarySlip, error)
 }
 
-// HolidayRepository interface for holiday operations
-type HolidayRepository interface {
-	Create(holiday *models.Holiday) error
-	GetByID(id string) (*models.Holiday, error)
-	List(organizationID string, filters map[string]interface{}) ([]models.Holiday, error)
-	Update(holiday *models.Holiday) error
-	Delete(id string) error
-	GetUpcoming(organizationID string, limit int) ([]models.Holiday, error)
-}
 
 // CompanySettingsRepository interface for company settings operations
 type CompanySettingsRepository interface {

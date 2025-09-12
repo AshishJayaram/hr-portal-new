@@ -59,6 +59,20 @@ type User struct {
 	UpdatedAt      time.Time    `json:"updated_at"`
 }
 
+// Holiday model
+type Holiday struct {
+	ID             uint      `json:"id" gorm:"primarykey"`
+	OrganizationID uint      `json:"organization_id"`
+	Name           string    `json:"name"`
+	Date           *string   `json:"date"` // Optional for notices
+	Type           string    `json:"type"` // holiday, event, notice
+	Description    string    `json:"description"`
+	IsCalendarEvent bool     `json:"is_calendar_event" gorm:"default:true"`
+	Color          string    `json:"color" gorm:"default:'#ef4444'"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
 // Password utilities
 func hashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
@@ -81,7 +95,7 @@ func main() {
 	}
 
 	// Auto-migrate
-	db.AutoMigrate(&Organization{}, &User{}, &Leave{})
+	db.AutoMigrate(&Organization{}, &User{}, &Leave{}, &Holiday{})
 
 	// Create God accounts (hardcoded, no API creation allowed)
 	var godCount int64
@@ -890,6 +904,162 @@ func main() {
 				db.Save(&org)
 				
 				c.JSON(http.StatusOK, gin.H{"message": "Organization deactivated successfully"})
+			})
+		}
+
+		// Holidays endpoints
+		holidays := api.Group("/holidays")
+		holidays.Use(authMiddleware)
+		{
+			// Get all holidays for organization
+			holidays.GET("", func(c *gin.Context) {
+				organizationID := c.GetUint("organization_id")
+				user := c.MustGet("user").(User)
+				isGod := user.OrganizationID == 0
+
+				var holidays []Holiday
+				if isGod {
+					// God users can see all holidays
+					db.Find(&holidays)
+				} else {
+					// Regular users only see holidays from their organization
+					db.Where("organization_id = ?", organizationID).Find(&holidays)
+				}
+
+				c.JSON(http.StatusOK, gin.H{"data": holidays})
+			})
+
+			// Create holiday (HR and Admin only)
+			holidays.POST("", func(c *gin.Context) {
+				user := c.MustGet("user").(User)
+				if user.Role != "HR" && user.Role != "Admin" && user.Role != "God" {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+					return
+				}
+
+				var req struct {
+					Name            string `json:"name" binding:"required"`
+					Date            *string `json:"date"`
+					Type            string `json:"type" binding:"required"`
+					Description     string `json:"description"`
+					IsCalendarEvent bool   `json:"is_calendar_event"`
+					Color           string `json:"color"`
+				}
+
+				if err := c.ShouldBindJSON(&req); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return
+				}
+
+				organizationID := c.GetUint("organization_id")
+				holiday := Holiday{
+					OrganizationID:   organizationID,
+					Name:            req.Name,
+					Date:            req.Date,
+					Type:            req.Type,
+					Description:     req.Description,
+					IsCalendarEvent: req.IsCalendarEvent,
+					Color:           req.Color,
+				}
+
+				if err := db.Create(&holiday).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create holiday"})
+					return
+				}
+
+				c.JSON(http.StatusCreated, gin.H{"data": holiday})
+			})
+
+			// Get specific holiday
+			holidays.GET("/:id", func(c *gin.Context) {
+				var holiday Holiday
+				result := db.First(&holiday, c.Param("id"))
+				if result.Error != nil {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Holiday not found"})
+					return
+				}
+
+				c.JSON(http.StatusOK, gin.H{"data": holiday})
+			})
+
+			// Update holiday (HR and Admin only)
+			holidays.PATCH("/:id", func(c *gin.Context) {
+				user := c.MustGet("user").(User)
+				if user.Role != "HR" && user.Role != "Admin" && user.Role != "God" {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+					return
+				}
+
+				var holiday Holiday
+				result := db.First(&holiday, c.Param("id"))
+				if result.Error != nil {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Holiday not found"})
+					return
+				}
+
+				var req struct {
+					Name            *string `json:"name"`
+					Date            *string `json:"date"`
+					Type            *string `json:"type"`
+					Description     *string `json:"description"`
+					IsCalendarEvent *bool   `json:"is_calendar_event"`
+					Color           *string `json:"color"`
+				}
+
+				if err := c.ShouldBindJSON(&req); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return
+				}
+
+				// Update fields if provided
+				if req.Name != nil {
+					holiday.Name = *req.Name
+				}
+				if req.Date != nil {
+					holiday.Date = req.Date
+				}
+				if req.Type != nil {
+					holiday.Type = *req.Type
+				}
+				if req.Description != nil {
+					holiday.Description = *req.Description
+				}
+				if req.IsCalendarEvent != nil {
+					holiday.IsCalendarEvent = *req.IsCalendarEvent
+				}
+				if req.Color != nil {
+					holiday.Color = *req.Color
+				}
+
+				if err := db.Save(&holiday).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update holiday"})
+					return
+				}
+
+				c.JSON(http.StatusOK, gin.H{"data": holiday})
+			})
+
+			// Delete holiday (HR and Admin only)
+			holidays.DELETE("/:id", func(c *gin.Context) {
+				user := c.MustGet("user").(User)
+				if user.Role != "HR" && user.Role != "Admin" && user.Role != "God" {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+					return
+				}
+
+				var holiday Holiday
+				result := db.First(&holiday, c.Param("id"))
+				if result.Error != nil {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Holiday not found"})
+					return
+				}
+
+				if err := db.Delete(&holiday).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete holiday"})
+					return
+				}
+
+				c.JSON(http.StatusOK, gin.H{"message": "Holiday deleted successfully"})
 			})
 		}
 	}
