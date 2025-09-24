@@ -7,7 +7,6 @@ import (
 
 	"hr-portal-backend/internal/models"
 
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
@@ -28,11 +27,11 @@ func (r *userRepository) Create(user *models.User) error {
 	if err := r.db.Create(user).Error; err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
-	
+
 	// Invalidate cache
 	r.invalidateCache("users:*")
 	r.invalidateCache(fmt.Sprintf("user:%s", user.ID))
-	
+
 	return nil
 }
 
@@ -41,8 +40,8 @@ func (r *userRepository) GetByID(id string) (*models.User, error) {
 	if r.rdb != nil {
 		cacheKey := r.getCacheKey("user", id)
 		ctx := context.Background()
-		
-		cached, err := r.rdb.Get(ctx, cacheKey).Result()
+
+		_, err := r.rdb.Get(ctx, cacheKey).Result()
 		if err == nil {
 			// TODO: Implement JSON unmarshaling from cache
 			// For now, we'll skip cache and go to database
@@ -135,10 +134,10 @@ func (r *userRepository) Delete(id string) error {
 func (r *userRepository) IsSubordinate(organizationID, managerID, subordinateID string) (bool, error) {
 	var count int64
 	err := r.db.Model(&models.User{}).
-		Where("organization_id = ? AND id = ? AND manager_id = ?", 
+		Where("organization_id = ? AND id = ? AND manager_id = ?",
 			organizationID, subordinateID, managerID).
 		Count(&count).Error
-	
+
 	if err != nil {
 		return false, fmt.Errorf("failed to check subordinate relationship: %w", err)
 	}
@@ -148,7 +147,7 @@ func (r *userRepository) IsSubordinate(organizationID, managerID, subordinateID 
 
 func (r *userRepository) GetSubordinates(organizationID, managerID string) ([]models.User, error) {
 	var subordinates []models.User
-	if err := r.db.Where("organization_id = ? AND manager_id = ?", 
+	if err := r.db.Where("organization_id = ? AND manager_id = ?",
 		organizationID, managerID).Find(&subordinates).Error; err != nil {
 		return nil, fmt.Errorf("failed to get subordinates: %w", err)
 	}

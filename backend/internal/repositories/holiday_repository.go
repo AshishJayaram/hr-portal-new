@@ -1,79 +1,52 @@
 package repositories
 
 import (
-	"time"
+	"fmt"
 
 	"hr-portal-backend/internal/models"
-
-	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
 
-// HolidayRepository interface for holiday operations
-type HolidayRepository interface {
-	Create(holiday *models.Holiday) error
-	GetByID(id string) (*models.Holiday, error)
-	List(organizationID string, filters map[string]interface{}) ([]models.Holiday, error)
-	Update(holiday *models.Holiday) error
-	Delete(id string) error
-	GetUpcoming(organizationID string, limit int) ([]models.Holiday, error)
-}
-
+// holidayRepository implements HolidayRepository interface
 type holidayRepository struct {
 	*BaseRepository
 }
 
-func NewHolidayRepository(db *gorm.DB, rdb *redis.Client) HolidayRepository {
-	return &holidayRepository{
-		BaseRepository: NewBaseRepository(db, rdb),
-	}
-}
-
 func (r *holidayRepository) Create(holiday *models.Holiday) error {
-	holiday.ID = uuid.New()
-	holiday.CreatedAt = time.Now()
-	holiday.UpdatedAt = time.Now()
-	
-	return r.db.Create(holiday).Error
+	if err := r.db.Create(holiday).Error; err != nil {
+		return fmt.Errorf("failed to create holiday: %w", err)
+	}
+	return nil
 }
 
 func (r *holidayRepository) GetByID(id string) (*models.Holiday, error) {
 	var holiday models.Holiday
-	err := r.db.Where("id = ? AND deleted_at IS NULL", id).First(&holiday).Error
-	if err != nil {
-		return nil, err
+	if err := r.db.Where("id = ?", id).First(&holiday).Error; err != nil {
+		return nil, fmt.Errorf("holiday not found: %w", err)
 	}
 	return &holiday, nil
 }
 
 func (r *holidayRepository) List(organizationID string, filters map[string]interface{}) ([]models.Holiday, error) {
 	var holidays []models.Holiday
-	
-	query := r.db.Where("organization_id = ? AND deleted_at IS NULL", organizationID)
+	query := r.db.Where("organization_id = ?", organizationID)
 	query = r.buildQuery(query, filters)
-	
-	err := query.Order("date ASC").Find(&holidays).Error
-	return holidays, err
+
+	if err := query.Find(&holidays).Error; err != nil {
+		return nil, fmt.Errorf("failed to list holidays: %w", err)
+	}
+	return holidays, nil
 }
 
 func (r *holidayRepository) Update(holiday *models.Holiday) error {
-	holiday.UpdatedAt = time.Now()
-	return r.db.Save(holiday).Error
+	if err := r.db.Save(holiday).Error; err != nil {
+		return fmt.Errorf("failed to update holiday: %w", err)
+	}
+	return nil
 }
 
 func (r *holidayRepository) Delete(id string) error {
-	return r.db.Model(&models.Holiday{}).Where("id = ?", id).Update("deleted_at", time.Now()).Error
-}
-
-func (r *holidayRepository) GetUpcoming(organizationID string, limit int) ([]models.Holiday, error) {
-	var holidays []models.Holiday
-	
-	query := r.db.Where("organization_id = ? AND deleted_at IS NULL AND date >= ?", organizationID, time.Now())
-	if limit > 0 {
-		query = query.Limit(limit)
+	if err := r.db.Where("id = ?", id).Delete(&models.Holiday{}).Error; err != nil {
+		return fmt.Errorf("failed to delete holiday: %w", err)
 	}
-	
-	err := query.Order("date ASC").Find(&holidays).Error
-	return holidays, err
+	return nil
 }

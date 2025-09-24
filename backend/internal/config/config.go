@@ -2,8 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -56,16 +54,16 @@ type RedisConfig struct {
 
 // JWTConfig holds JWT-related configuration
 type JWTConfig struct {
-	Secret           string
-	ExpireHours      int
+	Secret             string
+	ExpireHours        int
 	RefreshExpireHours int
 }
 
 // FileUploadConfig holds file upload-related configuration
 type FileUploadConfig struct {
-	UploadPath        string
-	MaxFileSize       int64
-	AllowedFileTypes  []string
+	UploadPath       string
+	MaxFileSize      int64
+	AllowedFileTypes []string
 }
 
 // CORSConfig holds CORS-related configuration
@@ -83,8 +81,8 @@ type LoggingConfig struct {
 
 // RateLimitConfig holds rate limiting configuration
 type RateLimitConfig struct {
-	Enabled             bool
-	RequestsPerMinute   int
+	Enabled           bool
+	RequestsPerMinute int
 }
 
 // MonitoringConfig holds monitoring-related configuration
@@ -95,10 +93,10 @@ type MonitoringConfig struct {
 
 // EmailConfig holds email-related configuration
 type EmailConfig struct {
-	SMTPHost     string
-	SMTPPort     int
-	SMTPUsername string
-	SMTPPassword string
+	SMTPHost      string
+	SMTPPort      int
+	SMTPUsername  string
+	SMTPPassword  string
 	SMTPFromEmail string
 }
 
@@ -170,8 +168,8 @@ func Load() (*Config, error) {
 		},
 		FileUpload: FileUploadConfig{
 			UploadPath:       viper.GetString("UPLOAD_PATH"),
-			MaxFileSize:       viper.GetInt64("MAX_FILE_SIZE"),
-			AllowedFileTypes:  strings.Split(viper.GetString("ALLOWED_FILE_TYPES"), ","),
+			MaxFileSize:      viper.GetInt64("MAX_FILE_SIZE"),
+			AllowedFileTypes: strings.Split(viper.GetString("ALLOWED_FILE_TYPES"), ","),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins: strings.Split(viper.GetString("CORS_ALLOWED_ORIGINS"), ","),
@@ -191,10 +189,10 @@ func Load() (*Config, error) {
 			MetricsPort:    viper.GetInt("METRICS_PORT"),
 		},
 		Email: EmailConfig{
-			SMTPHost:     viper.GetString("SMTP_HOST"),
-			SMTPPort:     viper.GetInt("SMTP_PORT"),
-			SMTPUsername: viper.GetString("SMTP_USERNAME"),
-			SMTPPassword: viper.GetString("SMTP_PASSWORD"),
+			SMTPHost:      viper.GetString("SMTP_HOST"),
+			SMTPPort:      viper.GetInt("SMTP_PORT"),
+			SMTPUsername:  viper.GetString("SMTP_USERNAME"),
+			SMTPPassword:  viper.GetString("SMTP_PASSWORD"),
 			SMTPFromEmail: viper.GetString("SMTP_FROM_EMAIL"),
 		},
 		App: AppConfig{

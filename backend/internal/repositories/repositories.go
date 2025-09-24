@@ -7,36 +7,35 @@ import (
 
 	"hr-portal-backend/internal/models"
 
-	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
 // Repositories holds all repository interfaces
 type Repositories struct {
-	User           UserRepository
-	Organization   OrganizationRepository
-	Leave          LeaveRepository
-	LeaveCategory  LeaveCategoryRepository
+	User            UserRepository
+	Organization    OrganizationRepository
+	Leave           LeaveRepository
+	LeaveCategory   LeaveCategoryRepository
 	LeaveAllocation LeaveAllocationRepository
-	Document       DocumentRepository
-	SalarySlip     SalarySlipRepository
-	Holiday        HolidayRepository
+	Document        DocumentRepository
+	SalarySlip      SalarySlipRepository
+	Holiday         HolidayRepository
 	CompanySettings CompanySettingsRepository
 }
 
 // New creates a new instance of Repositories
 func New(db *gorm.DB, rdb *redis.Client) *Repositories {
 	return &Repositories{
-		User:            NewUserRepository(db, rdb),
-		Organization:   NewOrganizationRepository(db, rdb),
-		Leave:          NewLeaveRepository(db, rdb),
-		LeaveCategory:  NewLeaveCategoryRepository(db, rdb),
-		LeaveAllocation: NewLeaveAllocationRepository(db, rdb),
-		Document:       NewDocumentRepository(db, rdb),
-		SalarySlip:     NewSalarySlipRepository(db, rdb),
-		Holiday:        NewHolidayRepository(db, rdb),
-		CompanySettings: NewCompanySettingsRepository(db, rdb),
+		User:            &userRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		Organization:    &organizationRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		Leave:           &leaveRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		LeaveCategory:   &leaveCategoryRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		LeaveAllocation: &leaveAllocationRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		Document:        &documentRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		SalarySlip:      &salarySlipRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		Holiday:         &holidayRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		CompanySettings: &companySettingsRepository{BaseRepository: NewBaseRepository(db, rdb)},
 	}
 }
 
@@ -131,6 +130,14 @@ type SalarySlipRepository interface {
 	GetByUserID(userID string) ([]models.SalarySlip, error)
 }
 
+// HolidayRepository interface for holiday operations
+type HolidayRepository interface {
+	Create(holiday *models.Holiday) error
+	GetByID(id string) (*models.Holiday, error)
+	List(organizationID string, filters map[string]interface{}) ([]models.Holiday, error)
+	Update(holiday *models.Holiday) error
+	Delete(id string) error
+}
 
 // CompanySettingsRepository interface for company settings operations
 type CompanySettingsRepository interface {
@@ -221,16 +228,16 @@ func (r *BaseRepository) invalidateCache(pattern string) error {
 	if r.rdb == nil {
 		return nil
 	}
-	
+
 	ctx := context.Background()
 	keys, err := r.rdb.Keys(ctx, pattern).Result()
 	if err != nil {
 		return err
 	}
-	
+
 	if len(keys) > 0 {
 		return r.rdb.Del(ctx, keys...).Err()
 	}
-	
+
 	return nil
 }

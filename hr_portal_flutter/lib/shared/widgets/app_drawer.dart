@@ -1,0 +1,357 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/theme/app_theme.dart';
+import '../../core/providers/providers.dart';
+
+class AppDrawer extends ConsumerWidget {
+  const AppDrawer({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider).user;
+    final currentRoute = GoRouterState.of(context).uri.path;
+
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              gradient: LinearGradient(
+                colors: [AppTheme.primaryColor, AppTheme.accentColor],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.white,
+                    child: Text(
+                      user?.name.isNotEmpty == true
+                          ? user!.name[0].toUpperCase()
+                          : 'U',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user?.name ?? 'User',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getRoleColor(user?.role ?? '').withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _getRoleColor(user?.role ?? ''),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          user?.role ?? 'Role',
+                          style: TextStyle(
+                            color: _getRoleColor(user?.role ?? ''),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        user?.department ?? 'Department',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // For God users, only show God Dashboard
+          if (user?.role == 'God') ...[
+            _buildDrawerItem(
+              context,
+              Icons.admin_panel_settings,
+              'God Dashboard',
+              '/god-dashboard',
+              currentRoute,
+            ),
+          ] else ...[
+            // For all other users, show regular menu items
+            _buildDrawerItem(
+              context,
+              Icons.dashboard,
+              'Dashboard',
+              '/dashboard',
+              currentRoute,
+            ),
+            _buildDrawerItem(
+              context,
+              Icons.group,
+              'Team',
+              '/team',
+              currentRoute,
+            ),
+            // Show Employees only for HR, Admin
+            if (_canAccessEmployees(user?.role))
+              _buildDrawerItem(
+                context,
+                Icons.people,
+                'Employees',
+                '/employees',
+                currentRoute,
+              ),
+            // Show User Management only for Admin and God
+            if (user?.role == 'Admin' || user?.role == 'God')
+              _buildDrawerItem(
+                context,
+                Icons.admin_panel_settings,
+                'User Management',
+                '/admin/users',
+                currentRoute,
+              ),
+            _buildLeavesSection(context, currentRoute),
+            _buildDrawerItem(
+              context,
+              Icons.calendar_today,
+              'Holidays',
+              '/holidays',
+              currentRoute,
+            ),
+            _buildDrawerItem(
+              context,
+              Icons.folder,
+              'Documents',
+              '/documents',
+              currentRoute,
+            ),
+            _buildDrawerItem(
+              context,
+              Icons.receipt,
+              'Salary Slips',
+              '/salary-slips',
+              currentRoute,
+            ),
+            _buildDrawerItem(
+              context,
+              Icons.person,
+              'Profile',
+              '/profile',
+              currentRoute,
+            ),
+            _buildDrawerItem(
+              context,
+              Icons.settings,
+              'Settings',
+              '/settings',
+              currentRoute,
+            ),
+          ],
+          const Divider(),
+          _buildDrawerItem(
+            context,
+            Icons.logout,
+            'Logout',
+            '/login', // Navigate to login on logout
+            currentRoute,
+            onTap: () {
+              ref.read(authProvider.notifier).logout();
+              context.go('/login');
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeavesSection(BuildContext context, String currentRoute) {
+    // Empty leave balance data - will be populated from API
+    final leaveBalances = <String, Map<String, int>>{};
+
+    final isSelected = currentRoute == '/leaves';
+    
+    return ExpansionTile(
+      leading: Icon(
+        Icons.event,
+        color: isSelected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurface,
+      ),
+      title: Text(
+        'Leaves',
+        style: TextStyle(
+          color: isSelected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurface,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      children: [
+        // Leave balance summary
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Leave Balance',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.secondaryColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...leaveBalances.entries.map((entry) {
+                final remaining = entry.value['total']! - entry.value['used']!;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        entry.key,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      Text(
+                        '$remaining/${entry.value['total']}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: remaining > 0 ? AppTheme.successColor : AppTheme.errorColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
+        ),
+        // Quick action buttons
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.go('/leaves');
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Apply Leave', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.go('/leaves');
+                  },
+                  icon: const Icon(Icons.history, size: 16),
+                  label: const Text('History', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: BorderSide(color: AppTheme.primaryColor),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDrawerItem(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String route,
+    String currentRoute, {
+    VoidCallback? onTap,
+  }) {
+    final isSelected = currentRoute == route;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurface,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurface,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      onTap: onTap ??
+          () {
+            Navigator.pop(context); // Close the drawer
+            context.go(route);
+          },
+    );
+  }
+
+  bool _canAccessEmployees(String? role) {
+    return role == 'HR' || role == 'Admin';
+  }
+
+  Color _getRoleColor(String role) {
+    switch (role.toLowerCase()) {
+      case 'god':
+        return Colors.purple;
+      case 'admin':
+      case 'hr':
+        return AppTheme.primaryColor;
+      case 'manager':
+        return AppTheme.successColor;
+      case 'employee':
+        return AppTheme.secondaryColor;
+      default:
+        return AppTheme.secondaryColor;
+    }
+  }
+}

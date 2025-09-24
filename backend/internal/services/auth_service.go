@@ -7,8 +7,6 @@ import (
 	"hr-portal-backend/internal/config"
 	"hr-portal-backend/internal/repositories"
 	"hr-portal-backend/internal/utils"
-
-	"github.com/google/uuid"
 )
 
 // authService implements AuthService interface
@@ -29,7 +27,7 @@ func NewAuthService(userRepo repositories.UserRepository, organizationRepo repos
 
 func (s *authService) Login(req LoginRequest) (*LoginResponse, error) {
 	// Validate organization exists
-	org, err := s.organizationRepo.GetByID(req.OrganizationID)
+	_, err := s.organizationRepo.GetByID(req.OrganizationID)
 	if err != nil {
 		return nil, fmt.Errorf("organization not found: %w", err)
 	}

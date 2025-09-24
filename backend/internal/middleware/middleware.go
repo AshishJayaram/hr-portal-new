@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -226,7 +225,7 @@ func ManagerOrSelfRequired(userService *services.UserService) gin.HandlerFunc {
 			}
 
 			// Check if target user is a subordinate
-			isSubordinate, err := userService.IsSubordinate(orgID.(string), userID.(string), targetUserID)
+			isSubordinate, err := (*userService).IsSubordinate(orgID.(string), userID.(string), targetUserID)
 			if err != nil {
 				logrus.Errorf("Error checking subordinate relationship: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{

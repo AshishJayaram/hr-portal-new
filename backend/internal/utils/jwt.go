@@ -63,7 +63,7 @@ func ValidateToken(tokenString, secret string) (*JWTClaims, error) {
 		return claims, nil
 	}
 
-	return nil, jwt.ErrTokenInvalid
+	return nil, jwt.ErrTokenMalformed
 }
 
 // IsTokenExpired checks if a token is expired

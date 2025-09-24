@@ -1,0 +1,60 @@
+package repositories
+
+import (
+	"fmt"
+
+	"hr-portal-backend/internal/models"
+)
+
+// documentRepository implements DocumentRepository interface
+type documentRepository struct {
+	*BaseRepository
+}
+
+func (r *documentRepository) Create(document *models.Document) error {
+	if err := r.db.Create(document).Error; err != nil {
+		return fmt.Errorf("failed to create document: %w", err)
+	}
+	return nil
+}
+
+func (r *documentRepository) GetByID(id string) (*models.Document, error) {
+	var document models.Document
+	if err := r.db.Preload("User").Where("id = ?", id).First(&document).Error; err != nil {
+		return nil, fmt.Errorf("document not found: %w", err)
+	}
+	return &document, nil
+}
+
+func (r *documentRepository) List(organizationID string, filters map[string]interface{}) ([]models.Document, error) {
+	var documents []models.Document
+	query := r.db.Preload("User").Where("organization_id = ?", organizationID)
+	query = r.buildQuery(query, filters)
+
+	if err := query.Find(&documents).Error; err != nil {
+		return nil, fmt.Errorf("failed to list documents: %w", err)
+	}
+	return documents, nil
+}
+
+func (r *documentRepository) Update(document *models.Document) error {
+	if err := r.db.Save(document).Error; err != nil {
+		return fmt.Errorf("failed to update document: %w", err)
+	}
+	return nil
+}
+
+func (r *documentRepository) Delete(id string) error {
+	if err := r.db.Where("id = ?", id).Delete(&models.Document{}).Error; err != nil {
+		return fmt.Errorf("failed to delete document: %w", err)
+	}
+	return nil
+}
+
+func (r *documentRepository) GetByUserID(userID string) ([]models.Document, error) {
+	var documents []models.Document
+	if err := r.db.Preload("User").Where("user_id = ?", userID).Find(&documents).Error; err != nil {
+		return nil, fmt.Errorf("failed to get user documents: %w", err)
+	}
+	return documents, nil
+}

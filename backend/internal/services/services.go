@@ -1,29 +1,26 @@
 package services
 
 import (
-	"fmt"
 	"time"
 
 	"hr-portal-backend/internal/config"
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
 	"hr-portal-backend/internal/utils"
-
-	"github.com/google/uuid"
 )
 
 // Services holds all service interfaces
 type Services struct {
-	User           UserService
-	Auth           AuthService
-	Leave          LeaveService
-	LeaveCategory  LeaveCategoryService
+	User            UserService
+	Auth            AuthService
+	Leave           LeaveService
+	LeaveCategory   LeaveCategoryService
 	LeaveAllocation LeaveAllocationService
-	Document       DocumentService
-	SalarySlip     SalarySlipService
-	Holiday        HolidayService
+	Document        DocumentService
+	SalarySlip      SalarySlipService
+	Holiday         HolidayService
 	CompanySettings CompanySettingsService
-	Dashboard      DashboardService
+	Dashboard       DashboardService
 }
 
 // New creates a new instance of Services
@@ -111,16 +108,6 @@ type SalarySlipService interface {
 	GetUserSalarySlips(userID string) ([]models.SalarySlip, error)
 }
 
-// HolidayService interface for holiday business logic
-type HolidayService interface {
-	CreateHoliday(req CreateHolidayRequest) (*models.Holiday, error)
-	GetHoliday(id string) (*models.Holiday, error)
-	ListHolidays(organizationID string, filters map[string]interface{}) ([]models.Holiday, error)
-	UpdateHoliday(id string, req UpdateHolidayRequest) (*models.Holiday, error)
-	DeleteHoliday(id string) error
-	GetUpcomingHolidays(organizationID string, limit int) ([]models.Holiday, error)
-}
-
 // CompanySettingsService interface for company settings business logic
 type CompanySettingsService interface {
 	GetSettings(organizationID string) (*models.CompanySettings, error)
@@ -136,15 +123,16 @@ type DashboardService interface {
 // Request/Response DTOs
 
 type CreateUserRequest struct {
-	Username    string `json:"username" validate:"required,min=3,max=50"`
-	Email       string `json:"email" validate:"required,email"`
-	Password    string `json:"password" validate:"required,min=8"`
-	Name        string `json:"name" validate:"required,min=2,max=100"`
-	Designation string `json:"designation"`
-	Department  string `json:"department" validate:"required"`
-	Role        string `json:"role" validate:"required,oneof=Employee Manager HR Admin"`
-	ManagerID   string `json:"manager_id"`
-	CTC         float64 `json:"ctc"`
+	OrganizationID string  `json:"organization_id" validate:"required"`
+	Username       string  `json:"username" validate:"required,min=3,max=50"`
+	Email          string  `json:"email" validate:"required,email"`
+	Password       string  `json:"password" validate:"required,min=8"`
+	Name           string  `json:"name" validate:"required,min=2,max=100"`
+	Designation    string  `json:"designation"`
+	Department     string  `json:"department" validate:"required"`
+	Role           string  `json:"role" validate:"required,oneof=Employee Manager HR Admin"`
+	ManagerID      string  `json:"manager_id"`
+	CTC            float64 `json:"ctc"`
 }
 
 type UpdateUserRequest struct {
@@ -166,10 +154,10 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token        string      `json:"token"`
-	RefreshToken string      `json:"refresh_token"`
+	Token        string       `json:"token"`
+	RefreshToken string       `json:"refresh_token"`
 	User         *models.User `json:"user"`
-	ExpiresAt    time.Time   `json:"expires_at"`
+	ExpiresAt    time.Time    `json:"expires_at"`
 }
 
 type ApplyLeaveRequest struct {
@@ -188,12 +176,12 @@ type UpdateLeaveRequest struct {
 }
 
 type LeaveBalanceResponse struct {
-	CategoryID     string `json:"category_id"`
-	CategoryName   string `json:"category_name"`
-	TotalDays      int    `json:"total_days"`
-	UsedDays       int    `json:"used_days"`
-	RemainingDays  int    `json:"remaining_days"`
-	Year           int    `json:"year"`
+	CategoryID    string `json:"category_id"`
+	CategoryName  string `json:"category_name"`
+	TotalDays     int    `json:"total_days"`
+	UsedDays      int    `json:"used_days"`
+	RemainingDays int    `json:"remaining_days"`
+	Year          int    `json:"year"`
 }
 
 type CreateLeaveCategoryRequest struct {
@@ -265,12 +253,12 @@ type UpdateCompanySettingsRequest struct {
 }
 
 type DashboardStatsResponse struct {
-	TotalUsers        int64                    `json:"total_users"`
-	TotalLeaves       int64                    `json:"total_leaves"`
-	PendingLeaves     int64                    `json:"pending_leaves"`
-	TotalDocuments    int64                    `json:"total_documents"`
-	UpcomingHolidays  []models.Holiday         `json:"upcoming_holidays"`
-	RecentLeaves      []models.Leave           `json:"recent_leaves"`
-	RecentDocuments   []models.Document        `json:"recent_documents"`
-	LeaveBalances     []LeaveBalanceResponse   `json:"leave_balances"`
+	TotalUsers       int64                  `json:"total_users"`
+	TotalLeaves      int64                  `json:"total_leaves"`
+	PendingLeaves    int64                  `json:"pending_leaves"`
+	TotalDocuments   int64                  `json:"total_documents"`
+	UpcomingHolidays []models.Holiday       `json:"upcoming_holidays"`
+	RecentLeaves     []models.Leave         `json:"recent_leaves"`
+	RecentDocuments  []models.Document      `json:"recent_documents"`
+	LeaveBalances    []LeaveBalanceResponse `json:"leave_balances"`
 }

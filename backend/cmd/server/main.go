@@ -24,9 +24,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"github.com/swaggo/gin-swagger"
 	swaggerFiles "github.com/swaggo/files"
-	"gorm.io/gorm"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // @title HR Portal API

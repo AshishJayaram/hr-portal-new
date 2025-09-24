@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"time"
 
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
@@ -27,7 +26,7 @@ func NewUserService(userRepo repositories.UserRepository, organizationRepo repos
 
 func (s *userService) CreateUser(req CreateUserRequest) (*models.User, error) {
 	// Validate organization exists
-	org, err := s.organizationRepo.GetByID(req.OrganizationID)
+	_, err := s.organizationRepo.GetByID(req.OrganizationID)
 	if err != nil {
 		return nil, fmt.Errorf("organization not found: %w", err)
 	}

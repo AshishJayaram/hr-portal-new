@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HR Portal Icon Generator</title>
+</head>
+<body>
+    <canvas id="canvas" width="1024" height="1024" style="border: 1px solid #ccc;"></canvas>
+    <br>
+    <button onclick="downloadIcon()">Download Icon</button>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Create gradient background
+        const gradient = ctx.createLinearGradient(0, 1024, 1024, 0);
+        gradient.addColorStop(0, '#1E3A8A'); // Deep blue
+        gradient.addColorStop(1, '#10B981'); // Vibrant green
+        
+        // Draw background with rounded corners
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 1024, 1024);
+        
+        // Draw white circular outline
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 82;
+        ctx.beginPath();
+        ctx.arc(512, 512, 358, 0, 2 * Math.PI);
+        ctx.stroke();
+        
+        // Draw bar chart
+        ctx.fillStyle = '#14B8A6'; // Teal color
+        const barWidth = 82;
+        const barSpacing = 92;
+        const barStartX = 420;
+        const barBottomY = 774;
+        
+        // First bar (shortest)
+        ctx.fillRect(barStartX, barBottomY - 154, barWidth, 154);
+        
+        // Second bar (medium)
+        ctx.fillRect(barStartX + barSpacing, barBottomY - 194, barWidth, 194);
+        
+        // Third bar (tallest)
+        ctx.fillRect(barStartX + barSpacing * 2, barBottomY - 234, barWidth, 234);
+        
+        // Draw person icon
+        // Person head (circle)
+        ctx.beginPath();
+        ctx.arc(645, 480, 82, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Person body (rectangle)
+        ctx.fillRect(563, 562, 164, 123);
+        
+        function downloadIcon() {
+            const link = document.createElement('a');
+            link.download = 'hr_portal_icon.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+    </script>
+</body>
+</html>
