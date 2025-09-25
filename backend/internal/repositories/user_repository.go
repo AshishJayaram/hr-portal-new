@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"hr-portal-backend/internal/models"
@@ -84,13 +85,20 @@ func (r *userRepository) GetByEmail(email, organizationID string) (*models.User,
 
 func (r *userRepository) GetByUsername(username, organizationID string) (*models.User, error) {
 	var user models.User
-	if err := r.db.Where("username = ? AND organization_id = ?", username, organizationID).
+	// Convert string to uint for organization ID
+	orgID, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	if err := r.db.Where("username = ? AND organization_id = ?", username, uint(orgID)).
 		First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, fmt.Errorf("failed to get user by username: %w", err)
 	}
+
 	return &user, nil
 }
 
@@ -153,6 +161,18 @@ func (r *userRepository) GetSubordinates(organizationID, managerID string) ([]mo
 	}
 
 	return subordinates, nil
+}
+
+// Count returns the total number of users
+func (r *userRepository) Count(count *int64) error {
+	return r.db.Model(&models.User{}).Count(count).Error
+}
+
+// ListAll returns all users across all organizations (for God users)
+func (r *userRepository) ListAll() ([]models.User, error) {
+	var users []models.User
+	err := r.db.Preload("Organization").Find(&users).Error
+	return users, err
 }
 
 func (r *userRepository) UpdateLastLogin(id string) error {

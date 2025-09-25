@@ -2,35 +2,28 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json();
+    const body = await request.json();
     
-    // Mock authentication logic
-    if (username === 'admin' && password === 'password') {
-      const mockUser = {
-        id: '1',
-        email: 'admin@example.com',
-        name: 'Admin User',
-        role: 'admin',
-        department: 'IT',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      const mockToken = 'mock-jwt-token-' + Date.now();
-      
-      return NextResponse.json({
-        data: {
-          user: mockUser,
-          token: mockToken,
-        },
-        message: 'Login successful',
-      });
+    // Forward the request to the backend API
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const response = await fetch(`${backendUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: { message: data.error || 'Login failed' } },
+        { status: response.status }
+      );
     }
     
-    return NextResponse.json(
-      { error: { message: 'Invalid credentials' } },
-      { status: 401 }
-    );
+    return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
       { error: { message: 'Internal server error' } },

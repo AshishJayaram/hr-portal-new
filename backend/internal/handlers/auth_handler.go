@@ -127,3 +127,27 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+// GetCurrentUser returns the current user's information
+func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+		})
+		return
+	}
+
+	user, err := h.authService.GetUserByID(userID.(string))
+	if err != nil {
+		logrus.WithError(err).Error("Failed to get user")
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "User not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user": user,
+	})
+}

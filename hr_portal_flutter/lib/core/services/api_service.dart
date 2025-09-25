@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -65,8 +66,8 @@ class ApiService {
   // Authentication methods
   Future<Map<String, dynamic>?> login(String username, String password) async {
     try {
-      // Use the default organization ID from seed data
-      const defaultOrganizationId = '550e8400-e29b-41d4-a716-446655440000';
+      // Use the correct organization ID for the God user
+      const defaultOrganizationId = '3';
       
       final response = await _dio.post('/auth/login', data: {
         'username': username,
@@ -130,11 +131,40 @@ class ApiService {
     return null;
   }
 
+  // Helper method to get current user info
+  Future<Map<String, dynamic>?> _getCurrentUser() async {
+    try {
+      final token = await _storage.read(key: _tokenKey);
+      if (token == null) return null;
+      
+      // Decode JWT token to get user info
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      
+      final payload = parts[1];
+      final normalized = base64Url.normalize(payload);
+      final resp = utf8.decode(base64Url.decode(normalized));
+      final payloadMap = json.decode(resp);
+      
+      return payloadMap;
+    } catch (e) {
+      print('Get current user error: $e');
+      return null;
+    }
+  }
+
   // User management methods
   Future<List<Map<String, dynamic>>> getUsers() async {
     try {
-      final response = await _dio.get('/users');
-      return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
+      // Check if user is God role to use platform-wide endpoint
+      final authState = await _getCurrentUser();
+      if (authState?['role'] == 'God') {
+        final response = await _dio.get('/god/users');
+        return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
+      } else {
+        final response = await _dio.get('/users');
+        return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
+      }
     } catch (e) {
       print('Get users error: $e');
       return [];
@@ -153,8 +183,15 @@ class ApiService {
 
   Future<Map<String, dynamic>?> createUser(Map<String, dynamic> userData) async {
     try {
-      final response = await _dio.post('/users', data: userData);
-      return response.data;
+      // Check if user is God role to use platform-wide endpoint
+      final authState = await _getCurrentUser();
+      if (authState?['role'] == 'God') {
+        final response = await _dio.post('/god/users', data: userData);
+        return response.data;
+      } else {
+        final response = await _dio.post('/users', data: userData);
+        return response.data;
+      }
     } catch (e) {
       print('Create user error: $e');
       rethrow;
@@ -163,8 +200,15 @@ class ApiService {
 
   Future<Map<String, dynamic>?> updateUser(String userId, Map<String, dynamic> userData) async {
     try {
-      final response = await _dio.put('/users/$userId', data: userData);
-      return response.data;
+      // Check if user is God role to use platform-wide endpoint
+      final authState = await _getCurrentUser();
+      if (authState?['role'] == 'God') {
+        final response = await _dio.patch('/god/users/$userId', data: userData);
+        return response.data;
+      } else {
+        final response = await _dio.put('/users/$userId', data: userData);
+        return response.data;
+      }
     } catch (e) {
       print('Update user error: $e');
       rethrow;
@@ -173,7 +217,13 @@ class ApiService {
 
   Future<bool> deleteUser(String userId) async {
     try {
-      await _dio.delete('/users/$userId');
+      // Check if user is God role to use platform-wide endpoint
+      final authState = await _getCurrentUser();
+      if (authState?['role'] == 'God') {
+        await _dio.delete('/god/users/$userId');
+      } else {
+        await _dio.delete('/users/$userId');
+      }
       return true;
     } catch (e) {
       print('Delete user error: $e');
@@ -184,8 +234,15 @@ class ApiService {
   // Organization methods
   Future<List<Map<String, dynamic>>> getOrganizations() async {
     try {
-      final response = await _dio.get('/organizations');
-      return List<Map<String, dynamic>>.from(response.data['organizations'] ?? []);
+      // Check if user is God role to use platform-wide endpoint
+      final authState = await _getCurrentUser();
+      if (authState?['role'] == 'God') {
+        final response = await _dio.get('/god/organizations');
+        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+      } else {
+        final response = await _dio.get('/organizations');
+        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+      }
     } catch (e) {
       print('Get organizations error: $e');
       return [];
@@ -194,11 +251,52 @@ class ApiService {
 
   Future<Map<String, dynamic>?> createOrganization(Map<String, dynamic> orgData) async {
     try {
-      final response = await _dio.post('/organizations', data: orgData);
-      return response.data;
+      // Check if user is God role to use platform-wide endpoint
+      final authState = await _getCurrentUser();
+      if (authState?['role'] == 'God') {
+        final response = await _dio.post('/god/organizations', data: orgData);
+        return response.data;
+      } else {
+        final response = await _dio.post('/organizations', data: orgData);
+        return response.data;
+      }
     } catch (e) {
       print('Create organization error: $e');
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateOrganization(String orgId, Map<String, dynamic> orgData) async {
+    try {
+      // Check if user is God role to use platform-wide endpoint
+      final authState = await _getCurrentUser();
+      if (authState?['role'] == 'God') {
+        final response = await _dio.patch('/god/organizations/$orgId', data: orgData);
+        return response.data;
+      } else {
+        final response = await _dio.patch('/organizations/$orgId', data: orgData);
+        return response.data;
+      }
+    } catch (e) {
+      print('Update organization error: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteOrganization(String orgId) async {
+    try {
+      // Check if user is God role to use platform-wide endpoint
+      final authState = await _getCurrentUser();
+      if (authState?['role'] == 'God') {
+        await _dio.delete('/god/organizations/$orgId');
+        return true;
+      } else {
+        await _dio.delete('/organizations/$orgId');
+        return true;
+      }
+    } catch (e) {
+      print('Delete organization error: $e');
+      return false;
     }
   }
 

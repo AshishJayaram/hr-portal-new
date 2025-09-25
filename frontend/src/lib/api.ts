@@ -275,7 +275,7 @@ const mockStats = (): DashboardStats => ({
 export const login = (username: string, password: string) =>
   fetcher<ApiResponse<{ user: User; token: string; organizationId: string }>>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, organization_id: "3" }),
   });
 
 export const logout = () =>

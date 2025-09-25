@@ -36,11 +36,10 @@ export default function SignInPage() {
     setError("");
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const res = await fetch(`${baseUrl}/api/auth/login`, {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, organization_id: "3" }),
       });
 
       const data = await res.json();

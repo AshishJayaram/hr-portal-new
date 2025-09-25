@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/providers.dart';
-import '../../core/services/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_drawer.dart';
 
@@ -67,6 +66,10 @@ class _OrganizationManagementScreenState extends ConsumerState<OrganizationManag
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
         title: const Text('Organization Management'),
         actions: [
           IconButton(
@@ -167,6 +170,9 @@ class _OrganizationManagementScreenState extends ConsumerState<OrganizationManag
               case 'edit':
                 _showEditOrganizationDialog(org);
                 break;
+              case 'delete':
+                _showDeleteConfirmation(org);
+                break;
             }
           },
           itemBuilder: (context) => [
@@ -190,6 +196,16 @@ class _OrganizationManagementScreenState extends ConsumerState<OrganizationManag
                 ],
               ),
             ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Delete', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -200,17 +216,53 @@ class _OrganizationManagementScreenState extends ConsumerState<OrganizationManag
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Organization Details - ${org['name']}'),
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: AppTheme.primaryColor.withOpacity(0.2),
+              child: Text(
+                org['name'].toString().isNotEmpty 
+                    ? org['name'][0].toUpperCase() 
+                    : 'O',
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Organization Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildDetailRow('Name', org['name']),
-              _buildDetailRow('Domain', org['domain']),
-              _buildDetailRow('Status', org['is_active'] ? 'Active' : 'Inactive'),
-              _buildDetailRow('Created', org['created_at'] ?? 'Unknown'),
-              _buildDetailRow('Settings', org['settings'] ?? 'No custom settings'),
+              _buildDetailCard('Basic Information', [
+                _buildDetailRow('Name', org['name'] ?? 'Not set'),
+                _buildDetailRow('Domain', org['domain'] ?? 'Not set'),
+                _buildDetailRow('Status', org['is_active'] ? 'Active' : 'Inactive'),
+              ]),
+              const SizedBox(height: 16),
+              _buildDetailCard('Timestamps', [
+                _buildDetailRow('Created', _formatDate(org['created_at'])),
+                _buildDetailRow('Last Updated', _formatDate(org['updated_at'])),
+              ]),
+              if (org['settings'] != null && org['settings'].toString().isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _buildDetailCard('Settings', [
+                  _buildDetailRow('Configuration', org['settings']),
+                ]),
+              ],
             ],
           ),
         ),
@@ -219,16 +271,58 @@ class _OrganizationManagementScreenState extends ConsumerState<OrganizationManag
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(context);
               _showEditOrganizationDialog(org);
             },
-            child: const Text('Edit'),
+            icon: const Icon(Icons.edit),
+            label: const Text('Edit'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildDetailCard(String title, List<Widget> children) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return 'Unknown';
+    try {
+      final dateTime = DateTime.tryParse(date.toString());
+      if (dateTime != null) {
+        return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
+    return date.toString();
   }
 
   Widget _buildDetailRow(String label, String value) {
@@ -355,14 +449,7 @@ class _OrganizationManagementScreenState extends ConsumerState<OrganizationManag
                     };
 
                     if (isEditing) {
-                      // Note: Update organization endpoint might not exist in backend
-                      // This would need to be implemented in the backend
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Organization update not implemented yet'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
+                      await apiService.updateOrganization(organization!['id'].toString(), orgData);
                     } else {
                       await apiService.createOrganization(orgData);
                     }
@@ -392,5 +479,65 @@ class _OrganizationManagementScreenState extends ConsumerState<OrganizationManag
         ),
       ),
     );
+  }
+
+  void _showDeleteConfirmation(Map<String, dynamic> org) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Organization'),
+        content: Text(
+          'Are you sure you want to delete "${org['name']}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteOrganization(org);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteOrganization(Map<String, dynamic> org) async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final success = await apiService.deleteOrganization(org['id'].toString());
+      
+      if (success) {
+        _loadData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Organization "${org['name']}" deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete organization'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error deleting organization: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

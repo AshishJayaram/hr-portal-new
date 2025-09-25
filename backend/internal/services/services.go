@@ -21,6 +21,7 @@ type Services struct {
 	Holiday         HolidayService
 	CompanySettings CompanySettingsService
 	Dashboard       DashboardService
+	Organization    OrganizationService
 }
 
 // New creates a new instance of Services
@@ -36,6 +37,7 @@ func New(repos *repositories.Repositories, cfg *config.Config) *Services {
 		Holiday:         NewHolidayService(repos.Holiday),
 		CompanySettings: NewCompanySettingsService(repos.CompanySettings),
 		Dashboard:       NewDashboardService(repos),
+		Organization:    NewOrganizationService(repos.Organization),
 	}
 }
 
@@ -49,6 +51,8 @@ type UserService interface {
 	ChangePassword(userID, currentPassword, newPassword string) error
 	IsSubordinate(organizationID, managerID, subordinateID string) (bool, error)
 	GetSubordinates(organizationID, managerID string) ([]models.User, error)
+	Count(count *int64) error
+	ListAll() ([]models.User, error)
 }
 
 // AuthService interface for authentication business logic
@@ -57,6 +61,20 @@ type AuthService interface {
 	Logout(userID string) error
 	RefreshToken(refreshToken string) (*LoginResponse, error)
 	ValidateToken(token string) (*utils.JWTClaims, error)
+	GetUserByID(userID string) (*models.User, error)
+}
+
+// OrganizationService interface for organization business logic
+type OrganizationService interface {
+	Create(org *models.Organization) error
+	GetByID(id string) (*models.Organization, error)
+	GetByDomain(domain string) (*models.Organization, error)
+	List() ([]models.Organization, error)
+	Update(org *models.Organization) error
+	Delete(id string) error
+	Count(count *int64) error
+	CountActive(count *int64) error
+	ListAll() ([]models.Organization, error)
 }
 
 // LeaveService interface for leave business logic

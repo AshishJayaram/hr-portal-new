@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/providers.dart';
-import '../../core/services/api_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_drawer.dart';
 
@@ -77,6 +76,10 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
         title: const Text('User Management'),
         actions: [
           IconButton(
@@ -452,7 +455,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                       prefixIcon: Icon(Icons.work),
                     ),
                     items: ['Employee', 'Manager', 'HR', 'Admin'].map((role) {
-                      return DropdownMenuItem(
+                      return DropdownMenuItem<String>(
                         value: role,
                         child: Text(role),
                       );

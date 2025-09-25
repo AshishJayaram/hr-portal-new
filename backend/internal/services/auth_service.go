@@ -2,9 +2,11 @@ package services
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"hr-portal-backend/internal/config"
+	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
 	"hr-portal-backend/internal/utils"
 )
@@ -50,8 +52,8 @@ func (s *authService) Login(req LoginRequest) (*LoginResponse, error) {
 
 	// Generate JWT token
 	token, err := utils.GenerateToken(
-		user.ID.String(),
-		user.OrganizationID.String(),
+		strconv.FormatUint(uint64(user.ID), 10),
+		strconv.FormatUint(uint64(user.OrganizationID), 10),
 		user.Role,
 		user.Username,
 		s.jwtConfig.Secret,
@@ -63,7 +65,7 @@ func (s *authService) Login(req LoginRequest) (*LoginResponse, error) {
 
 	// Generate refresh token
 	refreshToken, err := utils.GenerateRefreshToken(
-		user.ID.String(),
+		strconv.FormatUint(uint64(user.ID), 10),
 		s.jwtConfig.Secret,
 		s.jwtConfig.RefreshExpireHours,
 	)
@@ -72,7 +74,7 @@ func (s *authService) Login(req LoginRequest) (*LoginResponse, error) {
 	}
 
 	// Update last login
-	if err := s.userRepo.UpdateLastLogin(user.ID.String()); err != nil {
+	if err := s.userRepo.UpdateLastLogin(strconv.FormatUint(uint64(user.ID), 10)); err != nil {
 		// Log error but don't fail login
 		fmt.Printf("Failed to update last login: %v\n", err)
 	}
@@ -117,8 +119,8 @@ func (s *authService) RefreshToken(refreshToken string) (*LoginResponse, error) 
 
 	// Generate new JWT token
 	token, err := utils.GenerateToken(
-		user.ID.String(),
-		user.OrganizationID.String(),
+		strconv.FormatUint(uint64(user.ID), 10),
+		strconv.FormatUint(uint64(user.OrganizationID), 10),
 		user.Role,
 		user.Username,
 		s.jwtConfig.Secret,
@@ -130,7 +132,7 @@ func (s *authService) RefreshToken(refreshToken string) (*LoginResponse, error) 
 
 	// Generate new refresh token
 	newRefreshToken, err := utils.GenerateRefreshToken(
-		user.ID.String(),
+		strconv.FormatUint(uint64(user.ID), 10),
 		s.jwtConfig.Secret,
 		s.jwtConfig.RefreshExpireHours,
 	)
@@ -151,4 +153,8 @@ func (s *authService) RefreshToken(refreshToken string) (*LoginResponse, error) 
 
 func (s *authService) ValidateToken(token string) (*utils.JWTClaims, error) {
 	return utils.ValidateToken(token, s.jwtConfig.Secret)
+}
+
+func (s *authService) GetUserByID(userID string) (*models.User, error) {
+	return s.userRepo.GetByID(userID)
 }

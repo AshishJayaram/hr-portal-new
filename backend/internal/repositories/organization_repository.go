@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"fmt"
+	"strconv"
 
 	"hr-portal-backend/internal/models"
 )
@@ -20,7 +21,13 @@ func (r *organizationRepository) Create(org *models.Organization) error {
 
 func (r *organizationRepository) GetByID(id string) (*models.Organization, error) {
 	var org models.Organization
-	if err := r.db.Where("id = ?", id).First(&org).Error; err != nil {
+	// Convert string to uint for organization ID
+	orgID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	if err := r.db.Where("id = ?", uint(orgID)).First(&org).Error; err != nil {
 		return nil, fmt.Errorf("organization not found: %w", err)
 	}
 	return &org, nil
@@ -54,4 +61,21 @@ func (r *organizationRepository) Delete(id string) error {
 		return fmt.Errorf("failed to delete organization: %w", err)
 	}
 	return nil
+}
+
+// Count returns the total number of organizations
+func (r *organizationRepository) Count(count *int64) error {
+	return r.db.Model(&models.Organization{}).Count(count).Error
+}
+
+// CountActive returns the number of active organizations
+func (r *organizationRepository) CountActive(count *int64) error {
+	return r.db.Model(&models.Organization{}).Where("is_active = ?", true).Count(count).Error
+}
+
+// ListAll returns all organizations (for God users)
+func (r *organizationRepository) ListAll() ([]models.Organization, error) {
+	var orgs []models.Organization
+	err := r.db.Find(&orgs).Error
+	return orgs, err
 }

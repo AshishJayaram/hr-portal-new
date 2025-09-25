@@ -2,12 +2,11 @@ package services
 
 import (
 	"fmt"
+	"strconv"
 
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
 	"hr-portal-backend/internal/utils"
-
-	"github.com/google/uuid"
 )
 
 // userService implements UserService interface
@@ -49,19 +48,26 @@ func (s *userService) CreateUser(req CreateUserRequest) (*models.User, error) {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
+	// Parse organization ID
+	orgID, err := strconv.ParseUint(req.OrganizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
 	// Parse manager ID if provided
-	var managerID *uuid.UUID
+	var managerID *uint
 	if req.ManagerID != "" {
-		managerUUID, err := uuid.Parse(req.ManagerID)
+		managerIDUint, err := strconv.ParseUint(req.ManagerID, 10, 32)
 		if err != nil {
 			return nil, fmt.Errorf("invalid manager ID: %w", err)
 		}
-		managerID = &managerUUID
+		managerIDUintPtr := uint(managerIDUint)
+		managerID = &managerIDUintPtr
 	}
 
 	// Create user
 	user := &models.User{
-		OrganizationID: uuid.MustParse(req.OrganizationID),
+		OrganizationID: uint(orgID),
 		Username:       req.Username,
 		Email:          req.Email,
 		PasswordHash:   hashedPassword,
@@ -107,7 +113,7 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest) (*models.User
 	// Update fields if provided
 	if req.Username != nil {
 		// Check if username already exists
-		existingUser, _ := s.userRepo.GetByUsername(*req.Username, user.OrganizationID.String())
+		existingUser, _ := s.userRepo.GetByUsername(*req.Username, strconv.FormatUint(uint64(user.OrganizationID), 10))
 		if existingUser != nil && existingUser.ID != user.ID {
 			return nil, fmt.Errorf("username already exists")
 		}
@@ -116,7 +122,7 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest) (*models.User
 
 	if req.Email != nil {
 		// Check if email already exists
-		existingUser, _ := s.userRepo.GetByEmail(*req.Email, user.OrganizationID.String())
+		existingUser, _ := s.userRepo.GetByEmail(*req.Email, strconv.FormatUint(uint64(user.OrganizationID), 10))
 		if existingUser != nil && existingUser.ID != user.ID {
 			return nil, fmt.Errorf("email already exists")
 		}
@@ -143,11 +149,12 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest) (*models.User
 		if *req.ManagerID == "" {
 			user.ManagerID = nil
 		} else {
-			managerUUID, err := uuid.Parse(*req.ManagerID)
+			managerIDUint, err := strconv.ParseUint(*req.ManagerID, 10, 32)
 			if err != nil {
 				return nil, fmt.Errorf("invalid manager ID: %w", err)
 			}
-			user.ManagerID = &managerUUID
+			managerIDUintPtr := uint(managerIDUint)
+			user.ManagerID = &managerIDUintPtr
 		}
 	}
 
@@ -212,4 +219,12 @@ func (s *userService) IsSubordinate(organizationID, managerID, subordinateID str
 
 func (s *userService) GetSubordinates(organizationID, managerID string) ([]models.User, error) {
 	return s.userRepo.GetSubordinates(organizationID, managerID)
+}
+
+func (s *userService) Count(count *int64) error {
+	return s.userRepo.Count(count)
+}
+
+func (s *userService) ListAll() ([]models.User, error) {
+	return s.userRepo.ListAll()
 }

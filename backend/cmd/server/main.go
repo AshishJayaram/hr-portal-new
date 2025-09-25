@@ -22,7 +22,6 @@ import (
 	"github.com/gin-contrib/timeout"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -69,22 +68,22 @@ func main() {
 		logrus.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	// Initialize Redis
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-		PoolSize: cfg.Redis.PoolSize,
-	})
+	// Initialize Redis (disabled for now)
+	// rdb := redis.NewClient(&redis.Options{
+	// 	Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+	// 	Password: cfg.Redis.Password,
+	// 	DB:       cfg.Redis.DB,
+	// 	PoolSize: cfg.Redis.PoolSize,
+	// })
 
 	// Test Redis connection
-	ctx := context.Background()
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		logrus.Fatalf("Failed to connect to Redis: %v", err)
-	}
+	// ctx := context.Background()
+	// if err := rdb.Ping(ctx).Err(); err != nil {
+	// 	logrus.Fatalf("Failed to connect to Redis: %v", err)
+	// }
 
-	// Initialize repositories
-	repos := repositories.New(db, rdb)
+	// Initialize repositories (without Redis for now)
+	repos := repositories.New(db, nil)
 
 	// Initialize services
 	services := services.New(repos, cfg)
@@ -176,6 +175,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			auth.POST("/login", handlers.Auth.Login)
 			auth.POST("/logout", middleware.AuthRequired(cfg.JWT.Secret), handlers.Auth.Logout)
 			auth.POST("/refresh", handlers.Auth.RefreshToken)
+			auth.GET("/me", middleware.AuthRequired(cfg.JWT.Secret), handlers.Auth.GetCurrentUser)
 		}
 
 		// User routes
@@ -284,6 +284,28 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		dashboard.Use(middleware.OrganizationRequired())
 		{
 			dashboard.GET("/stats", handlers.Dashboard.GetStats)
+		}
+
+		// God routes - Platform-wide administration
+		god := api.Group("/god")
+		god.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		god.Use(middleware.RoleRequired("God"))
+		{
+			// Get platform statistics
+			god.GET("/stats", handlers.God.GetPlatformStats)
+
+			// Organization management for God users
+			god.GET("/organizations", handlers.God.ListOrganizations)
+			god.GET("/organizations/:id", handlers.God.GetOrganization)
+			god.POST("/organizations", handlers.God.CreateOrganization)
+			god.PATCH("/organizations/:id", handlers.God.UpdateOrganization)
+			god.DELETE("/organizations/:id", handlers.God.DeleteOrganization)
+
+			// User management for God users (platform-wide)
+			god.GET("/users", handlers.God.ListUsers)
+			god.POST("/users", handlers.God.CreateUser)
+			god.PATCH("/users/:id", handlers.God.UpdateUser)
+			god.DELETE("/users/:id", handlers.God.DeleteUser)
 		}
 	}
 

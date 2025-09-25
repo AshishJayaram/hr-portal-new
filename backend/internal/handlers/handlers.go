@@ -7,16 +7,17 @@ import (
 
 // Handlers holds all HTTP handlers
 type Handlers struct {
-	Auth           *AuthHandler
-	User           *UserHandler
-	Leave          *LeaveHandler
-	LeaveCategory  *LeaveCategoryHandler
+	Auth            *AuthHandler
+	User            *UserHandler
+	Leave           *LeaveHandler
+	LeaveCategory   *LeaveCategoryHandler
 	LeaveAllocation *LeaveAllocationHandler
-	Document       *DocumentHandler
-	SalarySlip     *SalarySlipHandler
-	Holiday        *HolidayHandler
-	Company        *CompanyHandler
-	Dashboard      *DashboardHandler
+	Document        *DocumentHandler
+	SalarySlip      *SalarySlipHandler
+	Holiday         *HolidayHandler
+	Company         *CompanyHandler
+	Dashboard       *DashboardHandler
+	God             *GodHandler
 }
 
 // New creates a new instance of Handlers
@@ -32,5 +33,6 @@ func New(services *services.Services, cfg *config.Config) *Handlers {
 		Holiday:         NewHolidayHandler(services.Holiday),
 		Company:         NewCompanyHandler(services.CompanySettings),
 		Dashboard:       NewDashboardHandler(services.Dashboard),
+		God:             NewGodHandler(services),
 	}
 }

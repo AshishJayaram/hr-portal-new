@@ -65,6 +65,8 @@ type UserRepository interface {
 	IsSubordinate(organizationID, managerID, subordinateID string) (bool, error)
 	GetSubordinates(organizationID, managerID string) ([]models.User, error)
 	UpdateLastLogin(id string) error
+	Count(count *int64) error
+	ListAll() ([]models.User, error)
 }
 
 // OrganizationRepository interface for organization operations
@@ -75,6 +77,9 @@ type OrganizationRepository interface {
 	List() ([]models.Organization, error)
 	Update(org *models.Organization) error
 	Delete(id string) error
+	Count(count *int64) error
+	CountActive(count *int64) error
+	ListAll() ([]models.Organization, error)
 }
 
 // LeaveRepository interface for leave operations

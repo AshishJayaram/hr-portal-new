@@ -7,16 +7,15 @@ import (
 	"hr-portal-backend/internal/config"
 	"hr-portal-backend/internal/models"
 
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 // Initialize sets up the database connection and runs migrations
 func Initialize(cfg config.DatabaseConfig) (*gorm.DB, error) {
-	// Build DSN
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name, cfg.SSLMode)
+	// Use SQLite database file
+	dsn := "./hr_portal.db"
 
 	// Configure GORM
 	gormConfig := &gorm.Config{
@@ -27,7 +26,7 @@ func Initialize(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	}
 
 	// Connect to database
-	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
+	db, err := gorm.Open(sqlite.Open(dsn), gormConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -57,15 +56,7 @@ func Initialize(cfg config.DatabaseConfig) (*gorm.DB, error) {
 
 // migrate runs database migrations
 func migrate(db *gorm.DB) error {
-	// Enable UUID extension
-	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"").Error; err != nil {
-		return fmt.Errorf("failed to create uuid extension: %w", err)
-	}
-
-	// Enable gen_random_uuid function
-	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS \"pgcrypto\"").Error; err != nil {
-		return fmt.Errorf("failed to create pgcrypto extension: %w", err)
-	}
+	// SQLite doesn't need UUID extensions, skip PostgreSQL-specific commands
 
 	// Auto-migrate all models
 	err := db.AutoMigrate(
@@ -96,37 +87,37 @@ func migrate(db *gorm.DB) error {
 func createIndexes(db *gorm.DB) error {
 	indexes := []string{
 		// User indexes
-		"CREATE INDEX IF NOT EXISTS idx_users_organization_role ON users(organization_id, role) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_users_manager ON users(manager_id) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_users_department ON users(organization_id, department) WHERE deleted_at IS NULL",
-		
+		"CREATE INDEX IF NOT EXISTS idx_users_organization_role ON users(organization_id, role)",
+		"CREATE INDEX IF NOT EXISTS idx_users_manager ON users(manager_id)",
+		"CREATE INDEX IF NOT EXISTS idx_users_department ON users(organization_id, department)",
+
 		// Leave indexes
-		"CREATE INDEX IF NOT EXISTS idx_leaves_user_status ON leaves(user_id, status) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_leaves_organization ON leaves(organization_id) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_leaves_date_range ON leaves(from_date, to_date) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_leaves_approver ON leaves(approved_by) WHERE deleted_at IS NULL",
-		
+		"CREATE INDEX IF NOT EXISTS idx_leaves_user_status ON leaves(user_id, status)",
+		"CREATE INDEX IF NOT EXISTS idx_leaves_organization ON leaves(organization_id)",
+		"CREATE INDEX IF NOT EXISTS idx_leaves_date_range ON leaves(from_date, to_date)",
+		"CREATE INDEX IF NOT EXISTS idx_leaves_approver ON leaves(approved_by)",
+
 		// Leave allocation indexes
-		"CREATE INDEX IF NOT EXISTS idx_leave_allocations_user_year ON leave_allocations(user_id, year) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_leave_allocations_category ON leave_allocations(category_id) WHERE deleted_at IS NULL",
-		
+		"CREATE INDEX IF NOT EXISTS idx_leave_allocations_user_year ON leave_allocations(user_id, year)",
+		"CREATE INDEX IF NOT EXISTS idx_leave_allocations_category ON leave_allocations(category_id)",
+
 		// Document indexes
-		"CREATE INDEX IF NOT EXISTS idx_documents_user_category ON documents(user_id, category) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_documents_organization ON documents(organization_id) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_documents_public ON documents(is_public) WHERE deleted_at IS NULL",
-		
+		"CREATE INDEX IF NOT EXISTS idx_documents_user_category ON documents(user_id, category)",
+		"CREATE INDEX IF NOT EXISTS idx_documents_organization ON documents(organization_id)",
+		"CREATE INDEX IF NOT EXISTS idx_documents_public ON documents(is_public)",
+
 		// Salary slip indexes
-		"CREATE INDEX IF NOT EXISTS idx_salary_slips_user_month_year ON salary_slips(user_id, month, year) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_salary_slips_organization ON salary_slips(organization_id) WHERE deleted_at IS NULL",
-		
+		"CREATE INDEX IF NOT EXISTS idx_salary_slips_user_month_year ON salary_slips(user_id, month, year)",
+		"CREATE INDEX IF NOT EXISTS idx_salary_slips_organization ON salary_slips(organization_id)",
+
 		// Holiday indexes
-		"CREATE INDEX IF NOT EXISTS idx_holidays_organization_date ON holidays(organization_id, date) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_holidays_type ON holidays(type) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_holidays_calendar_event ON holidays(is_calendar_event) WHERE deleted_at IS NULL",
-		
+		"CREATE INDEX IF NOT EXISTS idx_holidays_organization_date ON holidays(organization_id, date)",
+		"CREATE INDEX IF NOT EXISTS idx_holidays_type ON holidays(type)",
+		"CREATE INDEX IF NOT EXISTS idx_holidays_calendar_event ON holidays(is_calendar_event)",
+
 		// Leave category indexes
-		"CREATE INDEX IF NOT EXISTS idx_leave_categories_organization ON leave_categories(organization_id) WHERE deleted_at IS NULL",
-		"CREATE INDEX IF NOT EXISTS idx_leave_categories_active ON leave_categories(is_active) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_leave_categories_organization ON leave_categories(organization_id)",
+		"CREATE INDEX IF NOT EXISTS idx_leave_categories_active ON leave_categories(is_active)",
 	}
 
 	for _, indexSQL := range indexes {
