@@ -13,10 +13,100 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final List<Map<String, dynamic>> _upcomingHolidays = [];
-
   final List<Map<String, dynamic>> _upcomingEvents = [];
-
   final List<Map<String, dynamic>> _leaveTypes = [];
+  
+  // Dashboard stats
+  Map<String, dynamic>? _dashboardStats;
+  bool _isLoadingStats = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    final user = ref.read(authProvider).user;
+    final canViewStats = user?.role == 'HR' || user?.role == 'Admin' || user?.role == 'God';
+    
+    if (canViewStats) {
+      await _loadDashboardStats();
+    }
+    
+    // Load other data in parallel
+    await Future.wait([
+      _loadHolidays(),
+      _loadEvents(),
+      _loadLeaveTypes(),
+    ]);
+  }
+
+  Future<void> _loadHolidays() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final holidays = await apiService.getHolidays();
+      
+      setState(() {
+        _upcomingHolidays.clear();
+        _upcomingHolidays.addAll(holidays);
+      });
+    } catch (e) {
+      print('Failed to load holidays: $e');
+    }
+  }
+
+  Future<void> _loadEvents() async {
+    try {
+      // TODO: Implement events API call when backend endpoint is available
+      // For now, keep empty list
+      setState(() {
+        _upcomingEvents.clear();
+      });
+    } catch (e) {
+      print('Failed to load events: $e');
+    }
+  }
+
+  Future<void> _loadLeaveTypes() async {
+    try {
+      // TODO: Implement leave types API call when backend endpoint is available
+      // For now, keep empty list
+      setState(() {
+        _leaveTypes.clear();
+      });
+    } catch (e) {
+      print('Failed to load leave types: $e');
+    }
+  }
+
+  Future<void> _loadDashboardStats() async {
+    setState(() {
+      _isLoadingStats = true;
+    });
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final stats = await apiService.getDashboardStats();
+      
+      setState(() {
+        _dashboardStats = stats;
+        _isLoadingStats = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingStats = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load dashboard stats: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,9 +119,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // TODO: Implement refresh
-            },
+            onPressed: _loadDashboardData,
           ),
         ],
       ),
@@ -68,15 +156,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _upcomingEvents.length,
-              itemBuilder: (context, index) {
-                final event = _upcomingEvents[index];
-                return _buildEventCard(context, event);
-              },
-            ),
+            _upcomingEvents.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text(
+                        'No upcoming events',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _upcomingEvents.length,
+                    itemBuilder: (context, index) {
+                      final event = _upcomingEvents[index];
+                      return _buildEventCard(context, event);
+                    },
+                  ),
             
             const SizedBox(height: 32),
             
@@ -99,17 +197,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 120,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _upcomingHolidays.length,
-                itemBuilder: (context, index) {
-                  final holiday = _upcomingHolidays[index];
-                  return _buildHolidayCard(context, holiday);
-                },
-              ),
-            ),
+            _upcomingHolidays.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text(
+                        'No upcoming holidays',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
+                : SizedBox(
+                    height: 120,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _upcomingHolidays.length,
+                      itemBuilder: (context, index) {
+                        final holiday = _upcomingHolidays[index];
+                        return _buildHolidayCard(context, holiday);
+                      },
+                    ),
+                  ),
             
             const SizedBox(height: 32),
             
@@ -122,48 +230,57 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildStatCard(
-                    context,
-                    'Total Employees',
-                    '150',
-                    Icons.people,
-                    AppTheme.primaryColor,
-                    onTap: () => context.go('/employees'),
-                  ),
-                  _buildStatCard(
-                    context,
-                    'Pending Leaves',
-                    '12',
-                    Icons.event_busy,
-                    AppTheme.secondaryColor,
-                    onTap: () => context.go('/leaves'),
-                  ),
-                  _buildStatCard(
-                    context,
-                    'Team Members',
-                    '8',
-                    Icons.group,
-                    AppTheme.accentColor,
-                    onTap: () => context.go('/team'),
-                  ),
-                  _buildStatCard(
-                    context,
-                    'Documents',
-                    '45',
-                    Icons.description,
-                    AppTheme.lightPurple,
-                    onTap: () => context.go('/documents'),
-                  ),
-                ],
-              ),
+              _isLoadingStats
+                  ? const Center(child: CircularProgressIndicator())
+                  : _dashboardStats != null
+                      ? GridView.count(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.2,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _buildStatCard(
+                              context,
+                              'Total Employees',
+                              _dashboardStats!['total_employees']?.toString() ?? '0',
+                              Icons.people,
+                              AppTheme.primaryColor,
+                              onTap: () => context.go('/employees'),
+                            ),
+                            _buildStatCard(
+                              context,
+                              'Pending Leaves',
+                              _dashboardStats!['pending_leaves']?.toString() ?? '0',
+                              Icons.event_busy,
+                              AppTheme.secondaryColor,
+                              onTap: () => context.go('/leaves'),
+                            ),
+                            _buildStatCard(
+                              context,
+                              'Team Members',
+                              _dashboardStats!['team_members']?.toString() ?? '0',
+                              Icons.group,
+                              AppTheme.accentColor,
+                              onTap: () => context.go('/team'),
+                            ),
+                            _buildStatCard(
+                              context,
+                              'Documents',
+                              _dashboardStats!['total_documents']?.toString() ?? '0',
+                              Icons.description,
+                              AppTheme.lightPurple,
+                              onTap: () => context.go('/documents'),
+                            ),
+                          ],
+                        )
+                      : const Center(
+                          child: Text(
+                            'No stats available',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
               const SizedBox(height: 32),
             ],
             
@@ -175,17 +292,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            GridView.count(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.3,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: _leaveTypes.map((leaveType) {
-                return _buildLeaveTypeCard(context, leaveType);
-              }).toList(),
-            ),
+            _leaveTypes.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text(
+                        'No leave types available',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
+                : GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.3,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: _leaveTypes.map((leaveType) {
+                      return _buildLeaveTypeCard(context, leaveType);
+                    }).toList(),
+                  ),
           ],
         ),
       ),

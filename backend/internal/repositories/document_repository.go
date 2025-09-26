@@ -58,3 +58,10 @@ func (r *documentRepository) GetByUserID(userID string) ([]models.Document, erro
 	}
 	return documents, nil
 }
+
+func (r *documentRepository) Count(count *int64) error {
+	if err := r.db.Model(&models.Document{}).Count(count).Error; err != nil {
+		return fmt.Errorf("failed to count documents: %w", err)
+	}
+	return nil
+}

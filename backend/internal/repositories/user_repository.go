@@ -102,6 +102,22 @@ func (r *userRepository) GetByUsername(username, organizationID string) (*models
 	return &user, nil
 }
 
+// GetByUsernameAcrossOrgs finds a user by username across all organizations
+func (r *userRepository) GetByUsernameAcrossOrgs(username string) (*models.User, error) {
+	var user models.User
+	
+	if err := r.db.Where("username = ?", username).
+		Preload("Organization").
+		First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("failed to get user by username: %w", err)
+	}
+
+	return &user, nil
+}
+
 func (r *userRepository) List(organizationID string, filters map[string]interface{}) ([]models.User, error) {
 	query := r.db.Where("organization_id = ?", organizationID)
 	query = r.buildQuery(query, filters)
@@ -187,4 +203,22 @@ func (r *userRepository) UpdateLastLogin(id string) error {
 	r.invalidateCache(fmt.Sprintf("user:%s", id))
 
 	return nil
+}
+
+func (r *userRepository) GetAdminByOrganizationID(organizationID string) (*models.User, error) {
+	var user models.User
+	// Convert string to uint for organization ID
+	orgID, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	if err := r.db.Where("organization_id = ? AND role = ?", uint(orgID), "Admin").
+		First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("admin user not found")
+		}
+		return nil, fmt.Errorf("failed to get admin user: %w", err)
+	}
+	return &user, nil
 }

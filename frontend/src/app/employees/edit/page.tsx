@@ -181,12 +181,19 @@ function EditEmployeeForm({ id }: { id: string }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent self-assignment as manager
+    if (formData.manager_id && String(formData.manager_id) === String(id)) {
+      toast.error("An employee cannot be assigned as their own manager");
+      return;
+    }
+    
     mutation.mutate({
       username: formData.username,
       designation: formData.designation,
       role: toCanonicalRole(formData.role),
       department: formData.department,
-      manager_id: formData.manager_id ? Number(formData.manager_id) : undefined,
+      manager_id: formData.manager_id ? String(formData.manager_id) : undefined, // Convert to string to match backend
     } as any);
   };
 
@@ -281,8 +288,15 @@ function EditEmployeeForm({ id }: { id: string }) {
                 <div>
                   <label className="block text-sm mb-2">Manager (search and select)</label>
                   <Input value={managerQuery} onChange={(e) => setManagerQuery(e.target.value)} placeholder="Search by name or ID..." />
+                  {formData.manager_id && String(formData.manager_id) === String(id) && (
+                    <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-sm">
+                      ⚠️ An employee cannot be assigned as their own manager
+                    </div>
+                  )}
                   <div className="mt-2 max-h-48 overflow-y-auto border border-white/10 rounded">
-                    {(managers?.data || []).map((u: any) => (
+                    {(managers?.data || [])
+                      .filter((u: any) => String(u.id) !== String(id)) // Exclude current employee
+                      .map((u: any) => (
                       <button
                         type="button"
                         key={u.id}
@@ -292,8 +306,8 @@ function EditEmployeeForm({ id }: { id: string }) {
                         {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
                       </button>
                     ))}
-                    {(!managers?.data || managers.data.length === 0) && (
-                      <div className="px-3 py-2 text-sm text-gray-400">No users</div>
+                    {(!managers?.data || managers.data.filter((u: any) => String(u.id) !== String(id)).length === 0) && (
+                      <div className="px-3 py-2 text-sm text-gray-400">No other users available</div>
                     )}
                   </div>
                 </div>
@@ -303,6 +317,7 @@ function EditEmployeeForm({ id }: { id: string }) {
                 <Button
                   type="submit"
                   loading={mutation.isPending}
+                  disabled={formData.manager_id && String(formData.manager_id) === String(id)}
                 >
                   Update Employee
                 </Button>

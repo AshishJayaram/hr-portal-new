@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"fmt"
+	"strconv"
 
 	"hr-portal-backend/internal/models"
 )
@@ -19,8 +20,14 @@ func (r *companySettingsRepository) Create(settings *models.CompanySettings) err
 }
 
 func (r *companySettingsRepository) GetByOrganizationID(organizationID string) (*models.CompanySettings, error) {
+	// Convert string to uint
+	orgID, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
 	var settings models.CompanySettings
-	if err := r.db.Where("organization_id = ?", organizationID).First(&settings).Error; err != nil {
+	if err := r.db.Where("organization_id = ?", uint(orgID)).First(&settings).Error; err != nil {
 		return nil, fmt.Errorf("company settings not found: %w", err)
 	}
 	return &settings, nil

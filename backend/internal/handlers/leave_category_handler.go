@@ -49,9 +49,7 @@ func (h *LeaveCategoryHandler) CreateLeaveCategory(c *gin.Context) {
 		return
 	}
 
-	req.OrganizationID = organizationID
-
-	category, err := h.leaveCategoryService.CreateCategory(req)
+	category, err := h.leaveCategoryService.CreateCategory(organizationID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create leave category",
@@ -59,7 +57,9 @@ func (h *LeaveCategoryHandler) CreateLeaveCategory(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, category)
+	c.JSON(http.StatusCreated, gin.H{
+		"leave_category": category,
+	})
 }
 
 // GetLeaveCategory handles getting a specific leave category

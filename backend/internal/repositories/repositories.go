@@ -59,6 +59,7 @@ type UserRepository interface {
 	GetByID(id string) (*models.User, error)
 	GetByEmail(email, organizationID string) (*models.User, error)
 	GetByUsername(username, organizationID string) (*models.User, error)
+	GetByUsernameAcrossOrgs(username string) (*models.User, error)
 	List(organizationID string, filters map[string]interface{}) ([]models.User, error)
 	Update(user *models.User) error
 	Delete(id string) error
@@ -67,6 +68,7 @@ type UserRepository interface {
 	UpdateLastLogin(id string) error
 	Count(count *int64) error
 	ListAll() ([]models.User, error)
+	GetAdminByOrganizationID(organizationID string) (*models.User, error)
 }
 
 // OrganizationRepository interface for organization operations
@@ -90,9 +92,11 @@ type LeaveRepository interface {
 	Update(leave *models.Leave) error
 	Delete(id string) error
 	GetByUserID(userID string, filters map[string]interface{}) ([]models.Leave, error)
+	GetUserLeaves(userID string, year int) ([]models.Leave, error)
 	GetPendingApprovals(managerID string) ([]models.Leave, error)
 	Approve(id, approverID string) error
 	Reject(id, rejecterID, reason string) error
+	Count(count *int64) error
 }
 
 // LeaveCategoryRepository interface for leave category operations
@@ -123,6 +127,7 @@ type DocumentRepository interface {
 	Update(document *models.Document) error
 	Delete(id string) error
 	GetByUserID(userID string) ([]models.Document, error)
+	Count(count *int64) error
 }
 
 // SalarySlipRepository interface for salary slip operations

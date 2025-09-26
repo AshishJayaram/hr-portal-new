@@ -28,7 +28,7 @@ func (r *leaveCategoryRepository) GetByID(id string) (*models.LeaveCategory, err
 
 func (r *leaveCategoryRepository) List(organizationID string) ([]models.LeaveCategory, error) {
 	var categories []models.LeaveCategory
-	if err := r.db.Where("organization_id = ? AND is_active = ?", organizationID, true).Find(&categories).Error; err != nil {
+	if err := r.db.Where("organization_id = ? AND is_active = ?", organizationID, 1).Find(&categories).Error; err != nil {
 		return nil, fmt.Errorf("failed to list leave categories: %w", err)
 	}
 	return categories, nil

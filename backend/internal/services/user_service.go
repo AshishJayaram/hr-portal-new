@@ -149,6 +149,11 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest) (*models.User
 		if *req.ManagerID == "" {
 			user.ManagerID = nil
 		} else {
+			// Prevent self-assignment as manager
+			if *req.ManagerID == id {
+				return nil, fmt.Errorf("an employee cannot be assigned as their own manager")
+			}
+
 			managerIDUint, err := strconv.ParseUint(*req.ManagerID, 10, 32)
 			if err != nil {
 				return nil, fmt.Errorf("invalid manager ID: %w", err)
@@ -227,4 +232,8 @@ func (s *userService) Count(count *int64) error {
 
 func (s *userService) ListAll() ([]models.User, error) {
 	return s.userRepo.ListAll()
+}
+
+func (s *userService) GetAdminByOrganizationID(organizationID string) (*models.User, error) {
+	return s.userRepo.GetAdminByOrganizationID(organizationID)
 }

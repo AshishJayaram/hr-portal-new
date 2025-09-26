@@ -129,6 +129,7 @@ export default function Sidebar() {
                 onClick={() => {
                   localStorage.removeItem('user');
                   localStorage.removeItem('token');
+                  localStorage.removeItem('organizationId');
                   setUserMenuOpen(false);
                   router.push('/signin');
                 }}
@@ -197,7 +198,7 @@ export default function Sidebar() {
                 </div>
               </button>
               <button
-                onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); setOpen(false); router.push('/signin'); }}
+                onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); localStorage.removeItem('organizationId'); setOpen(false); router.push('/signin'); }}
                 className="mt-2 w-full text-left px-4 py-2 rounded bg-red-500/10 text-red-300 hover:bg-red-500/20"
               >
                 Sign Out

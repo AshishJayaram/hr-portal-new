@@ -1,11 +1,53 @@
 package models
 
 import (
+	"database/sql/driver"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// FlexibleTime handles both string and time.Time values from database
+type FlexibleTime struct {
+	time.Time
+}
+
+// Scan implements the Scanner interface for database/sql
+func (ft *FlexibleTime) Scan(value interface{}) error {
+	if value == nil {
+		ft.Time = time.Time{}
+		return nil
+	}
+
+	switch v := value.(type) {
+	case time.Time:
+		ft.Time = v
+	case string:
+		// Try to parse the string as a time
+		if parsed, err := time.Parse("2006-01-02 15:04:05-07:00", v); err == nil {
+			ft.Time = parsed
+		} else if parsed, err := time.Parse("2006-01-02T15:04:05Z07:00", v); err == nil {
+			ft.Time = parsed
+		} else if parsed, err := time.Parse("2006-01-02", v); err == nil {
+			ft.Time = parsed
+		} else {
+			return err
+		}
+	default:
+		return fmt.Errorf("cannot scan %T into FlexibleTime", value)
+	}
+	return nil
+}
+
+// Value implements the driver Valuer interface
+func (ft FlexibleTime) Value() (driver.Value, error) {
+	if ft.Time.IsZero() {
+		return nil, nil
+	}
+	return ft.Time, nil
+}
 
 // BaseModel contains common fields for all models
 type BaseModel struct {
@@ -60,12 +102,12 @@ type User struct {
 // LeaveCategory represents different types of leaves
 type LeaveCategory struct {
 	BaseModel
-	OrganizationID   uuid.UUID `json:"organization_id" gorm:"type:uuid;not null;index"`
-	Name             string    `json:"name" gorm:"not null"`
-	Description      string    `json:"description"`
-	MaxDaysPerYear   int       `json:"max_days_per_year" gorm:"default:0"`
-	RequiresApproval bool      `json:"requires_approval" gorm:"default:true"`
-	IsActive         bool      `json:"is_active" gorm:"default:true"`
+	OrganizationID   uint   `json:"organization_id" gorm:"not null;index"`
+	Name             string `json:"name" gorm:"not null"`
+	Description      string `json:"description"`
+	MaxDaysPerYear   int    `json:"max_days_per_year" gorm:"default:0"`
+	RequiresApproval bool   `json:"requires_approval" gorm:"default:true"`
+	IsActive         bool   `json:"is_active" gorm:"default:true"`
 
 	// Relationships
 	Organization     Organization      `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
@@ -76,14 +118,14 @@ type LeaveCategory struct {
 // LeaveAllocation represents annual leave allocation for a user
 type LeaveAllocation struct {
 	BaseModel
-	UserID         uuid.UUID `json:"user_id" gorm:"type:uuid;not null;index"`
-	CategoryID     uuid.UUID `json:"category_id" gorm:"type:uuid;not null;index"`
-	OrganizationID uuid.UUID `json:"organization_id" gorm:"type:uuid;not null;index"`
-	CategoryName   string    `json:"category_name" gorm:"not null"`
-	TotalDays      int       `json:"total_days" gorm:"not null"`
-	UsedDays       int       `json:"used_days" gorm:"default:0"`
-	RemainingDays  int       `json:"remaining_days" gorm:"not null"`
-	Year           int       `json:"year" gorm:"not null;index"`
+	UserID         uint   `json:"user_id" gorm:"not null;index"`
+	CategoryID     uint   `json:"category_id" gorm:"not null;index"`
+	OrganizationID uint   `json:"organization_id" gorm:"not null;index"`
+	CategoryName   string `json:"category_name" gorm:"not null"`
+	TotalDays      int    `json:"total_days" gorm:"not null"`
+	UsedDays       int    `json:"used_days" gorm:"default:0"`
+	RemainingDays  int    `json:"remaining_days" gorm:"not null"`
+	Year           int    `json:"year" gorm:"not null;index"`
 
 	// Relationships
 	User         User          `json:"user,omitempty" gorm:"foreignKey:UserID"`
@@ -102,6 +144,8 @@ type Leave struct {
 	FromDate        time.Time  `json:"from_date" gorm:"not null"`
 	ToDate          time.Time  `json:"to_date" gorm:"not null"`
 	Days            float64    `json:"days" gorm:"not null"`
+	StartHalf       string     `json:"start_half" gorm:"default:'FULL';check:start_half IN ('FULL','AM','PM')"`
+	EndHalf         string     `json:"end_half" gorm:"default:'FULL';check:end_half IN ('FULL','AM','PM')"`
 	Status          string     `json:"status" gorm:"not null;default:'pending';check:status IN ('pending','approved','rejected','cancelled')"`
 	ApprovedBy      *uuid.UUID `json:"approved_by" gorm:"type:uuid;index"`
 	ApprovedAt      *time.Time `json:"approved_at"`
@@ -155,7 +199,7 @@ type SalarySlip struct {
 // Holiday represents company holidays, events, and notices
 type Holiday struct {
 	BaseModel
-	OrganizationID  uuid.UUID  `json:"organization_id" gorm:"type:uuid;not null;index"`
+	OrganizationID  uint       `json:"organization_id" gorm:"not null;index"`
 	Name            string     `json:"name" gorm:"not null"`
 	Date            *time.Time `json:"date"` // Optional for notices
 	Type            string     `json:"type" gorm:"not null;check:type IN ('holiday','event','notice')"`
@@ -170,8 +214,8 @@ type Holiday struct {
 // CompanySettings represents company-specific settings
 type CompanySettings struct {
 	BaseModel
-	OrganizationID uuid.UUID `json:"organization_id" gorm:"type:uuid;not null;uniqueIndex"`
-	Settings       string    `json:"settings" gorm:"type:jsonb;not null"` // JSON string for payroll settings
+	OrganizationID uint   `json:"organization_id" gorm:"not null;uniqueIndex"`
+	Settings       string `json:"settings" gorm:"type:jsonb;not null"` // JSON string for payroll settings
 
 	// Relationships
 	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`

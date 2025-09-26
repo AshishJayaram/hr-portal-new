@@ -8,6 +8,7 @@ export default function SignInPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark mode to prevent white flash
   const router = useRouter();
 
@@ -34,12 +35,13 @@ export default function SignInPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, organization_id: "3" }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json();
@@ -65,10 +67,13 @@ export default function SignInPage() {
       // persist
       localStorage.setItem("user", JSON.stringify({ ...user, role }));
       if (token) localStorage.setItem("token", token);
+      if (user.organizationId) localStorage.setItem("organizationId", user.organizationId);
 
       router.push("/");
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -91,7 +96,7 @@ export default function SignInPage() {
         </h1>
         <input
           type="string"
-          placeholder="Email"
+          placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           className={`w-full p-3 rounded focus:outline-none focus:ring-2 ${
@@ -114,9 +119,21 @@ export default function SignInPage() {
         {error && <p className={`${isDarkMode ? "text-red-400" : "text-red-600"}`}>{error}</p>}
         <button
           type="submit"
-          className="w-full p-3 rounded bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-shadow"
+          disabled={isLoading}
+          className={`w-full p-3 rounded font-semibold shadow-lg transition-shadow ${
+            isLoading 
+              ? "bg-gray-500 cursor-not-allowed" 
+              : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-xl"
+          }`}
         >
-          Sign In
+          {isLoading ? (
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+              Signing In...
+            </div>
+          ) : (
+            "Sign In"
+          )}
         </button>
       </form>
     </div>

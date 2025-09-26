@@ -1,0 +1,27 @@
+basePath: /api
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: A comprehensive HR management system API
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: HR Portal API
+  version: "1.0"
+paths: {}
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+  OrganizationAuth:
+    description: Organization ID for multi-tenant access
+    in: header
+    name: X-Organization-ID
+    type: apiKey
+swagger: "2.0"

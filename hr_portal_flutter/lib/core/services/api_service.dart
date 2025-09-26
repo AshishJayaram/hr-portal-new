@@ -50,11 +50,14 @@ class ApiService {
                   return;
                 }
               } catch (e) {
-                // Refresh failed, logout user
-                await logout();
+                // Refresh failed, logout user silently
+                await _storage.delete(key: _tokenKey);
+                await _storage.delete(key: _refreshTokenKey);
               }
             } else {
-              await logout();
+              // No refresh token, logout user silently
+              await _storage.delete(key: _tokenKey);
+              await _storage.delete(key: _refreshTokenKey);
             }
           }
           handler.next(error);
@@ -66,13 +69,9 @@ class ApiService {
   // Authentication methods
   Future<Map<String, dynamic>?> login(String username, String password) async {
     try {
-      // Use the correct organization ID for the God user
-      const defaultOrganizationId = '3';
-      
       final response = await _dio.post('/auth/login', data: {
         'username': username,
         'password': password,
-        'organization_id': defaultOrganizationId,
       });
       
       if (response.statusCode == 200) {
@@ -104,7 +103,11 @@ class ApiService {
 
   Future<void> logout() async {
     try {
-      await _dio.post('/auth/logout');
+      // Only try to logout if we have a token
+      final token = await _storage.read(key: _tokenKey);
+      if (token != null) {
+        await _dio.post('/auth/logout');
+      }
     } catch (e) {
       print('Logout error: $e');
     } finally {
@@ -371,6 +374,17 @@ class ApiService {
       return response.data['data']; // Backend returns data in 'data' field
     } catch (e) {
       print('Get platform stats error: $e');
+      return null;
+    }
+  }
+
+  // Dashboard statistics (for regular users)
+  Future<Map<String, dynamic>?> getDashboardStats() async {
+    try {
+      final response = await _dio.get('/dashboard/stats');
+      return response.data['data']; // Backend returns data in 'data' field
+    } catch (e) {
+      print('Get dashboard stats error: $e');
       return null;
     }
   }

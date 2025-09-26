@@ -1,0 +1,11 @@
+{
+  "dir": "./",
+  "generalInfo": {
+    "title": "HR Portal API",
+    "description": "A comprehensive HR management system API",
+    "version": "1.0"
+  },
+  "parseDependency": true,
+  "parseInternal": true,
+  "parseDependencyDepth": 1
+}

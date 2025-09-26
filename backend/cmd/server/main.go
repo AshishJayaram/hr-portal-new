@@ -17,6 +17,8 @@ import (
 	"hr-portal-backend/internal/repositories"
 	"hr-portal-backend/internal/services"
 
+	_ "hr-portal-backend/cmd/server/docs"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/timeout"
@@ -187,7 +189,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			users.GET("/:id", handlers.User.GetUser)
 			users.POST("", middleware.RoleRequired("HR", "Admin"), handlers.User.CreateUser)
 			users.PATCH("/:id", handlers.User.UpdateUser)
-			users.DELETE("/:id", middleware.RoleRequired("HR", "Admin"), handlers.User.DeleteUser)
+			users.DELETE("/:id", middleware.RoleRequired("HR", "Admin", "God"), handlers.User.DeleteUser)
 			users.POST("/change-password", handlers.User.ChangePassword)
 		}
 
@@ -202,6 +204,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			leaves.PATCH("/:id", handlers.Leave.UpdateLeave)
 			leaves.POST("/:id/approve", middleware.RoleRequired("Manager", "HR", "Admin"), handlers.Leave.ApproveLeave)
 			leaves.POST("/:id/reject", middleware.RoleRequired("Manager", "HR", "Admin"), handlers.Leave.RejectLeave)
+			leaves.POST("/:id/cancel", handlers.Leave.CancelLeave)
 			leaves.GET("/balance/:user_id", handlers.Leave.GetLeaveBalance)
 		}
 

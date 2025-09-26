@@ -29,7 +29,7 @@ func New(repos *repositories.Repositories, cfg *config.Config) *Services {
 	return &Services{
 		User:            NewUserService(repos.User, repos.Organization),
 		Auth:            NewAuthService(repos.User, repos.Organization, cfg.JWT),
-		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory),
+		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation),
 		LeaveCategory:   NewLeaveCategoryService(repos.LeaveCategory),
 		LeaveAllocation: NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory),
 		Document:        NewDocumentService(repos.Document),
@@ -53,6 +53,7 @@ type UserService interface {
 	GetSubordinates(organizationID, managerID string) ([]models.User, error)
 	Count(count *int64) error
 	ListAll() ([]models.User, error)
+	GetAdminByOrganizationID(organizationID string) (*models.User, error)
 }
 
 // AuthService interface for authentication business logic
@@ -91,7 +92,7 @@ type LeaveService interface {
 
 // LeaveCategoryService interface for leave category business logic
 type LeaveCategoryService interface {
-	CreateCategory(req CreateLeaveCategoryRequest) (*models.LeaveCategory, error)
+	CreateCategory(organizationID string, req CreateLeaveCategoryRequest) (*models.LeaveCategory, error)
 	GetCategory(id string) (*models.LeaveCategory, error)
 	ListCategories(organizationID string) ([]models.LeaveCategory, error)
 	UpdateCategory(id string, req UpdateLeaveCategoryRequest) (*models.LeaveCategory, error)
@@ -166,9 +167,8 @@ type UpdateUserRequest struct {
 }
 
 type LoginRequest struct {
-	Username       string `json:"username" validate:"required"`
-	Password       string `json:"password" validate:"required"`
-	OrganizationID string `json:"organization_id" validate:"required"`
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required"`
 }
 
 type LoginResponse struct {
@@ -186,6 +186,8 @@ type ApplyLeaveRequest struct {
 	Reason         string    `json:"reason"`
 	FromDate       time.Time `json:"from_date" validate:"required"`
 	ToDate         time.Time `json:"to_date" validate:"required"`
+	StartHalf      string    `json:"start_half" validate:"omitempty,oneof=FULL AM PM"`
+	EndHalf        string    `json:"end_half" validate:"omitempty,oneof=FULL AM PM"`
 }
 
 type UpdateLeaveRequest struct {
@@ -203,7 +205,6 @@ type LeaveBalanceResponse struct {
 }
 
 type CreateLeaveCategoryRequest struct {
-	OrganizationID   string `json:"organization_id" validate:"required"`
 	Name             string `json:"name" validate:"required,min=2,max=50"`
 	Description      string `json:"description"`
 	MaxDaysPerYear   int    `json:"max_days_per_year"`
@@ -248,22 +249,22 @@ type UploadSalarySlipRequest struct {
 }
 
 type CreateHolidayRequest struct {
-	OrganizationID  string     `json:"organization_id" validate:"required"`
-	Name            string     `json:"name" validate:"required"`
-	Date            *time.Time `json:"date"`
-	Type            string     `json:"type" validate:"required,oneof=holiday event notice"`
-	Description     string     `json:"description"`
-	IsCalendarEvent bool       `json:"is_calendar_event"`
-	Color           string     `json:"color"`
+	OrganizationID  string `json:"organization_id" validate:"required"`
+	Name            string `json:"name" validate:"required"`
+	Date            string `json:"date"` // Accept string date in YYYY-MM-DD format
+	Type            string `json:"type" validate:"required,oneof=holiday event notice"`
+	Description     string `json:"description"`
+	IsCalendarEvent bool   `json:"is_calendar_event"`
+	Color           string `json:"color"`
 }
 
 type UpdateHolidayRequest struct {
-	Name            *string    `json:"name"`
-	Date            *time.Time `json:"date"`
-	Type            *string    `json:"type"`
-	Description     *string    `json:"description"`
-	IsCalendarEvent *bool      `json:"is_calendar_event"`
-	Color           *string    `json:"color"`
+	Name            *string `json:"name"`
+	Date            *string `json:"date"` // Accept string date in YYYY-MM-DD format
+	Type            *string `json:"type"`
+	Description     *string `json:"description"`
+	IsCalendarEvent *bool   `json:"is_calendar_event"`
+	Color           *string `json:"color"`
 }
 
 type UpdateCompanySettingsRequest struct {

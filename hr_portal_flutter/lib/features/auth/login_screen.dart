@@ -14,7 +14,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -25,6 +24,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final isLoading = authState.status == AuthStatus.loading;
+    
     return Scaffold(
       body: Center(
         child: Card(
@@ -82,12 +84,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : () async {
+                      onPressed: isLoading ? null : () async {
                         if (_formKey.currentState!.validate()) {
-                          setState(() {
-                            _isLoading = true;
-                          });
-                          
                           try {
                             // Test connection first
                             final apiService = ref.read(apiServiceProvider);
@@ -110,7 +108,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           } catch (e) {
                             String errorMessage = 'Login failed';
                             if (e.toString().contains('Invalid credentials')) {
-                              errorMessage = 'Invalid username, password, or organization ID';
+                              errorMessage = 'Invalid username or password';
                             } else if (e.toString().contains('Connection timeout')) {
                               errorMessage = 'Connection timeout. Please check your internet connection.';
                             } else if (e.toString().contains('Unable to connect')) {
@@ -130,10 +128,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 duration: const Duration(seconds: 5),
                               ),
                             );
-                          } finally {
-                            setState(() {
-                              _isLoading = false;
-                            });
                           }
                         }
                       },
@@ -142,7 +136,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: _isLoading 
+                      child: isLoading 
                           ? const SizedBox(
                               width: 20,
                               height: 20,
@@ -156,7 +150,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Demo Credentials:\nUsername: admin\nPassword: admin123\n\nOr create a new user account',
+                    'Demo Credentials:\nUsername: admin_smr\nPassword: password\n\nOr\nUsername: god\nPassword: password123',
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),

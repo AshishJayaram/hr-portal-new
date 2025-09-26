@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"hr-portal-backend/internal/models"
+	"gorm.io/gorm"
 )
 
 // leaveRepository implements LeaveRepository interface
@@ -93,4 +94,42 @@ func (r *leaveRepository) Reject(id, rejecterID, reason string) error {
 		return fmt.Errorf("failed to reject leave: %w", err)
 	}
 	return nil
+}
+
+func (r *leaveRepository) Count(count *int64) error {
+	if err := r.db.Model(&models.Leave{}).Count(count).Error; err != nil {
+		return fmt.Errorf("failed to count leaves: %w", err)
+	}
+	return nil
+}
+
+func (r *leaveRepository) GetUserLeaves(userID string, year int) ([]models.Leave, error) {
+	var leaves []models.Leave
+	startOfYear := fmt.Sprintf("%d-01-01", year)
+	endOfYear := fmt.Sprintf("%d-12-31", year)
+	
+	if err := r.db.Preload("User").Preload("Category").
+		Where("user_id = ? AND from_date >= ? AND to_date <= ?", userID, startOfYear, endOfYear).
+		Find(&leaves).Error; err != nil {
+		return nil, fmt.Errorf("failed to get user leaves: %w", err)
+	}
+	return leaves, nil
+}
+
+func (r *leaveRepository) buildQuery(query *gorm.DB, filters map[string]interface{}) *gorm.DB {
+	for key, value := range filters {
+		switch key {
+		case "user_id":
+			query = query.Where("user_id = ?", value)
+		case "status":
+			query = query.Where("status = ?", value)
+		case "category_id":
+			query = query.Where("category_id = ?", value)
+		case "from_date":
+			query = query.Where("from_date >= ?", value)
+		case "to_date":
+			query = query.Where("to_date <= ?", value)
+		}
+	}
+	return query
 }

@@ -27,14 +27,14 @@ type Organization struct {
 
 // Leave model
 type Leave struct {
-	ID             uint   `json:"id" gorm:"primarykey"`
-	UserID         uint   `json:"user_id"`
-	OrganizationID uint   `json:"organization_id"`
-	Type           string `json:"type"`
-	From           string `json:"from"`
-	To             string `json:"to"`
-	Reason         string `json:"reason"`
-	Status         string `json:"status" gorm:"default:'pending'"`
+	ID             uint      `json:"id" gorm:"primarykey"`
+	UserID         uint      `json:"user_id"`
+	OrganizationID uint      `json:"organization_id"`
+	Type           string    `json:"type"`
+	From           string    `json:"from"`
+	To             string    `json:"to"`
+	Reason         string    `json:"reason"`
+	Status         string    `json:"status" gorm:"default:'pending'"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
@@ -53,7 +53,7 @@ type User struct {
 	Role           string       `json:"role"`
 	Department     string       `json:"department"`
 	Designation    string       `json:"designation"`
-	CTC            float64     `json:"ctc"`
+	CTC            float64      `json:"ctc"`
 	IsActive       bool         `json:"is_active" gorm:"default:true"`
 	CreatedAt      time.Time    `json:"created_at"`
 	UpdatedAt      time.Time    `json:"updated_at"`
@@ -61,16 +61,16 @@ type User struct {
 
 // Holiday model
 type Holiday struct {
-	ID             uint      `json:"id" gorm:"primarykey"`
-	OrganizationID uint      `json:"organization_id"`
-	Name           string    `json:"name"`
-	Date           *string   `json:"date"` // Optional for notices
-	Type           string    `json:"type"` // holiday, event, notice
-	Description    string    `json:"description"`
-	IsCalendarEvent bool     `json:"is_calendar_event" gorm:"default:true"`
-	Color          string    `json:"color" gorm:"default:'#ef4444'"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID              uint      `json:"id" gorm:"primarykey"`
+	OrganizationID  uint      `json:"organization_id"`
+	Name            string    `json:"name"`
+	Date            *string   `json:"date"` // Optional for notices
+	Type            string    `json:"type"` // holiday, event, notice
+	Description     string    `json:"description"`
+	IsCalendarEvent bool      `json:"is_calendar_event" gorm:"default:true"`
+	Color           string    `json:"color" gorm:"default:'#ef4444'"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // Password utilities
@@ -87,7 +87,7 @@ func checkPasswordHash(password, hash string) bool {
 func main() {
 	fmt.Println("🚀 HR Portal Backend")
 	fmt.Println("====================")
-	
+
 	// Initialize database
 	db, err := gorm.Open(sqlite.Open("hr_portal.db"), &gorm.Config{})
 	if err != nil {
@@ -102,10 +102,10 @@ func main() {
 	db.Model(&User{}).Where("role = ?", "God").Count(&godCount)
 	if godCount == 0 {
 		fmt.Println("👑 Creating God accounts...")
-		
+
 		god1Hash, _ := hashPassword("god123")
 		god2Hash, _ := hashPassword("supreme123")
-		
+
 		godUsers := []User{
 			{
 				OrganizationID: 0, // God has no organization
@@ -130,11 +130,11 @@ func main() {
 				CTC:            0,
 			},
 		}
-		
+
 		for _, user := range godUsers {
 			db.Create(&user)
 		}
-		
+
 		fmt.Println("✅ God accounts created")
 		fmt.Println("🔑 God Login Credentials:")
 		fmt.Println("   👑 God:      username: god,      password: god123")
@@ -146,7 +146,7 @@ func main() {
 	db.Model(&Organization{}).Count(&orgCount)
 	if orgCount == 0 {
 		fmt.Println("🏢 Creating comprehensive demo organization...")
-		
+
 		// Create demo organization
 		org := Organization{
 			Name:        "InnovateTech Solutions",
@@ -154,9 +154,9 @@ func main() {
 			Description: "A comprehensive technology company with multiple departments including Engineering, Sales, Marketing, and Operations.",
 		}
 		db.Create(&org)
-		
+
 		fmt.Println("📝 Creating hierarchical user structure...")
-		
+
 		// Hash passwords
 		adminHash, _ := hashPassword("admin123")
 		hrHash, _ := hashPassword("hr123")
@@ -172,7 +172,7 @@ func main() {
 		sales2Hash, _ := hashPassword("sales2123")
 		marketing1Hash, _ := hashPassword("marketing123")
 		qaHash, _ := hashPassword("qa123")
-		
+
 		// Create users with hierarchical structure
 		users := []User{
 			// Admin
@@ -352,45 +352,45 @@ func main() {
 				CTC:            580000,
 			},
 		}
-		
+
 		// Create users and set up manager relationships
 		for i, user := range users {
 			db.Create(&user)
 			users[i] = user // Update with the created user's ID
 		}
-		
+
 		// Set up manager relationships
-		ceo := users[2] // CEO
-		cto := users[3] // CTO
-		engMgr := users[4] // Engineering Manager
-		salesMgr := users[5] // Sales Manager
+		ceo := users[2]          // CEO
+		cto := users[3]          // CTO
+		engMgr := users[4]       // Engineering Manager
+		salesMgr := users[5]     // Sales Manager
 		marketingMgr := users[6] // Marketing Manager
-		
+
 		// CTO reports to CEO
 		db.Model(&cto).Update("manager_id", ceo.ID)
-		
+
 		// Engineering Manager reports to CTO
 		db.Model(&engMgr).Update("manager_id", cto.ID)
-		
+
 		// Sales Manager reports to CEO
 		db.Model(&salesMgr).Update("manager_id", ceo.ID)
-		
+
 		// Marketing Manager reports to CEO
 		db.Model(&marketingMgr).Update("manager_id", ceo.ID)
-		
+
 		// Developers report to Engineering Manager
 		for i := 7; i <= 10; i++ { // dev1, dev2, dev3, qa
 			db.Model(&users[i]).Update("manager_id", engMgr.ID)
 		}
-		
+
 		// Sales reps report to Sales Manager
 		for i := 11; i <= 12; i++ { // sales1, sales2
 			db.Model(&users[i]).Update("manager_id", salesMgr.ID)
 		}
-		
+
 		// Marketing specialist reports to Marketing Manager
 		db.Model(&users[13]).Update("manager_id", marketingMgr.ID)
-		
+
 		fmt.Println("✅ Comprehensive organization structure created")
 		fmt.Println("🔑 InnovateTech Login Credentials:")
 		fmt.Println("   👑 Admin:      username: admin,      password: admin123")
@@ -420,7 +420,7 @@ func main() {
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Organization-ID")
 		c.Header("Access-Control-Allow-Credentials", "true")
-		
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -507,7 +507,7 @@ func main() {
 				Username string `json:"username" binding:"required"`
 				Password string `json:"password" binding:"required"`
 			}
-			
+
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password required"})
 				return
@@ -539,7 +539,7 @@ func main() {
 			organizationID := c.GetUint("organization_id")
 			user := c.MustGet("user").(User)
 			isGod := user.OrganizationID == 0 // God users have OrganizationID 0
-			
+
 			var users []User
 			if isGod {
 				// God users can see all users
@@ -556,7 +556,7 @@ func main() {
 			organizationID := c.GetUint("organization_id")
 			user := c.MustGet("user").(User)
 			isGod := user.OrganizationID == 0 // God users have OrganizationID 0
-			
+
 			var users []User
 			if isGod {
 				// God users can see all users
@@ -573,7 +573,7 @@ func main() {
 			organizationID := c.GetUint("organization_id")
 			user := c.MustGet("user").(User)
 			isGod := user.OrganizationID == 0
-			
+
 			var leaves []Leave
 			if isGod {
 				// God users can see all leaves
@@ -587,17 +587,17 @@ func main() {
 
 		api.POST("/leaves", authMiddleware, func(c *gin.Context) {
 			var req struct {
-				Type     string `json:"type" binding:"required"`
-				From     string `json:"from" binding:"required"`
-				To       string `json:"to" binding:"required"`
-				Reason   string `json:"reason"`
+				Type   string `json:"type" binding:"required"`
+				From   string `json:"from" binding:"required"`
+				To     string `json:"to" binding:"required"`
+				Reason string `json:"reason"`
 			}
-			
+
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
-			
+
 			user := c.MustGet("user").(User)
 			leave := Leave{
 				UserID:         user.ID,
@@ -608,80 +608,80 @@ func main() {
 				Reason:         req.Reason,
 				Status:         "pending",
 			}
-			
+
 			if err := db.Create(&leave).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create leave request"})
 				return
 			}
-			
+
 			c.JSON(http.StatusCreated, gin.H{"data": leave})
 		})
 
 		api.PUT("/leaves/:id/approve", authMiddleware, func(c *gin.Context) {
 			leaveID := c.Param("id")
 			user := c.MustGet("user").(User)
-			
+
 			// Check if user can approve leaves (Manager, HR, Admin, God)
 			if !(user.Role == "Manager" || user.Role == "HR" || user.Role == "Admin" || user.Role == "God") {
 				c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 				return
 			}
-			
+
 			var leave Leave
 			if err := db.First(&leave, leaveID).Error; err != nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Leave request not found"})
 				return
 			}
-			
+
 			// Check organization access
 			if user.OrganizationID != 0 && leave.OrganizationID != user.OrganizationID {
 				c.JSON(http.StatusForbidden, gin.H{"error": "Cannot approve leave from different organization"})
 				return
 			}
-			
+
 			leave.Status = "approved"
 			if err := db.Save(&leave).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to approve leave"})
 				return
 			}
-			
+
 			c.JSON(http.StatusOK, gin.H{"data": leave})
 		})
 
 		api.PUT("/leaves/:id/reject", authMiddleware, func(c *gin.Context) {
 			leaveID := c.Param("id")
 			user := c.MustGet("user").(User)
-			
+
 			// Check if user can approve leaves (Manager, HR, Admin, God)
 			if !(user.Role == "Manager" || user.Role == "HR" || user.Role == "Admin" || user.Role == "God") {
 				c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 				return
 			}
-			
+
 			var req struct {
 				Reason string `json:"reason"`
 			}
 			c.ShouldBindJSON(&req)
-			
+
 			var leave Leave
 			if err := db.First(&leave, leaveID).Error; err != nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Leave request not found"})
 				return
 			}
-			
+
 			// Check organization access
 			if user.OrganizationID != 0 && leave.OrganizationID != user.OrganizationID {
 				c.JSON(http.StatusForbidden, gin.H{"error": "Cannot reject leave from different organization"})
 				return
 			}
-			
+
 			leave.Status = "rejected"
 			leave.Reason = req.Reason
 			if err := db.Save(&leave).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reject leave"})
 				return
 			}
-			
+
 			c.JSON(http.StatusOK, gin.H{"data": leave})
 		})
 
@@ -697,7 +697,7 @@ func main() {
 				Designation string  `json:"designation"`
 				CTC         float64 `json:"ctc"`
 			}
-			
+
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 				return
@@ -713,7 +713,7 @@ func main() {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
 				return
 			}
-			
+
 			user := User{
 				OrganizationID: 1,
 				Username:       req.Username,
@@ -725,18 +725,80 @@ func main() {
 				Designation:    req.Designation,
 				CTC:            req.CTC,
 			}
-			
+
 			result := db.Create(&user)
 			if result.Error != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to create user"})
 				return
 			}
-			
+
 			c.JSON(http.StatusCreated, gin.H{
 				"data":    user,
 				"message": "User created successfully",
 			})
 		})
+
+		// Dashboard stats endpoint
+		api.GET("/dashboard/stats", authMiddleware, func(c *gin.Context) {
+			organizationID := c.GetUint("organization_id")
+			user := c.MustGet("user").(User)
+			isGod := user.OrganizationID == 0
+
+			var totalEmployees int64
+			var pendingLeaves int64
+			var approvedLeaves int64
+			var totalDocuments int64
+
+			if isGod {
+				// God users see platform-wide stats
+				db.Model(&User{}).Count(&totalEmployees)
+				db.Model(&Leave{}).Where("status = ?", "pending").Count(&pendingLeaves)
+				db.Model(&Leave{}).Where("status = ?", "approved").Count(&approvedLeaves)
+				// Documents not implemented yet, so return 0
+				totalDocuments = 0
+			} else {
+				// Regular users see organization-specific stats
+				db.Model(&User{}).Where("organization_id = ?", organizationID).Count(&totalEmployees)
+				db.Model(&Leave{}).Where("organization_id = ? AND status = ?", organizationID, "pending").Count(&pendingLeaves)
+				db.Model(&Leave{}).Where("organization_id = ? AND status = ?", organizationID, "approved").Count(&approvedLeaves)
+				// Documents not implemented yet, so return 0
+				totalDocuments = 0
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"data": gin.H{
+					"total_employees": totalEmployees,
+					"pending_leaves":  pendingLeaves,
+					"approved_leaves": approvedLeaves,
+					"total_documents": totalDocuments,
+					"team_members":    totalEmployees, // Same as total employees for now
+				},
+			})
+		})
+
+		// Documents endpoints (placeholder)
+		documents := api.Group("/documents")
+		documents.Use(authMiddleware)
+		{
+			documents.GET("", func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{"data": []gin.H{}})
+			})
+			documents.POST("", func(c *gin.Context) {
+				c.JSON(http.StatusCreated, gin.H{"message": "Document upload not implemented yet"})
+			})
+		}
+
+		// Salary slips endpoints (placeholder)
+		salarySlips := api.Group("/salary-slips")
+		salarySlips.Use(authMiddleware)
+		{
+			salarySlips.GET("", func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{"data": []gin.H{}})
+			})
+			salarySlips.POST("", func(c *gin.Context) {
+				c.JSON(http.StatusCreated, gin.H{"message": "Salary slip upload not implemented yet"})
+			})
+		}
 
 		// God-only endpoints
 		god := api.Group("/god")
@@ -746,16 +808,16 @@ func main() {
 				var totalOrgs int64
 				var totalUsers int64
 				var activeOrgs int64
-				
+
 				db.Model(&Organization{}).Count(&totalOrgs)
 				db.Model(&User{}).Count(&totalUsers)
 				db.Model(&Organization{}).Where("is_active = ?", true).Count(&activeOrgs)
-				
+
 				c.JSON(http.StatusOK, gin.H{
 					"data": gin.H{
-						"total_organizations": totalOrgs,
+						"total_organizations":  totalOrgs,
 						"active_organizations": activeOrgs,
-						"total_users": totalUsers,
+						"total_users":          totalUsers,
 					},
 				})
 			})
@@ -764,14 +826,14 @@ func main() {
 			god.GET("/organizations", func(c *gin.Context) {
 				var orgs []Organization
 				db.Find(&orgs)
-				
+
 				// Add user count for each organization
 				for i := range orgs {
 					var userCount int64
 					db.Model(&User{}).Where("organization_id = ?", orgs[i].ID).Count(&userCount)
 					orgs[i].UserCount = int(userCount)
 				}
-				
+
 				c.JSON(http.StatusOK, gin.H{"data": orgs})
 			})
 
@@ -788,7 +850,7 @@ func main() {
 						Name     string `json:"name" binding:"required"`
 					} `json:"admin_user" binding:"required"`
 				}
-				
+
 				if err := c.ShouldBindJSON(&req); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 					return
@@ -800,7 +862,7 @@ func main() {
 					Domain:      req.Domain,
 					Description: req.Description,
 				}
-				
+
 				result := db.Create(&org)
 				if result.Error != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to create organization"})
@@ -825,13 +887,13 @@ func main() {
 					Designation:    "Organization Administrator",
 					CTC:            0,
 				}
-				
+
 				result = db.Create(&adminUser)
 				if result.Error != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to create admin user"})
 					return
 				}
-				
+
 				c.JSON(http.StatusCreated, gin.H{
 					"organization": org,
 					"admin_user":   adminUser,
@@ -865,7 +927,7 @@ func main() {
 					Description string `json:"description"`
 					IsActive    *bool  `json:"is_active"`
 				}
-				
+
 				if err := c.ShouldBindJSON(&req); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 					return
@@ -902,7 +964,7 @@ func main() {
 
 				org.IsActive = false
 				db.Save(&org)
-				
+
 				c.JSON(http.StatusOK, gin.H{"message": "Organization deactivated successfully"})
 			})
 		}
@@ -938,12 +1000,12 @@ func main() {
 				}
 
 				var req struct {
-					Name            string `json:"name" binding:"required"`
+					Name            string  `json:"name" binding:"required"`
 					Date            *string `json:"date"`
-					Type            string `json:"type" binding:"required"`
-					Description     string `json:"description"`
-					IsCalendarEvent bool   `json:"is_calendar_event"`
-					Color           string `json:"color"`
+					Type            string  `json:"type" binding:"required"`
+					Description     string  `json:"description"`
+					IsCalendarEvent bool    `json:"is_calendar_event"`
+					Color           string  `json:"color"`
 				}
 
 				if err := c.ShouldBindJSON(&req); err != nil {
@@ -952,10 +1014,22 @@ func main() {
 				}
 
 				organizationID := c.GetUint("organization_id")
+
+				// Parse date if provided (handle YYYY-MM-DD format)
+				var datePtr *string
+				if req.Date != nil && *req.Date != "" {
+					// Validate date format
+					if _, err := time.Parse("2006-01-02", *req.Date); err != nil {
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format, expected YYYY-MM-DD"})
+						return
+					}
+					datePtr = req.Date
+				}
+
 				holiday := Holiday{
-					OrganizationID:   organizationID,
+					OrganizationID:  organizationID,
 					Name:            req.Name,
-					Date:            req.Date,
+					Date:            datePtr,
 					Type:            req.Type,
 					Description:     req.Description,
 					IsCalendarEvent: req.IsCalendarEvent,
@@ -1016,6 +1090,13 @@ func main() {
 					holiday.Name = *req.Name
 				}
 				if req.Date != nil {
+					if *req.Date != "" {
+						// Validate date format
+						if _, err := time.Parse("2006-01-02", *req.Date); err != nil {
+							c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format, expected YYYY-MM-DD"})
+							return
+						}
+					}
 					holiday.Date = req.Date
 				}
 				if req.Type != nil {

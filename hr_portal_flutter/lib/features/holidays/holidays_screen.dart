@@ -41,14 +41,7 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
             Tab(text: 'My Leaves', icon: Icon(Icons.person)),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              _showApplyLeaveDialog();
-            },
-          ),
-        ],
+        actions: [],
       ),
       drawer: const AppDrawer(),
       body: TabBarView(

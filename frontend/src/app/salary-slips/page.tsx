@@ -27,9 +27,12 @@ export default function SalarySlipsPage() {
   const [uploadDocState, setUploadDocState] = useState<Record<string, { file: File | null; title: string }>>({});
   const queryClient = useQueryClient();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["salary-slips"],
-    queryFn: () => getSalarySlips(canManageSalarySlips() ? {} : { userId: userId }),
+    queryKey: ["salary-slips", currentPage],
+    queryFn: () => getSalarySlips(canManageSalarySlips() ? { page: currentPage, limit: itemsPerPage } : { userId: userId, page: currentPage, limit: itemsPerPage }),
   });
 
   const { data: usersData } = useQuery({
@@ -222,6 +225,14 @@ export default function SalarySlipsPage() {
       </RoleGuard>
 
       <Card title={canManageSalarySlips() ? "All Salary Slips" : "My Salary Slips"}>
+        {/* Pagination Info */}
+        {data?.data && data.data.length > 0 && (
+          <div className="mb-4 text-sm text-gray-400">
+            Showing page {currentPage} of {Math.ceil((data.total || data.data.length) / itemsPerPage)} 
+            ({(data.total || data.data.length)} total items)
+          </div>
+        )}
+        
         {canManageSalarySlips() ? (
           <div className="space-y-4">
             {/* Group by employee */}
@@ -347,6 +358,29 @@ export default function SalarySlipsPage() {
             {(!data?.data || data.data.length === 0) && (
               <p className="text-gray-400 text-center py-8">No salary slips found</p>
             )}
+            
+            {/* Pagination Controls */}
+            {data?.data && data.data.length > 0 && (
+              <div className="flex justify-center items-center gap-4 mt-6">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 bg-white/10 border border-white/20 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/20"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-400">
+                  Page {currentPage} of {Math.ceil((data.total || data.data.length) / itemsPerPage)}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  disabled={currentPage >= Math.ceil((data.total || data.data.length) / itemsPerPage)}
+                  className="px-3 py-2 bg-white/10 border border-white/20 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/20"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -384,6 +418,29 @@ export default function SalarySlipsPage() {
                 </div>
               </div>
             ))}
+            
+            {/* Pagination Controls for Non-Admin */}
+            {data?.data && data.data.length > 0 && (
+              <div className="flex justify-center items-center gap-4 mt-6">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 bg-white/10 border border-white/20 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/20"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-400">
+                  Page {currentPage} of {Math.ceil((data.total || data.data.length) / itemsPerPage)}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  disabled={currentPage >= Math.ceil((data.total || data.data.length) / itemsPerPage)}
+                  className="px-3 py-2 bg-white/10 border border-white/20 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/20"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
       </Card>

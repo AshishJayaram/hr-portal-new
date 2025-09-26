@@ -13,6 +13,7 @@ import { computePayslipFromCTC } from "@/lib/payroll";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { LeaveCategory, LeaveAllocation } from "@/lib/api";
+import Loader from "@/components/ui/Loader";
 
 export default function AddEmployeePage() {
   const router = useRouter();
@@ -20,6 +21,8 @@ export default function AddEmployeePage() {
   const [form, setForm] = useState({
     username: "",
     password: "",
+    name: "",
+    email: "",
     designation: "",
     department: "HR",
     role: "Employee",
@@ -31,12 +34,13 @@ export default function AddEmployeePage() {
   const [maxStep, setMaxStep] = useState<number>(0); // 0: details, 1: leaves, 2: ctc
   const [ctcData, setCtcData] = useState({ annualCTC: 0, lopDays: 0, tdsOverride: 0 });
   const [leaveAllocations, setLeaveAllocations] = useState<Record<string, number>>({});
+  const [leaveApplicable, setLeaveApplicable] = useState<Record<string, boolean>>({});
   const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
-  const { data: companySettings } = useQuery({
+  const { data: companySettings, isLoading: companySettingsLoading } = useQuery({
     queryKey: ["company-settings", companyId],
     queryFn: () => getCompanySettings(companyId),
   });
-  const { data: leaveCategories } = useQuery({
+  const { data: leaveCategories, isLoading: leaveCategoriesLoading } = useQuery({
     queryKey: ["leave-categories"],
     queryFn: () => getLeaveCategories(),
   });
@@ -65,10 +69,13 @@ export default function AddEmployeePage() {
       const user = await createUser({
         username: body.username,
         password: body.password,
+        name: body.name,
+        email: body.email,
         designation: body.designation,
         department: body.department,
         role: toCanonicalRole(body.role),
-        manager_id: body.manager_id ? Number(body.manager_id) : undefined,
+        manager_id: body.manager_id ? String(body.manager_id) : undefined, // Convert to string
+        ctc: Number(ctcData.annualCTC) || 0, // Include CTC in initial user creation
       });
       
       // Create leave allocations for the new user
@@ -76,23 +83,18 @@ export default function AddEmployeePage() {
         const currentYear = new Date().getFullYear();
         const allocationPromises = Object.entries(body.leaveAllocations || {}).map(([categoryId, days]) => {
           const category = leaveCategories.data.find(c => c.id === categoryId);
-          if (category && Number(days) > 0) {
+          const isApplicable = body.leaveApplicable?.[categoryId] || false;
+          if (category && isApplicable && Number(days) >= 0) {
             return createLeaveAllocation(user.data.id, {
               categoryId,
               categoryName: category.name,
               totalDays: Number(days),
-              usedDays: 0,
-              remainingDays: Number(days),
               year: currentYear,
             });
           }
           return Promise.resolve();
         });
         await Promise.all(allocationPromises);
-      }
-      // Set CTC if provided
-      if (user.data?.id && Number(ctcData.annualCTC) > 0) {
-        await updateUser(user.data.id, { ctc: Number(ctcData.annualCTC) } as any);
       }
       
       return user;
@@ -111,21 +113,26 @@ export default function AddEmployeePage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    mutation.mutate({ ...form, leaveAllocations });
+    mutation.mutate({ ...form, leaveAllocations, leaveApplicable });
   };
 
   // Initialize leave allocations with default values
   React.useEffect(() => {
     if (leaveCategories?.data && Object.keys(leaveAllocations).length === 0) {
       const defaultAllocations: Record<string, number> = {};
+      const defaultApplicable: Record<string, boolean> = {};
       leaveCategories.data.forEach(category => {
         if (category.isActive) {
           defaultAllocations[category.id] = category.defaultDays;
+          defaultApplicable[category.id] = category.defaultDays > 0; // Set applicable based on default days
         }
       });
       setLeaveAllocations(defaultAllocations);
+      setLeaveApplicable(defaultApplicable);
     }
-  }, [leaveCategories, leaveAllocations]);
+  }, [leaveCategories]); // Removed leaveAllocations from dependencies to prevent infinite loop
+
+  if (companySettingsLoading || leaveCategoriesLoading) return <Loader />;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -142,7 +149,9 @@ export default function AddEmployeePage() {
         <Card>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
-              <Input label="Username (name or email)" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required />
+              <Input label="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+              <Input label="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required />
               <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
               <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} placeholder="e.g., Software Engineer, Manager" />
               <Input label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
@@ -166,10 +175,54 @@ export default function AddEmployeePage() {
           <h3 className="text-lg font-semibold mb-4 text-primary">Leave Allocations</h3>
           <div className="grid md:grid-cols-2 gap-4">
             {leaveCategories.data.filter(category => category.isActive).map((category) => (
-              <div key={category.id} className="space-y-2">
-                <label className="block text-sm font-medium text-secondary">{category.name}<span className="text-xs text-muted ml-2">(Default: {category.defaultDays} days)</span></label>
-                <Input type="number" min="0" value={String(leaveAllocations[category.id] || category.defaultDays)} onChange={(e) => setLeaveAllocations(prev => ({ ...prev, [category.id]: Number(e.target.value) || 0 }))} placeholder={String(category.defaultDays)} />
-                {category.description && (<p className="text-xs text-muted">{category.description}</p>)}
+              <div key={category.id} className="space-y-2 p-4 border border-white/10 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id={`applicable-${category.id}`}
+                    checked={leaveApplicable[category.id] || false}
+                    onChange={(e) => {
+                      const isApplicable = e.target.checked;
+                      setLeaveApplicable(prev => ({ ...prev, [category.id]: isApplicable }));
+                      // If not applicable, set days to 0
+                      if (!isApplicable) {
+                        setLeaveAllocations(prev => ({ ...prev, [category.id]: 0 }));
+                      } else if (leaveAllocations[category.id] === 0) {
+                        // If becoming applicable and currently 0, set to default
+                        setLeaveAllocations(prev => ({ ...prev, [category.id]: category.defaultDays }));
+                      }
+                    }}
+                    className="rounded"
+                  />
+                  <label htmlFor={`applicable-${category.id}`} className={`text-sm font-medium ${leaveApplicable[category.id] ? 'text-primary' : 'text-muted'}`}>
+                    {category.name}
+                  </label>
+                  <span className="text-xs text-muted">(Default: {category.defaultDays} days)</span>
+                  {!leaveApplicable[category.id] && (
+                    <span className="text-xs text-red-400 ml-2">Not Applicable</span>
+                  )}
+                </div>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  value={String(leaveAllocations[category.id] || 0)} 
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    setLeaveAllocations(prev => ({ ...prev, [category.id]: value }));
+                    // If setting to 0, uncheck applicable
+                    if (value === 0) {
+                      setLeaveApplicable(prev => ({ ...prev, [category.id]: false }));
+                    } else {
+                      // If setting to > 0, check applicable
+                      setLeaveApplicable(prev => ({ ...prev, [category.id]: true }));
+                    }
+                  }} 
+                  placeholder={String(category.defaultDays)} 
+                  disabled={!leaveApplicable[category.id]}
+                />
+                {category.description && (
+                  <p className="text-xs text-muted">{category.description}</p>
+                )}
               </div>
             ))}
           </div>

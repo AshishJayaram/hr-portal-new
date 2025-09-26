@@ -28,14 +28,8 @@ func NewAuthService(userRepo repositories.UserRepository, organizationRepo repos
 }
 
 func (s *authService) Login(req LoginRequest) (*LoginResponse, error) {
-	// Validate organization exists
-	_, err := s.organizationRepo.GetByID(req.OrganizationID)
-	if err != nil {
-		return nil, fmt.Errorf("organization not found: %w", err)
-	}
-
-	// Get user by username and organization
-	user, err := s.userRepo.GetByUsername(req.Username, req.OrganizationID)
+	// Get user by username across all organizations
+	user, err := s.userRepo.GetByUsernameAcrossOrgs(req.Username)
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials")
 	}

@@ -10,6 +10,7 @@ import { getCompanySettings, updateCompanySettings, getLeaveCategories, createLe
 import { PayrollSettings, PayrollMode, defaultPayrollSettings, computePayslipFromCTC } from "@/lib/payroll";
 import RoleGuard from "@/components/RoleGuard";
 import { LeaveCategory } from "@/lib/api";
+import { toast } from "sonner";
 
 function getCompanyId(): string {
   if (typeof window === 'undefined') return 'demo-company';
@@ -51,6 +52,12 @@ export default function CompanySettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["leave-categories"] });
       queryClient.invalidateQueries({ queryKey: ["leave-allocations"] });
       queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+      toast.success("Leave category added successfully!");
+      // Refresh the page to show updated data
+      setTimeout(() => window.location.reload(), 1000);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to add leave category");
     },
   });
 
@@ -311,14 +318,14 @@ function LeaveCategoriesManager({
   const [newCategory, setNewCategory] = useState({
     name: '',
     description: '',
-    defaultDays: 0,
+    defaultDays: 1,
     isActive: true,
   });
 
   const handleCreate = () => {
     if (newCategory.name && newCategory.defaultDays > 0) {
       onCreate(newCategory);
-      setNewCategory({ name: '', description: '', defaultDays: 0, isActive: true });
+      setNewCategory({ name: '', description: '', defaultDays: 1, isActive: true });
     }
   };
 
@@ -346,19 +353,26 @@ function LeaveCategoriesManager({
             value={newCategory.name}
             onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
             placeholder="e.g., Casual Leave"
+            disabled={isLoading}
           />
           <Input
             label="Description"
             value={newCategory.description}
             onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
             placeholder="e.g., General purpose leave"
+            disabled={isLoading}
           />
           <Input
             type="number"
             label="Default Days"
             value={String(newCategory.defaultDays)}
-            onChange={(e) => setNewCategory({ ...newCategory, defaultDays: Number(e.target.value) })}
+            onChange={(e) => {
+              const value = parseInt(e.target.value) || 0;
+              setNewCategory({ ...newCategory, defaultDays: value });
+            }}
             placeholder="24"
+            min="1"
+            disabled={isLoading}
           />
           <div className="flex items-center gap-2">
             <input
@@ -366,14 +380,27 @@ function LeaveCategoriesManager({
               id="isActive"
               checked={newCategory.isActive}
               onChange={(e) => setNewCategory({ ...newCategory, isActive: e.target.checked })}
+              disabled={isLoading}
             />
             <label htmlFor="isActive" className="text-sm">Active</label>
           </div>
         </div>
         <div className="mt-4">
-          <Button onClick={handleCreate} disabled={isLoading || !newCategory.name || newCategory.defaultDays <= 0}>
-            Add Category
+          <Button 
+            onClick={handleCreate} 
+            disabled={isLoading || !newCategory.name.trim() || newCategory.defaultDays < 1}
+            className="flex items-center gap-2"
+          >
+            {isLoading && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            )}
+            {isLoading ? "Adding Category..." : "Add Category"}
           </Button>
+          {(!newCategory.name.trim() || newCategory.defaultDays < 1) && (
+            <p className="text-sm text-gray-400 mt-2">
+              Please fill in the category name and set default days to at least 1
+            </p>
+          )}
         </div>
       </Card>
 
@@ -400,7 +427,11 @@ function LeaveCategoriesManager({
                       type="number"
                       label="Default Days"
                       value={String(editingCategory.defaultDays)}
-                      onChange={(e) => setEditingCategory({ ...editingCategory, defaultDays: Number(e.target.value) })}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0;
+                        setEditingCategory({ ...editingCategory, defaultDays: value });
+                      }}
+                      min="1"
                     />
                     <div className="flex items-center gap-2">
                       <input
@@ -412,7 +443,12 @@ function LeaveCategoriesManager({
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={handleUpdate} disabled={isLoading}>Save</Button>
+                    <Button 
+                      onClick={handleUpdate} 
+                      disabled={isLoading || !editingCategory.name.trim() || editingCategory.defaultDays < 1}
+                    >
+                      Save
+                    </Button>
                     <Button variant="outline" onClick={() => setEditingCategory(null)}>Cancel</Button>
                   </div>
                 </div>

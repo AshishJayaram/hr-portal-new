@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getHolidays, createHoliday, updateHoliday, deleteHoliday, Holiday, canManageHolidays } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
@@ -12,9 +12,6 @@ import Button from "@/components/ui/Button";
 
 export default function HolidaysPage() {
   const queryClient = useQueryClient();
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
   const [formData, setFormData] = useState({
@@ -26,38 +23,77 @@ export default function HolidaysPage() {
     color: "#ef4444",
   });
 
-  useEffect(() => {
-    loadHolidays();
-  }, []);
-
-  const loadHolidays = async () => {
-    try {
-      setLoading(true);
+  // Use React Query for automatic data fetching and caching
+  const { data: holidays = [], isLoading: loading, error } = useQuery({
+    queryKey: ["holidays"],
+    queryFn: async () => {
       const response = await getHolidays();
-      setHolidays(response.data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return response.data;
+    },
+    refetchOnWindowFocus: true, // Auto-refresh when window gains focus
+    staleTime: 30000, // Consider data stale after 30 seconds
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingHoliday) {
-        await updateHoliday(editingHoliday.id, formData);
-      } else {
-        await createHoliday(formData);
-      }
+  // Create holiday mutation
+  const createHolidayMutation = useMutation({
+    mutationFn: createHoliday,
+    onSuccess: () => {
+      // Invalidate and refetch holidays data
+      queryClient.invalidateQueries({ queryKey: ["holidays"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
       setShowForm(false);
       setEditingHoliday(null);
       setFormData({ name: "", date: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444" });
-      // Invalidate all related queries to refresh data
+      // Show success message
+      alert("Holiday/Event created successfully!");
+    },
+    onError: (error: any) => {
+      console.error("Failed to create holiday:", error);
+    },
+  });
+
+  // Update holiday mutation
+  const updateHolidayMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => updateHoliday(id, data),
+    onSuccess: () => {
+      // Invalidate and refetch holidays data
       queryClient.invalidateQueries({ queryKey: ["holidays"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-    } catch (err: any) {
-      setError(err.message);
+      queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
+      setShowForm(false);
+      setEditingHoliday(null);
+      setFormData({ name: "", date: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444" });
+      // Show success message
+      alert("Holiday/Event updated successfully!");
+    },
+    onError: (error: any) => {
+      console.error("Failed to update holiday:", error);
+    },
+  });
+
+  // Delete holiday mutation
+  const deleteHolidayMutation = useMutation({
+    mutationFn: deleteHoliday,
+    onSuccess: () => {
+      // Invalidate and refetch holidays data
+      queryClient.invalidateQueries({ queryKey: ["holidays"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
+      // Show success message
+      alert("Holiday/Event deleted successfully!");
+    },
+    onError: (error: any) => {
+      console.error("Failed to delete holiday:", error);
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingHoliday) {
+      updateHolidayMutation.mutate({ id: editingHoliday.id, data: formData });
+    } else {
+      createHolidayMutation.mutate(formData);
     }
   };
 
@@ -76,14 +112,7 @@ export default function HolidaysPage() {
 
   const handleDelete = async (holidayId: string) => {
     if (!confirm("Are you sure you want to delete this holiday?")) return;
-    try {
-      await deleteHoliday(holidayId);
-      // Invalidate all related queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["holidays"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-    } catch (err: any) {
-      setError(err.message);
-    }
+    deleteHolidayMutation.mutate(holidayId);
   };
 
   if (loading) return <Loader />;
@@ -102,9 +131,12 @@ export default function HolidaysPage() {
         </RoleGuard>
       </div>
 
-      {error && (
+      {(error || createHolidayMutation.error || updateHolidayMutation.error || deleteHolidayMutation.error) && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
-          {error}
+          {error?.message || 
+           createHolidayMutation.error?.message || 
+           updateHolidayMutation.error?.message || 
+           deleteHolidayMutation.error?.message}
         </div>
       )}
 
@@ -171,7 +203,7 @@ export default function HolidaysPage() {
               <div className="flex gap-2">
                 <Button
                   type="submit"
-                  loading={false}
+                  loading={createHolidayMutation.isPending || updateHolidayMutation.isPending}
                 >
                   {editingHoliday ? "Update" : "Create"}
                 </Button>
@@ -278,10 +310,11 @@ export default function HolidaysPage() {
                   </button>
                   <button
                     onClick={() => handleDelete(holiday.id)}
-                    className="p-2 text-red-400 hover:text-red-300 hover:bg-white/10 rounded transition-colors"
+                    disabled={deleteHolidayMutation.isPending}
+                    className="p-2 text-red-400 hover:text-red-300 hover:bg-white/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Delete holiday"
                   >
-                    🗑️
+                    {deleteHolidayMutation.isPending ? "⏳" : "🗑️"}
                   </button>
                 </div>
               </RoleGuard>

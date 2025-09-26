@@ -50,7 +50,7 @@ func (h *GodHandler) ListOrganizations(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"organizations": organizations})
 }
 
-// GetOrganization returns a specific organization by ID
+// GetOrganization returns a specific organization by ID with admin user info
 func (h *GodHandler) GetOrganization(c *gin.Context) {
 	orgID := c.Param("id")
 	org, err := h.services.Organization.GetByID(orgID)
@@ -58,7 +58,29 @@ func (h *GodHandler) GetOrganization(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Organization not found"})
 		return
 	}
-	c.JSON(http.StatusOK, org)
+
+	// Get admin user for this organization
+	adminUser, err := h.services.User.GetAdminByOrganizationID(orgID)
+	if err != nil {
+		// No admin user found, that's okay
+		adminUser = nil
+	}
+
+	response := gin.H{
+		"organization": org,
+	}
+	
+	if adminUser != nil {
+		response["admin_user"] = gin.H{
+			"id":       adminUser.ID,
+			"username": adminUser.Username,
+			"email":    adminUser.Email,
+			"name":     adminUser.Name,
+			"role":     adminUser.Role,
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // CreateOrganization creates a new organization

@@ -128,7 +128,23 @@ export interface ApiError {
 
 async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const organizationId = typeof window !== "undefined" ? localStorage.getItem("organizationId") : null;
+  let organizationId = typeof window !== "undefined" ? localStorage.getItem("organizationId") : null;
+  
+  // Fallback: get organizationId from user object if not in localStorage
+  if (!organizationId && typeof window !== "undefined") {
+    const user = getCurrentUser();
+    organizationId = user?.organizationId || null;
+    
+    // If still no organizationId, try to decode it from the JWT token
+    if (!organizationId && token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        organizationId = payload.organization_id?.toString() || null;
+      } catch (e) {
+        // Ignore JWT decode errors
+      }
+    }
+  }
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -140,7 +156,7 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Add /api prefix if not already present
   const fullPath = path.startsWith('/api/') ? path : `/api${path}`;
 
-  const res = await fetch(`${API_URL}${fullPath}`, {
+  const res = await fetch(fullPath, {
     ...options,
     headers,
     credentials: "include", // Include cookies for NextAuth
@@ -157,14 +173,30 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
 // Helper for multipart form data
 async function uploadFile<T>(path: string, formData: FormData): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const organizationId = typeof window !== "undefined" ? localStorage.getItem("organizationId") : null;
+  let organizationId = typeof window !== "undefined" ? localStorage.getItem("organizationId") : null;
+  
+  // Fallback: get organizationId from user object if not in localStorage
+  if (!organizationId && typeof window !== "undefined") {
+    const user = getCurrentUser();
+    organizationId = user?.organizationId || null;
+    
+    // If still no organizationId, try to decode it from the JWT token
+    if (!organizationId && token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        organizationId = payload.organization_id?.toString() || null;
+      } catch (e) {
+        // Ignore JWT decode errors
+      }
+    }
+  }
 
   const headers: Record<string, string> = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(organizationId ? { "X-Organization-ID": organizationId } : {}),
   };
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(path, {
     method: "POST",
     headers,
     body: formData,
@@ -179,103 +211,21 @@ async function uploadFile<T>(path: string, formData: FormData): Promise<T> {
 }
 
 // -------------------- Mock helpers --------------------
-const mockUsers = (): User[] => [
-  { id: '1', email: 'admin@example.com', name: 'Admin User', role: 'Admin', department: 'IT', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '2', email: 'hr@example.com', name: 'HR Lead', role: 'HR', department: 'People', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '3', email: 'manager@example.com', name: 'Eng Manager', role: 'Manager', department: 'Engineering', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '4', email: 'employee@example.com', name: 'Employee One', role: 'Employee', department: 'Engineering', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-];
+// Mock functions removed
 
-const mockLeaveCategories = (): LeaveCategory[] => [
-  { id: '1', name: 'Casual Leave', description: 'General purpose leave', defaultDays: 24, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '2', name: 'Sick Leave', description: 'Medical leave', defaultDays: 10, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '3', name: 'Professional Leave', description: 'Training and development', defaultDays: 5, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '4', name: 'Maternity Leave', description: 'Maternity and childcare', defaultDays: 90, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '5', name: 'Paternity Leave', description: 'Paternity and childcare', defaultDays: 15, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-];
 
-const mockLeaveAllocations = (userId: string, year?: number): LeaveAllocation[] => {
-  const currentYear = year || new Date().getFullYear();
-  return [
-    { id: '1', userId, categoryId: '1', categoryName: 'Casual Leave', totalDays: 24, usedDays: 8, remainingDays: 16, year: currentYear, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-    { id: '2', userId, categoryId: '2', categoryName: 'Sick Leave', totalDays: 10, usedDays: 2, remainingDays: 8, year: currentYear, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-    { id: '3', userId, categoryId: '3', categoryName: 'Professional Leave', totalDays: 5, usedDays: 1, remainingDays: 4, year: currentYear, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  ];
-};
 
-const mockLeaveBalances = (userId: string): LeaveBalance[] => [
-  { type: 'Casual', total: 24, used: 8, remaining: 16 },
-  { type: 'Sick', total: 10, used: 2, remaining: 8 },
-  { type: 'Professional', total: 5, used: 1, remaining: 4 },
-];
 
-const mockLeaves = (userId?: string): Leave[] => [
-  { id: '101', userId: userId || '4', type: 'Casual', status: 'approved', from: '2025-05-10', to: '2025-05-12', createdAt: new Date().toISOString() },
-  { id: '102', userId: userId || '4', type: 'Sick', status: 'pending', from: '2025-06-02', to: '2025-06-02', createdAt: new Date().toISOString() },
-  { id: '103', userId: userId || '4', type: 'Professional', status: 'rejected', from: '2025-04-20', to: '2025-04-21', createdAt: new Date().toISOString() },
-];
 
-const mockDocuments = (): Document[] => [
-  { id: '201', title: 'Company Handbook', category: 'HR', isPublic: true, fileUrl: '/docs/handbook.pdf', createdAt: new Date().toISOString() },
-  { id: '202', title: 'Security Policy', category: 'IT', isPublic: false, fileUrl: '/docs/security.pdf', createdAt: new Date().toISOString() },
-];
 
-const mockSlips = (userId?: string): SalarySlip[] => [
-  { id: '301', userId: userId || '4', month: 5, year: 2025, fileUrl: '/slips/2025-05.pdf', createdAt: new Date().toISOString() },
-  { id: '302', userId: userId || '4', month: 4, year: 2025, fileUrl: '/slips/2025-04.pdf', createdAt: new Date().toISOString() },
-];
 
-const mockHolidays = (): Holiday[] => [
-  { 
-    id: '401', 
-    name: 'New Year', 
-    date: '2025-01-01', 
-    type: 'holiday',
-    isCalendarEvent: true,
-    color: '#ef4444',
-    createdAt: new Date().toISOString() 
-  },
-  { 
-    id: '402', 
-    name: 'Independence Day', 
-    date: '2025-07-04', 
-    type: 'holiday',
-    isCalendarEvent: true,
-    color: '#ef4444',
-    createdAt: new Date().toISOString() 
-  },
-  { 
-    id: '403', 
-    name: 'Company Annual Meeting', 
-    date: '2025-03-15', 
-    type: 'event',
-    description: 'Annual company meeting for all employees',
-    isCalendarEvent: true,
-    color: '#3b82f6',
-    createdAt: new Date().toISOString() 
-  },
-  { 
-    id: '404', 
-    name: 'System Maintenance Notice', 
-    type: 'notice',
-    description: 'HR system will be under maintenance from 6 PM to 8 PM',
-    isCalendarEvent: false,
-    createdAt: new Date().toISOString() 
-  },
-];
 
-const mockStats = (): DashboardStats => ({
-  totalEmployees: 128,
-  pendingLeaves: 3,
-  approvedLeaves: 22,
-  totalDocuments: 18,
-});
 
 // -------------------- Auth --------------------
 export const login = (username: string, password: string) =>
   fetcher<ApiResponse<{ user: User; token: string; organizationId: string }>>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ username, password, organization_id: "3" }),
+    body: JSON.stringify({ username, password }),
   });
 
 export const logout = () =>
@@ -296,8 +246,8 @@ export const getUsers = (params?: Record<string, string>) =>
       createdAt: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updatedAt: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     }));
-    return { data: mapped.length ? mapped : mockUsers() } as ApiResponse<User[]>;
-  }).catch(() => ({ data: mockUsers() } as ApiResponse<User[]>));
+    return { data: mapped.length ? mapped : [] } as ApiResponse<User[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<User[]>));
 
 export const getUser = (id: string) =>
   fetcher<any>(`/users/${id}`).then((raw) => {
@@ -312,18 +262,22 @@ export const getUser = (id: string) =>
       updatedAt: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     };
     return { data: mapped } as ApiResponse<User>;
-  }).catch(() => ({ data: mockUsers()[0] } as ApiResponse<User>));
+  }).catch(() => ({ data: [][0] } as ApiResponse<User>));
 
 export const createUser = (body: Partial<User> & any) => {
-  // Support backend schema: { username, password, role, department, manager_id }
+  // Support backend schema: { username, password, name, email, role, department, manager_id }
   const hasRaw = body?.username || body?.password || typeof body?.manager_id !== 'undefined';
   const payload = hasRaw
     ? {
         username: body.username,
         password: body.password,
+        name: body.name || body.username, // Use username as name if name not provided
+        email: body.email || `${body.username}@company.com`, // Generate email if not provided
         role: body.role,
         department: body.department,
         manager_id: body.manager_id,
+        designation: body.designation,
+        ctc: body.ctc,
       }
     : {
         name: body.name,
@@ -358,29 +312,39 @@ export const changePassword = (currentPassword: string, newPassword: string) =>
 // -------------------- Leave Categories --------------------
 export const getLeaveCategories = () =>
   fetcher<any>("/leave-categories").then((raw) => {
-    const items = (raw?.data || raw || []) as any[];
+    const items = (raw?.leave_categories || raw?.data || raw || []) as any[];
     const mapped: LeaveCategory[] = items.map((c: any) => ({
       id: String(c.id),
       name: c.name,
       description: c.description,
-      defaultDays: Number(c.defaultDays ?? c.default_days ?? 0),
+      defaultDays: Number(c.defaultDays ?? c.default_days ?? c.max_days_per_year ?? 0),
       isActive: Boolean(c.isActive ?? c.is_active ?? true),
       createdAt: c.createdAt ?? c.created_at ?? new Date().toISOString(),
       updatedAt: c.updatedAt ?? c.updated_at ?? new Date().toISOString(),
     }));
-    return { data: mapped.length ? mapped : mockLeaveCategories() } as ApiResponse<LeaveCategory[]>;
-  }).catch(() => ({ data: mockLeaveCategories() } as ApiResponse<LeaveCategory[]>));
+    return { data: mapped.length ? mapped : [] } as ApiResponse<LeaveCategory[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<LeaveCategory[]>));
 
 export const createLeaveCategory = (body: Partial<LeaveCategory>) =>
   fetcher<ApiResponse<LeaveCategory>>("/leave-categories", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      name: body.name,
+      description: body.description,
+      max_days_per_year: body.defaultDays,
+      requires_approval: true, // Default to true
+    }),
   });
 
 export const updateLeaveCategory = (id: string, body: Partial<LeaveCategory>) =>
   fetcher<ApiResponse<LeaveCategory>>(`/leave-categories/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      name: body.name,
+      description: body.description,
+      max_days_per_year: body.defaultDays,
+      requires_approval: true, // Default to true
+    }),
   });
 
 export const deleteLeaveCategory = (id: string) =>
@@ -404,13 +368,16 @@ export const getLeaveAllocations = (userId: string, year?: number) =>
       createdAt: a.createdAt ?? a.created_at ?? new Date().toISOString(),
       updatedAt: a.updatedAt ?? a.updated_at ?? new Date().toISOString(),
     }));
-    return { data: mapped.length ? mapped : mockLeaveAllocations(userId, year) } as ApiResponse<LeaveAllocation[]>;
-  }).catch(() => ({ data: mockLeaveAllocations(userId, year) } as ApiResponse<LeaveAllocation[]>));
+    return { data: mapped.length ? mapped : [] } as ApiResponse<LeaveAllocation[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<LeaveAllocation[]>));
 
 export const createLeaveAllocation = (userId: string, body: Partial<LeaveAllocation>) =>
-  fetcher<ApiResponse<LeaveAllocation>>(`/users/${userId}/leave-allocations`, {
+  fetcher<ApiResponse<LeaveAllocation>>(`/leave-allocations`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      ...body,
+      user_id: userId,
+    }),
   });
 
 export const updateLeaveAllocation = (userId: string, allocationId: string, body: Partial<LeaveAllocation>) =>
@@ -434,8 +401,8 @@ export const getLeaveBalance = (userId: string) =>
       used: b.used ?? 0,
       remaining: b.remaining ?? b.balance ?? (b.total != null && b.used != null ? b.total - b.used : 0),
     }));
-    return { data: mapped.length ? mapped : mockLeaveBalances(userId) } as ApiResponse<LeaveBalance[]>;
-  }).catch(() => ({ data: mockLeaveBalances(userId) } as ApiResponse<LeaveBalance[]>));
+    return { data: mapped.length ? mapped : [] } as ApiResponse<LeaveBalance[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<LeaveBalance[]>));
 
 export const updateLeaveBalance = (userId: string, body: Partial<LeaveBalance>) =>
   fetcher<ApiResponse<LeaveBalance>>(`/users/${userId}/leave-balance`, {
@@ -457,8 +424,8 @@ export const getLeaves = (params?: Record<string, string>) =>
       createdAt: l.createdAt ?? l.created_at ?? new Date().toISOString(),
     }));
     const uid = params?.userId;
-    return { data: mapped.length ? mapped : mockLeaves(uid) } as ApiResponse<Leave[]>;
-  }).catch(() => ({ data: mockLeaves(params?.userId) } as ApiResponse<Leave[]>));
+    return { data: mapped.length ? mapped : [] } as ApiResponse<Leave[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<Leave[]>));
 
 export const getLeave = (id: string) =>
   fetcher<ApiResponse<Leave>>(`/leaves/${id}`);
@@ -515,8 +482,8 @@ export const getDocuments = (params?: Record<string, string>) =>
       fileUrl: d.fileUrl ?? d.file_path,
       createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
     }));
-    return { data: mapped.length ? mapped : mockDocuments() } as ApiResponse<Document[]>;
-  }).catch(() => ({ data: mockDocuments() } as ApiResponse<Document[]>));
+    return { data: mapped.length ? mapped : [] } as ApiResponse<Document[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<Document[]>));
 
 export const getDocument = (id: string) =>
   fetcher<ApiResponse<Document>>(`/documents/${id}`);
@@ -569,8 +536,8 @@ export const getSalarySlips = (params?: Record<string, string>) =>
       createdAt: s.createdAt ?? s.created_at ?? new Date().toISOString(),
     }));
     const uid = params?.userId;
-    return { data: mapped.length ? mapped : mockSlips(uid) } as ApiResponse<SalarySlip[]>;
-  }).catch(() => ({ data: mockSlips(params?.userId) } as ApiResponse<SalarySlip[]>));
+    return { data: mapped.length ? mapped : [] } as ApiResponse<SalarySlip[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<SalarySlip[]>));
 
 export const getSalarySlip = (id: string) =>
   fetcher<ApiResponse<SalarySlip>>(`/salary-slips/${id}`);
@@ -634,8 +601,8 @@ export const getHolidays = (params?: Record<string, string>) =>
       color: h.color,
       createdAt: h.createdAt ?? h.created_at,
     }));
-    return { data: mapped.length ? mapped : mockHolidays() } as ApiResponse<Holiday[]>;
-  }).catch(() => ({ data: mockHolidays() } as ApiResponse<Holiday[]>));
+    return { data: mapped.length ? mapped : [] } as ApiResponse<Holiday[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<Holiday[]>));
 
 export const createHoliday = (body: Partial<Holiday>) =>
   fetcher<any>("/holidays", {
@@ -706,9 +673,9 @@ export const getDashboardStats = () =>
     };
     const fallback = mapped.totalEmployees || mapped.pendingLeaves || mapped.approvedLeaves || mapped.totalDocuments
       ? mapped
-      : mockStats();
+      : { totalEmployees: 0, pendingLeaves: 0, approvedLeaves: 0, totalDocuments: 0 };
     return { data: fallback } as ApiResponse<DashboardStats>;
-  }).catch(() => ({ data: mockStats() } as ApiResponse<DashboardStats>));
+  }).catch(() => ({ data: { totalEmployees: 0, pendingLeaves: 0, approvedLeaves: 0, totalDocuments: 0 } } as ApiResponse<DashboardStats>));
 
 // -------------------- Team --------------------
 export const getTeam = (params?: Record<string, string>) =>
@@ -734,8 +701,8 @@ export const getTeam = (params?: Record<string, string>) =>
       created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updated_at: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     }));
-    return { data: mapped.length ? mapped : mockUsers() } as ApiResponse<User[]>;
-  }).catch(() => ({ data: mockUsers() } as ApiResponse<User[]>));
+    return { data: mapped.length ? mapped : [] } as ApiResponse<User[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<User[]>));
 
 // -------------------- Company Payroll Settings --------------------
 import type { PayrollSettings } from "./payroll";
@@ -849,7 +816,19 @@ export const getPlatformStats = async (): Promise<PlatformStats> => {
 
 export const getOrganizations = async (): Promise<Organization[]> => {
   const response = await fetcher(`/god/organizations`);
-  return response.data;
+  const orgs = response.organizations || response.data || [];
+  
+  // Map backend response to frontend interface
+  return orgs.map((org: any) => ({
+    id: org.id,
+    name: org.name,
+    domain: org.domain,
+    description: org.description || '',
+    is_active: org.is_active,
+    user_count: org.user_count || 0, // Default to 0 if not provided
+    created_at: org.created_at,
+    updated_at: org.updated_at,
+  }));
 };
 
 export const createOrganization = async (orgData: {
@@ -863,16 +842,16 @@ export const createOrganization = async (orgData: {
     name: string;
   };
 }): Promise<{ organization: Organization; admin_user: User; message: string }> => {
-  const response = await fetcher(`${API_URL}/god/organizations`, {
+  const response = await fetcher(`/god/organizations`, {
     method: "POST",
     body: JSON.stringify(orgData),
   });
   return response;
 };
 
-export const getOrganizationDetails = async (id: number): Promise<Organization> => {
-  const response = await fetcher(`${API_URL}/god/organizations/${id}`);
-  return response.data;
+export const getOrganizationDetails = async (id: number): Promise<{ organization: Organization; admin_user?: any }> => {
+  const response = await fetcher(`/god/organizations/${id}`);
+  return response;
 };
 
 export const updateOrganization = async (id: number, orgData: {
@@ -881,7 +860,7 @@ export const updateOrganization = async (id: number, orgData: {
   description?: string;
   is_active?: boolean;
 }): Promise<{ data: Organization; message: string }> => {
-  const response = await fetcher(`${API_URL}/god/organizations/${id}`, {
+  const response = await fetcher(`/god/organizations/${id}`, {
     method: "PUT",
     body: JSON.stringify(orgData),
   });
@@ -889,7 +868,7 @@ export const updateOrganization = async (id: number, orgData: {
 };
 
 export const deleteOrganization = async (id: number): Promise<{ message: string }> => {
-  const response = await fetcher(`${API_URL}/god/organizations/${id}`, {
+  const response = await fetcher(`/god/organizations/${id}`, {
     method: "DELETE",
   });
   return response;

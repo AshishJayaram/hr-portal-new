@@ -120,7 +120,7 @@ func (h *LeaveAllocationHandler) DeleteLeaveAllocation(c *gin.Context) {
 // GetLeaveAllocations handles getting leave allocations for a specific user
 func (h *LeaveAllocationHandler) GetLeaveAllocations(c *gin.Context) {
 	userID := c.Param("user_id")
-	year := 2024 // Default year, could be made configurable
+	year := 2025 // Default year, could be made configurable
 
 	allocations, err := h.leaveAllocationService.GetUserAllocations(userID, year)
 	if err != nil {

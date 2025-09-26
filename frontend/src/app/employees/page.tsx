@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { getUsers, canManageUsers } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getUsers, canManageUsers, deleteUser } from "@/lib/api";
 import Loader from "@/components/Loader";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -15,10 +15,25 @@ export default function EmployeesPage() {
   const [roleFilter, setRoleFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
+  const queryClient = useQueryClient();
+  
   const { data, isLoading, error } = useQuery({
     queryKey: ["users"],
     queryFn: () => getUsers(),
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: deleteUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setDeleteConfirm(null);
+    },
+    onError: (error) => {
+      console.error("Failed to delete user:", error);
+      alert("Failed to delete user. Please try again.");
+    },
   });
 
   // Debounce search term
@@ -154,7 +169,15 @@ export default function EmployeesPage() {
                   <span className="font-medium">{u.role}</span>
                   {u.department && <span className="text-xs">{u.department}</span>}
                 </div>
-                <Link href={`/employees/edit?id=${u.id}`} className="text-indigo-400 hover:underline">Edit</Link>
+                <div className="flex items-center gap-2">
+                  <Link href={`/employees/edit?id=${u.id}`} className="text-indigo-400 hover:underline">Edit</Link>
+                  <button
+                    onClick={() => setDeleteConfirm({ id: u.id, name: u.name })}
+                    className="text-red-400 hover:underline"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -170,6 +193,34 @@ export default function EmployeesPage() {
           </div>
         )}
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold mb-4">Confirm Delete</h3>
+            <p className="text-gray-400 mb-6">
+              Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleteUserMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteUserMutation.mutate(deleteConfirm.id)}
+                disabled={deleteUserMutation.isPending}
+              >
+                {deleteUserMutation.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

@@ -42,9 +42,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Validate request
-	if req.Username == "" || req.Password == "" || req.OrganizationID == "" {
+	if req.Username == "" || req.Password == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Username, password, and organization ID are required",
+			"error": "Username and password are required",
 		})
 		return
 	}

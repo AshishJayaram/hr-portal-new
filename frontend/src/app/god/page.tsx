@@ -24,7 +24,7 @@ export default function GodDashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [selectedOrg, setSelectedOrg] = useState<{ organization: Organization; admin_user?: any } | null>(null);
   const [createForm, setCreateForm] = useState<CreateOrgRequest>({
     name: "",
     domain: "",
@@ -75,9 +75,13 @@ export default function GodDashboard() {
   // Create organization mutation
   const createOrgMutation = useMutation({
     mutationFn: async (orgData: CreateOrgRequest) => {
-      const response = await fetch("http://localhost:8080/api/god/organizations", {
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/god/organizations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify(orgData),
       });
       if (!response.ok) throw new Error("Failed to create organization");
@@ -151,13 +155,13 @@ export default function GodDashboard() {
   const handleUpdateOrg = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedOrg) {
-      updateOrgMutation.mutate({ id: selectedOrg.id, orgData: editForm });
+      updateOrgMutation.mutate({ id: selectedOrg.organization.id, orgData: editForm });
     }
   };
 
   const handleDeleteOrg = () => {
-    if (selectedOrg && confirm(`Are you sure you want to delete "${selectedOrg.name}"? This action cannot be undone.`)) {
-      deleteOrgMutation.mutate(selectedOrg.id);
+    if (selectedOrg && confirm(`Are you sure you want to delete "${selectedOrg.organization.name}"? This action cannot be undone.`)) {
+      deleteOrgMutation.mutate(selectedOrg.organization.id);
     }
   };
 
@@ -471,42 +475,77 @@ export default function GodDashboard() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Name
                     </label>
-                    <p className="text-gray-900 dark:text-gray-100">{selectedOrg.name}</p>
+                    <p className="text-gray-900 dark:text-gray-100">{selectedOrg.organization.name}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Domain
                     </label>
-                    <p className="text-gray-900 dark:text-gray-100">{selectedOrg.domain}</p>
+                    <p className="text-gray-900 dark:text-gray-100">{selectedOrg.organization.domain}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Status
                     </label>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      selectedOrg.is_active 
+                      selectedOrg.organization.is_active 
                         ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                         : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                     }`}>
-                      {selectedOrg.is_active ? "Active" : "Inactive"}
+                      {selectedOrg.organization.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       User Count
                     </label>
-                    <p className="text-gray-900 dark:text-gray-100">{selectedOrg.user_count} users</p>
+                    <p className="text-gray-900 dark:text-gray-100">{selectedOrg.organization.user_count} users</p>
                   </div>
                 </div>
-                {selectedOrg.description && (
+                {selectedOrg.organization.description && (
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Description
                     </label>
-                    <p className="text-gray-900 dark:text-gray-100">{selectedOrg.description}</p>
+                    <p className="text-gray-900 dark:text-gray-100">{selectedOrg.organization.description}</p>
                   </div>
                 )}
               </div>
+
+              {/* Admin User Information */}
+              {selectedOrg.admin_user && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+                    Admin User Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Username
+                      </label>
+                      <p className="text-gray-900 dark:text-gray-100">{selectedOrg.admin_user.username}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Email
+                      </label>
+                      <p className="text-gray-900 dark:text-gray-100">{selectedOrg.admin_user.email}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Name
+                      </label>
+                      <p className="text-gray-900 dark:text-gray-100">{selectedOrg.admin_user.name}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Role
+                      </label>
+                      <p className="text-gray-900 dark:text-gray-100">{selectedOrg.admin_user.role}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Timestamps */}
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
@@ -519,7 +558,7 @@ export default function GodDashboard() {
                       Created At
                     </label>
                     <p className="text-gray-900 dark:text-gray-100">
-                      {new Date(selectedOrg.created_at).toLocaleString()}
+                      {new Date(selectedOrg.organization.created_at).toLocaleString()}
                     </p>
                   </div>
                   <div>
@@ -527,7 +566,7 @@ export default function GodDashboard() {
                       Last Updated
                     </label>
                     <p className="text-gray-900 dark:text-gray-100">
-                      {new Date(selectedOrg.updated_at).toLocaleString()}
+                      {new Date(selectedOrg.organization.updated_at).toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -538,7 +577,7 @@ export default function GodDashboard() {
               <Button
                 onClick={() => {
                   setShowViewModal(false);
-                  handleEditOrg(selectedOrg);
+                  handleEditOrg(selectedOrg.organization);
                 }}
                 className="bg-blue-600 hover:bg-blue-700"
               >

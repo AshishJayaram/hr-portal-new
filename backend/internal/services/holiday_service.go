@@ -2,11 +2,11 @@ package services
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
-
-	"github.com/google/uuid"
 )
 
 type HolidayService struct {
@@ -20,8 +20,14 @@ func NewHolidayService(repo repositories.HolidayRepository) HolidayService {
 }
 
 func (s *HolidayService) CreateHoliday(req CreateHolidayRequest) (*models.Holiday, error) {
+	// Convert string organization ID to uint
+	orgID, err := strconv.ParseUint(req.OrganizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
 	holiday := &models.Holiday{
-		OrganizationID:  uuid.MustParse(req.OrganizationID),
+		OrganizationID:  uint(orgID),
 		Name:            req.Name,
 		Type:            req.Type,
 		Description:     req.Description,
@@ -30,12 +36,15 @@ func (s *HolidayService) CreateHoliday(req CreateHolidayRequest) (*models.Holida
 	}
 
 	// Parse date if provided
-	if req.Date != nil && !req.Date.IsZero() {
-		holiday.Date = req.Date
+	if req.Date != "" {
+		parsedDate, err := time.Parse("2006-01-02", req.Date)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
+		}
+		holiday.Date = &parsedDate
 	}
 
-	err := s.repo.Create(holiday)
-	if err != nil {
+	if err := s.repo.Create(holiday); err != nil {
 		return nil, fmt.Errorf("failed to create holiday: %w", err)
 	}
 
@@ -80,8 +89,12 @@ func (s *HolidayService) UpdateHoliday(id string, req UpdateHolidayRequest) (*mo
 	if req.IsCalendarEvent != nil {
 		holiday.IsCalendarEvent = *req.IsCalendarEvent
 	}
-	if req.Date != nil && !req.Date.IsZero() {
-		holiday.Date = req.Date
+	if req.Date != nil && *req.Date != "" {
+		parsedDate, err := time.Parse("2006-01-02", *req.Date)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
+		}
+		holiday.Date = &parsedDate
 	}
 
 	err = s.repo.Update(holiday)
