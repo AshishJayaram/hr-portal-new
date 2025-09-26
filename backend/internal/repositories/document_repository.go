@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"fmt"
+	"strconv"
 
 	"hr-portal-backend/internal/models"
 )
@@ -28,7 +29,14 @@ func (r *documentRepository) GetByID(id string) (*models.Document, error) {
 
 func (r *documentRepository) List(organizationID string, filters map[string]interface{}) ([]models.Document, error) {
 	var documents []models.Document
-	query := r.db.Preload("User").Where("organization_id = ?", organizationID)
+
+	// Convert string organizationID to uint
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	query := r.db.Preload("User").Where("organization_id = ?", uint(orgIDUint))
 	query = r.buildQuery(query, filters)
 
 	if err := query.Find(&documents).Error; err != nil {
@@ -53,7 +61,14 @@ func (r *documentRepository) Delete(id string) error {
 
 func (r *documentRepository) GetByUserID(userID string) ([]models.Document, error) {
 	var documents []models.Document
-	if err := r.db.Preload("User").Where("user_id = ?", userID).Find(&documents).Error; err != nil {
+
+	// Convert string userID to uint
+	userIDUint, err := strconv.ParseUint(userID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	if err := r.db.Preload("User").Where("user_id = ?", uint(userIDUint)).Find(&documents).Error; err != nil {
 		return nil, fmt.Errorf("failed to get user documents: %w", err)
 	}
 	return documents, nil

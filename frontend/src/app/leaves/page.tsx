@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getLeaves,
+  getLeavesPaginated,
   getLeaveBalance,
   updateLeave,
   applyLeave,
@@ -20,9 +21,10 @@ import Select from "@/components/ui/Select";
 import Loader from "@/components/ui/Loader";
 import SearchFilter from "@/components/ui/SearchFilter";
 import { toast } from "sonner";
-import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User } from "lucide-react";
+import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit } from "lucide-react";
 import { formatDate, capitalize } from "@/lib/utils";
 import ApplyLeaveForm from "@/components/ApplyLeaveForm";
+import EditLeaveForm from "@/components/EditLeaveForm";
 import LeaveBalanceCard from "@/components/LeaveBalanceCard";
 import { motion } from "framer-motion";
 
@@ -31,12 +33,37 @@ export default function LeavesPage() {
   const userId = user?.id || "u1";
   const [leaves, setLeaves] = useState<any[]>([]);
   const [filteredLeaves, setFilteredLeaves] = useState<any[]>([]);
+  const [editingLeave, setEditingLeave] = useState<any>(null);
+  const [viewType, setViewType] = useState<'self' | 'team'>('self');
+  const [loadingLeaves, setLoadingLeaves] = useState<Set<string>>(new Set());
+  const [approvingLeaves, setApprovingLeaves] = useState<Set<string>>(new Set());
+  const [rejectingLeaves, setRejectingLeaves] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const queryClient = useQueryClient();
 
-  // Fetch leave requests - different scope based on role
+  // Check if user can approve leaves (Manager, HR, Admin, God)
+  const canApprove = canApproveLeaves();
+
+  // Fetch leave requests - different scope based on view type
   const { data, isLoading } = useQuery({
-    queryKey: ["leaves"],
-    queryFn: () => getLeaves(canApproveLeaves() ? {} : { userId: userId }),
+    queryKey: ["leaves", viewType, userId, currentPage, perPage],
+    queryFn: () => {
+      const params: Record<string, string> = {
+        page: currentPage.toString(),
+        per_page: perPage.toString(),
+      };
+      
+      if (viewType === 'team' && canApprove) {
+        params.view = 'team';
+        return getLeavesPaginated(params);
+      } else {
+        params.userId = userId;
+        return getLeavesPaginated(params);
+      }
+    },
   });
 
   // Fetch leave balance
@@ -49,6 +76,8 @@ export default function LeavesPage() {
     if (data?.data) {
       setLeaves(data.data);
       setFilteredLeaves(data.data);
+      setTotalPages(data.total_pages || 1);
+      setTotal(data.total || 0);
     }
   }, [data]);
 
@@ -69,29 +98,54 @@ export default function LeavesPage() {
 
   // Approve leave mutation
   const approveLeaveMutation = useMutation({
-    mutationFn: approveLeave,
-    onSuccess: () => {
+    mutationFn: async (leaveId: string) => {
+      setApprovingLeaves(prev => new Set(prev).add(leaveId));
+      return approveLeave(leaveId);
+    },
+    onSuccess: (_, leaveId) => {
+      setApprovingLeaves(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(leaveId);
+        return newSet;
+      });
       queryClient.invalidateQueries({ queryKey: ["leaves"] });
       queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Leave approved successfully");
     },
-    onError: (err: any) => {
+    onError: (err: any, leaveId) => {
+      setApprovingLeaves(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(leaveId);
+        return newSet;
+      });
       toast.error(err.message || "Failed to approve leave");
     },
   });
 
   // Reject leave mutation
   const rejectLeaveMutation = useMutation({
-    mutationFn: ({ leaveId, reason }: { leaveId: string; reason?: string }) =>
-      rejectLeave(leaveId, reason),
-    onSuccess: () => {
+    mutationFn: async ({ leaveId, reason }: { leaveId: string; reason?: string }) => {
+      setRejectingLeaves(prev => new Set(prev).add(leaveId));
+      return rejectLeave(leaveId, reason);
+    },
+    onSuccess: (_, { leaveId }) => {
+      setRejectingLeaves(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(leaveId);
+        return newSet;
+      });
       queryClient.invalidateQueries({ queryKey: ["leaves"] });
       queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       toast.success("Leave rejected successfully");
     },
-    onError: (err: any) => {
+    onError: (err: any, { leaveId }) => {
+      setRejectingLeaves(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(leaveId);
+        return newSet;
+      });
       toast.error(err.message || "Failed to reject leave");
     },
   });
@@ -103,6 +157,10 @@ export default function LeavesPage() {
       leave.user?.name?.toLowerCase().includes(query.toLowerCase())
     );
     setFilteredLeaves(filtered);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   const handleFilter = (filters: Record<string, string>) => {
@@ -160,9 +218,35 @@ export default function LeavesPage() {
             Leave Management
           </h1>
           <p className="text-secondary mt-1">
-            {canApproveLeaves() ? "Review and manage leave requests" : "Apply for and track your leaves"}
+            {canApprove ? "Review and manage leave requests" : "Apply for and track your leaves"}
           </p>
         </div>
+        
+        {/* View Toggle for Managers */}
+        {canApprove && (
+          <div className="flex gap-2">
+            <Button
+              variant={viewType === 'self' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setViewType('self');
+                setCurrentPage(1);
+              }}
+            >
+              My Leaves
+            </Button>
+            <Button
+              variant={viewType === 'team' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setViewType('team');
+                setCurrentPage(1);
+              }}
+            >
+              Team Leaves
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Leave Balance */}
@@ -199,7 +283,7 @@ export default function LeavesPage() {
       />
 
       {/* Leaves List */}
-      <Card title={canApproveLeaves() ? "All Leave Requests" : "My Leave Requests"}>
+      <Card title={viewType === 'team' ? "Team Leave Requests" : "My Leave Requests"}>
         <div className="space-y-4">
           {filteredLeaves.map((leave, idx) => (
             <motion.div
@@ -207,7 +291,7 @@ export default function LeavesPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.03 }}
-              className="p-4 border rounded-lg transition-colors border-card bg-white/60 hover:bg-white/80 dark:border-white/10 dark:bg-transparent dark:hover:bg-white/5"
+              className="p-4 border rounded-lg transition-all duration-200 border-card bg-white/60 hover:bg-white/90 hover:shadow-md hover:border-indigo-200 dark:border-white/10 dark:bg-transparent dark:hover:bg-white/10 dark:hover:border-indigo-400/30"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
@@ -222,12 +306,17 @@ export default function LeavesPage() {
                       </span>
                     </div>
                     
-                    {canApproveLeaves() && (
+                    {viewType === 'team' && leave.user && (
                       <div className="flex items-center gap-2 mb-2">
                         <User className="h-4 w-4 text-gray-400" />
                         <span className="text-sm text-gray-400">
-                          {leave.user?.name || "Unknown Employee"}
+                          {leave.user.name || "Unknown Employee"}
                         </span>
+                        {leave.user.designation && (
+                          <span className="text-xs text-gray-500">
+                            ({leave.user.designation})
+                          </span>
+                        )}
                       </div>
                     )}
                     
@@ -244,44 +333,59 @@ export default function LeavesPage() {
                 <div className="flex items-center gap-2">
                   {leave.status === "pending" && (
                     <>
-                      {/* Employee can cancel their own leave */}
+                      {/* Employee can edit/cancel their own leave */}
                       {leave.userId === userId && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm("Are you sure you want to cancel this leave?")) {
-                              cancelLeave.mutate(leave.id);
-                            }
-                          }}
-                          loading={cancelLeave.isPending}
-                        >
-                          Cancel
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingLeave(leave)}
+                            className="flex items-center gap-1"
+                          >
+                            <Edit className="h-3 w-3" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm("Are you sure you want to cancel this leave?")) {
+                                cancelLeave.mutate(leave.id);
+                              }
+                            }}
+                            loading={cancelLeave.isPending}
+                          >
+                            Cancel
+                          </Button>
+                        </>
                       )}
-                      {/* Managers/HR can approve/reject */}
-                      <RoleGuard allowedRoles={["Manager", "HR", "Admin"]}>
-                        <Button
-                          size="sm"
-                          onClick={() => approveLeaveMutation.mutate(leave.id)}
-                          loading={approveLeaveMutation.isPending}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            const reason = prompt("Reason for rejection:");
-                            if (reason !== null) {
-                              rejectLeaveMutation.mutate({ leaveId: leave.id, reason });
-                            }
-                          }}
-                          loading={rejectLeaveMutation.isPending}
-                        >
-                          Reject
-                        </Button>
-                      </RoleGuard>
+                      {/* Managers/HR can approve/reject team leaves */}
+                      {viewType === 'team' && canApprove && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => approveLeaveMutation.mutate(leave.id)}
+                            loading={approvingLeaves.has(leave.id)}
+                            disabled={approvingLeaves.has(leave.id) || rejectingLeaves.has(leave.id)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              const reason = prompt("Reason for rejection:");
+                              if (reason !== null) {
+                                rejectLeaveMutation.mutate({ leaveId: leave.id, reason });
+                              }
+                            }}
+                            loading={rejectingLeaves.has(leave.id)}
+                            disabled={approvingLeaves.has(leave.id) || rejectingLeaves.has(leave.id)}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -299,7 +403,78 @@ export default function LeavesPage() {
             </p>
           </div>
         )}
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-700">
+            <div className="text-sm text-gray-400">
+              Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, total)} of {total} results
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              
+              {/* Page Numbers */}
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(pageNum)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
+
+      {/* Edit Leave Modal */}
+      {editingLeave && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <EditLeaveForm
+              leave={editingLeave}
+              onClose={() => setEditingLeave(null)}
+              onSuccess={() => {
+                setEditingLeave(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

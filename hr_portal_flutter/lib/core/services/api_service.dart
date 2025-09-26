@@ -314,6 +314,16 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getLeaveBalance(String userId) async {
+    try {
+      final response = await _dio.get('/leaves/balance/$userId');
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+    } catch (e) {
+      print('Get leave balance error: $e');
+      return [];
+    }
+  }
+
   Future<Map<String, dynamic>?> createLeave(Map<String, dynamic> leaveData) async {
     try {
       final response = await _dio.post('/leaves', data: leaveData);
@@ -330,6 +340,28 @@ class ApiService {
       return response.data;
     } catch (e) {
       print('Update leave error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> approveLeave(String leaveId) async {
+    try {
+      final response = await _dio.post('/leaves/$leaveId/approve');
+      return response.data;
+    } catch (e) {
+      print('Approve leave error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> rejectLeave(String leaveId, {String? reason}) async {
+    try {
+      final response = await _dio.post('/leaves/$leaveId/reject', data: {
+        if (reason != null) 'reason': reason,
+      });
+      return response.data;
+    } catch (e) {
+      print('Reject leave error: $e');
       rethrow;
     }
   }

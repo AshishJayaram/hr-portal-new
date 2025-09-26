@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 
+	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -22,9 +25,20 @@ func NewLeaveHandler(service services.LeaveService) *LeaveHandler {
 // ListLeaves handles GET /api/leaves
 func (h *LeaveHandler) ListLeaves(c *gin.Context) {
 	userID := c.Query("userId")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "userId parameter is required"})
-		return
+	viewType := c.Query("view") // "self" or "team"
+
+	// Get pagination parameters
+	page := 1
+	perPage := 10
+	if p := c.Query("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	if pp := c.Query("per_page"); pp != "" {
+		if parsed, err := strconv.Atoi(pp); err == nil && parsed > 0 && parsed <= 100 {
+			perPage = parsed
+		}
 	}
 
 	// Get organization ID from context
@@ -34,25 +48,128 @@ func (h *LeaveHandler) ListLeaves(c *gin.Context) {
 		return
 	}
 
-	filters := map[string]interface{}{
-		"user_id": userID,
-	}
-
-	leaves, err := h.service.ListLeaves(orgID.(string), filters)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// Get current user ID from context
+	currentUserID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": leaves})
+	// Check if pagination is requested
+	usePagination := c.Query("paginated") == "true"
+
+	if usePagination {
+		// Use paginated methods
+		var result *services.PaginatedResponse
+		var err error
+
+		if viewType == "team" {
+			// Manager view: Get leaves for all team members
+			filters := make(map[string]interface{})
+
+			// Add status filter if provided
+			if status := c.Query("status"); status != "" {
+				filters["status"] = status
+			}
+
+			result, err = h.service.GetTeamLeavesPaginated(currentUserID.(string), orgID.(string), filters, page, perPage)
+		} else {
+			// Self view: Get leaves for specific user
+			if userID == "" {
+				// If no userId provided, use current user's ID
+				userID = currentUserID.(string)
+			}
+
+			filters := map[string]interface{}{
+				"user_id": userID,
+			}
+
+			result, err = h.service.ListLeavesPaginated(orgID.(string), filters, page, perPage)
+		}
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, result)
+	} else {
+		// Use non-paginated methods (backward compatibility)
+		var leaves []models.Leave
+		var err error
+
+		if viewType == "team" {
+			// Manager view: Get leaves for all team members
+			filters := make(map[string]interface{})
+
+			// Add status filter if provided
+			if status := c.Query("status"); status != "" {
+				filters["status"] = status
+			}
+
+			leaves, err = h.service.GetTeamLeaves(currentUserID.(string), orgID.(string), filters)
+		} else {
+			// Self view: Get leaves for specific user
+			if userID == "" {
+				// If no userId provided, use current user's ID
+				userID = currentUserID.(string)
+			}
+
+			filters := map[string]interface{}{
+				"user_id": userID,
+			}
+
+			leaves, err = h.service.ListLeaves(orgID.(string), filters)
+		}
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": leaves})
+	}
 }
 
 // ApplyLeave handles POST /api/leaves
 func (h *LeaveHandler) ApplyLeave(c *gin.Context) {
+	// Get user ID and organization ID from context (set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	orgID, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Organization ID not found"})
+		return
+	}
+
 	var req services.ApplyLeaveRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Set user ID and organization ID from context
+	req.UserID = userID.(string)
+	req.OrganizationID = orgID.(string)
+
+	// Map leave type to category ID
+	// TODO: This should be dynamic based on leave categories in the database
+	categoryIDMap := map[string]string{
+		"Casual Leave":       "2",
+		"Sick Leave":         "5",
+		"Professional Leave": "6",
+		"Test Category":      "1",
+	}
+
+	if categoryID, exists := categoryIDMap[req.Type]; exists {
+		req.CategoryID = categoryID
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid leave type"})
 		return
 	}
 
@@ -71,22 +188,133 @@ func (h *LeaveHandler) GetLeave(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Get leave - coming soon"})
 }
 
-// UpdateLeave handles PUT /api/leaves/:id
+// UpdateLeave handles PATCH /api/leaves/:id
 func (h *LeaveHandler) UpdateLeave(c *gin.Context) {
-	// TODO: Implement update leave logic
-	c.JSON(http.StatusOK, gin.H{"message": "Update leave - coming soon"})
+	leaveID := c.Param("id")
+	if leaveID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "leave_id parameter is required"})
+		return
+	}
+
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var req services.UpdateLeaveRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get the leave to check ownership
+	leave, err := h.service.GetLeave(leaveID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Leave not found"})
+		return
+	}
+
+	// Check if user owns this leave (only the leave owner can update it)
+	if fmt.Sprintf("%d", leave.UserID) != userID.(string) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only update your own leave requests"})
+		return
+	}
+
+	updatedLeave, err := h.service.UpdateLeave(leaveID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": updatedLeave})
 }
 
 // ApproveLeave handles POST /api/leaves/:id/approve
 func (h *LeaveHandler) ApproveLeave(c *gin.Context) {
-	// TODO: Implement approve leave logic
-	c.JSON(http.StatusOK, gin.H{"message": "Approve leave - coming soon"})
+	leaveID := c.Param("id")
+	if leaveID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "leave_id parameter is required"})
+		return
+	}
+
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Get the leave to check if it exists and is pending
+	leave, err := h.service.GetLeave(leaveID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Leave not found"})
+		return
+	}
+
+	// Check if leave is in pending status
+	if leave.Status != "pending" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only pending leaves can be approved"})
+		return
+	}
+
+	// Approve the leave
+	approvedLeave, err := h.service.ApproveLeave(leaveID, userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": approvedLeave, "message": "Leave approved successfully"})
 }
 
 // RejectLeave handles POST /api/leaves/:id/reject
 func (h *LeaveHandler) RejectLeave(c *gin.Context) {
-	// TODO: Implement reject leave logic
-	c.JSON(http.StatusOK, gin.H{"message": "Reject leave - coming soon"})
+	leaveID := c.Param("id")
+	if leaveID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "leave_id parameter is required"})
+		return
+	}
+
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Parse request body for rejection reason
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Get the leave to check if it exists and is pending
+	leave, err := h.service.GetLeave(leaveID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Leave not found"})
+		return
+	}
+
+	// Check if leave is in pending status
+	if leave.Status != "pending" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only pending leaves can be rejected"})
+		return
+	}
+
+	// Reject the leave
+	rejectedLeave, err := h.service.RejectLeave(leaveID, userID.(string), req.Reason)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": rejectedLeave, "message": "Leave rejected successfully"})
 }
 
 // CancelLeave handles POST /api/leaves/:id/cancel

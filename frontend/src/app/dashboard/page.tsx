@@ -95,7 +95,7 @@ export default function DashboardPage() {
               if (!b.date) return 1;
               return new Date(a.date).getTime() - new Date(b.date).getTime();
             })
-            .slice(0, 5)
+            .slice(0, 2)
             .map((event: any) => (
               <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
                 <div className="text-lg">
@@ -214,13 +214,27 @@ export default function DashboardPage() {
               <span>
                 {s.month}/{s.year}
               </span>
-              <a
-                href={s.fileUrl}
-                target="_blank"
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/salary-slips/${s.id}/download`, {
+                      headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                      },
+                    });
+                    const data = await response.json();
+                    if (data.fileUrl) {
+                      window.open(data.fileUrl, '_blank');
+                    }
+                  } catch (error) {
+                    console.error('Failed to download salary slip:', error);
+                  }
+                }}
                 className="text-green-400 hover:underline"
               >
                 Download
-              </a>
+              </button>
             </li>
           ))}
           {(slips?.data?.length || 0) === 0 && (
@@ -235,9 +249,27 @@ export default function DashboardPage() {
             {(docs?.data || stats?.recent_documents || []).slice(0, 3).map((doc: any) => (
               <li key={doc.id} className="py-2 flex justify-between items-center">
                 <span className="truncate pr-3">{doc.title}</span>
-                <a href={doc.fileUrl} target="_blank" className="text-indigo-400 hover:underline">
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${doc.id}/download`, {
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                          'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                        },
+                      });
+                      const data = await response.json();
+                      if (data.fileUrl) {
+                        window.open(data.fileUrl, '_blank');
+                      }
+                    } catch (error) {
+                      console.error('Failed to download document:', error);
+                    }
+                  }}
+                  className="text-indigo-400 hover:underline"
+                >
                   View
-                </a>
+                </button>
               </li>
             ))}
             {((docs?.data || stats?.recent_documents || []).length || 0) === 0 && (

@@ -29,7 +29,7 @@ func New(repos *repositories.Repositories, cfg *config.Config) *Services {
 	return &Services{
 		User:            NewUserService(repos.User, repos.Organization),
 		Auth:            NewAuthService(repos.User, repos.Organization, cfg.JWT),
-		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation),
+		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday),
 		LeaveCategory:   NewLeaveCategoryService(repos.LeaveCategory),
 		LeaveAllocation: NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory),
 		Document:        NewDocumentService(repos.Document),
@@ -78,11 +78,23 @@ type OrganizationService interface {
 	ListAll() ([]models.Organization, error)
 }
 
+// PaginatedResponse represents a paginated response
+type PaginatedResponse struct {
+	Data       interface{} `json:"data"`
+	Total      int64       `json:"total"`
+	Page       int         `json:"page"`
+	PerPage    int         `json:"per_page"`
+	TotalPages int         `json:"total_pages"`
+}
+
 // LeaveService interface for leave business logic
 type LeaveService interface {
 	ApplyLeave(req ApplyLeaveRequest) (*models.Leave, error)
 	GetLeave(id string) (*models.Leave, error)
 	ListLeaves(organizationID string, filters map[string]interface{}) ([]models.Leave, error)
+	ListLeavesPaginated(organizationID string, filters map[string]interface{}, page, perPage int) (*PaginatedResponse, error)
+	GetTeamLeaves(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error)
+	GetTeamLeavesPaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) (*PaginatedResponse, error)
 	UpdateLeave(id string, req UpdateLeaveRequest) (*models.Leave, error)
 	ApproveLeave(id, approverID string) (*models.Leave, error)
 	RejectLeave(id, rejecterID, reason string) (*models.Leave, error)
@@ -191,8 +203,13 @@ type ApplyLeaveRequest struct {
 }
 
 type UpdateLeaveRequest struct {
-	Reason *string `json:"reason"`
-	Status *string `json:"status"`
+	Type      *string    `json:"type"`
+	Reason    *string    `json:"reason"`
+	FromDate  *time.Time `json:"from_date"`
+	ToDate    *time.Time `json:"to_date"`
+	StartHalf *string    `json:"start_half" validate:"omitempty,oneof=FULL AM PM"`
+	EndHalf   *string    `json:"end_half" validate:"omitempty,oneof=FULL AM PM"`
+	Status    *string    `json:"status"`
 }
 
 type LeaveBalanceResponse struct {

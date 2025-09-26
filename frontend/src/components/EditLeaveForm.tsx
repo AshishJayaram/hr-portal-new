@@ -2,17 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { applyLeave, getLeaveBalance, getCurrentUser, getHolidays } from "../lib/api";
+import { updateLeave, getLeaveBalance, getCurrentUser, getHolidays } from "../lib/api";
 import { calculateLeaveDays } from "../lib/leaveUtils";
+import { toast } from "sonner";
+import Button from "./ui/Button";
 
-export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: any[] }) {
-  const [type, setType] = useState<string>("");
-  const [reason, setReason] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [startHalf, setStartHalf] = useState<"FULL" | "AM" | "PM">("FULL");
-  const [endHalf, setEndHalf] = useState<"FULL" | "AM" | "PM">("FULL");
-  const [calculatedDays, setCalculatedDays] = useState(0);
+interface EditLeaveFormProps {
+  leave: any;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+export default function EditLeaveForm({ leave, onClose, onSuccess }: EditLeaveFormProps) {
+  const [type, setType] = useState<string>(leave.type || "");
+  const [reason, setReason] = useState(leave.reason || "");
+  const [startDate, setStartDate] = useState(leave.from ? leave.from.split('T')[0] : "");
+  const [endDate, setEndDate] = useState(leave.to ? leave.to.split('T')[0] : "");
+  const [startHalf, setStartHalf] = useState<"FULL" | "AM" | "PM">(leave.startHalf || "FULL");
+  const [endHalf, setEndHalf] = useState<"FULL" | "AM" | "PM">(leave.endHalf || "FULL");
+  const [calculatedDays, setCalculatedDays] = useState(leave.days || 0);
 
   const queryClient = useQueryClient();
   const currentUser = getCurrentUser();
@@ -36,19 +44,11 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
     "LOP" // Always include Loss of Pay
   ].filter((type, index, arr) => arr.indexOf(type) === index); // Remove duplicates
 
-  // Set default type when available types change
-  useEffect(() => {
-    if (availableLeaveTypes.length > 0 && !type) {
-      setType(availableLeaveTypes[0]);
-    }
-  }, [availableLeaveTypes, type]);
-
-  // 🧮 Auto-calculate leave days whenever dates/halves change
+  // Auto-calculate leave days whenever dates/halves change
   useEffect(() => {
     if (startDate && (endDate || startDate)) {
       // Combine bank holidays and fetched holidays
       const allHolidays = [
-        ...bankHolidays,
         ...(holidays?.data || []).map((h: any) => ({
           title: h.type === "holiday" ? "Holiday" : "BH",
           start: h.date,
@@ -66,22 +66,21 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
     } else {
       setCalculatedDays(0);
     }
-  }, [startDate, endDate, startHalf, endHalf, bankHolidays, holidays]);
+  }, [startDate, endDate, startHalf, endHalf, holidays]);
 
-  // 🔄 Mutation
+  // Update leave mutation
   const mutation = useMutation({
-    mutationFn: applyLeave,
+    mutationFn: (data: any) => updateLeave(leave.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaves"] });
       queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      setType(availableLeaveTypes[0] || "");
-      setReason("");
-      setStartDate("");
-      setEndDate("");
-      setStartHalf("FULL");
-      setEndHalf("FULL");
-      setCalculatedDays(0);
+      toast.success("Leave updated successfully");
+      onSuccess?.();
+      onClose();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to update leave");
     },
   });
 
@@ -91,21 +90,40 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
     
     // Validate dates
     if (endDate && new Date(endDate) < new Date(startDate)) {
-      alert("End date cannot be before start date");
+      toast.error("End date cannot be before start date");
       return;
     }
-    
-    mutation.mutate({
-      type,
-      reason,
-      from: startDate,
-      to: endDate || startDate,
-    });
+
+    const updateData: any = {};
+
+    // Only include changed fields
+    if (type !== leave.type) updateData.type = type;
+    if (reason !== leave.reason) updateData.reason = reason;
+    if (startDate !== (leave.from ? leave.from.split('T')[0] : "")) {
+      updateData.from_date = new Date(startDate).toISOString();
+    }
+    if (endDate !== (leave.to ? leave.to.split('T')[0] : "")) {
+      updateData.to_date = new Date(endDate).toISOString();
+    }
+    if (startHalf !== (leave.startHalf || "FULL")) updateData.start_half = startHalf;
+    if (endHalf !== (leave.endHalf || "FULL")) updateData.end_half = endHalf;
+
+    // Only submit if there are changes
+    if (Object.keys(updateData).length === 0) {
+      toast.info("No changes to save");
+      return;
+    }
+
+    mutation.mutate(updateData);
   };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-card dark:bg-white/10 dark:border-white/10">
-      <form onSubmit={handleSubmit} className="px-6 pt-6 pb-6 space-y-4">
+      <div className="px-6 pt-6 pb-2">
+        <h3 className="text-lg font-semibold text-primary mb-4">Edit Leave Request</h3>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
         {/* Leave Type */}
         <div className="space-y-2">
           <label className="block text-sm mb-1 text-primary">Leave Type</label>
@@ -197,14 +215,25 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
           </p>
         )}
 
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={mutation.isPending || availableLeaveTypes.length === 0 || !type}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded font-semibold disabled:opacity-50"
-        >
-          {mutation.isPending ? "Submitting..." : "Submit Leave Request"}
-        </button>
+        {/* Buttons */}
+        <div className="flex gap-3 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            loading={mutation.isPending}
+            disabled={availableLeaveTypes.length === 0 || !type}
+            className="flex-1"
+          >
+            {mutation.isPending ? "Updating..." : "Update Leave"}
+          </Button>
+        </div>
       </form>
     </div>
   );

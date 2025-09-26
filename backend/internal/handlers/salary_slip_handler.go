@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"hr-portal-backend/internal/services"
 
@@ -42,11 +43,36 @@ func (h *SalarySlipHandler) UploadSalarySlip(c *gin.Context) {
 	organizationID := c.GetString("organization_id")
 	userID := c.GetString("user_id")
 
+	// Get form data
+	userIdStr := c.PostForm("userId")
+	monthStr := c.PostForm("month")
+	yearStr := c.PostForm("year")
+
+	// Parse month and year
+	month := 1
+	year := 2024
+	if monthStr != "" {
+		if m, err := strconv.Atoi(monthStr); err == nil && m >= 1 && m <= 12 {
+			month = m
+		}
+	}
+	if yearStr != "" {
+		if y, err := strconv.Atoi(yearStr); err == nil && y > 2000 {
+			year = y
+		}
+	}
+
+	// Use userId from form if provided, otherwise use authenticated user
+	targetUserID := userID
+	if userIdStr != "" {
+		targetUserID = userIdStr
+	}
+
 	req := services.UploadSalarySlipRequest{
-		UserID:         userID,
+		UserID:         targetUserID,
 		OrganizationID: organizationID,
-		Month:          1,    // Default to January
-		Year:           2024, // Default year
+		Month:          month,
+		Year:           year,
 	}
 
 	salarySlip, err := h.salarySlipService.UploadSalarySlip(req)
@@ -104,9 +130,17 @@ func (h *SalarySlipHandler) DownloadSalarySlip(c *gin.Context) {
 		return
 	}
 
-	// For now, return a placeholder response
-	// In a real implementation, you would serve the actual file
+	// Set headers for file download
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", "inline; filename=\""+salarySlip.FileName+".pdf\"")
+	c.Header("Access-Control-Allow-Origin", "*")
+	c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+
+	// For now, return a placeholder response with the file URL
+	// In a real implementation, you would serve the actual file content
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Salary slip download - file path: " + salarySlip.FilePath,
+		"fileUrl": salarySlip.FilePath,
+		"title":   salarySlip.FileName,
 	})
 }

@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"hr-portal-backend/internal/handlers"
+	"hr-portal-backend/internal/middleware"
+
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
@@ -779,13 +782,13 @@ func main() {
 		// Documents endpoints (placeholder)
 		documents := api.Group("/documents")
 		documents.Use(authMiddleware)
+		documents.Use(middleware.OrganizationRequired())
 		{
-			documents.GET("", func(c *gin.Context) {
-				c.JSON(http.StatusOK, gin.H{"data": []gin.H{}})
-			})
-			documents.POST("", func(c *gin.Context) {
-				c.JSON(http.StatusCreated, gin.H{"message": "Document upload not implemented yet"})
-			})
+			documents.GET("", handlers.Document.ListDocuments)
+			documents.POST("", handlers.Document.UploadDocument)
+			documents.GET("/:id", handlers.Document.GetDocument)
+			documents.DELETE("/:id", handlers.Document.DeleteDocument)
+			documents.GET("/:id/download", handlers.Document.DownloadDocument)
 		}
 
 		// Salary slips endpoints (placeholder)

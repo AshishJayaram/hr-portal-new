@@ -36,18 +36,18 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    // Get the form data from the request
+    const formData = await request.formData();
     
     // Forward the request to the backend API
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     const response = await fetch(`${backendUrl}/api/salary-slips`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': request.headers.get('Authorization') || '',
         'X-Organization-ID': request.headers.get('X-Organization-ID') || '',
       },
-      body: JSON.stringify(body),
+      body: formData, // Forward the form data directly
     });
     
     const data = await response.json();

@@ -89,10 +89,13 @@ type LeaveRepository interface {
 	Create(leave *models.Leave) error
 	GetByID(id string) (*models.Leave, error)
 	List(organizationID string, filters map[string]interface{}) ([]models.Leave, error)
+	ListPaginated(organizationID string, filters map[string]interface{}, page, perPage int) ([]models.Leave, int64, error)
 	Update(leave *models.Leave) error
 	Delete(id string) error
 	GetByUserID(userID string, filters map[string]interface{}) ([]models.Leave, error)
 	GetUserLeaves(userID string, year int) ([]models.Leave, error)
+	GetTeamLeaves(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error)
+	GetTeamLeavesPaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) ([]models.Leave, int64, error)
 	GetPendingApprovals(managerID string) ([]models.Leave, error)
 	Approve(id, approverID string) error
 	Reject(id, rejecterID, reason string) error

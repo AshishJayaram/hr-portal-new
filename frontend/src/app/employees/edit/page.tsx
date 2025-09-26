@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUser, updateUser, getUsers, toCanonicalRole, getCompanySettings, getLeaveCategories, getLeaveAllocations, updateLeaveAllocation, createLeaveAllocation } from "@/lib/api";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { getUser, updateUser, getUsers, toCanonicalRole, getCompanySettings, getLeaveCategories, getLeaveAllocations, updateLeaveAllocation, createLeaveAllocation, getLeaveBalance } from "@/lib/api";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -14,9 +14,16 @@ import { toast } from "sonner";
 import { LeaveCategory, LeaveAllocation } from "@/lib/api";
 
 export default function EditEmployeePage() {
-  // Read id from search params (?id=123)
-  const search = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const id = search?.get('id') || '';
+  return (
+    <Suspense fallback={<Loader />}>
+      <EditEmployeePageContent />
+    </Suspense>
+  );
+}
+
+function EditEmployeePageContent() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id') || '';
   return <EditEmployeeForm id={id} />;
 }
 
@@ -34,6 +41,7 @@ function EditEmployeeForm({ id }: { id: string }) {
   const [managerQuery, setManagerQuery] = useState("");
   const [selectedManagerName, setSelectedManagerName] = useState("");
   const [leaveAllocations, setLeaveAllocations] = useState<Record<string, number>>({});
+  const [leaveApplicable, setLeaveApplicable] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<'details' | 'leaves' | 'ctc'>('details');
   const [ctcData, setCtcData] = useState({
     annualCTC: 0,
@@ -68,6 +76,12 @@ function EditEmployeeForm({ id }: { id: string }) {
     enabled: !!id,
   });
 
+  const { data: leaveBalance } = useQuery({
+    queryKey: ["leave-balance", id],
+    queryFn: () => getLeaveBalance(id),
+    enabled: !!id,
+  });
+
   useEffect(() => {
     if (user?.data) {
       setFormData({
@@ -94,10 +108,22 @@ function EditEmployeeForm({ id }: { id: string }) {
   useEffect(() => {
     if (currentAllocations?.data && leaveCategories?.data) {
       const allocations: Record<string, number> = {};
+      const applicable: Record<string, boolean> = {};
+      
       currentAllocations.data.forEach((allocation: LeaveAllocation) => {
         allocations[allocation.categoryId] = allocation.totalDays;
+        applicable[allocation.categoryId] = allocation.totalDays > 0;
       });
+      
+      // Set default applicable state for categories not yet allocated
+      leaveCategories.data.forEach((category: LeaveCategory) => {
+        if (!(category.id in applicable)) {
+          applicable[category.id] = false;
+        }
+      });
+      
       setLeaveAllocations(allocations);
+      setLeaveApplicable(applicable);
     }
   }, [currentAllocations, leaveCategories]);
 
@@ -118,27 +144,50 @@ function EditEmployeeForm({ id }: { id: string }) {
 
   const leaveAllocationMutation = useMutation({
     mutationFn: async () => {
-      if (!currentAllocations?.data || !leaveCategories?.data) return;
+      console.log('Leave allocation mutation called');
+      console.log('currentAllocations:', currentAllocations);
+      console.log('leaveCategories:', leaveCategories);
+      console.log('leaveAllocations:', leaveAllocations);
+      console.log('leaveApplicable:', leaveApplicable);
+      
+      if (!leaveCategories?.data) {
+        console.log('Missing leave categories data, returning early');
+        return;
+      }
+      
+      // If no current allocations, that's okay - we'll create new ones
+      const currentAllocationsData = currentAllocations?.data || [];
       
       const currentYear = new Date().getFullYear();
       const promises: Promise<any>[] = [];
       
       // Update existing allocations or create new ones
       Object.entries(leaveAllocations).forEach(([categoryId, days]) => {
-        const existingAllocation = currentAllocations.data.find(
+        const isApplicable = leaveApplicable[categoryId];
+        const existingAllocation = currentAllocationsData.find(
           (a: LeaveAllocation) => a.categoryId === categoryId && a.year === currentYear
         );
         
+        console.log(`Processing category ${categoryId}: days=${days}, applicable=${isApplicable}, existing=${!!existingAllocation}`);
+        
         if (existingAllocation) {
-          // Update existing allocation
-          promises.push(updateLeaveAllocation(id, existingAllocation.id, {
-            totalDays: Number(days),
-            remainingDays: Number(days) - existingAllocation.usedDays,
-          }));
-        } else {
+          if (isApplicable && Number(days) > 0) {
+            // Update existing allocation
+            console.log(`Updating allocation ${existingAllocation.id} with ${days} days`);
+            promises.push(updateLeaveAllocation(id, existingAllocation.id, {
+              totalDays: Number(days),
+              usedDays: existingAllocation.usedDays, // Keep existing used days
+            }));
+          } else {
+            // Delete allocation if not applicable or days is 0
+            console.log(`Deleting allocation ${existingAllocation.id}`);
+            promises.push(deleteLeaveAllocation(id, existingAllocation.id));
+          }
+        } else if (isApplicable && Number(days) > 0) {
           // Create new allocation
           const category = leaveCategories.data.find((c: LeaveCategory) => c.id === categoryId);
-          if (category && Number(days) > 0) {
+          if (category) {
+            console.log(`Creating new allocation for category ${categoryId} with ${days} days`);
             promises.push(createLeaveAllocation(id, {
               categoryId,
               categoryName: category.name,
@@ -151,7 +200,9 @@ function EditEmployeeForm({ id }: { id: string }) {
         }
       });
       
+      console.log(`Executing ${promises.length} promises`);
       await Promise.all(promises);
+      console.log('All promises completed');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leave-allocations", id] });
@@ -182,22 +233,48 @@ function EditEmployeeForm({ id }: { id: string }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('Employee details form submitted');
+    console.log('formData:', formData);
+    console.log('id:', id);
+    
     // Prevent self-assignment as manager
     if (formData.manager_id && String(formData.manager_id) === String(id)) {
       toast.error("An employee cannot be assigned as their own manager");
       return;
     }
     
-    mutation.mutate({
+    const payload = {
       username: formData.username,
       designation: formData.designation,
       role: toCanonicalRole(formData.role),
       department: formData.department,
       manager_id: formData.manager_id ? String(formData.manager_id) : undefined, // Convert to string to match backend
-    } as any);
+    };
+    
+    console.log('Payload to be sent:', payload);
+    mutation.mutate(payload);
   };
 
-  if (isLoading) return <Loader />;
+  // Show loader while any critical data is loading
+  const isDataLoading = isLoading || 
+    (id && !user?.data) || 
+    (id && !leaveCategories?.data);
+
+  if (isDataLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <Loader />
+        <div className="text-center">
+          <p className="text-lg font-medium text-gray-600 dark:text-gray-300">
+            Loading Employee Data
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            Fetching employee details, leave allocations, and balance information...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user?.data) {
     return (
@@ -335,14 +412,21 @@ function EditEmployeeForm({ id }: { id: string }) {
       )}
 
       {activeTab === 'leaves' && (
-        <LeaveAllocationManager
-          categories={leaveCategories?.data || []}
-          allocations={leaveAllocations}
-          currentAllocations={currentAllocations?.data || []}
-          onAllocationChange={setLeaveAllocations}
-          onSave={leaveAllocationMutation.mutate}
-          isLoading={leaveAllocationMutation.isPending}
-        />
+        <div className="space-y-6">
+          <LeaveBalanceManager
+            leaveBalance={leaveBalance?.data || []}
+          />
+          <LeaveAllocationManager
+            categories={leaveCategories?.data || []}
+            allocations={leaveAllocations}
+            applicable={leaveApplicable}
+            currentAllocations={currentAllocations?.data || []}
+            onAllocationChange={setLeaveAllocations}
+            onApplicableChange={setLeaveApplicable}
+            onSave={leaveAllocationMutation.mutate}
+            isLoading={leaveAllocationMutation.isPending}
+          />
+        </div>
       )}
 
       {activeTab === 'ctc' && (
@@ -361,15 +445,19 @@ function EditEmployeeForm({ id }: { id: string }) {
 function LeaveAllocationManager({
   categories,
   allocations,
+  applicable,
   currentAllocations,
   onAllocationChange,
+  onApplicableChange,
   onSave,
   isLoading,
 }: {
   categories: LeaveCategory[];
   allocations: Record<string, number>;
+  applicable: Record<string, boolean>;
   currentAllocations: LeaveAllocation[];
   onAllocationChange: (allocations: Record<string, number>) => void;
+  onApplicableChange: (applicable: Record<string, boolean>) => void;
   onSave: () => void;
   isLoading: boolean;
 }) {
@@ -382,18 +470,44 @@ function LeaveAllocationManager({
             (a: LeaveAllocation) => a.categoryId === category.id
           );
           const usedDays = currentAllocation?.usedDays || 0;
-          const totalDays = allocations[category.id] || category.defaultDays;
+          const totalDays = allocations[category.id] || 0;
+          const isApplicable = applicable[category.id] || false;
           
           return (
             <div key={category.id} className="p-4 rounded-lg bg-white/5 border border-white/10">
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h4 className="font-semibold text-primary">{category.name}</h4>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      id={`applicable-${category.id}`}
+                      checked={isApplicable}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        onApplicableChange({ ...applicable, [category.id]: checked });
+                        // If not applicable, set days to 0
+                        if (!checked) {
+                          onAllocationChange({ ...allocations, [category.id]: 0 });
+                        } else if (allocations[category.id] === 0) {
+                          // If becoming applicable and currently 0, set to default
+                          onAllocationChange({ ...allocations, [category.id]: category.defaultDays });
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <h4 className={`font-semibold ${isApplicable ? 'text-primary' : 'text-muted'}`}>
+                      {category.name}
+                    </h4>
+                    {!isApplicable && (
+                      <span className="text-xs text-red-400 ml-2">Not Applicable</span>
+                    )}
+                  </div>
                   <p className="text-sm text-secondary">{category.description}</p>
                 </div>
                 <div className="text-right text-sm">
                   <div className="text-muted">Used: {usedDays} days</div>
-                  <div className="text-muted">Remaining: {totalDays - usedDays} days</div>
+                  <div className="text-muted">Remaining: {Math.max(0, totalDays - usedDays)} days</div>
+                  <div className="text-muted">Default: {category.defaultDays} days</div>
                 </div>
               </div>
               
@@ -405,17 +519,26 @@ function LeaveAllocationManager({
                   <Input
                     type="number"
                     min="0"
+                    max={category.maxDaysPerYear}
                     value={String(totalDays)}
-                    onChange={(e) => onAllocationChange({
-                      ...allocations,
-                      [category.id]: Number(e.target.value) || 0
-                    })}
+                    onChange={(e) => {
+                      const value = Number(e.target.value) || 0;
+                      onAllocationChange({ ...allocations, [category.id]: value });
+                      // If setting to 0, uncheck applicable
+                      if (value === 0) {
+                        onApplicableChange({ ...applicable, [category.id]: false });
+                      } else {
+                        // If setting to > 0, check applicable
+                        onApplicableChange({ ...applicable, [category.id]: true });
+                      }
+                    }}
                     placeholder={String(category.defaultDays)}
+                    disabled={!isApplicable}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-secondary mb-2">
-                    Default Days (from category)
+                    Category Default
                   </label>
                   <Input
                     type="number"
@@ -453,6 +576,42 @@ function LeaveAllocationManager({
           Reset Changes
         </Button>
       </div>
+    </Card>
+  );
+}
+
+function LeaveBalanceManager({ leaveBalance }: { leaveBalance: any[] }) {
+  return (
+    <Card>
+      <h3 className="text-lg font-semibold mb-4">Current Leave Balance</h3>
+      {leaveBalance.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">
+          <p>No leave balance data available</p>
+          <p className="text-sm mt-2">Leave allocations need to be set up first</p>
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {leaveBalance.map((balance: any, index: number) => (
+            <div key={index} className="p-4 rounded-lg bg-white/5 border border-white/10">
+              <h4 className="font-semibold text-primary mb-2">{balance.type}</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Total:</span>
+                  <span className="font-medium">{balance.total} days</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Used:</span>
+                  <span className="font-medium text-yellow-400">{balance.used} days</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Remaining:</span>
+                  <span className="font-medium text-green-400">{balance.remaining} days</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
@@ -535,7 +694,7 @@ function CTCManager({
         </div>
 
         {/* CTC Breakdown Preview */}
-        {breakdown && (
+        {breakdown && companySettings && (
           <div className="p-4 rounded-lg bg-white/5 border border-white/10">
             <h4 className="font-semibold text-primary mb-4">CTC Breakdown Preview</h4>
             <div className="grid md:grid-cols-3 gap-6">
@@ -595,13 +754,21 @@ function CTCManager({
 
         {/* Action Buttons */}
         <div className="flex gap-3">
-          <Button onClick={handleSave} loading={isLoading} disabled={ctcData.annualCTC <= 0}>
+          <Button onClick={handleSave} loading={isLoading} disabled={ctcData.annualCTC <= 0 || !companySettings}>
             Save CTC
           </Button>
           <Button variant="outline" onClick={() => window.location.reload()}>
             Reset Changes
           </Button>
         </div>
+        
+        {!companySettings && (
+          <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+            <p className="text-sm text-yellow-400">
+              ⚠️ Company settings are not available. CTC breakdown cannot be calculated.
+            </p>
+          </div>
+        )}
       </div>
     </Card>
   );

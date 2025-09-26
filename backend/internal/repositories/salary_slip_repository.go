@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"fmt"
+	"strconv"
 
 	"hr-portal-backend/internal/models"
 )
@@ -28,7 +29,14 @@ func (r *salarySlipRepository) GetByID(id string) (*models.SalarySlip, error) {
 
 func (r *salarySlipRepository) List(organizationID string, filters map[string]interface{}) ([]models.SalarySlip, error) {
 	var salarySlips []models.SalarySlip
-	query := r.db.Preload("User").Where("organization_id = ?", organizationID)
+
+	// Convert string organizationID to uint
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	query := r.db.Preload("User").Where("organization_id = ?", uint(orgIDUint))
 	query = r.buildQuery(query, filters)
 
 	if err := query.Find(&salarySlips).Error; err != nil {
@@ -53,7 +61,14 @@ func (r *salarySlipRepository) Delete(id string) error {
 
 func (r *salarySlipRepository) GetByUserID(userID string) ([]models.SalarySlip, error) {
 	var salarySlips []models.SalarySlip
-	if err := r.db.Where("user_id = ?", userID).Order("year DESC, month DESC").Find(&salarySlips).Error; err != nil {
+
+	// Convert string userID to uint
+	userIDUint, err := strconv.ParseUint(userID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	if err := r.db.Where("user_id = ?", uint(userIDUint)).Order("year DESC, month DESC").Find(&salarySlips).Error; err != nil {
 		return nil, fmt.Errorf("failed to get user salary slips: %w", err)
 	}
 	return salarySlips, nil

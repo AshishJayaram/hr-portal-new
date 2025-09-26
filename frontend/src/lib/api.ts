@@ -41,6 +41,8 @@ export interface LeaveCategory {
   name: string;
   description?: string;
   defaultDays: number;
+  maxDaysPerYear: number;
+  requiresApproval: boolean;
   isActive: boolean;
   organizationId?: string;
   createdAt: string;
@@ -63,7 +65,7 @@ export interface LeaveAllocation {
 export interface Leave {
   id: string;
   userId: string;
-  type: 'Sick' | 'Casual' | 'Professional';
+  type: 'Sick Leave' | 'Casual Leave' | 'Professional Leave' | 'Sick' | 'Casual' | 'Professional';
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   from: string; // ISO date string
   to: string;   // ISO date string
@@ -71,7 +73,7 @@ export interface Leave {
 }
 
 export type LeaveBalance =
-  | { type: 'Sick' | 'Casual' | 'Professional'; balance: number }
+  | { type: 'Sick Leave' | 'Casual Leave' | 'Professional Leave' | 'Sick' | 'Casual' | 'Professional'; balance: number }
   | { id?: string; userId?: string; type: string; total: number; used: number; remaining: number }
   | LeaveAllocation;
 
@@ -196,7 +198,7 @@ async function uploadFile<T>(path: string, formData: FormData): Promise<T> {
     ...(organizationId ? { "X-Organization-ID": organizationId } : {}),
   };
 
-  const res = await fetch(path, {
+  const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
     headers,
     body: formData,
@@ -258,6 +260,9 @@ export const getUser = (id: string) =>
       name: u.name ?? u.username ?? 'User',
       role: toCanonicalRole(u.role) as Role,
       department: u.department,
+      designation: u.designation,
+      ctc: u.ctc,
+      manager_id: u.manager_id,
       createdAt: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updatedAt: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     };
@@ -293,32 +298,35 @@ export const createUser = (body: Partial<User> & any) => {
 };
 
 export const updateUser = (id: string, body: Partial<User>) =>
-  fetcher<ApiResponse<User>>(`/users/${id}`, {
+  fetcher<ApiResponse<User>>(`/api/users/${id}`, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
 
 export const deleteUser = (id: string) =>
-  fetcher<ApiResponse<void>>(`/users/${id}`, {
+  fetcher<ApiResponse<void>>(`/api/users/${id}`, {
     method: "DELETE",
   });
 
 export const changePassword = (currentPassword: string, newPassword: string) =>
-  fetcher<ApiResponse<void>>("/users/change-password", {
+  fetcher<ApiResponse<void>>("/api/users/change-password", {
     method: "POST",
     body: JSON.stringify({ currentPassword, newPassword }),
   });
 
 // -------------------- Leave Categories --------------------
 export const getLeaveCategories = () =>
-  fetcher<any>("/leave-categories").then((raw) => {
+  fetcher<any>("/api/leave-categories").then((raw) => {
     const items = (raw?.leave_categories || raw?.data || raw || []) as any[];
     const mapped: LeaveCategory[] = items.map((c: any) => ({
       id: String(c.id),
       name: c.name,
       description: c.description,
-      defaultDays: Number(c.defaultDays ?? c.default_days ?? c.max_days_per_year ?? 0),
+      defaultDays: Number(c.max_days_per_year || c.defaultDays || 0),
+      maxDaysPerYear: Number(c.max_days_per_year || c.maxDaysPerYear || 0),
+      requiresApproval: Boolean(c.requires_approval ?? c.requiresApproval ?? true),
       isActive: Boolean(c.isActive ?? c.is_active ?? true),
+      organizationId: c.organizationId ?? c.organization_id,
       createdAt: c.createdAt ?? c.created_at ?? new Date().toISOString(),
       updatedAt: c.updatedAt ?? c.updated_at ?? new Date().toISOString(),
     }));
@@ -354,8 +362,8 @@ export const deleteLeaveCategory = (id: string) =>
 
 // -------------------- Leave Allocations --------------------
 export const getLeaveAllocations = (userId: string, year?: number) =>
-  fetcher<any>(`/users/${userId}/leave-allocations${year ? `?year=${year}` : ''}`).then((raw) => {
-    const items = (raw?.data || raw || []) as any[];
+  fetcher<any>(`/api/leave-allocations/${userId}${year ? `?year=${year}` : ''}`).then((raw) => {
+    const items = (raw?.leave_allocations || raw?.data || raw || []) as any[];
     const mapped: LeaveAllocation[] = items.map((a: any) => ({
       id: String(a.id),
       userId: String(a.userId ?? a.user_id ?? userId),
@@ -372,40 +380,46 @@ export const getLeaveAllocations = (userId: string, year?: number) =>
   }).catch(() => ({ data: [] } as ApiResponse<LeaveAllocation[]>));
 
 export const createLeaveAllocation = (userId: string, body: Partial<LeaveAllocation>) =>
-  fetcher<ApiResponse<LeaveAllocation>>(`/leave-allocations`, {
+  fetcher<ApiResponse<LeaveAllocation>>(`/api/leave-allocations`, {
     method: "POST",
     body: JSON.stringify({
-      ...body,
       user_id: userId,
+      category_id: body.categoryId,
+      category_name: body.categoryName,
+      total_days: body.totalDays,
+      year: body.year,
     }),
   });
 
 export const updateLeaveAllocation = (userId: string, allocationId: string, body: Partial<LeaveAllocation>) =>
-  fetcher<ApiResponse<LeaveAllocation>>(`/users/${userId}/leave-allocations/${allocationId}`, {
+  fetcher<ApiResponse<LeaveAllocation>>(`/api/leave-allocations/${allocationId}`, {
     method: "PATCH",
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      total_days: body.totalDays,
+      used_days: body.usedDays,
+    }),
   });
 
 export const deleteLeaveAllocation = (userId: string, allocationId: string) =>
-  fetcher<ApiResponse<void>>(`/users/${userId}/leave-allocations/${allocationId}`, {
+  fetcher<ApiResponse<void>>(`/api/leave-allocations/${allocationId}`, {
     method: "DELETE",
   });
 
 // -------------------- Leave Balance (Legacy Support) --------------------
 export const getLeaveBalance = (userId: string) =>
-  fetcher<any>(`/users/${userId}/leave-balance`).then((raw) => {
+  fetcher<any>(`/api/leaves/balance/${userId}`).then((raw) => {
     const items = (raw?.data || raw || []) as any[];
     const mapped = items.map((b: any) => ({
-      type: b.type,
-      total: b.total ?? b.balance ?? 0,
-      used: b.used ?? 0,
-      remaining: b.remaining ?? b.balance ?? (b.total != null && b.used != null ? b.total - b.used : 0),
+      type: b.category_name || b.categoryName || 'Leave',
+      total: b.total_days ?? b.totalDays ?? 0,
+      used: b.used_days ?? b.usedDays ?? 0,
+      remaining: b.remaining_days ?? b.remainingDays ?? (b.total_days != null && b.used_days != null ? b.total_days - b.used_days : 0),
     }));
     return { data: mapped.length ? mapped : [] } as ApiResponse<LeaveBalance[]>;
   }).catch(() => ({ data: [] } as ApiResponse<LeaveBalance[]>));
 
 export const updateLeaveBalance = (userId: string, body: Partial<LeaveBalance>) =>
-  fetcher<ApiResponse<LeaveBalance>>(`/users/${userId}/leave-balance`, {
+  fetcher<ApiResponse<LeaveBalance>>(`/leaves/balance/${userId}`, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
@@ -417,15 +431,57 @@ export const getLeaves = (params?: Record<string, string>) =>
     const mapped: Leave[] = items.map((l: any) => ({
       id: String(l.id),
       userId: String(l.user_id ?? l.userId ?? ''),
-      type: (l.type === 'Sick' || l.type === 'Casual' || l.type === 'Professional') ? l.type : 'Professional',
+      type: (l.type === 'Sick Leave' || l.type === 'Casual Leave' || l.type === 'Professional Leave' || l.type === 'Sick' || l.type === 'Casual' || l.type === 'Professional') ? l.type : l.type || 'Professional',
       status: String(l.status || 'Pending').toLowerCase() as any,
       from: l.from ?? l.from_date,
       to: l.to ?? l.to_date,
+      reason: l.reason,
+      user: l.user ? {
+        id: String(l.user.id),
+        name: l.user.name,
+        email: l.user.email,
+        designation: l.user.designation,
+        department: l.user.department,
+      } : undefined,
       createdAt: l.createdAt ?? l.created_at ?? new Date().toISOString(),
     }));
-    const uid = params?.userId;
     return { data: mapped.length ? mapped : [] } as ApiResponse<Leave[]>;
   }).catch(() => ({ data: [] } as ApiResponse<Leave[]>));
+
+export const getLeavesPaginated = (params?: Record<string, string>) =>
+  fetcher<any>(`/leaves?${new URLSearchParams({ ...params, paginated: 'true' } || {}).toString()}`).then((raw) => {
+    const items = (raw?.data || []) as any[];
+    const mapped: Leave[] = items.map((l: any) => ({
+      id: String(l.id),
+      userId: String(l.user_id ?? l.userId ?? ''),
+      type: (l.type === 'Sick Leave' || l.type === 'Casual Leave' || l.type === 'Professional Leave' || l.type === 'Sick' || l.type === 'Casual' || l.type === 'Professional') ? l.type : l.type || 'Professional',
+      status: String(l.status || 'Pending').toLowerCase() as any,
+      from: l.from ?? l.from_date,
+      to: l.to ?? l.to_date,
+      reason: l.reason,
+      user: l.user ? {
+        id: String(l.user.id),
+        name: l.user.name,
+        email: l.user.email,
+        designation: l.user.designation,
+        department: l.user.department,
+      } : undefined,
+      createdAt: l.createdAt ?? l.created_at ?? new Date().toISOString(),
+    }));
+    return {
+      data: mapped,
+      total: raw?.total || 0,
+      page: raw?.page || 1,
+      per_page: raw?.per_page || 10,
+      total_pages: raw?.total_pages || 1,
+    };
+  }).catch(() => ({ 
+    data: [], 
+    total: 0, 
+    page: 1, 
+    per_page: 10, 
+    total_pages: 1 
+  }));
 
 export const getLeave = (id: string) =>
   fetcher<ApiResponse<Leave>>(`/leaves/${id}`);
@@ -435,8 +491,8 @@ export const applyLeave = (body: Partial<Leave> & { reason?: string }) =>
     method: "POST",
     body: JSON.stringify({
       type: body.type,
-      from_date: body.from,
-      to_date: body.to ?? body.from,
+      from_date: body.from ? new Date(body.from).toISOString() : body.from,
+      to_date: body.to ? new Date(body.to).toISOString() : (body.from ? new Date(body.from).toISOString() : body.from),
       reason: body.reason,
     }),
   }).then((raw) => {
@@ -444,7 +500,7 @@ export const applyLeave = (body: Partial<Leave> & { reason?: string }) =>
     const mapped: Leave = {
       id: String(l.id),
       userId: String(l.user_id ?? l.userId ?? ''),
-      type: (l.type === 'Sick' || l.type === 'Casual' || l.type === 'Professional') ? l.type : (body.type as any),
+      type: (l.type === 'Sick Leave' || l.type === 'Casual Leave' || l.type === 'Professional Leave' || l.type === 'Sick' || l.type === 'Casual' || l.type === 'Professional') ? l.type : (body.type as any),
       status: String(l.status || 'Pending').toLowerCase() as any,
       from: l.from ?? l.from_date ?? (body.from as string),
       to: l.to ?? l.to_date ?? (body.to as string) ?? (body.from as string),
@@ -489,7 +545,7 @@ export const getDocument = (id: string) =>
   fetcher<ApiResponse<Document>>(`/documents/${id}`);
 
 export const uploadDocument = (formData: FormData) =>
-  uploadFile<ApiResponse<Document>>("/documents", formData);
+  uploadFile<ApiResponse<Document>>("/api/documents", formData);
 
 export const updateDocument = (id: string, body: Partial<Document>) =>
   fetcher<ApiResponse<Document>>(`/documents/${id}`, {
@@ -523,6 +579,9 @@ export const removeDocumentAccess = (id: string, userId: string) =>
     method: "DELETE",
   });
 
+export const downloadDocument = (id: string) =>
+  fetcher<{ fileUrl: string; title: string }>(`/documents/${id}/download`);
+
 // -------------------- Salary Slips --------------------
 export const getSalarySlips = (params?: Record<string, string>) =>
   fetcher<any>(`/salary-slips?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
@@ -542,8 +601,11 @@ export const getSalarySlips = (params?: Record<string, string>) =>
 export const getSalarySlip = (id: string) =>
   fetcher<ApiResponse<SalarySlip>>(`/salary-slips/${id}`);
 
+export const downloadSalarySlip = (id: string) =>
+  fetcher<{ fileUrl: string; title: string }>(`/salary-slips/${id}/download`);
+
 export const uploadSalarySlip = (formData: FormData) =>
-  uploadFile<ApiResponse<SalarySlip>>("/salary-slips", formData);
+  uploadFile<ApiResponse<SalarySlip>>("/api/salary-slips", formData);
 
 export const deleteSalarySlip = (id: string) =>
   fetcher<ApiResponse<void>>(`/salary-slips/${id}`, {
@@ -583,13 +645,13 @@ export const uploadUserDocument = (userId: string, formData: FormData) => {
   // Ensure private by default for employee-scoped docs
   if (!formData.has('isPublic')) formData.append('isPublic', 'false');
   if (!formData.has('userId')) formData.append('userId', userId);
-  return uploadFile<ApiResponse<Document>>(`/users/${userId}/documents`, formData)
-    .catch(() => uploadFile<ApiResponse<Document>>('/documents', formData));
+  return uploadFile<ApiResponse<Document>>(`/api/users/${userId}/documents`, formData)
+    .catch(() => uploadFile<ApiResponse<Document>>('/api/documents', formData));
 };
 
 // -------------------- Holidays --------------------
 export const getHolidays = (params?: Record<string, string>) =>
-  fetcher<any>(`/holidays?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
+  fetcher<any>(`/api/holidays?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
     const items = (raw?.data || raw || []) as any[];
     const mapped: Holiday[] = items.map((h: any) => ({
       id: String(h.id),
@@ -873,3 +935,9 @@ export const deleteOrganization = async (id: number): Promise<{ message: string 
   });
   return response;
 };
+
+// -------------------- Leave Categories --------------------
+
+// -------------------- Leave Allocations --------------------
+
+

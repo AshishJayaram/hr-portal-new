@@ -202,8 +202,8 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			leaves.POST("", handlers.Leave.ApplyLeave)
 			leaves.GET("/:id", handlers.Leave.GetLeave)
 			leaves.PATCH("/:id", handlers.Leave.UpdateLeave)
-			leaves.POST("/:id/approve", middleware.RoleRequired("Manager", "HR", "Admin"), handlers.Leave.ApproveLeave)
-			leaves.POST("/:id/reject", middleware.RoleRequired("Manager", "HR", "Admin"), handlers.Leave.RejectLeave)
+			leaves.POST("/:id/approve", middleware.RoleRequired("Manager", "HR", "Admin", "God"), handlers.Leave.ApproveLeave)
+			leaves.POST("/:id/reject", middleware.RoleRequired("Manager", "HR", "Admin", "God"), handlers.Leave.RejectLeave)
 			leaves.POST("/:id/cancel", handlers.Leave.CancelLeave)
 			leaves.GET("/balance/:user_id", handlers.Leave.GetLeaveBalance)
 		}

@@ -2,8 +2,11 @@ package repositories
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
 	"hr-portal-backend/internal/models"
+
 	"gorm.io/gorm"
 )
 
@@ -29,13 +32,54 @@ func (r *leaveRepository) GetByID(id string) (*models.Leave, error) {
 
 func (r *leaveRepository) List(organizationID string, filters map[string]interface{}) ([]models.Leave, error) {
 	var leaves []models.Leave
-	query := r.db.Preload("User").Preload("Category").Where("organization_id = ?", organizationID)
+
+	// Convert string organizationID to uint
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	query := r.db.Preload("User").Preload("Category").Where("organization_id = ?", uint(orgIDUint))
 	query = r.buildQuery(query, filters)
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to list leaves: %w", err)
 	}
 	return leaves, nil
+}
+
+func (r *leaveRepository) ListPaginated(organizationID string, filters map[string]interface{}, page, perPage int) ([]models.Leave, int64, error) {
+	var leaves []models.Leave
+	var total int64
+
+	// Convert string organizationID to uint
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Build base query
+	baseQuery := r.db.Model(&models.Leave{}).Where("organization_id = ?", uint(orgIDUint))
+	baseQuery = r.buildQuery(baseQuery, filters)
+
+	// Count total records
+	if err := baseQuery.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count leaves: %w", err)
+	}
+
+	// Calculate offset
+	offset := (page - 1) * perPage
+
+	// Build paginated query with preloads
+	query := r.db.Preload("User").Preload("Category").Where("organization_id = ?", uint(orgIDUint))
+	query = r.buildQuery(query, filters)
+	query = query.Offset(offset).Limit(perPage).Order("created_at DESC")
+
+	if err := query.Find(&leaves).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list paginated leaves: %w", err)
+	}
+
+	return leaves, total, nil
 }
 
 func (r *leaveRepository) Update(leave *models.Leave) error {
@@ -54,7 +98,14 @@ func (r *leaveRepository) Delete(id string) error {
 
 func (r *leaveRepository) GetByUserID(userID string, filters map[string]interface{}) ([]models.Leave, error) {
 	var leaves []models.Leave
-	query := r.db.Preload("User").Preload("Category").Where("user_id = ?", userID)
+
+	// Convert string userID to uint
+	userIDUint, err := strconv.ParseUint(userID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	query := r.db.Preload("User").Preload("Category").Where("user_id = ?", uint(userIDUint))
 	query = r.buildQuery(query, filters)
 
 	if err := query.Find(&leaves).Error; err != nil {
@@ -74,10 +125,18 @@ func (r *leaveRepository) GetPendingApprovals(managerID string) ([]models.Leave,
 }
 
 func (r *leaveRepository) Approve(id, approverID string) error {
+	// Convert approverID string to uint (since user IDs are now integers)
+	approverIDUint, err := strconv.ParseUint(approverID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid approver ID: %w", err)
+	}
+
+	now := time.Now()
 	if err := r.db.Model(&models.Leave{}).Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"status":      "approved",
-			"approver_id": approverID,
+			"approved_by": uint(approverIDUint),
+			"approved_at": now,
 		}).Error; err != nil {
 		return fmt.Errorf("failed to approve leave: %w", err)
 	}
@@ -85,10 +144,18 @@ func (r *leaveRepository) Approve(id, approverID string) error {
 }
 
 func (r *leaveRepository) Reject(id, rejecterID, reason string) error {
+	// Convert rejecterID string to uint (since user IDs are now integers)
+	rejecterIDUint, err := strconv.ParseUint(rejecterID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid rejecter ID: %w", err)
+	}
+
+	now := time.Now()
 	if err := r.db.Model(&models.Leave{}).Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"status":           "rejected",
-			"approver_id":      rejecterID,
+			"rejected_by":      uint(rejecterIDUint),
+			"rejected_at":      now,
 			"rejection_reason": reason,
 		}).Error; err != nil {
 		return fmt.Errorf("failed to reject leave: %w", err)
@@ -107,24 +174,123 @@ func (r *leaveRepository) GetUserLeaves(userID string, year int) ([]models.Leave
 	var leaves []models.Leave
 	startOfYear := fmt.Sprintf("%d-01-01", year)
 	endOfYear := fmt.Sprintf("%d-12-31", year)
-	
+
+	// Convert string userID to uint
+	userIDUint, err := strconv.ParseUint(userID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
 	if err := r.db.Preload("User").Preload("Category").
-		Where("user_id = ? AND from_date >= ? AND to_date <= ?", userID, startOfYear, endOfYear).
+		Where("user_id = ? AND from_date >= ? AND to_date <= ?", uint(userIDUint), startOfYear, endOfYear).
 		Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to get user leaves: %w", err)
 	}
 	return leaves, nil
 }
 
+// GetTeamLeaves returns all leave requests for users who report to the given manager
+func (r *leaveRepository) GetTeamLeaves(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error) {
+	var leaves []models.Leave
+
+	// Convert string managerID to uint
+	managerIDUint, err := strconv.ParseUint(managerID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid manager ID: %w", err)
+	}
+
+	// Convert string organizationID to uint
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Build query to get leaves for all subordinates of the manager
+	query := r.db.Preload("User").Preload("Category").
+		Joins("JOIN users ON leaves.user_id = users.id").
+		Where("users.manager_id = ? AND leaves.organization_id = ?", uint(managerIDUint), uint(orgIDUint))
+
+	// Apply additional filters
+	query = r.buildQuery(query, filters)
+
+	if err := query.Find(&leaves).Error; err != nil {
+		return nil, fmt.Errorf("failed to get team leaves: %w", err)
+	}
+	return leaves, nil
+}
+
+// GetTeamLeavesPaginated returns paginated leave requests for users who report to the given manager
+func (r *leaveRepository) GetTeamLeavesPaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) ([]models.Leave, int64, error) {
+	var leaves []models.Leave
+	var total int64
+
+	// Convert string managerID to uint
+	managerIDUint, err := strconv.ParseUint(managerID, 10, 32)
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid manager ID: %w", err)
+	}
+
+	// Convert string organizationID to uint
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Build base query for counting
+	baseQuery := r.db.Model(&models.Leave{}).
+		Joins("JOIN users ON leaves.user_id = users.id").
+		Where("users.manager_id = ? AND leaves.organization_id = ?", uint(managerIDUint), uint(orgIDUint))
+
+	// Apply additional filters to base query
+	baseQuery = r.buildQuery(baseQuery, filters)
+
+	// Count total records
+	if err := baseQuery.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count team leaves: %w", err)
+	}
+
+	// Calculate offset
+	offset := (page - 1) * perPage
+
+	// Build paginated query with preloads
+	query := r.db.Preload("User").Preload("Category").
+		Joins("JOIN users ON leaves.user_id = users.id").
+		Where("users.manager_id = ? AND leaves.organization_id = ?", uint(managerIDUint), uint(orgIDUint))
+
+	// Apply additional filters
+	query = r.buildQuery(query, filters)
+	query = query.Offset(offset).Limit(perPage).Order("leaves.created_at DESC")
+
+	if err := query.Find(&leaves).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to get paginated team leaves: %w", err)
+	}
+
+	return leaves, total, nil
+}
+
 func (r *leaveRepository) buildQuery(query *gorm.DB, filters map[string]interface{}) *gorm.DB {
 	for key, value := range filters {
 		switch key {
 		case "user_id":
-			query = query.Where("user_id = ?", value)
+			// Convert string user_id to uint if it's a string
+			if userIDStr, ok := value.(string); ok {
+				if userIDUint, err := strconv.ParseUint(userIDStr, 10, 32); err == nil {
+					query = query.Where("user_id = ?", uint(userIDUint))
+				}
+			} else {
+				query = query.Where("user_id = ?", value)
+			}
 		case "status":
 			query = query.Where("status = ?", value)
 		case "category_id":
-			query = query.Where("category_id = ?", value)
+			// Convert string category_id to uint if it's a string
+			if categoryIDStr, ok := value.(string); ok {
+				if categoryIDUint, err := strconv.ParseUint(categoryIDStr, 10, 32); err == nil {
+					query = query.Where("category_id = ?", uint(categoryIDUint))
+				}
+			} else {
+				query = query.Where("category_id = ?", value)
+			}
 		case "from_date":
 			query = query.Where("from_date >= ?", value)
 		case "to_date":

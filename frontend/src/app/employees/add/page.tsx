@@ -135,14 +135,55 @@ export default function AddEmployeePage() {
   if (companySettingsLoading || leaveCategoriesLoading) return <Loader />;
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Add Employee</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Add Employee</h1>
+        <Button
+          variant="outline"
+          onClick={() => router.back()}
+        >
+          Back
+        </Button>
+      </div>
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 bg-white/5 p-1 rounded-lg">
-        <button onClick={() => goToTab('details')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'details' ? 'bg-white/10 text-white' : stepIndex('details') <= maxStep ? 'text-gray-200 hover:text-white' : 'text-gray-500 cursor-not-allowed'}`}>1. Employee Details</button>
-        <button onClick={() => goToTab('leaves')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'leaves' ? 'bg-white/10 text-white' : stepIndex('leaves') <= maxStep ? 'text-gray-200 hover:text-white' : 'text-gray-500 cursor-not-allowed'}`}>2. Leave Allocations</button>
-        <button onClick={() => goToTab('ctc')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'ctc' ? 'bg-white/10 text-white' : stepIndex('ctc') <= maxStep ? 'text-gray-200 hover:text-white' : 'text-gray-500 cursor-not-allowed'}`}>3. CTC Management</button>
+        <button 
+          onClick={() => goToTab('details')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'details'
+              ? 'bg-white/10 text-white'
+              : stepIndex('details') <= maxStep 
+                ? 'text-gray-200 hover:text-white' 
+                : 'text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          Employee Details
+        </button>
+        <button 
+          onClick={() => goToTab('leaves')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'leaves'
+              ? 'bg-white/10 text-white'
+              : stepIndex('leaves') <= maxStep 
+                ? 'text-gray-200 hover:text-white' 
+                : 'text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          Leave Allocations
+        </button>
+        <button 
+          onClick={() => goToTab('ctc')} 
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'ctc'
+              ? 'bg-white/10 text-white'
+              : stepIndex('ctc') <= maxStep 
+                ? 'text-gray-200 hover:text-white' 
+                : 'text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          CTC Management
+        </button>
       </div>
 
       {activeTab === 'details' && (
@@ -170,77 +211,28 @@ export default function AddEmployeePage() {
         </Card>
       )}
 
-      {activeTab === 'leaves' && leaveCategories?.data && (
-        <Card>
-          <h3 className="text-lg font-semibold mb-4 text-primary">Leave Allocations</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            {leaveCategories.data.filter(category => category.isActive).map((category) => (
-              <div key={category.id} className="space-y-2 p-4 border border-white/10 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    type="checkbox"
-                    id={`applicable-${category.id}`}
-                    checked={leaveApplicable[category.id] || false}
-                    onChange={(e) => {
-                      const isApplicable = e.target.checked;
-                      setLeaveApplicable(prev => ({ ...prev, [category.id]: isApplicable }));
-                      // If not applicable, set days to 0
-                      if (!isApplicable) {
-                        setLeaveAllocations(prev => ({ ...prev, [category.id]: 0 }));
-                      } else if (leaveAllocations[category.id] === 0) {
-                        // If becoming applicable and currently 0, set to default
-                        setLeaveAllocations(prev => ({ ...prev, [category.id]: category.defaultDays }));
-                      }
-                    }}
-                    className="rounded"
-                  />
-                  <label htmlFor={`applicable-${category.id}`} className={`text-sm font-medium ${leaveApplicable[category.id] ? 'text-primary' : 'text-muted'}`}>
-                    {category.name}
-                  </label>
-                  <span className="text-xs text-muted">(Default: {category.defaultDays} days)</span>
-                  {!leaveApplicable[category.id] && (
-                    <span className="text-xs text-red-400 ml-2">Not Applicable</span>
-                  )}
-                </div>
-                <Input 
-                  type="number" 
-                  min="0" 
-                  value={String(leaveAllocations[category.id] || 0)} 
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value) || 0;
-                    setLeaveAllocations(prev => ({ ...prev, [category.id]: value }));
-                    // If setting to 0, uncheck applicable
-                    if (value === 0) {
-                      setLeaveApplicable(prev => ({ ...prev, [category.id]: false }));
-                    } else {
-                      // If setting to > 0, check applicable
-                      setLeaveApplicable(prev => ({ ...prev, [category.id]: true }));
-                    }
-                  }} 
-                  placeholder={String(category.defaultDays)} 
-                  disabled={!leaveApplicable[category.id]}
-                />
-                {category.description && (
-                  <p className="text-xs text-muted">{category.description}</p>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-between gap-3">
-            <Button variant="outline" onClick={backFromLeaves}>Back</Button>
-            <Button onClick={nextFromLeaves}>Next</Button>
-          </div>
-        </Card>
+      {activeTab === 'leaves' && (
+        <LeaveAllocationAddManager
+          categories={leaveCategories?.data || []}
+          allocations={leaveAllocations}
+          applicable={leaveApplicable}
+          onAllocationChange={setLeaveAllocations}
+          onApplicableChange={setLeaveApplicable}
+          onBack={backFromLeaves}
+          onNext={nextFromLeaves}
+        />
       )}
 
       {activeTab === 'ctc' && (
-        <>
-          <CTCAddManager ctcData={ctcData} onCtcDataChange={setCtcData} companySettings={companySettings?.data} />
-          <div className="mt-6 flex justify-between gap-3">
-            <Button variant="outline" onClick={backFromCTC}>Back</Button>
-            <Button onClick={createEmployee} loading={mutation.isPending} disabled={!canProceedDetails()}>Create</Button>
-          </div>
-        </>
+        <CTCAddManager 
+          ctcData={ctcData} 
+          onCtcDataChange={setCtcData} 
+          companySettings={companySettings?.data}
+          onBack={backFromCTC}
+          onCreate={createEmployee}
+          isLoading={mutation.isPending}
+          canCreate={canProceedDetails()}
+        />
       )}
     </div>
   );
@@ -271,60 +263,281 @@ function ManagerSearch({ query, onSelect, selectedId }: { query: string; onSelec
   );
 }
 
+function LeaveAllocationAddManager({
+  categories,
+  allocations,
+  applicable,
+  onAllocationChange,
+  onApplicableChange,
+  onBack,
+  onNext,
+}: {
+  categories: LeaveCategory[];
+  allocations: Record<string, number>;
+  applicable: Record<string, boolean>;
+  onAllocationChange: (allocations: Record<string, number>) => void;
+  onApplicableChange: (applicable: Record<string, boolean>) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <Card>
+      <h3 className="text-lg font-semibold mb-4">Leave Allocations</h3>
+      <div className="space-y-4">
+        {categories.filter(category => category.isActive).map((category) => {
+          const totalDays = allocations[category.id] || 0;
+          const isApplicable = applicable[category.id] || false;
+          
+          return (
+            <div key={category.id} className="p-4 rounded-lg bg-white/5 border border-white/10">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      id={`applicable-${category.id}`}
+                      checked={isApplicable}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        onApplicableChange({ ...applicable, [category.id]: checked });
+                        // If not applicable, set days to 0
+                        if (!checked) {
+                          onAllocationChange({ ...allocations, [category.id]: 0 });
+                        } else if (allocations[category.id] === 0) {
+                          // If becoming applicable and currently 0, set to default
+                          onAllocationChange({ ...allocations, [category.id]: category.defaultDays });
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <h4 className={`font-semibold ${isApplicable ? 'text-primary' : 'text-muted'}`}>
+                      {category.name}
+                    </h4>
+                    {!isApplicable && (
+                      <span className="text-xs text-red-400 ml-2">Not Applicable</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-secondary">{category.description}</p>
+                </div>
+                <div className="text-right text-sm">
+                  <div className="text-muted">Default: {category.defaultDays} days</div>
+                  <div className="text-muted">Max per year: {category.maxDaysPerYear} days</div>
+                </div>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-secondary mb-2">
+                    Total Days to Allocate
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max={category.maxDaysPerYear}
+                    value={String(totalDays)}
+                    onChange={(e) => {
+                      const value = Number(e.target.value) || 0;
+                      onAllocationChange({ ...allocations, [category.id]: value });
+                      // If setting to 0, uncheck applicable
+                      if (value === 0) {
+                        onApplicableChange({ ...applicable, [category.id]: false });
+                      } else {
+                        // If setting to > 0, check applicable
+                        onApplicableChange({ ...applicable, [category.id]: true });
+                      }
+                    }}
+                    placeholder={String(category.defaultDays)}
+                    disabled={!isApplicable}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary mb-2">
+                    Category Default
+                  </label>
+                  <Input
+                    type="number"
+                    value={String(category.defaultDays)}
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-800"
+                  />
+                </div>
+              </div>
+              
+              {totalDays > category.maxDaysPerYear && (
+                <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-sm text-red-400">
+                    ⚠️ Allocation ({totalDays} days) exceeds the maximum allowed for this category ({category.maxDaysPerYear} days).
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        
+        {categories.filter(category => category.isActive).length === 0 && (
+          <div className="text-center py-8 text-secondary">
+            No active leave categories configured.
+          </div>
+        )}
+      </div>
+      
+      <div className="mt-6 flex justify-between gap-3">
+        <Button variant="outline" onClick={onBack}>
+          Back
+        </Button>
+        <Button onClick={onNext}>
+          Next
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 function CTCAddManager({
   ctcData,
   onCtcDataChange,
   companySettings,
+  onBack,
+  onCreate,
+  isLoading,
+  canCreate,
 }: {
   ctcData: { annualCTC: number; lopDays: number; tdsOverride: number };
   onCtcDataChange: (data: { annualCTC: number; lopDays: number; tdsOverride: number }) => void;
   companySettings: any;
+  onBack: () => void;
+  onCreate: () => void;
+  isLoading: boolean;
+  canCreate: boolean;
 }) {
-  const breakdown = companySettings ? computePayslipFromCTC(ctcData.annualCTC, companySettings, { lopDays: ctcData.lopDays, tdsOverride: ctcData.tdsOverride }) : null;
+  const breakdown = companySettings ? computePayslipFromCTC(ctcData.annualCTC, companySettings, { 
+    lopDays: ctcData.lopDays, 
+    tdsOverride: ctcData.tdsOverride 
+  }) : null;
+
   return (
     <Card>
       <h3 className="text-lg font-semibold mb-4">CTC Management</h3>
+      
       <div className="space-y-6">
+        {/* CTC Input Section */}
         <div className="grid md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-secondary mb-2">Annual CTC (₹)</label>
-            <Input type="number" min="0" value={String(ctcData.annualCTC)} onChange={(e) => onCtcDataChange({ ...ctcData, annualCTC: Number(e.target.value) || 0 })} placeholder="Enter annual CTC" />
+            <label className="block text-sm font-medium text-secondary mb-2">
+              Annual CTC (₹)
+            </label>
+            <Input
+              type="number"
+              min="0"
+              value={String(ctcData.annualCTC)}
+              onChange={(e) => onCtcDataChange({
+                ...ctcData,
+                annualCTC: Number(e.target.value) || 0
+              })}
+              placeholder="Enter annual CTC"
+            />
           </div>
           <div>
-            <label className="block text-sm font-medium text-secondary mb-2">LOP Days</label>
-            <Input type="number" min="0" max="31" value={String(ctcData.lopDays)} onChange={(e) => onCtcDataChange({ ...ctcData, lopDays: Number(e.target.value) || 0 })} placeholder="0" />
+            <label className="block text-sm font-medium text-secondary mb-2">
+              LOP Days
+            </label>
+            <Input
+              type="number"
+              min="0"
+              max="31"
+              value={String(ctcData.lopDays)}
+              onChange={(e) => onCtcDataChange({
+                ...ctcData,
+                lopDays: Number(e.target.value) || 0
+              })}
+              placeholder="0"
+            />
           </div>
           <div>
-            <label className="block text-sm font-medium text-secondary mb-2">TDS Override (₹)</label>
-            <Input type="number" min="0" value={String(ctcData.tdsOverride)} onChange={(e) => onCtcDataChange({ ...ctcData, tdsOverride: Number(e.target.value) || 0 })} placeholder="0" />
+            <label className="block text-sm font-medium text-secondary mb-2">
+              TDS Override (₹)
+            </label>
+            <Input
+              type="number"
+              min="0"
+              value={String(ctcData.tdsOverride)}
+              onChange={(e) => onCtcDataChange({
+                ...ctcData,
+                tdsOverride: Number(e.target.value) || 0
+              })}
+              placeholder="0"
+            />
           </div>
         </div>
 
+        {/* CTC Breakdown Preview */}
         {breakdown && (
           <div className="p-4 rounded-lg bg-white/5 border border-white/10">
             <h4 className="font-semibold text-primary mb-4">CTC Breakdown Preview</h4>
             <div className="grid md:grid-cols-3 gap-6">
               <div className="space-y-3">
-                <div className="text-sm text-secondary">Annual CTC: ₹{ctcData.annualCTC.toLocaleString('en-IN')}</div>
-                <div className="text-sm text-secondary">Monthly CTC: ₹{breakdown.monthlyCTC.toLocaleString('en-IN')}</div>
+                <div className="text-sm text-secondary">
+                  Annual CTC: ₹{ctcData.annualCTC.toLocaleString('en-IN')}
+                </div>
+                <div className="text-sm text-secondary">
+                  Monthly CTC: ₹{breakdown.monthlyCTC.toLocaleString('en-IN')}
+                </div>
+                {ctcData.lopDays > 0 && (
+                  <div className="text-sm text-yellow-400">
+                    LOP Days: {ctcData.lopDays}
+                  </div>
+                )}
+                {ctcData.tdsOverride > 0 && (
+                  <div className="text-sm text-blue-400">
+                    TDS Override: ₹{ctcData.tdsOverride.toLocaleString('en-IN')}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <div className="font-semibold text-primary">Earnings</div>
                 {Object.entries(breakdown.earnings).map(([k, v]) => (
-                  <div key={k} className="flex justify-between text-sm"><span className="capitalize">{k}</span><span>₹{v.toLocaleString('en-IN')}</span></div>
+                  <div key={k} className="flex justify-between text-sm">
+                    <span className="capitalize">{k}</span>
+                    <span>₹{v.toLocaleString('en-IN')}</span>
+                  </div>
                 ))}
-                <div className="flex justify-between text-sm border-t border-card pt-2"><span>Total</span><span>₹{breakdown.totals.totalEarnings.toLocaleString('en-IN')}</span></div>
+                <div className="flex justify-between text-sm border-t border-card pt-2">
+                  <span>Total</span>
+                  <span>₹{breakdown.totals.totalEarnings.toLocaleString('en-IN')}</span>
+                </div>
               </div>
               <div className="space-y-2">
                 <div className="font-semibold text-primary">Deductions</div>
-                <div className="flex justify-between text-sm"><span>Employee PF</span><span>₹{breakdown.deductions.empPF.toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between text-sm"><span>Professional Tax</span><span>₹{breakdown.deductions.professionalTax.toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between text-sm"><span>ESI</span><span>₹{breakdown.deductions.esi.toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between font-semibold text-primary border-t border-card pt-2"><span>Net Pay</span><span className="text-green-600 dark:text-green-400">₹{breakdown.totals.netPay.toLocaleString('en-IN')}</span></div>
+                <div className="flex justify-between text-sm">
+                  <span>Employee PF</span>
+                  <span>₹{breakdown.deductions.empPF.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Professional Tax</span>
+                  <span>₹{breakdown.deductions.professionalTax.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>ESI</span>
+                  <span>₹{breakdown.deductions.esi.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-primary border-t border-card pt-2">
+                  <span>Net Pay</span>
+                  <span className="text-green-600 dark:text-green-400">₹{breakdown.totals.netPay.toLocaleString('en-IN')}</span>
+                </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Action Buttons */}
+        <div className="flex justify-between gap-3">
+          <Button variant="outline" onClick={onBack}>
+            Back
+          </Button>
+          <Button onClick={onCreate} loading={isLoading} disabled={!canCreate}>
+            Create Employee
+          </Button>
+        </div>
       </div>
     </Card>
   );

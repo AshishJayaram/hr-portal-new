@@ -541,44 +541,105 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  void _showLeaveApplicationDialog(BuildContext context, String leaveType) {
+  void _showLeaveApplicationDialog(BuildContext context, String leaveType) async {
+    // Check if the leave type is available for the current user
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final currentUser = await apiService.getCurrentUser();
+      
+      if (currentUser != null && currentUser['id'] != null) {
+        final leaveBalance = await apiService.getLeaveBalance(currentUser['id'].toString());
+        
+        // Get available leave types (categories with allocations + LOP)
+        final availableTypes = <String>[];
+        
+        // Add leave categories with allocations
+        for (final balance in leaveBalance) {
+          final type = balance['category_name'] ?? balance['type'] ?? 'Leave';
+          availableTypes.add(type);
+        }
+        
+        // Always add LOP (Loss of Pay)
+        availableTypes.add('LOP');
+        
+        // Check if the selected leave type is available
+        if (!availableTypes.contains(leaveType)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$leaveType is not available. Please contact HR to set up your leave allocations.')),
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      print('Failed to check leave availability: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to check leave availability. Please try again.')),
+      );
+      return;
+    }
+
+    final startDateController = TextEditingController();
+    final endDateController = TextEditingController();
+    final reasonController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Apply $leaveType'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Start Date',
-                hintText: 'Select start date',
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: startDateController,
+                decoration: const InputDecoration(
+                  labelText: 'Start Date',
+                  hintText: 'Select start date',
+                ),
+                readOnly: true,
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    startDateController.text = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                  }
+                },
               ),
-              readOnly: true,
-              onTap: () {
-                // TODO: Show date picker
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'End Date',
-                hintText: 'Select end date',
+              const SizedBox(height: 16),
+              TextField(
+                controller: endDateController,
+                decoration: const InputDecoration(
+                  labelText: 'End Date',
+                  hintText: 'Select end date',
+                ),
+                readOnly: true,
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    endDateController.text = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                  }
+                },
               ),
-              readOnly: true,
-              onTap: () {
-                // TODO: Show date picker
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Reason',
-                hintText: 'Enter reason for leave',
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                  labelText: 'Reason',
+                  hintText: 'Enter reason for leave',
+                ),
+                maxLines: 3,
               ),
-              maxLines: 3,
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -586,12 +647,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$leaveType application submitted')),
-              );
-            },
+            onPressed: startDateController.text.isNotEmpty && 
+                       endDateController.text.isNotEmpty && 
+                       reasonController.text.isNotEmpty
+                ? () async {
+                    try {
+                      final apiService = ref.read(apiServiceProvider);
+                      await apiService.createLeave({
+                        'type': leaveType,
+                        'from': startDateController.text,
+                        'to': endDateController.text,
+                        'reason': reasonController.text,
+                      });
+                      
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('$leaveType application submitted')),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to submit leave application: $e')),
+                      );
+                    }
+                  }
+                : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,

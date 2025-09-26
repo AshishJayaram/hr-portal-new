@@ -136,9 +136,9 @@ type LeaveAllocation struct {
 // Leave represents a leave request
 type Leave struct {
 	BaseModel
-	UserID          uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
-	CategoryID      uuid.UUID  `json:"category_id" gorm:"type:uuid;not null;index"`
-	OrganizationID  uuid.UUID  `json:"organization_id" gorm:"type:uuid;not null;index"`
+	UserID          uint       `json:"user_id" gorm:"not null;index"`
+	CategoryID      uint       `json:"category_id" gorm:"not null;index"`
+	OrganizationID  uint       `json:"organization_id" gorm:"not null;index"`
 	Type            string     `json:"type" gorm:"not null"`
 	Reason          string     `json:"reason"`
 	FromDate        time.Time  `json:"from_date" gorm:"not null"`
@@ -147,9 +147,9 @@ type Leave struct {
 	StartHalf       string     `json:"start_half" gorm:"default:'FULL';check:start_half IN ('FULL','AM','PM')"`
 	EndHalf         string     `json:"end_half" gorm:"default:'FULL';check:end_half IN ('FULL','AM','PM')"`
 	Status          string     `json:"status" gorm:"not null;default:'pending';check:status IN ('pending','approved','rejected','cancelled')"`
-	ApprovedBy      *uuid.UUID `json:"approved_by" gorm:"type:uuid;index"`
+	ApprovedBy      *uint      `json:"approved_by" gorm:"index"`
 	ApprovedAt      *time.Time `json:"approved_at"`
-	RejectedBy      *uuid.UUID `json:"rejected_by" gorm:"type:uuid;index"`
+	RejectedBy      *uint      `json:"rejected_by" gorm:"index"`
 	RejectedAt      *time.Time `json:"rejected_at"`
 	RejectionReason *string    `json:"rejection_reason"`
 
@@ -163,16 +163,19 @@ type Leave struct {
 
 // Document represents uploaded documents
 type Document struct {
-	BaseModel
-	UserID         uuid.UUID `json:"user_id" gorm:"type:uuid;not null;index"`
-	OrganizationID uuid.UUID `json:"organization_id" gorm:"type:uuid;not null;index"`
-	Title          string    `json:"title" gorm:"not null"`
-	Category       string    `json:"category" gorm:"not null"`
-	FileName       string    `json:"file_name" gorm:"not null"`
-	FilePath       string    `json:"file_path" gorm:"not null"`
-	FileSize       int64     `json:"file_size" gorm:"not null"`
-	MimeType       string    `json:"mime_type" gorm:"not null"`
-	IsPublic       bool      `json:"is_public" gorm:"default:false"`
+	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	UserID         uint           `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint           `json:"organization_id" gorm:"not null;index"`
+	Title          string         `json:"title" gorm:"not null"`
+	Category       string         `json:"category" gorm:"not null"`
+	FileName       string         `json:"file_name" gorm:"not null"`
+	FilePath       string         `json:"file_path" gorm:"not null"`
+	FileSize       int64          `json:"file_size" gorm:"not null"`
+	MimeType       string         `json:"mime_type" gorm:"not null"`
+	IsPublic       bool           `json:"is_public" gorm:"default:false"`
 
 	// Relationships
 	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
@@ -182,14 +185,14 @@ type Document struct {
 // SalarySlip represents salary slip records
 type SalarySlip struct {
 	BaseModel
-	UserID         uuid.UUID `json:"user_id" gorm:"type:uuid;not null;index"`
-	OrganizationID uuid.UUID `json:"organization_id" gorm:"type:uuid;not null;index"`
-	Month          int       `json:"month" gorm:"not null;check:month >= 1 AND month <= 12"`
-	Year           int       `json:"year" gorm:"not null"`
-	FileName       string    `json:"file_name" gorm:"not null"`
-	FilePath       string    `json:"file_path" gorm:"not null"`
-	FileSize       int64     `json:"file_size" gorm:"not null"`
-	MimeType       string    `json:"mime_type" gorm:"not null"`
+	UserID         uint   `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint   `json:"organization_id" gorm:"not null;index"`
+	Month          int    `json:"month" gorm:"not null;check:month >= 1 AND month <= 12"`
+	Year           int    `json:"year" gorm:"not null"`
+	FileName       string `json:"file_name" gorm:"not null"`
+	FilePath       string `json:"file_path" gorm:"not null"`
+	FileSize       int64  `json:"file_size" gorm:"not null"`
+	MimeType       string `json:"mime_type" gorm:"not null"`
 
 	// Relationships
 	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`

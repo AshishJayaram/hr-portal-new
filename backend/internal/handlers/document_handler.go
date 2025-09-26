@@ -45,13 +45,20 @@ func (h *DocumentHandler) UploadDocument(c *gin.Context) {
 	// Get document metadata
 	title := c.PostForm("title")
 	category := c.PostForm("category")
+	isPublicStr := c.PostForm("isPublic")
+
+	// Parse isPublic boolean
+	isPublic := false
+	if isPublicStr == "true" {
+		isPublic = true
+	}
 
 	req := services.UploadDocumentRequest{
 		UserID:         userID,
 		OrganizationID: organizationID,
 		Title:          title,
 		Category:       category,
-		IsPublic:       false,
+		IsPublic:       isPublic,
 	}
 
 	document, err := h.documentService.UploadDocument(req)
@@ -109,9 +116,17 @@ func (h *DocumentHandler) DownloadDocument(c *gin.Context) {
 		return
 	}
 
-	// For now, return a placeholder response
-	// In a real implementation, you would serve the actual file
+	// Set headers for file download
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", "inline; filename=\""+document.Title+".pdf\"")
+	c.Header("Access-Control-Allow-Origin", "*")
+	c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+
+	// For now, return a placeholder response with the file URL
+	// In a real implementation, you would serve the actual file content
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Document download - file path: " + document.FilePath,
+		"fileUrl": document.FilePath,
+		"title":   document.Title,
 	})
 }

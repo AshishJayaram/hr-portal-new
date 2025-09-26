@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"fmt"
+	"strconv"
 
 	"hr-portal-backend/internal/models"
 )
@@ -28,7 +29,14 @@ func (r *leaveAllocationRepository) GetByID(id string) (*models.LeaveAllocation,
 
 func (r *leaveAllocationRepository) GetByUserID(userID string, year int) ([]models.LeaveAllocation, error) {
 	var allocations []models.LeaveAllocation
-	query := r.db.Preload("Category").Where("user_id = ? AND year = ?", userID, year)
+
+	// Convert string userID to uint
+	userIDUint, err := strconv.ParseUint(userID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	query := r.db.Preload("Category").Where("user_id = ? AND year = ?", uint(userIDUint), year)
 
 	if err := query.Find(&allocations).Error; err != nil {
 		return nil, fmt.Errorf("failed to get user leave allocations: %w", err)
@@ -62,8 +70,19 @@ func (r *leaveAllocationRepository) Delete(id string) error {
 }
 
 func (r *leaveAllocationRepository) UpdateUsedDays(userID, categoryID string, year int, days int) error {
+	// Convert string IDs to uint
+	userIDUint, err := strconv.ParseUint(userID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	categoryIDUint, err := strconv.ParseUint(categoryID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid category ID: %w", err)
+	}
+
 	if err := r.db.Model(&models.LeaveAllocation{}).
-		Where("user_id = ? AND category_id = ? AND year = ?", userID, categoryID, year).
+		Where("user_id = ? AND category_id = ? AND year = ?", uint(userIDUint), uint(categoryIDUint), year).
 		Update("used_days", days).Error; err != nil {
 		return fmt.Errorf("failed to update used days: %w", err)
 	}

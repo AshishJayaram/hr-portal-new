@@ -316,7 +316,27 @@ export default function SalarySlipsPage() {
                             <td className="py-2">{new Date(s.createdAt).toLocaleDateString()}</td>
                             <td className="py-2">
                               <div className="flex items-center gap-2">
-                                <a href={s.fileUrl} target="_blank" className="text-green-400 hover:text-green-300 underline">Download PDF</a>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/salary-slips/${s.id}/download`, {
+                                        headers: {
+                                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                          'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                                        },
+                                      });
+                                      const data = await response.json();
+                                      if (data.fileUrl) {
+                                        window.open(data.fileUrl, '_blank');
+                                      }
+                                    } catch (error) {
+                                      console.error('Failed to download salary slip:', error);
+                                    }
+                                  }}
+                                  className="text-green-400 hover:text-green-300 underline"
+                                >
+                                  Download PDF
+                                </button>
                                 <RoleGuard allowedRoles={["HR", "Admin"]}>
                                   <button
                                     onClick={() => handleDeleteSlip(
@@ -464,7 +484,27 @@ function EmployeeDocsList({ userId }: { userId: string }) {
             <div className="text-sm font-medium">{doc.title}</div>
             <div className="text-xs text-gray-400">{new Date(doc.createdAt).toLocaleDateString()}</div>
           </div>
-          <a href={doc.fileUrl} target="_blank" className="text-indigo-300 hover:text-indigo-200">View</a>
+          <button
+            onClick={async () => {
+              try {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${doc.id}/download`, {
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                  },
+                });
+                const data = await response.json();
+                if (data.fileUrl) {
+                  window.open(data.fileUrl, '_blank');
+                }
+              } catch (error) {
+                console.error('Failed to download document:', error);
+              }
+            }}
+            className="text-indigo-300 hover:text-indigo-200"
+          >
+            View
+          </button>
         </div>
       ))}
       {docs.length === 0 && (

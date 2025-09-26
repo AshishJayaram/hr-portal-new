@@ -17,10 +17,10 @@ export function calculateLeaveDays(
   const end = new Date(endDate);
   if (end < start) return 0;
 
-  // Collect all bank holiday dates
+  // Collect all holiday dates (both bank holidays and regular holidays)
   const holidaySet = new Set(
     bankHolidays
-      .filter((h) => h.title === "BH")
+      .filter((h) => h.title === "BH" || h.title === "Holiday")
       .map((h) => new Date(h.start).toDateString())
   );
 

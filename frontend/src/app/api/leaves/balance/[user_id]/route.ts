@@ -8,8 +8,6 @@ export async function GET(
 ) {
   try {
     const { user_id } = await params;
-    const { searchParams } = new URL(request.url);
-    const year = searchParams.get("year");
     
     // Get the authorization header from the request
     const authHeader = request.headers.get("authorization");
@@ -23,14 +21,8 @@ export async function GET(
       return NextResponse.json({ error: "Organization ID header required" }, { status: 400 });
     }
 
-    // Build the URL with optional year parameter
-    let url = `${BACKEND_URL}/api/leave-allocations/${user_id}`;
-    if (year) {
-      url += `?year=${year}`;
-    }
-
     // Forward the request to the backend
-    const response = await fetch(url, {
+    const response = await fetch(`${BACKEND_URL}/api/leaves/balance/${user_id}`, {
       method: "GET",
       headers: {
         "Authorization": authHeader,
@@ -47,9 +39,9 @@ export async function GET(
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Error fetching leave allocations:", error);
+    console.error("Error fetching leave balance:", error);
     return NextResponse.json(
-      { error: "Failed to fetch leave allocations" },
+      { error: "Failed to fetch leave balance" },
       { status: 500 }
     );
   }

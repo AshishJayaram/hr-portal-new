@@ -267,7 +267,22 @@ export default function DocumentsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.open(doc.fileUrl, '_blank')}
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${doc.id}/download`, {
+                      headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                      },
+                    });
+                    const data = await response.json();
+                    if (data.fileUrl) {
+                      window.open(data.fileUrl, '_blank');
+                    }
+                  } catch (error) {
+                    console.error('Failed to download document:', error);
+                  }
+                }}
                 className="w-full flex items-center gap-2"
               >
                 <Download className="h-4 w-4" />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getTeam, getCurrentUser } from "../../lib/api";
+import { getTeam, getCurrentUser, hasRole } from "../../lib/api";
 import Loader from "../../components/Loader";
 import Card from "../../components/Card";
 import { User } from "../../lib/api";
@@ -569,12 +569,6 @@ export default function TeamPage() {
                 <div>
                   <span className="font-medium">Email:</span>
                   <p className="text-gray-600 dark:text-gray-400">{selectedUser.email}</p>
-                </div>
-                <div>
-                  <span className="font-medium">CTC:</span>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {selectedUser.ctc ? `₹${selectedUser.ctc.toLocaleString()}` : 'Not specified'}
-                  </p>
                 </div>
               </div>
               
