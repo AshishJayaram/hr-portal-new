@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/services/api_service.dart';
+import '../../core/providers/providers.dart';
 
 class DocumentsScreen extends ConsumerStatefulWidget {
   @override
@@ -12,6 +14,13 @@ class DocumentsScreen extends ConsumerStatefulWidget {
 
 class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   final List<Map<String, dynamic>> _documents = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDocuments();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,79 +72,88 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           
           // Documents List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _documents.length,
-              itemBuilder: (context, index) {
-                final document = _documents[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: _getFileTypeColor(document['type']),
-                        borderRadius: BorderRadius.circular(8),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _documents.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No documents found',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _documents.length,
+                        itemBuilder: (context, index) {
+                          final document = _documents[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: _getFileTypeColor(document['mime_type'] ?? ''),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  _getFileTypeIcon(document['mime_type'] ?? ''),
+                                  color: Colors.white,
+                                ),
+                              ),
+                              title: Text(
+                                document['title'] ?? 'Untitled',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(document['category'] ?? ''),
+                                  Text(
+                                    '${document['file_name'] ?? ''} • ${_formatDate(document['created_at'])}',
+                                    style: TextStyle(
+                                      color: AppTheme.secondaryColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.visibility),
+                                    onPressed: () => _viewDocument(document),
+                                    tooltip: 'View Document',
+                                  ),
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      switch (value) {
+                                        case 'download':
+                                          _downloadDocument(document);
+                                          break;
+                                        case 'delete':
+                                          _deleteDocument(document['id']);
+                                          break;
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem(
+                                        value: 'download',
+                                        child: Text('Download'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      child: Icon(
-                        _getFileTypeIcon(document['type']),
-                        color: Colors.white,
-                      ),
-                    ),
-                    title: Text(
-                      document['name'],
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(document['category']),
-                        Text(
-                          '${document['size']} • ${document['uploadDate']}',
-                          style: TextStyle(
-                            color: AppTheme.secondaryColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        switch (value) {
-                          case 'download':
-                            _downloadDocument(document['id']);
-                            break;
-                          case 'share':
-                            _shareDocument(document['id']);
-                            break;
-                          case 'delete':
-                            _deleteDocument(document['id']);
-                            break;
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'download',
-                          child: Text('Download'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'share',
-                          child: Text('Share'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Delete'),
-                        ),
-                      ],
-                    ),
-                    onTap: () {
-                      _viewDocument(document['id']);
-                    },
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -176,11 +194,32 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     }
   }
 
-  void _loadDocuments() {
-    // TODO: Implement documents loading
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Documents refreshed')),
-    );
+  Future<void> _loadDocuments() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final documents = await apiService.getDocuments();
+
+      setState(() {
+        _documents.clear();
+        _documents.addAll(documents);
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Documents refreshed')),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load documents: $e')),
+      );
+    }
   }
 
   void _uploadDocument() {
@@ -199,15 +238,142 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     );
   }
 
-  void _viewDocument(String documentId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Viewing document $documentId')),
+  Future<void> _viewDocument(Map<String, dynamic> document) async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final fileUrl = await apiService.downloadDocument(document['id']);
+      
+      if (fileUrl != null) {
+        // Open the document in a web view or external viewer
+        _showDocumentViewer(document['title'] ?? 'Document', fileUrl);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load document')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error viewing document: $e')),
+      );
+    }
+  }
+
+  Future<void> _downloadDocument(Map<String, dynamic> document) async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final fileUrl = await apiService.downloadDocument(document['id']);
+      
+      if (fileUrl != null) {
+        // For now, show the URL - in a real app, you'd use url_launcher
+        _showDownloadDialog(document['title'] ?? 'Document', fileUrl);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to get download link')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error downloading document: $e')),
+      );
+    }
+  }
+
+  void _showDocumentViewer(String title, String fileUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: Column(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.description, size: 64, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Document Viewer',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'File URL: $fileUrl',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showDownloadDialog(title, fileUrl);
+                          },
+                          icon: const Icon(Icons.download),
+                          label: const Text('Download'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 
-  void _downloadDocument(String documentId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Downloading document $documentId')),
+  void _showDownloadDialog(String title, String fileUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Download $title'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Document is ready for download.'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                fileUrl,
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -217,7 +383,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     );
   }
 
-  void _deleteDocument(String documentId) {
+  Future<void> _deleteDocument(String documentId) async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -229,17 +395,43 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Document $documentId deleted')),
-              );
+              try {
+                final apiService = ref.read(apiServiceProvider);
+                final success = await apiService.deleteDocument(documentId);
+
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Document deleted successfully')),
+                  );
+                  _loadDocuments();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to delete document')),
+                  );
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to delete document: $e')),
+                );
+              }
             },
             child: const Text('Delete'),
           ),
         ],
       ),
     );
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return '';
+    try {
+      final date = DateTime.parse(dateString);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return '';
+    }
   }
 
   void _showFilterOptions() {

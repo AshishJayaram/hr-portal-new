@@ -179,25 +179,31 @@ func NewDashboardService(repos *repositories.Repositories) DashboardService {
 func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*DashboardStatsResponse, error) {
 	// Get total users count for the organization
 	var totalUsers int64
-	if err := s.repos.User.Count(&totalUsers); err != nil {
+	if err := s.repos.User.CountByOrganization(organizationID, &totalUsers); err != nil {
 		return nil, fmt.Errorf("failed to get total users count: %w", err)
 	}
 
 	// Get total leaves count for the organization
 	var totalLeaves int64
-	if err := s.repos.Leave.Count(&totalLeaves); err != nil {
+	if err := s.repos.Leave.CountByOrganization(organizationID, &totalLeaves); err != nil {
 		return nil, fmt.Errorf("failed to get total leaves count: %w", err)
 	}
 
 	// Get pending leaves count for the organization
 	var pendingLeaves int64
-	if err := s.repos.Leave.Count(&pendingLeaves); err != nil {
+	if err := s.repos.Leave.CountPendingByOrganization(organizationID, &pendingLeaves); err != nil {
 		return nil, fmt.Errorf("failed to get pending leaves count: %w", err)
+	}
+
+	// Get approved leaves count for the organization
+	var approvedLeaves int64
+	if err := s.repos.Leave.CountApprovedByOrganization(organizationID, &approvedLeaves); err != nil {
+		return nil, fmt.Errorf("failed to get approved leaves count: %w", err)
 	}
 
 	// Get total documents count for the organization
 	var totalDocuments int64
-	if err := s.repos.Document.Count(&totalDocuments); err != nil {
+	if err := s.repos.Document.CountByOrganization(organizationID, &totalDocuments); err != nil {
 		return nil, fmt.Errorf("failed to get total documents count: %w", err)
 	}
 
@@ -251,6 +257,7 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		TotalUsers:       totalUsers,
 		TotalLeaves:      totalLeaves,
 		PendingLeaves:    pendingLeaves,
+		ApprovedLeaves:   approvedLeaves,
 		TotalDocuments:   totalDocuments,
 		UpcomingHolidays: upcomingHolidays,
 		RecentLeaves:     recentLeaves,

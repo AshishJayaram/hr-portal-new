@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/services/api_service.dart';
+import '../../core/providers/providers.dart';
 
 class TeamScreen extends ConsumerStatefulWidget {
   @override
@@ -12,15 +14,15 @@ class TeamScreen extends ConsumerStatefulWidget {
 
 class _TeamScreenState extends ConsumerState<TeamScreen> {
   final List<Map<String, dynamic>> _allTeamMembers = [];
-
   List<Map<String, dynamic>> _filteredTeamMembers = [];
   String _searchQuery = '';
   String _selectedFilter = 'All';
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _filteredTeamMembers = _allTeamMembers;
+    _loadTeamMembers();
   }
 
   @override
@@ -156,12 +158,6 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
     );
   }
 
-  void _loadTeamMembers() {
-    // TODO: Implement team members loading
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Team members refreshed')),
-    );
-  }
 
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _selectedFilter == value;
@@ -251,5 +247,34 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _loadTeamMembers() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final teamMembers = await apiService.getTeam();
+      
+      setState(() {
+        _allTeamMembers.clear();
+        _allTeamMembers.addAll(teamMembers);
+        _applyFilters();
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Team members refreshed')),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load team members: $e')),
+      );
+    }
   }
 }

@@ -51,34 +51,14 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Dashboard</h1>
 
-      {/* Stats Overview - HR/Admin only */}
-      <RoleGuard allowedRoles={["HR", "Admin"]}>
-        <div className="grid md:grid-cols-4 gap-4">
-          {[
-            { label: "Total Employees", value: stats?.total_users || 0, color: "text-indigo-400", href: "/employees" },
-            { label: "Pending Leave Requests", value: stats?.pending_leaves || 0, color: "text-yellow-400", href: "/leaves" },
-            { label: "Approved Leave Requests", value: stats?.total_leaves || 0, color: "text-green-400", href: "/leaves" },
-            { label: "Total Documents", value: stats?.total_documents || 0, color: "text-purple-400", href: "/documents" },
-          ].map((s, i) => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Link href={s.href} className="block">
-                <Card className="text-center hover:-translate-y-0.5 transition-transform cursor-pointer">
-                  <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
-                  <div className="text-sm text-gray-400">{s.label}</div>
-                </Card>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-      </RoleGuard>
 
       {/* Leave Balances */}
-      <LeaveBalanceCard balance={balance?.data || stats?.leave_balances || []} />
+      <LeaveBalanceCard balance={balance?.data || stats?.data?.leave_balances || []} />
 
       {/* Events & Notices */}
       <Card title="Upcoming Events & Notices">
         <div className="space-y-3">
-          {(holidays?.data || stats?.upcoming_holidays || [])
+          {(holidays?.data || stats?.data?.upcoming_holidays || [])
             .filter((h: any) => {
               // Include notices without dates, and dated events that are today or future
               if (!h.date && h.type === 'notice') return true;
@@ -129,7 +109,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
-          {(holidays?.data || stats?.upcoming_holidays || []).filter((h: any) => {
+          {(holidays?.data || stats?.data?.upcoming_holidays || []).filter((h: any) => {
             // Include notices without dates, and dated events that are today or future
             if (!h.date && h.type === 'notice') return true;
             if (!h.date) return false;
@@ -156,13 +136,13 @@ export default function DashboardPage() {
           <div className="hidden sm:block">
             <Calendar
               events={[
-                ...(leaves?.data || stats?.recent_leaves || []).map((l: any) => ({
+                ...(leaves?.data || stats?.data?.recent_leaves || []).map((l: any) => ({
                   title: l.type,
                   start: new Date(l.from),
                   end: new Date(l.to),
                   color: "#3b82f6",
                 })),
-                ...(holidays?.data || stats?.upcoming_holidays || [])
+                ...(holidays?.data || stats?.data?.upcoming_holidays || [])
                   .filter((h: any) => h.isCalendarEvent !== false && h.date)
                   .map((h: any) => ({
                     title: h.name,
@@ -175,7 +155,7 @@ export default function DashboardPage() {
           </div>
           <div className="sm:hidden space-y-3">
             {[
-              ...(leaves?.data || stats?.recent_leaves || []).map((l: any) => ({
+              ...(leaves?.data || stats?.data?.recent_leaves || []).map((l: any) => ({
                 id: `leave-${l.id}`,
                 dateLabel: new Date(l.from).toLocaleDateString(),
                 range: l.from === l.to ? null : `${new Date(l.from).toLocaleDateString()} - ${new Date(l.to).toLocaleDateString()}`,
@@ -246,7 +226,7 @@ export default function DashboardPage() {
         {/* Recent Documents - compact */}
         <Card title="Recent Documents" className="p-4">
           <ul className="divide-y divide-gray-700 text-sm">
-            {(docs?.data || stats?.recent_documents || []).slice(0, 3).map((doc: any) => (
+            {(docs?.data || stats?.data?.recent_documents || []).slice(0, 3).map((doc: any) => (
               <li key={doc.id} className="py-2 flex justify-between items-center">
                 <span className="truncate pr-3">{doc.title}</span>
                 <button
@@ -272,7 +252,7 @@ export default function DashboardPage() {
                 </button>
               </li>
             ))}
-            {((docs?.data || stats?.recent_documents || []).length || 0) === 0 && (
+            {((docs?.data || stats?.data?.recent_documents || []).length || 0) === 0 && (
               <li className="text-gray-400">No documents</li>
             )}
           </ul>

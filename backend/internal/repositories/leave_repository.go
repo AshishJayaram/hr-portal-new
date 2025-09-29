@@ -170,6 +170,39 @@ func (r *leaveRepository) Count(count *int64) error {
 	return nil
 }
 
+func (r *leaveRepository) CountByOrganization(organizationID string, count *int64) error {
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid organization ID: %w", err)
+	}
+	if err := r.db.Model(&models.Leave{}).Where("organization_id = ?", uint(orgIDUint)).Count(count).Error; err != nil {
+		return fmt.Errorf("failed to count leaves by organization: %w", err)
+	}
+	return nil
+}
+
+func (r *leaveRepository) CountPendingByOrganization(organizationID string, count *int64) error {
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid organization ID: %w", err)
+	}
+	if err := r.db.Model(&models.Leave{}).Where("organization_id = ? AND status = ?", uint(orgIDUint), "pending").Count(count).Error; err != nil {
+		return fmt.Errorf("failed to count pending leaves by organization: %w", err)
+	}
+	return nil
+}
+
+func (r *leaveRepository) CountApprovedByOrganization(organizationID string, count *int64) error {
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid organization ID: %w", err)
+	}
+	if err := r.db.Model(&models.Leave{}).Where("organization_id = ? AND status = ?", uint(orgIDUint), "approved").Count(count).Error; err != nil {
+		return fmt.Errorf("failed to count approved leaves by organization: %w", err)
+	}
+	return nil
+}
+
 func (r *leaveRepository) GetUserLeaves(userID string, year int) ([]models.Leave, error) {
 	var leaves []models.Leave
 	startOfYear := fmt.Sprintf("%d-01-01", year)

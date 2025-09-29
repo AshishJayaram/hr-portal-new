@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/services/api_service.dart';
+import '../../core/providers/providers.dart';
 
 class EmployeesScreen extends ConsumerStatefulWidget {
   @override
@@ -12,6 +14,13 @@ class EmployeesScreen extends ConsumerStatefulWidget {
 
 class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
   final List<Map<String, dynamic>> _employees = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEmployees();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,54 +72,63 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
           
           // Employees List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _employees.length,
-              itemBuilder: (context, index) {
-                final employee = _employees[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor,
-                      child: Text(
-                        employee['name'][0],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _employees.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No employees found',
+                          style: TextStyle(color: Colors.grey),
                         ),
-                      ),
-                    ),
-                    title: Text(
-                      employee['name'],
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(employee['role']),
-                        Text(
-                          '${employee['department']} • Joined ${employee['joinDate']}',
-                          style: TextStyle(
-                            color: AppTheme.secondaryColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _employees.length,
+                        itemBuilder: (context, index) {
+                          final employee = _employees[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: AppTheme.primaryColor,
+                                child: Text(
+                                  (employee['name'] ?? 'U')[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                employee['name'] ?? 'Unknown',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(employee['role'] ?? 'Unknown Role'),
+                                  Text(
+                                    '${employee['department'] ?? 'Unknown Department'} • ${employee['designation'] ?? 'Unknown Designation'}',
+                                    style: TextStyle(
+                                      color: AppTheme.secondaryColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: employee['status'] == 'Active' 
+                            color: (employee['is_active'] ?? true) 
                                 ? AppTheme.successColor 
                                 : AppTheme.warningColor,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            employee['status'],
+                            (employee['is_active'] ?? true) ? 'Active' : 'Inactive',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -129,7 +147,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                                 // TODO: Navigate to employee details
                                 break;
                               case 'delete':
-                                _deleteEmployee(employee['name']);
+                                _deleteEmployee(employee['id'].toString(), employee['name']);
                                 break;
                             }
                           },
@@ -163,14 +181,35 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
     );
   }
 
-  void _loadEmployees() {
-    // TODO: Implement employees loading
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Employees refreshed')),
-    );
+  Future<void> _loadEmployees() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final employees = await apiService.getUsers();
+      
+      setState(() {
+        _employees.clear();
+        _employees.addAll(employees);
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Employees refreshed')),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load employees: $e')),
+      );
+    }
   }
 
-  void _deleteEmployee(String name) {
+  void _deleteEmployee(String employeeId, String name) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -182,11 +221,27 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$name deleted')),
-              );
+              try {
+                final apiService = ref.read(apiServiceProvider);
+                final success = await apiService.deleteUser(employeeId);
+                
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$name deleted successfully')),
+                  );
+                  _loadEmployees();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to delete employee')),
+                  );
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to delete employee: $e')),
+                );
+              }
             },
             child: const Text('Delete'),
           ),

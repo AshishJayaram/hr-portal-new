@@ -70,10 +70,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Future<void> _loadLeaveTypes() async {
     try {
-      // TODO: Implement leave types API call when backend endpoint is available
-      // For now, keep empty list
+      final apiService = ref.read(apiServiceProvider);
+      final leaveCategories = await apiService.getLeaveCategories();
+      
       setState(() {
         _leaveTypes.clear();
+        _leaveTypes.addAll(leaveCategories);
       });
     } catch (e) {
       print('Failed to load leave types: $e');
@@ -244,7 +246,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             _buildStatCard(
                               context,
                               'Total Employees',
-                              _dashboardStats!['total_employees']?.toString() ?? '0',
+                              _dashboardStats!['total_users']?.toString() ?? '0',
                               Icons.people,
                               AppTheme.primaryColor,
                               onTap: () => context.go('/employees'),
@@ -259,11 +261,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                             _buildStatCard(
                               context,
-                              'Team Members',
-                              _dashboardStats!['team_members']?.toString() ?? '0',
-                              Icons.group,
+                              'Approved Leaves',
+                              _dashboardStats!['approved_leaves']?.toString() ?? '0',
+                              Icons.check_circle,
                               AppTheme.accentColor,
-                              onTap: () => context.go('/team'),
+                              onTap: () => context.go('/leaves'),
                             ),
                             _buildStatCard(
                               context,

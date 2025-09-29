@@ -67,6 +67,7 @@ type UserRepository interface {
 	GetSubordinates(organizationID, managerID string) ([]models.User, error)
 	UpdateLastLogin(id string) error
 	Count(count *int64) error
+	CountByOrganization(organizationID string, count *int64) error
 	ListAll() ([]models.User, error)
 	GetAdminByOrganizationID(organizationID string) (*models.User, error)
 }
@@ -100,6 +101,9 @@ type LeaveRepository interface {
 	Approve(id, approverID string) error
 	Reject(id, rejecterID, reason string) error
 	Count(count *int64) error
+	CountByOrganization(organizationID string, count *int64) error
+	CountPendingByOrganization(organizationID string, count *int64) error
+	CountApprovedByOrganization(organizationID string, count *int64) error
 }
 
 // LeaveCategoryRepository interface for leave category operations
@@ -131,6 +135,7 @@ type DocumentRepository interface {
 	Delete(id string) error
 	GetByUserID(userID string) ([]models.Document, error)
 	Count(count *int64) error
+	CountByOrganization(organizationID string, count *int64) error
 }
 
 // SalarySlipRepository interface for salary slip operations

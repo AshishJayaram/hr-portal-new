@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/services/api_service.dart';
+import '../../core/providers/providers.dart';
 
 class SalarySlipsScreen extends ConsumerStatefulWidget {
   @override
@@ -13,13 +15,14 @@ class SalarySlipsScreen extends ConsumerStatefulWidget {
 class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
   int _selectedYear = 2023;
   List<Map<String, dynamic>> _filteredSalarySlips = [];
+  bool _isLoading = false;
   
   final List<Map<String, dynamic>> _allSalarySlips = [];
 
   @override
   void initState() {
     super.initState();
-    _filterSalarySlips();
+    _loadSalarySlips();
   }
 
   void _filterSalarySlips() {
@@ -84,28 +87,30 @@ class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
           
           // Salary Slips List
           Expanded(
-            child: _filteredSalarySlips.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.receipt_long,
-                          size: 64,
-                          color: AppTheme.secondaryColor.withOpacity(0.5),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredSalarySlips.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.receipt_long,
+                              size: 64,
+                              color: AppTheme.secondaryColor.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No salary slips found for $_selectedYear',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppTheme.secondaryColor,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No salary slips found for $_selectedYear',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppTheme.secondaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
+                      )
+                    : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: _filteredSalarySlips.length,
                     itemBuilder: (context, index) {
@@ -251,11 +256,33 @@ class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
     );
   }
 
-  void _loadSalarySlips() {
-    // TODO: Implement salary slips loading
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Salary slips refreshed')),
-    );
+  Future<void> _loadSalarySlips() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final salarySlips = await apiService.getSalarySlips();
+
+      setState(() {
+        _allSalarySlips.clear();
+        _allSalarySlips.addAll(salarySlips);
+        _filterSalarySlips();
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Salary slips refreshed')),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load salary slips: $e')),
+      );
+    }
   }
 
   void _generateSalarySlip() {

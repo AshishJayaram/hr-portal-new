@@ -105,7 +105,7 @@ func (r *userRepository) GetByUsername(username, organizationID string) (*models
 // GetByUsernameAcrossOrgs finds a user by username across all organizations
 func (r *userRepository) GetByUsernameAcrossOrgs(username string) (*models.User, error) {
 	var user models.User
-	
+
 	if err := r.db.Where("username = ?", username).
 		Preload("Organization").
 		First(&user).Error; err != nil {
@@ -182,6 +182,11 @@ func (r *userRepository) GetSubordinates(organizationID, managerID string) ([]mo
 // Count returns the total number of users
 func (r *userRepository) Count(count *int64) error {
 	return r.db.Model(&models.User{}).Count(count).Error
+}
+
+// CountByOrganization returns the total number of users in a specific organization
+func (r *userRepository) CountByOrganization(organizationID string, count *int64) error {
+	return r.db.Model(&models.User{}).Where("organization_id = ?", organizationID).Count(count).Error
 }
 
 // ListAll returns all users across all organizations (for God users)

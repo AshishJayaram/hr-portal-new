@@ -529,7 +529,7 @@ export const rejectLeave = (id: string, reason?: string) =>
 // -------------------- Documents --------------------
 export const getDocuments = (params?: Record<string, string>) =>
   fetcher<any>(`/documents?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
-    const items = (raw?.data || raw || []) as any[];
+    const items = (raw?.documents || raw?.data || raw || []) as any[];
     const mapped: Document[] = items.map((d: any) => ({
       id: String(d.id),
       title: d.title,

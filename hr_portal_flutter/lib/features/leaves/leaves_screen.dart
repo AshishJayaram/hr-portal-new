@@ -369,7 +369,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
                   ),
                   value: selectedLeaveType,
                   items: _availableLeaveTypes.map((type) {
-                    return DropdownMenuItem(
+                    return DropdownMenuItem<String>(
                       value: type['type'],
                       child: Text(type['name']),
                     );

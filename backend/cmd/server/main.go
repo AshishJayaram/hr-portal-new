@@ -19,7 +19,6 @@ import (
 
 	_ "hr-portal-backend/cmd/server/docs"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-contrib/timeout"
 	"github.com/gin-gonic/gin"
@@ -127,6 +126,26 @@ func setupLogging(cfg *config.Config) {
 func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 	router := gin.New()
 
+	// CORS configuration - more permissive for file uploads (must be first)
+	router.Use(func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+		if origin == "" {
+			origin = "*"
+		}
+
+		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Organization-ID, X-Requested-With")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Max-Age", "86400") // Cache preflight requests for 24 hours
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	})
+
 	// Middleware
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
@@ -142,17 +161,6 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			})
 		}),
 	))
-
-	// CORS configuration
-	corsConfig := cors.Config{
-		AllowOrigins:     cfg.CORS.AllowedOrigins,
-		AllowMethods:     cfg.CORS.AllowedMethods,
-		AllowHeaders:     cfg.CORS.AllowedHeaders,
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}
-	router.Use(cors.New(corsConfig))
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {

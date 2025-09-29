@@ -292,6 +292,7 @@ type DashboardStatsResponse struct {
 	TotalUsers       int64                  `json:"total_users"`
 	TotalLeaves      int64                  `json:"total_leaves"`
 	PendingLeaves    int64                  `json:"pending_leaves"`
+	ApprovedLeaves   int64                  `json:"approved_leaves"`
 	TotalDocuments   int64                  `json:"total_documents"`
 	UpcomingHolidays []models.Holiday       `json:"upcoming_holidays"`
 	RecentLeaves     []models.Leave         `json:"recent_leaves"`

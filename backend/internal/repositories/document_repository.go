@@ -80,3 +80,14 @@ func (r *documentRepository) Count(count *int64) error {
 	}
 	return nil
 }
+
+func (r *documentRepository) CountByOrganization(organizationID string, count *int64) error {
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid organization ID: %w", err)
+	}
+	if err := r.db.Model(&models.Document{}).Where("organization_id = ?", uint(orgIDUint)).Count(count).Error; err != nil {
+		return fmt.Errorf("failed to count documents by organization: %w", err)
+	}
+	return nil
+}

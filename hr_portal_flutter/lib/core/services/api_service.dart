@@ -32,6 +32,11 @@ class ApiService {
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+          // Add organization ID header if available
+          final userData = await _getCurrentUser();
+          if (userData != null && userData['organization_id'] != null) {
+            options.headers['X-Organization-ID'] = userData['organization_id'].toString();
+          }
           handler.next(options);
         },
         onError: (error, handler) async {
@@ -163,10 +168,10 @@ class ApiService {
       final authState = await _getCurrentUser();
       if (authState?['role'] == 'God') {
         final response = await _dio.get('/god/users');
-        return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
+        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       } else {
         final response = await _dio.get('/users');
-        return List<Map<String, dynamic>>.from(response.data['users'] ?? []);
+        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       }
     } catch (e) {
       print('Get users error: $e');
@@ -177,7 +182,7 @@ class ApiService {
   Future<Map<String, dynamic>?> getUser(String userId) async {
     try {
       final response = await _dio.get('/users/$userId');
-      return response.data;
+      return response.data['data'];
     } catch (e) {
       print('Get user error: $e');
       return null;
@@ -190,10 +195,10 @@ class ApiService {
       final authState = await _getCurrentUser();
       if (authState?['role'] == 'God') {
         final response = await _dio.post('/god/users', data: userData);
-        return response.data;
+        return response.data['data'];
       } else {
         final response = await _dio.post('/users', data: userData);
-        return response.data;
+        return response.data['data'];
       }
     } catch (e) {
       print('Create user error: $e');
@@ -207,10 +212,10 @@ class ApiService {
       final authState = await _getCurrentUser();
       if (authState?['role'] == 'God') {
         final response = await _dio.patch('/god/users/$userId', data: userData);
-        return response.data;
+        return response.data['data'];
       } else {
-        final response = await _dio.put('/users/$userId', data: userData);
-        return response.data;
+        final response = await _dio.patch('/users/$userId', data: userData);
+        return response.data['data'];
       }
     } catch (e) {
       print('Update user error: $e');
@@ -258,10 +263,10 @@ class ApiService {
       final authState = await _getCurrentUser();
       if (authState?['role'] == 'God') {
         final response = await _dio.post('/god/organizations', data: orgData);
-        return response.data;
+        return response.data['data'];
       } else {
         final response = await _dio.post('/organizations', data: orgData);
-        return response.data;
+        return response.data['data'];
       }
     } catch (e) {
       print('Create organization error: $e');
@@ -307,7 +312,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getLeaves() async {
     try {
       final response = await _dio.get('/leaves');
-      return List<Map<String, dynamic>>.from(response.data['leaves'] ?? []);
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } catch (e) {
       print('Get leaves error: $e');
       return [];
@@ -327,7 +332,7 @@ class ApiService {
   Future<Map<String, dynamic>?> createLeave(Map<String, dynamic> leaveData) async {
     try {
       final response = await _dio.post('/leaves', data: leaveData);
-      return response.data;
+      return response.data['data'];
     } catch (e) {
       print('Create leave error: $e');
       rethrow;
@@ -336,8 +341,8 @@ class ApiService {
 
   Future<Map<String, dynamic>?> updateLeave(String leaveId, Map<String, dynamic> leaveData) async {
     try {
-      final response = await _dio.put('/leaves/$leaveId', data: leaveData);
-      return response.data;
+      final response = await _dio.patch('/leaves/$leaveId', data: leaveData);
+      return response.data['data'];
     } catch (e) {
       print('Update leave error: $e');
       rethrow;
@@ -347,7 +352,7 @@ class ApiService {
   Future<Map<String, dynamic>?> approveLeave(String leaveId) async {
     try {
       final response = await _dio.post('/leaves/$leaveId/approve');
-      return response.data;
+      return response.data['data'];
     } catch (e) {
       print('Approve leave error: $e');
       rethrow;
@@ -359,7 +364,7 @@ class ApiService {
       final response = await _dio.post('/leaves/$leaveId/reject', data: {
         if (reason != null) 'reason': reason,
       });
-      return response.data;
+      return response.data['data'];
     } catch (e) {
       print('Reject leave error: $e');
       rethrow;
@@ -370,10 +375,30 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getDocuments() async {
     try {
       final response = await _dio.get('/documents');
-      return List<Map<String, dynamic>>.from(response.data['documents'] ?? []);
+      return List<Map<String, dynamic>>.from(response.data['documents'] ?? response.data['data'] ?? []);
     } catch (e) {
       print('Get documents error: $e');
       return [];
+    }
+  }
+
+  Future<bool> deleteDocument(String documentId) async {
+    try {
+      await _dio.delete('/documents/$documentId');
+      return true;
+    } catch (e) {
+      print('Delete document error: $e');
+      return false;
+    }
+  }
+
+  Future<String?> downloadDocument(String documentId) async {
+    try {
+      final response = await _dio.get('/documents/$documentId/download');
+      return response.data['fileUrl'];
+    } catch (e) {
+      print('Download document error: $e');
+      return null;
     }
   }
 
@@ -381,7 +406,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getSalarySlips() async {
     try {
       final response = await _dio.get('/salary-slips');
-      return List<Map<String, dynamic>>.from(response.data['salary_slips'] ?? []);
+      return List<Map<String, dynamic>>.from(response.data['salary_slips'] ?? response.data['data'] ?? []);
     } catch (e) {
       print('Get salary slips error: $e');
       return [];
@@ -392,7 +417,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getHolidays() async {
     try {
       final response = await _dio.get('/holidays');
-      return List<Map<String, dynamic>>.from(response.data['holidays'] ?? []);
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } catch (e) {
       print('Get holidays error: $e');
       return [];
@@ -403,7 +428,7 @@ class ApiService {
   Future<Map<String, dynamic>?> getPlatformStats() async {
     try {
       final response = await _dio.get('/god/stats');
-      return response.data['data']; // Backend returns data in 'data' field
+      return response.data['data']; // God stats endpoint returns data in 'data' field
     } catch (e) {
       print('Get platform stats error: $e');
       return null;
@@ -414,7 +439,7 @@ class ApiService {
   Future<Map<String, dynamic>?> getDashboardStats() async {
     try {
       final response = await _dio.get('/dashboard/stats');
-      return response.data['data']; // Backend returns data in 'data' field
+      return response.data; // Backend returns data directly, not wrapped in 'data' field
     } catch (e) {
       print('Get dashboard stats error: $e');
       return null;
@@ -447,10 +472,96 @@ class ApiService {
   Future<Map<String, dynamic>?> getCurrentUser() async {
     try {
       final response = await _dio.get('/auth/me');
-      return response.data;
+      return response.data['data'];
     } catch (e) {
       print('Get current user error: $e');
       return null;
+    }
+  }
+
+  // Leave categories methods
+  Future<List<Map<String, dynamic>>> getLeaveCategories() async {
+    try {
+      final response = await _dio.get('/leave-categories');
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+    } catch (e) {
+      print('Get leave categories error: $e');
+      return [];
+    }
+  }
+
+  // Leave allocations methods
+  Future<List<Map<String, dynamic>>> getLeaveAllocations(String userId) async {
+    try {
+      final response = await _dio.get('/leave-allocations/$userId');
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+    } catch (e) {
+      print('Get leave allocations error: $e');
+      return [];
+    }
+  }
+
+  // Document upload methods
+  Future<Map<String, dynamic>?> uploadDocument(FormData formData) async {
+    try {
+      final response = await _dio.post('/documents', data: formData);
+      return response.data['data'];
+    } catch (e) {
+      print('Upload document error: $e');
+      rethrow;
+    }
+  }
+
+  // Salary slip upload methods
+  Future<Map<String, dynamic>?> uploadSalarySlip(FormData formData) async {
+    try {
+      final response = await _dio.post('/salary-slips', data: formData);
+      return response.data['data'];
+    } catch (e) {
+      print('Upload salary slip error: $e');
+      rethrow;
+    }
+  }
+
+  // Holiday management methods
+  Future<Map<String, dynamic>?> createHoliday(Map<String, dynamic> holidayData) async {
+    try {
+      final response = await _dio.post('/holidays', data: holidayData);
+      return response.data['data'];
+    } catch (e) {
+      print('Create holiday error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateHoliday(String holidayId, Map<String, dynamic> holidayData) async {
+    try {
+      final response = await _dio.patch('/holidays/$holidayId', data: holidayData);
+      return response.data['data'];
+    } catch (e) {
+      print('Update holiday error: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteHoliday(String holidayId) async {
+    try {
+      await _dio.delete('/holidays/$holidayId');
+      return true;
+    } catch (e) {
+      print('Delete holiday error: $e');
+      return false;
+    }
+  }
+
+  // Team management methods
+  Future<List<Map<String, dynamic>>> getTeam() async {
+    try {
+      final response = await _dio.get('/team');
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+    } catch (e) {
+      print('Get team error: $e');
+      return [];
     }
   }
 }
