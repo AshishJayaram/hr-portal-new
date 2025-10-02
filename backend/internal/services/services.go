@@ -1,6 +1,7 @@
 package services
 
 import (
+	"net/http"
 	"time"
 
 	"hr-portal-backend/internal/config"
@@ -22,12 +23,16 @@ type Services struct {
 	CompanySettings CompanySettingsService
 	Dashboard       DashboardService
 	Organization    OrganizationService
+	Audit           AuditService
 }
 
 // New creates a new instance of Services
 func New(repos *repositories.Repositories, cfg *config.Config) *Services {
+	// Create audit service first since other services depend on it
+	auditService := NewAuditService(repos.AuditLog, repos.User)
+
 	return &Services{
-		User:            NewUserService(repos.User, repos.Organization),
+		User:            NewUserService(repos.User, repos.Organization, auditService),
 		Auth:            NewAuthService(repos.User, repos.Organization, cfg.JWT),
 		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday),
 		LeaveCategory:   NewLeaveCategoryService(repos.LeaveCategory),
@@ -38,6 +43,7 @@ func New(repos *repositories.Repositories, cfg *config.Config) *Services {
 		CompanySettings: NewCompanySettingsService(repos.CompanySettings),
 		Dashboard:       NewDashboardService(repos),
 		Organization:    NewOrganizationService(repos.Organization),
+		Audit:           auditService,
 	}
 }
 
@@ -98,6 +104,7 @@ type LeaveService interface {
 	UpdateLeave(id string, req UpdateLeaveRequest) (*models.Leave, error)
 	ApproveLeave(id, approverID string) (*models.Leave, error)
 	RejectLeave(id, rejecterID, reason string) (*models.Leave, error)
+	EditLeave(req EditLeaveRequest, userID, organizationID string, httpReq *http.Request) (*models.Leave, error)
 	GetLeaveBalance(userID string) ([]LeaveBalanceResponse, error)
 	CancelLeave(id, userID string) (*models.Leave, error)
 }
@@ -149,6 +156,19 @@ type CompanySettingsService interface {
 // DashboardService interface for dashboard business logic
 type DashboardService interface {
 	GetStats(organizationID, userID, userRole string) (*DashboardStatsResponse, error)
+}
+
+// AuditService interface for audit trail business logic
+type AuditService interface {
+	LogAction(req AuditActionRequest, httpReq *http.Request) error
+	LogUserChange(organizationID, userID, changedBy string, action string, oldUser, newUser *models.User, req *http.Request) error
+	LogDocumentChange(organizationID, documentID, changedBy string, action string, changeSummary string, req *http.Request) error
+	LogLeaveChange(organizationID, leaveID, changedBy string, action string, changeSummary string, req *http.Request) error
+	LogSalarySlipChange(organizationID, salarySlipID, changedBy string, action string, changeSummary string, req *http.Request) error
+	GetAuditLogs(organizationID string, filters map[string]interface{}) ([]models.AuditLog, error)
+	GetEntityAuditLogs(entityType, entityID string) ([]models.AuditLog, error)
+	GetUserAuditLogs(userID string) ([]models.AuditLog, error)
+	DeleteOldLogs(organizationID string, olderThan time.Time) error
 }
 
 // Request/Response DTOs
@@ -210,6 +230,18 @@ type UpdateLeaveRequest struct {
 	StartHalf *string    `json:"start_half" validate:"omitempty,oneof=FULL AM PM"`
 	EndHalf   *string    `json:"end_half" validate:"omitempty,oneof=FULL AM PM"`
 	Status    *string    `json:"status"`
+}
+
+type EditLeaveRequest struct {
+	LeaveID        string    `json:"leave_id"`
+	OrganizationID string    `json:"organization_id" validate:"required"`
+	CategoryID     string    `json:"category_id" validate:"required"`
+	Type           string    `json:"type" validate:"required"`
+	Reason         string    `json:"reason"`
+	FromDate       time.Time `json:"from_date" validate:"required"`
+	ToDate         time.Time `json:"to_date" validate:"required"`
+	StartHalf      string    `json:"start_half" validate:"omitempty,oneof=FULL AM PM"`
+	EndHalf        string    `json:"end_half" validate:"omitempty,oneof=FULL AM PM"`
 }
 
 type LeaveBalanceResponse struct {
@@ -289,13 +321,28 @@ type UpdateCompanySettingsRequest struct {
 }
 
 type DashboardStatsResponse struct {
-	TotalUsers       int64                  `json:"total_users"`
-	TotalLeaves      int64                  `json:"total_leaves"`
-	PendingLeaves    int64                  `json:"pending_leaves"`
-	ApprovedLeaves   int64                  `json:"approved_leaves"`
-	TotalDocuments   int64                  `json:"total_documents"`
-	UpcomingHolidays []models.Holiday       `json:"upcoming_holidays"`
-	RecentLeaves     []models.Leave         `json:"recent_leaves"`
-	RecentDocuments  []models.Document      `json:"recent_documents"`
-	LeaveBalances    []LeaveBalanceResponse `json:"leave_balances"`
+	TotalUsers        int64                  `json:"total_users"`
+	TotalLeaves       int64                  `json:"total_leaves"`
+	PendingLeaves     int64                  `json:"pending_leaves"`
+	ApprovedLeaves    int64                  `json:"approved_leaves"`
+	TotalDocuments    int64                  `json:"total_documents"`
+	UpcomingHolidays  []models.Holiday       `json:"upcoming_holidays"`
+	RecentLeaves      []models.Leave         `json:"recent_leaves"`
+	RecentDocuments   []models.Document      `json:"recent_documents"`
+	RecentSalarySlips []models.SalarySlip    `json:"recent_salary_slips"`
+	LeaveBalances     []LeaveBalanceResponse `json:"leave_balances"`
 }
+
+// AuditActionRequest represents the request to create an audit log
+type AuditActionRequest struct {
+	OrganizationID string      `json:"organization_id"`
+	Action         string      `json:"action"` // "CREATE", "UPDATE", "DELETE"
+	EntityType     string      `json:"entity_type"`
+	EntityID       string      `json:"entity_id"`
+	ChangedBy      string      `json:"changed_by"`
+	ChangeSummary  string      `json:"change_summary"`
+	OldValues      interface{} `json:"old_values,omitempty"`
+	NewValues      interface{} `json:"new_values,omitempty"`
+}
+
+// AuditService interface for audit business logic

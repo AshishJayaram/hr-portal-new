@@ -34,6 +34,17 @@ func (s *leaveService) ApplyLeave(req ApplyLeaveRequest) (*models.Leave, error) 
 		return nil, fmt.Errorf("end date cannot be before start date")
 	}
 
+	// Check for overlapping leaves
+	overlappingLeaves, err := s.leaveRepo.FindOverlappingLeaves(req.UserID, req.FromDate, req.ToDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for overlapping leaves: %w", err)
+	}
+
+	if len(overlappingLeaves) > 0 {
+		return nil, fmt.Errorf("you have overlapping leave requests for the date range %s to %s",
+			req.FromDate.Format("2006-01-02"), req.ToDate.Format("2006-01-02"))
+	}
+
 	// Convert string IDs to uint
 	userID, err := strconv.ParseUint(req.UserID, 10, 32)
 	if err != nil {

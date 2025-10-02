@@ -4,8 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"hr-portal-backend/internal/services"
+
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type HolidayHandler struct {
@@ -62,6 +64,8 @@ func (h *HolidayHandler) GetHoliday(c *gin.Context) {
 
 // ListHolidays retrieves all holidays for the organization
 func (h *HolidayHandler) ListHolidays(c *gin.Context) {
+	logrus.Info("DEBUG: ListHolidays method called!")
+
 	// Get organization ID from context
 	orgID, exists := c.Get("organization_id")
 	if !exists {
@@ -71,15 +75,23 @@ func (h *HolidayHandler) ListHolidays(c *gin.Context) {
 
 	// Parse query parameters for filtering
 	filters := make(map[string]interface{})
-	
+
 	if typeFilter := c.Query("type"); typeFilter != "" {
 		filters["type"] = typeFilter
 	}
-	
+
 	if calendarEvent := c.Query("is_calendar_event"); calendarEvent != "" {
 		if isCalendarEvent, err := strconv.ParseBool(calendarEvent); err == nil {
 			filters["is_calendar_event"] = isCalendarEvent
 		}
+	}
+
+	// Add year filtering for financial year categorization
+	if yearFilter := c.Query("year"); yearFilter != "" {
+		filters["year"] = yearFilter
+		logrus.WithField("year_filter", yearFilter).Info("DEBUG: Added year filter")
+	} else {
+		logrus.Info("DEBUG: No year filter provided")
 	}
 
 	holidays, err := h.service.ListHolidays(orgID.(string), filters)

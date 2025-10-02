@@ -261,6 +261,30 @@ func (CompanySettings) TableName() string {
 	return "company_settings"
 }
 
+func (AuditLog) TableName() string {
+	return "audit_logs"
+}
+
+// AuditLog represents audit trail logs for tracking changes
+type AuditLog struct {
+	BaseModel
+	OrganizationID uint      `json:"organization_id" gorm:"not null;index"`
+	Action         string    `json:"action" gorm:"not null"`                 // "CREATE", "UPDATE", "DELETE"
+	EntityType     string    `json:"entity_type" gorm:"not null"`            // "USER", "DOCUMENT", "LEAVE", "SALARY_SLIP", etc.
+	EntityID       string    `json:"entity_id" gorm:"not null"`              // ID of the affected entity
+	ChangedBy      uint      `json:"changed_by" gorm:"not null;index"`       // User who made the change
+	ChangeSummary  string    `json:"change_summary" gorm:"not null"`         // Brief description of change
+	OldValues      *string   `json:"old_values,omitempty" gorm:"type:jsonb"` // JSON of old values (optional)
+	NewValues      *string   `json:"new_values,omitempty" gorm:"type:jsonb"` // JSON of new values (optional)
+	IPAddress      string    `json:"ip_address"`
+	UserAgent      string    `json:"user_agent"`
+	CreatedAt      time.Time `json:"created_at"`
+
+	// Relationships
+	Organization  Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+	ChangedByUser *User        `json:"changed_by_user,omitempty" gorm:"foreignKey:ChangedBy"`
+}
+
 // BeforeCreate hooks for GORM - removed since we're using auto-increment integers
 
 // BeforeCreate hooks removed - using auto-increment integers

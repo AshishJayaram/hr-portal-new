@@ -285,7 +285,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         title: Text(title),
         content: SizedBox(
           width: double.maxFinite,
-          height: 400,
+          height: 500,
           child: Column(
             children: [
               Expanded(
@@ -294,39 +294,100 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     border: Border.all(color: Colors.grey),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.description, size: 64, color: Colors.grey),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Document Viewer',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
+                  child: Column(
+                    children: [
+                      // PDF Viewer Placeholder
+                      Expanded(
+                        child: Container(
+                          color: Colors.grey[50],
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.picture_as_pdf, size: 64, color: Colors.red),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'PDF Viewer',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Document: $title',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[50],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.blue[200]!),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      const Icon(Icons.info_outline, color: Colors.blue),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'PDF viewer integration required',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.blue[700],
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Use packages like flutter_pdfview or pdfx',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.blue[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'File URL: $fileUrl',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[500],
-                          ),
-                          textAlign: TextAlign.center,
+                      ),
+                      // Action buttons
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showDownloadDialog(title, fileUrl);
+                              },
+                              icon: const Icon(Icons.download),
+                              label: const Text('Download'),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                // In a real app, you would use url_launcher
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Opening in external viewer...')),
+                                );
+                                Navigator.pop(context);
+                              },
+                              icon: const Icon(Icons.open_in_new),
+                              label: const Text('Open External'),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _showDownloadDialog(title, fileUrl);
-                          },
-                          icon: const Icon(Icons.download),
-                          label: const Text('Download'),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -364,6 +425,18 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                 fileUrl,
                 style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
               ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                // In a real app, you would use url_launcher to open the URL
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Opening document in browser...')),
+                );
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.open_in_browser),
+              label: const Text('Open in Browser'),
             ),
           ],
         ),

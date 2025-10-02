@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"hr-portal-backend/internal/services"
 	"hr-portal-backend/internal/utils"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -25,7 +25,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	// Create tables manually with SQLite-compatible syntax
 	err = db.Exec(`
 		CREATE TABLE organizations (
-			id TEXT PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			deleted_at DATETIME,
@@ -39,11 +39,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 	err = db.Exec(`
 		CREATE TABLE users (
-			id TEXT PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			deleted_at DATETIME,
-			organization_id TEXT NOT NULL,
+			organization_id INTEGER NOT NULL,
 			username TEXT NOT NULL,
 			email TEXT NOT NULL,
 			password_hash TEXT NOT NULL,
@@ -51,7 +51,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			designation TEXT,
 			department TEXT NOT NULL,
 			role TEXT NOT NULL,
-			manager_id TEXT,
+			manager_id INTEGER,
 			ctc REAL DEFAULT 0,
 			is_active BOOLEAN DEFAULT 1,
 			last_login_at DATETIME,
@@ -63,11 +63,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 	err = db.Exec(`
 		CREATE TABLE leave_categories (
-			id TEXT PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			deleted_at DATETIME,
-			organization_id TEXT NOT NULL,
+			organization_id INTEGER NOT NULL,
 			name TEXT NOT NULL,
 			description TEXT,
 			max_days_per_year INTEGER DEFAULT 0,
@@ -79,13 +79,13 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 	err = db.Exec(`
 		CREATE TABLE leave_allocations (
-			id TEXT PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			deleted_at DATETIME,
-			user_id TEXT NOT NULL,
-			category_id TEXT NOT NULL,
-			organization_id TEXT NOT NULL,
+			user_id INTEGER NOT NULL,
+			category_id INTEGER NOT NULL,
+			organization_id INTEGER NOT NULL,
 			category_name TEXT NOT NULL,
 			total_days INTEGER NOT NULL,
 			used_days INTEGER DEFAULT 0,
@@ -97,11 +97,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 	err = db.Exec(`
 		CREATE TABLE holidays (
-			id TEXT PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			deleted_at DATETIME,
-			organization_id TEXT NOT NULL,
+			organization_id INTEGER NOT NULL,
 			name TEXT NOT NULL,
 			date DATETIME,
 			type TEXT NOT NULL,
@@ -122,9 +122,6 @@ func TestUserService_CreateUser(t *testing.T) {
 
 	// Create test organization
 	org := &models.Organization{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		Name: "Test Company",
 	}
 	err := repos.Organization.Create(org)
@@ -139,7 +136,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		Designation:    "Developer",
 		Department:     "Engineering",
 		Role:           "Employee",
-		OrganizationID: org.ID.String(),
+		OrganizationID: strconv.FormatUint(uint64(org.ID), 10),
 		CTC:            500000,
 	}
 
@@ -171,9 +168,6 @@ func TestAuthService_Login(t *testing.T) {
 
 	// Create test organization
 	org := &models.Organization{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		Name: "Test Company",
 	}
 	err := repos.Organization.Create(org)
@@ -184,9 +178,6 @@ func TestAuthService_Login(t *testing.T) {
 	require.NoError(t, err)
 
 	user := &models.User{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		OrganizationID: org.ID,
 		Username:       "testuser",
 		Email:          "test@example.com",
@@ -201,9 +192,8 @@ func TestAuthService_Login(t *testing.T) {
 
 	// Test login
 	req := services.LoginRequest{
-		Username:       "testuser",
-		Password:       "password123",
-		OrganizationID: org.ID.String(),
+		Username: "testuser",
+		Password: "password123",
 	}
 
 	response, err := svc.Auth.Login(req)
@@ -241,8 +231,8 @@ func TestPasswordUtils(t *testing.T) {
 
 func TestJWTUtils(t *testing.T) {
 	secret := "test-secret"
-	userID := uuid.New().String()
-	organizationID := uuid.New().String()
+	userID := "1"
+	organizationID := "1"
 	role := "Employee"
 	username := "testuser"
 
@@ -275,9 +265,6 @@ func TestLeaveAllocationCalculation(t *testing.T) {
 
 	// Create test organization
 	org := &models.Organization{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		Name: "Test Company",
 	}
 	err := repos.Organization.Create(org)
@@ -285,9 +272,6 @@ func TestLeaveAllocationCalculation(t *testing.T) {
 
 	// Create test user
 	user := &models.User{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		OrganizationID: org.ID,
 		Username:       "testuser",
 		Email:          "test@example.com",
@@ -302,9 +286,6 @@ func TestLeaveAllocationCalculation(t *testing.T) {
 
 	// Create leave category
 	category := &models.LeaveCategory{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		OrganizationID: org.ID,
 		Name:           "Sick Leave",
 		MaxDaysPerYear: 12,
@@ -315,9 +296,6 @@ func TestLeaveAllocationCalculation(t *testing.T) {
 
 	// Create leave allocation
 	allocation := &models.LeaveAllocation{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		UserID:         user.ID,
 		CategoryID:     category.ID,
 		OrganizationID: org.ID,
@@ -340,9 +318,6 @@ func TestHolidayModel(t *testing.T) {
 
 	// Create test organization
 	org := &models.Organization{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		Name: "Test Company",
 	}
 	err := db.Create(org).Error
@@ -350,9 +325,6 @@ func TestHolidayModel(t *testing.T) {
 
 	// Test holiday with date
 	holiday := &models.Holiday{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		OrganizationID:  org.ID,
 		Name:            "New Year",
 		Date:            &[]time.Time{time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)}[0],
@@ -363,13 +335,10 @@ func TestHolidayModel(t *testing.T) {
 	}
 	err = db.Create(holiday).Error
 	require.NoError(t, err)
-	assert.NotEqual(t, uuid.Nil, holiday.ID)
+	assert.NotEqual(t, uint(0), holiday.ID)
 
 	// Test notice without date
 	notice := &models.Holiday{
-		BaseModel: models.BaseModel{
-			ID: uuid.New(),
-		},
 		OrganizationID:  org.ID,
 		Name:            "Important Notice",
 		Date:            nil, // Notice without date
@@ -380,6 +349,6 @@ func TestHolidayModel(t *testing.T) {
 	}
 	err = db.Create(notice).Error
 	require.NoError(t, err)
-	assert.NotEqual(t, uuid.Nil, notice.ID)
+	assert.NotEqual(t, uint(0), notice.ID)
 	assert.Nil(t, notice.Date)
 }

@@ -83,7 +83,11 @@ func AuthRequired(secret string) gin.HandlerFunc {
 		// Set user context
 		c.Set("user_id", userID)
 		c.Set("organization_id", organizationID)
-		c.Set("user_role", claims["role"])
+		if role, ok := claims["role"].(string); ok {
+			c.Set("user_role", role)
+		} else {
+			c.Set("user_role", "")
+		}
 
 		c.Next()
 	}

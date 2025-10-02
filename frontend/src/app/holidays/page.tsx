@@ -14,6 +14,7 @@ export default function HolidaysPage() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [formData, setFormData] = useState({
     name: "",
     date: "",
@@ -25,9 +26,9 @@ export default function HolidaysPage() {
 
   // Use React Query for automatic data fetching and caching
   const { data: holidays = [], isLoading: loading, error } = useQuery({
-    queryKey: ["holidays"],
+    queryKey: ["holidays", selectedYear],
     queryFn: async () => {
-      const response = await getHolidays();
+      const response = await getHolidays({ year: selectedYear });
       return response.data;
     },
     refetchOnWindowFocus: true, // Auto-refresh when window gains focus
@@ -40,6 +41,7 @@ export default function HolidaysPage() {
     onSuccess: () => {
       // Invalidate and refetch holidays data
       queryClient.invalidateQueries({ queryKey: ["holidays"] });
+      queryClient.invalidateQueries({ queryKey: ["holidays", selectedYear] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
       setShowForm(false);
@@ -59,6 +61,7 @@ export default function HolidaysPage() {
     onSuccess: () => {
       // Invalidate and refetch holidays data
       queryClient.invalidateQueries({ queryKey: ["holidays"] });
+      queryClient.invalidateQueries({ queryKey: ["holidays", selectedYear] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
       setShowForm(false);
@@ -78,6 +81,7 @@ export default function HolidaysPage() {
     onSuccess: () => {
       // Invalidate and refetch holidays data
       queryClient.invalidateQueries({ queryKey: ["holidays"] });
+      queryClient.invalidateQueries({ queryKey: ["holidays", selectedYear] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
       // Show success message
@@ -129,6 +133,34 @@ export default function HolidaysPage() {
             Add Event/Notice
           </button>
         </RoleGuard>
+      </div>
+
+      {/* Year Selector for Financial Year */}
+      <div className="bg-gray-800/50 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <label htmlFor="year-select" className="text-sm font-medium text-gray-300">
+              Financial Year:
+            </label>
+            <Select
+              id="year-select"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="bg-gray-700 text-white border-gray-600"
+              options={Array.from({ length: 10 }, (_, i) => {
+                const year = new Date().getFullYear() - 5 + i;
+                const financialYearLabel = `${year} (Apr ${year.toString().slice(-2)} - Mar ${(year + 1).toString().slice(-2)})`;
+                return {
+                  value: year.toString(),
+                  label: financialYearLabel
+                };
+              })}
+            />
+          </div>
+          <div className="text-sm text-gray-400">
+            Showing holidays and events for FY {selectedYear}
+          </div>
+        </div>
       </div>
 
       {(error || createHolidayMutation.error || updateHolidayMutation.error || deleteHolidayMutation.error) && (

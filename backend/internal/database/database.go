@@ -69,6 +69,7 @@ func migrate(db *gorm.DB) error {
 		&models.SalarySlip{},
 		&models.Holiday{},
 		&models.CompanySettings{},
+		&models.AuditLog{},
 	)
 
 	if err != nil {
@@ -118,6 +119,12 @@ func createIndexes(db *gorm.DB) error {
 		// Leave category indexes
 		"CREATE INDEX IF NOT EXISTS idx_leave_categories_organization ON leave_categories(organization_id)",
 		"CREATE INDEX IF NOT EXISTS idx_leave_categories_active ON leave_categories(is_active)",
+
+		// Audit log indexes
+		"CREATE INDEX IF NOT EXISTS idx_audit_logs_organization ON audit_logs(organization_id)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_logs_changed_by ON audit_logs(changed_by)",
+		"CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)",
 	}
 
 	for _, indexSQL := range indexes {

@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"hr-portal-backend/internal/models"
@@ -22,6 +23,7 @@ type Repositories struct {
 	SalarySlip      SalarySlipRepository
 	Holiday         HolidayRepository
 	CompanySettings CompanySettingsRepository
+	AuditLog        AuditLogRepository
 }
 
 // New creates a new instance of Repositories
@@ -36,6 +38,7 @@ func New(db *gorm.DB, rdb *redis.Client) *Repositories {
 		SalarySlip:      &salarySlipRepository{BaseRepository: NewBaseRepository(db, rdb)},
 		Holiday:         &holidayRepository{BaseRepository: NewBaseRepository(db, rdb)},
 		CompanySettings: &companySettingsRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		AuditLog:        &auditLogRepository{BaseRepository: NewBaseRepository(db, rdb)},
 	}
 }
 
@@ -100,6 +103,7 @@ type LeaveRepository interface {
 	GetPendingApprovals(managerID string) ([]models.Leave, error)
 	Approve(id, approverID string) error
 	Reject(id, rejecterID, reason string) error
+	FindOverlappingLeaves(userID string, fromDate, toDate time.Time) ([]models.Leave, error)
 	Count(count *int64) error
 	CountByOrganization(organizationID string, count *int64) error
 	CountPendingByOrganization(organizationID string, count *int64) error
@@ -165,6 +169,15 @@ type CompanySettingsRepository interface {
 	Delete(organizationID string) error
 }
 
+// AuditLogRepository interface for audit trail operations
+type AuditLogRepository interface {
+	Create(auditLog *models.AuditLog) error
+	List(organizationID string, filters map[string]interface{}) ([]models.AuditLog, error)
+	GetByEntity(entityType, entityID string) ([]models.AuditLog, error)
+	GetByUser(userID string) ([]models.AuditLog, error)
+	Delete(organizationID string, olderThan time.Time) error
+}
+
 // Common query helpers
 func (r *BaseRepository) buildQuery(query *gorm.DB, filters map[string]interface{}) *gorm.DB {
 	for key, value := range filters {
@@ -203,7 +216,10 @@ func (r *BaseRepository) buildQuery(query *gorm.DB, filters map[string]interface
 		case "user_id":
 			userID := value.(string)
 			if userID != "" {
-				query = query.Where("user_id = ?", userID)
+				// Convert string userID to uint for proper comparison
+				if userIDUint, err := strconv.ParseUint(userID, 10, 32); err == nil {
+					query = query.Where("user_id = ?", uint(userIDUint))
+				}
 			}
 		case "from_date":
 			fromDate := value.(time.Time)
@@ -212,9 +228,15 @@ func (r *BaseRepository) buildQuery(query *gorm.DB, filters map[string]interface
 			toDate := value.(time.Time)
 			query = query.Where("to_date <= ?", toDate)
 		case "year":
-			year := value.(int)
-			if year > 0 {
-				query = query.Where("year = ?", year)
+			if yearStr, ok := value.(string); ok {
+				// For holidays table, filter by year from date field
+				if len(yearStr) == 4 {
+					query = query.Where("YEAR(date) = ?", yearStr)
+				}
+			} else if year, ok := value.(int); ok {
+				if year > 0 {
+					query = query.Where("year = ?", year)
+				}
 			}
 		case "month":
 			month := value.(int)

@@ -212,6 +212,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			leaves.PATCH("/:id", handlers.Leave.UpdateLeave)
 			leaves.POST("/:id/approve", middleware.RoleRequired("Manager", "HR", "Admin", "God"), handlers.Leave.ApproveLeave)
 			leaves.POST("/:id/reject", middleware.RoleRequired("Manager", "HR", "Admin", "God"), handlers.Leave.RejectLeave)
+			leaves.PUT("/:id/edit", handlers.Leave.EditLeave)
 			leaves.POST("/:id/cancel", handlers.Leave.CancelLeave)
 			leaves.GET("/balance/:user_id", handlers.Leave.GetLeaveBalance)
 		}
@@ -317,6 +318,16 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			god.POST("/users", handlers.God.CreateUser)
 			god.PATCH("/users/:id", handlers.God.UpdateUser)
 			god.DELETE("/users/:id", handlers.God.DeleteUser)
+		}
+
+		// Audit routes (for Admin, HR, and God roles)
+		audit := api.Group("/audit")
+		audit.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		audit.Use(middleware.OrganizationRequired())
+		{
+			audit.GET("/logs", handlers.Audit.GetAuditLogs)
+			audit.GET("/logs/user/:user_id", handlers.Audit.GetUserAuditLogs)
+			audit.GET("/logs/entity", handlers.Audit.GetEntityAuditLogs)
 		}
 	}
 

@@ -235,15 +235,30 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		recentLeaves = recentLeaves[:10]
 	}
 
-	// Get recent documents for the organization (last 5)
-	recentDocuments, err := s.repos.Document.List(organizationID, map[string]interface{}{})
+	// Get recent documents for the current user only
+	recentDocuments, err := s.repos.Document.List(organizationID, map[string]interface{}{
+		"user_id": userID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recent documents: %w", err)
 	}
 
-	// Sort by created_at desc and limit to 5
-	if len(recentDocuments) > 5 {
-		recentDocuments = recentDocuments[:5]
+	// Sort by created_at desc and limit to 3
+	if len(recentDocuments) > 3 {
+		recentDocuments = recentDocuments[:3]
+	}
+
+	// Get recent salary slips for the current user only
+	recentSalarySlips, err := s.repos.SalarySlip.List(organizationID, map[string]interface{}{
+		"user_id": userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent salary slips: %w", err)
+	}
+
+	// Sort by created_at desc and limit to 3
+	if len(recentSalarySlips) > 3 {
+		recentSalarySlips = recentSalarySlips[:3]
 	}
 
 	// Get leave balances for the current user
@@ -254,14 +269,15 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 	}
 
 	return &DashboardStatsResponse{
-		TotalUsers:       totalUsers,
-		TotalLeaves:      totalLeaves,
-		PendingLeaves:    pendingLeaves,
-		ApprovedLeaves:   approvedLeaves,
-		TotalDocuments:   totalDocuments,
-		UpcomingHolidays: upcomingHolidays,
-		RecentLeaves:     recentLeaves,
-		RecentDocuments:  recentDocuments,
-		LeaveBalances:    leaveBalances,
+		TotalUsers:        totalUsers,
+		TotalLeaves:       totalLeaves,
+		PendingLeaves:     pendingLeaves,
+		ApprovedLeaves:    approvedLeaves,
+		TotalDocuments:    totalDocuments,
+		UpcomingHolidays:  upcomingHolidays,
+		RecentLeaves:      recentLeaves,
+		RecentDocuments:   recentDocuments,
+		RecentSalarySlips: recentSalarySlips,
+		LeaveBalances:     leaveBalances,
 	}, nil
 }

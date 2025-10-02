@@ -30,12 +30,12 @@ export default function DashboardPage() {
   });
 
   const { data: docs, isLoading: loadingDocs } = useQuery({
-    queryKey: ["documents", "dashboard"],
-    queryFn: () => getDocuments({ limit: "3" }),
+    queryKey: ["documents", "dashboard", userId],
+    queryFn: () => getDocuments({ userId: userId }),
   });
 
   const { data: slips, isLoading: loadingSlips } = useQuery({
-    queryKey: ["slips", userId],
+    queryKey: ["slips", "dashboard", userId],
     queryFn: () => getSalarySlips({ userId: userId }),
   });
 
@@ -254,6 +254,43 @@ export default function DashboardPage() {
             ))}
             {((docs?.data || stats?.data?.recent_documents || []).length || 0) === 0 && (
               <li className="text-gray-400">No documents</li>
+            )}
+          </ul>
+        </Card>
+
+        {/* Recent Salary Slips - compact */}
+        <Card title="Recent Salary Slips" className="p-4">
+          <ul className="divide-y divide-gray-700 text-sm">
+            {(slips?.data || stats?.data?.recent_salary_slips || []).slice(0, 3).map((slip: any) => (
+              <li key={slip.id} className="py-2 flex justify-between items-center">
+                <span className="truncate pr-3">
+                  {new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </span>
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/salary-slips/${slip.id}/download`, {
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                          'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                        },
+                      });
+                      const data = await response.json();
+                      if (data.fileUrl) {
+                        window.open(data.fileUrl, '_blank');
+                      }
+                    } catch (error) {
+                      console.error('Failed to download salary slip:', error);
+                    }
+                  }}
+                  className="text-indigo-400 hover:underline"
+                >
+                  View
+                </button>
+              </li>
+            ))}
+            {((slips?.data || stats?.data?.recent_salary_slips || []).length || 0) === 0 && (
+              <li className="text-gray-400">No salary slips</li>
             )}
           </ul>
         </Card>

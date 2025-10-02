@@ -23,8 +23,15 @@ func NewDocumentHandler(documentService services.DocumentService) *DocumentHandl
 // ListDocuments handles listing documents
 func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 	organizationID := c.GetString("organization_id")
+	userID := c.Query("userId")
 
-	documents, err := h.documentService.ListDocuments(organizationID, nil)
+	// Create filter map
+	filters := make(map[string]interface{})
+	if userID != "" {
+		filters["user_id"] = userID
+	}
+
+	documents, err := h.documentService.ListDocuments(organizationID, filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to list documents",

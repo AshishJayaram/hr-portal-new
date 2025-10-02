@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/services"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/gin-gonic/gin"
 )
@@ -356,4 +359,65 @@ func (h *LeaveHandler) GetLeaveBalance(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": balance})
+}
+
+// EditLeave handles editing a pending leave request (reverts to pending state)
+// @Summary Edit a leave request
+// @Description Edit the details of a leave request (puts it back to pending state for re-approval)
+// @Tags leaves
+// @Security BearerAuth
+// @Security OrganizationAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Leave ID"
+// @Param body body services.EditLeaveRequest true "Edit leave request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/leaves/{id}/edit [put]
+func (h *LeaveHandler) EditLeave(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid leave ID"})
+		return
+	}
+
+	var req services.EditLeaveRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: " + err.Error()})
+		return
+	}
+
+	// Make sure the leave ID matches the URL parameter
+	req.LeaveID = strconv.FormatUint(id, 10)
+
+	userID := c.GetString("user_id")
+	organizationID := c.GetString("organization_id")
+
+	updatedLeave, err := h.service.EditLeave(req, userID, organizationID, c.Request)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if err.Error() == "leave not found" {
+			status = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "not authorized") {
+			status = http.StatusForbidden
+		} else if strings.Contains(err.Error(), "already") || strings.Contains(err.Error(), "not in pending state") {
+			status = http.StatusBadRequest
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"leave_id": id,
+		"user_id":  userID,
+		"org_id":   organizationID,
+		"action":   "edit",
+	}).Info("Leave request edited")
+
+	c.JSON(http.StatusOK, gin.H{"message": "Leave request updated successfully and reverted to pending state", "leave": updatedLeave})
 }

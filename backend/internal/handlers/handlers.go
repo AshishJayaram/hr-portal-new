@@ -18,6 +18,7 @@ type Handlers struct {
 	Company         *CompanyHandler
 	Dashboard       *DashboardHandler
 	God             *GodHandler
+	Audit           *AuditHandler
 }
 
 // New creates a new instance of Handlers
@@ -34,5 +35,6 @@ func New(services *services.Services, cfg *config.Config) *Handlers {
 		Company:         NewCompanyHandler(services.CompanySettings),
 		Dashboard:       NewDashboardHandler(services.Dashboard),
 		God:             NewGodHandler(services),
+		Audit:           NewAuditHandler(services.Audit),
 	}
 }

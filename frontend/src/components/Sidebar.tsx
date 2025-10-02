@@ -18,6 +18,7 @@ const hrAdminLinks = [
   { href: "/documents", label: "Documents", icon: "📑" },
   { href: "/salary-slips", label: "Salary Slips", icon: "💰" },
   { href: "/holidays", label: "Events and Notices", icon: "📅" },
+  { href: "/audit-logs", label: "Audit Logs", icon: "📊" },
 ];
 
 const managerLinks = [

@@ -332,3 +332,27 @@ func (r *leaveRepository) buildQuery(query *gorm.DB, filters map[string]interfac
 	}
 	return query
 }
+
+func (r *leaveRepository) FindOverlappingLeaves(userID string, fromDate, toDate time.Time) ([]models.Leave, error) {
+	var leaves []models.Leave
+
+	// Convert string userID to uint
+	userIDUint, err := strconv.ParseUint(userID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	// Find overlapping leaves: existing from_date <= new to_date AND new from_date <= existing to_date
+	// This covers all overlap scenarios (partial overlap, complete overlap, etc.)
+	// Exclude cancelled/rejected leaves as they don't represent actual time off
+	if err := r.db.Preload("Category").Where(
+		"user_id = ? AND status IN ('pending', 'approved') AND "+
+			"from_date <= ? AND to_date >= ?",
+		uint(userIDUint),
+		toDate, fromDate,
+	).Find(&leaves).Error; err != nil {
+		return nil, fmt.Errorf("failed to find overlapping leaves: %w", err)
+	}
+
+	return leaves, nil
+}

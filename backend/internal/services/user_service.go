@@ -13,17 +13,19 @@ import (
 type userService struct {
 	userRepo         repositories.UserRepository
 	organizationRepo repositories.OrganizationRepository
+	auditService     AuditService
 }
 
 // NewUserService creates a new user service
-func NewUserService(userRepo repositories.UserRepository, organizationRepo repositories.OrganizationRepository) UserService {
+func NewUserService(userRepo repositories.UserRepository, organizationRepo repositories.OrganizationRepository, auditService AuditService) UserService {
 	return &userService{
 		userRepo:         userRepo,
 		organizationRepo: organizationRepo,
+		auditService:     auditService,
 	}
 }
 
-func (s *userService) CreateUser(req CreateUserRequest) (*models.User, error) {
+func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (*models.User, error) {
 	// Validate organization exists
 	_, err := s.organizationRepo.GetByID(req.OrganizationID)
 	if err != nil {
@@ -84,6 +86,24 @@ func (s *userService) CreateUser(req CreateUserRequest) (*models.User, error) {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
+	// Log audit entry for user creation
+	orgIDStr := strconv.FormatUint(uint64(user.OrganizationID), 10)
+	userIDStr := strconv.FormatUint(uint64(user.ID), 10)
+	
+	// Get current user from request context (from middleware)
+	changedBy := "19" // Default fallback
+	if httpReq != nil {
+		// Try to get user ID from context header (set by middleware)
+		if userID := httpReq.Header.Get("X-User-ID"); userID != "" {
+			changedBy = userID
+		}
+	}
+
+	// Log the user creation
+	if err := s.auditService.LogUserChange(orgIDStr, userIDStr, changedBy, "CREATE", nil, user, httpReq); err != nil {
+		fmt.Printf("Failed to log audit: %v\n", err)
+	}
+
 	return user, nil
 }
 
@@ -103,7 +123,7 @@ func (s *userService) ListUsers(organizationID string, filters map[string]interf
 	return users, nil
 }
 
-func (s *userService) UpdateUser(id string, req UpdateUserRequest) (*models.User, error) {
+func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http.Request) (*models.User, error) {
 	// Get existing user
 	user, err := s.userRepo.GetByID(id)
 	if err != nil {
@@ -176,13 +196,54 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest) (*models.User
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
+	// Log audit entry for user update
+	if req.CTC != nil || req.Name != nil || req.Role != nil || req.Department != nil || req.Designation != nil {
+		orgID := strconv.FormatUint(uint64(user.OrganizationID), 10)
+		
+		// Get current user from request context (from middleware)
+		changedBy := "19" // Default fallback
+		if httpReq != nil {
+			if userID := httpReq.Header.Get("X-User-ID"); userID != "" {
+				changedBy = userID
+			}
+		}
+		
+		// Log the user change (ignore any errors for now)
+		if err := s.auditService.LogUserChange(orgID, id, changedBy, "UPDATE", &oldUser, user, httpReq); err != nil {
+			fmt.Printf("Failed to log audit: %v\n", err)
+		}
+	}
+
 	return user, nil
 }
 
-func (s *userService) DeleteUser(id string) error {
+func (s *userService) DeleteUser(id string, httpReq *http.Request) error {
+	// Get user before deletion for audit logging
+	user, err := s.userRepo.GetByID(id)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
 	if err := s.userRepo.Delete(id); err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
+
+	// Log audit entry for user deletion
+	orgID := strconv.FormatUint(uint64(user.OrganizationID), 10)
+	
+	// Get current user from request context (from middleware)
+	changedBy := "19" // Default fallback
+	if httpReq != nil {
+		if userID := httpReq.Header.Get("X-User-ID"); userID != "" {
+			changedBy = userID
+		}
+	}
+	
+	// Log the user deletion
+	if err := s.auditService.LogUserChange(orgID, id, changedBy, "DELETE", user, nil, httpReq); err != nil {
+		fmt.Printf("Failed to log audit: %v\n", err)
+	}
+
 	return nil
 }
 

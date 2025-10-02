@@ -24,8 +24,21 @@ func NewSalarySlipHandler(salarySlipService services.SalarySlipService) *SalaryS
 // ListSalarySlips handles listing salary slips
 func (h *SalarySlipHandler) ListSalarySlips(c *gin.Context) {
 	organizationID := c.GetString("organization_id")
+	userID := c.Query("userId")
+	yearStr := c.Query("year")
 
-	salarySlips, err := h.salarySlipService.ListSalarySlips(organizationID, nil)
+	// Create filter map
+	filters := make(map[string]interface{})
+	if userID != "" {
+		filters["user_id"] = userID
+	}
+	if yearStr != "" {
+		if year, err := strconv.Atoi(yearStr); err == nil {
+			filters["year"] = year
+		}
+	}
+
+	salarySlips, err := h.salarySlipService.ListSalarySlips(organizationID, filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to list salary slips",

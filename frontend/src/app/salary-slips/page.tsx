@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getCompanySettings, uploadUserDocument, getUserDocuments } from "@/lib/api";
+import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getUser, getCompanySettings, uploadUserDocument, getUserDocuments } from "@/lib/api";
 import { computePayslipFromCTC } from "@/lib/payroll";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -28,11 +28,13 @@ export default function SalarySlipsPage() {
   const queryClient = useQueryClient();
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [employeeYears, setEmployeeYears] = useState<Record<string, number>>({});
   const itemsPerPage = 10;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["salary-slips", currentPage],
-    queryFn: () => getSalarySlips(canManageSalarySlips() ? { page: currentPage, limit: itemsPerPage } : { userId: userId, page: currentPage, limit: itemsPerPage }),
+    queryKey: ["salary-slips", currentPage, selectedYear],
+    queryFn: () => getSalarySlips(canManageSalarySlips() ? { page: currentPage, limit: itemsPerPage, year: selectedYear } : { userId: userId, page: currentPage, limit: itemsPerPage, year: selectedYear }),
   });
 
   const { data: usersData } = useQuery({
@@ -243,59 +245,34 @@ export default function SalarySlipsPage() {
                   <span className="text-xs text-gray-400">Click to view slips</span>
                 </summary>
                 <div className="p-4 pt-0 space-y-4">
-                  {/* Common Net Pay Section */}
-                  {companySettings?.data && (
-                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                      <h4 className="font-semibold mb-3 text-lg">Salary Breakdown</h4>
-                      <div className="grid md:grid-cols-3 gap-4">
-                        <div>
-                          <div className="font-semibold mb-2">Earnings</div>
-                          {Object.entries(computePayslipFromCTC(1000000, companySettings.data).earnings).map(([k, v]) => (
-                            <div key={k} className="flex justify-between text-sm mb-1">
-                              <span className="capitalize">{k}</span>
-                              <span>₹{v.toLocaleString('en-IN')}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div>
-                          <div className="font-semibold mb-2">Deductions</div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>Employee PF</span>
-                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).deductions.empPF.toLocaleString('en-IN')}</span>
-                          </div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>Professional Tax</span>
-                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).deductions.professionalTax.toLocaleString('en-IN')}</span>
-                          </div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>ESI</span>
-                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).deductions.esi.toLocaleString('en-IN')}</span>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="font-semibold mb-2">Employer PF</div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>Total PF</span>
-                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).employer.totalPF.toLocaleString('en-IN')}</span>
-                          </div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>EPS</span>
-                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).employer.eps.toLocaleString('en-IN')}</span>
-                          </div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>EPF</span>
-                            <span>₹{computePayslipFromCTC(1000000, companySettings.data).employer.epf.toLocaleString('en-IN')}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-4 pt-4 border-t border-white/10">
-                        <div className="flex justify-between text-lg font-bold">
-                          <span>Net Pay:</span>
-                          <span className="text-green-400">₹{computePayslipFromCTC(1000000, companySettings.data).totals.netPay.toLocaleString('en-IN')}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  {/* Dynamic Salary Breakdown Section */}
+                  <EmployeeSalaryBreakdown userId={String(uid)} companySettings={companySettings?.data} />
+
+       {/* Employee-specific Year Filter */}
+       <div className="flex items-center gap-2">
+         <label htmlFor={`year-select-${uid}`} className="text-sm text-gray-400">Filter by Year:</label>
+         <select
+           id={`year-select-${uid}`}
+           value={employeeYears[String(uid)] || ""}
+           onChange={(e) => {
+             const newYear = e.target.value ? Number(e.target.value) : null;
+             setEmployeeYears(prev => ({
+               ...prev,
+               [String(uid)]: newYear
+             }));
+           }}
+           className="px-3 py-1 rounded bg-white/10 border border-white/20 text-sm"
+         >
+           <option value="">All Years</option>
+           {[...new Set((data?.data || [])
+             .filter((s: any) => s.userId === uid)
+             .map((s: any) => s.year)
+             .sort((a: number, b: number) => b - a) // Sort years in descending order
+           )].map(year => (
+             <option key={year} value={year}>{year}</option>
+           ))}
+         </select>
+       </div>
 
                   {/* Salary Slips Table */}
                   <div className="overflow-x-auto">
@@ -309,7 +286,14 @@ export default function SalarySlipsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(data?.data || []).filter((s: any) => s.userId === uid).map((s: any) => (
+             {(data?.data || []).filter((s: any) => {
+               if (s.userId !== uid) return false;
+               const employeeYear = employeeYears[String(uid)];
+               if (employeeYear !== null && employeeYear !== undefined) {
+                 return s.year === employeeYear;
+               }
+               return true;
+             }).map((s: any) => (
                           <tr key={s.id} className="border-t border-white/10">
                             <td className="py-2">{new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' })}</td>
                             <td className="py-2">{s.year}</td>
@@ -403,41 +387,46 @@ export default function SalarySlipsPage() {
             )}
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {(data?.data || []).map((slip: any) => (
-              <div key={slip.id} className="p-4 border border-white/10 rounded-lg">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-semibold">
-                      {new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { 
-                        month: 'long', 
-                        year: 'numeric' 
-                      })}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Uploaded: {new Date(slip.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <a href={slip.fileUrl} target="_blank" className="text-green-400 hover:text-green-300">Download</a>
-                    <RoleGuard allowedRoles={["HR", "Admin"]}>
-                      <button
-                        onClick={() => handleDeleteSlip(
-                          slip.id, 
-                          "Employee", 
-                          new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { month: 'long' }), 
-                          slip.year
-                        )}
-                        disabled={deleteMutation.isPending}
-                        className="text-red-400 hover:text-red-300 underline disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                    </RoleGuard>
+          <div className="space-y-6">
+            {/* Salary Breakdown for Current User */}
+            <EmployeeSalaryBreakdown userId={userId} companySettings={companySettings?.data} isCurrentUser={true} />
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {(data?.data || []).map((slip: any) => (
+                <div key={slip.id} className="p-4 border border-white/10 rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold">
+                        {new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { 
+                          month: 'long', 
+                          year: 'numeric' 
+                        })}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Uploaded: {new Date(slip.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a href={slip.fileUrl} target="_blank" className="text-green-400 hover:text-green-300">Download</a>
+                      <RoleGuard allowedRoles={["HR", "Admin"]}>
+                        <button
+                          onClick={() => handleDeleteSlip(
+                            slip.id, 
+                            "Employee", 
+                            new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { month: 'long' }), 
+                            slip.year
+                          )}
+                          disabled={deleteMutation.isPending}
+                          className="text-red-400 hover:text-red-300 underline disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </RoleGuard>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
             
             {/* Pagination Controls for Non-Admin */}
             {data?.data && data.data.length > 0 && (
@@ -468,13 +457,99 @@ export default function SalarySlipsPage() {
   );
 }
 
+function EmployeeSalaryBreakdown({ userId, companySettings, isCurrentUser = false }: { userId: string; companySettings: any; isCurrentUser?: boolean }) {
+  const { data: userData, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => getUser(userId),
+    enabled: !!userId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+        <div className="flex items-center justify-center py-8">
+          <Loader />
+        </div>
+      </div>
+    );
+  }
+
+  if (!userData?.data || !companySettings) {
+    return null;
+  }
+
+  const userCTC = userData.data.ctc || 0;
+  const payslip = computePayslipFromCTC(userCTC, companySettings);
+
+  return (
+    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+      <h4 className="font-semibold mb-3 text-lg">
+        {isCurrentUser ? 'Your' : `${userData.data.name}'s`} Salary Breakdown (CTC: ₹{userCTC.toLocaleString('en-IN')})
+      </h4>
+      <div className="grid md:grid-cols-3 gap-4">
+        <div>
+          <div className="font-semibold mb-2">Earnings</div>
+          {Object.entries(payslip.earnings).map(([k, v]) => (
+            <div key={k} className="flex justify-between text-sm mb-1">
+              <span className="capitalize">{k}</span>
+              <span>₹{v.toLocaleString('en-IN')}</span>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div className="font-semibold mb-2">Deductions</div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>Employee PF</span>
+            <span>₹{payslip.deductions.empPF.toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>Professional Tax</span>
+            <span>₹{payslip.deductions.professionalTax.toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>ESI</span>
+            <span>₹{payslip.deductions.esi.toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+        <div>
+          <div className="font-semibold mb-2">Employer PF</div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>Total PF</span>
+            <span>₹{payslip.employer.totalPF.toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>EPS</span>
+            <span>₹{payslip.employer.eps.toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>EPF</span>
+            <span>₹{payslip.employer.epf.toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 pt-4 border-t border-white/10">
+        <div className="flex justify-between text-lg font-bold">
+          <span>Net Pay:</span>
+          <span className="text-green-400">₹{payslip.totals.netPay.toLocaleString('en-IN')}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmployeeDocsList({ userId }: { userId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["user-docs", userId],
     queryFn: () => getUserDocuments(userId),
+    retry: 1,
   });
+  
   if (isLoading) return <div className="text-sm text-gray-400">Loading documents...</div>;
-  if (error) return <div className="text-sm text-red-400">Failed to load documents</div> as any;
+  if (error) {
+    console.error('Error loading documents for user', userId, error);
+    return <div className="text-sm text-red-400">Failed to load documents. Please try again.</div>;
+  }
+  
   const docs = data?.data || [];
   return (
     <div className="space-y-2">

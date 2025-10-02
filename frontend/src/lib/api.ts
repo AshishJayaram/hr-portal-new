@@ -526,6 +526,20 @@ export const rejectLeave = (id: string, reason?: string) =>
     body: JSON.stringify({ reason }),
   });
 
+export const editLeave = (id: string, body: {
+  category_id: string;
+  type: string;
+  reason?: string;
+  from_date: string;
+  to_date: string;
+  start_half?: string;
+  end_half?: string;
+}) =>
+  fetcher<ApiResponse<Leave>>(`/leaves/${id}/edit`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+
 // -------------------- Documents --------------------
 export const getDocuments = (params?: Record<string, string>) =>
   fetcher<any>(`/documents?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
@@ -585,7 +599,7 @@ export const downloadDocument = (id: string) =>
 // -------------------- Salary Slips --------------------
 export const getSalarySlips = (params?: Record<string, string>) =>
   fetcher<any>(`/salary-slips?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
-    const items = (raw?.data || raw || []) as any[];
+    const items = (raw?.salary_slips || raw?.data || raw || []) as any[];
     const mapped: SalarySlip[] = items.map((s: any) => ({
       id: String(s.id),
       userId: String(s.user_id ?? s.userId ?? ''),
@@ -614,8 +628,8 @@ export const deleteSalarySlip = (id: string) =>
 
 // Per-employee private documents
 export const getUserDocuments = (userId: string) =>
-  fetcher<any>(`/users/${userId}/documents`).then((raw) => {
-    const items = (raw?.data || raw || []) as any[];
+  fetcher<any>(`/documents?userId=${userId}`).then((raw) => {
+    const items = (raw?.documents || raw?.data || raw || []) as any[];
     const mapped: Document[] = items.map((d: any) => ({
       id: String(d.id),
       title: d.title,
@@ -628,7 +642,7 @@ export const getUserDocuments = (userId: string) =>
   }).catch(() => {
     // Fallback: filter all documents by userId if endpoint not available
     return fetcher<any>(`/documents?userId=${encodeURIComponent(userId)}`).then((raw2) => {
-      const items = (raw2?.data || raw2 || []) as any[];
+      const items = (raw2?.documents || raw2?.data || raw2 || []) as any[];
       const mapped: Document[] = items.map((d: any) => ({
         id: String(d.id),
         title: d.title,
@@ -645,8 +659,7 @@ export const uploadUserDocument = (userId: string, formData: FormData) => {
   // Ensure private by default for employee-scoped docs
   if (!formData.has('isPublic')) formData.append('isPublic', 'false');
   if (!formData.has('userId')) formData.append('userId', userId);
-  return uploadFile<ApiResponse<Document>>(`/api/users/${userId}/documents`, formData)
-    .catch(() => uploadFile<ApiResponse<Document>>('/api/documents', formData));
+  return uploadFile<ApiResponse<Document>>('/api/documents', formData);
 };
 
 // -------------------- Holidays --------------------
@@ -939,5 +952,40 @@ export const deleteOrganization = async (id: number): Promise<{ message: string 
 // -------------------- Leave Categories --------------------
 
 // -------------------- Leave Allocations --------------------
+
+// -------------------- Audit Logs --------------------
+export const getAuditLogs = (filters?: { entity_type?: string; entity_id?: string; changed_by?: string; action?: string }) => {
+  const queryParams = new URLSearchParams();
+  if (filters?.entity_type) queryParams.append('entity_type', filters.entity_type);
+  if (filters?.entity_id) queryParams.append('entity_id', filters.entity_id);
+  if (filters?.changed_by) queryParams.append('changed_by', filters.changed_by);
+  if (filters?.action) queryParams.append('action', filters.action);
+  
+  const queryString = queryParams.toString();
+  return fetcher<any>(`/audit/logs${queryString ? `?${queryString}` : ''}`)
+    .then((raw) => {
+      const items = raw?.data || raw || [];
+      return { data: items } as ApiResponse<any[]>;
+    });
+};
+
+export const getUserAuditLogs = (userId: string) =>
+  fetcher<any>(`/audit/logs/user/${userId}`)
+    .then((raw) => {
+      const items = raw?.data || raw || [];
+      return { data: items } as ApiResponse<any[]>;
+    });
+
+export const getEntityAuditLogs = (entityType: string, entityId: string) => {
+  const queryParams = new URLSearchParams();
+  queryParams.append('entity_type', entityType);
+  queryParams.append('entity_id', entityId);
+  
+  return fetcher<any>(`/audit/logs/entity?${queryParams.toString()}`)
+    .then((raw) => {
+      const items = raw?.data || raw || [];
+      return { data: items } as ApiResponse<any[]>;
+    });
+};
 
 
