@@ -219,6 +219,103 @@ func (s *auditService) DeleteOldLogs(organizationID string, olderThan time.Time)
 	return s.repo.Delete(organizationID, olderThan)
 }
 
+// AddDummyLogs creates some sample audit logs for testing
+func (s *auditService) AddDummyLogs(organizationID string) error {
+	// Use the provided organization ID
+	orgID := organizationID
+
+	// Check if dummy logs already exist for this organization
+	existingLogs, _ := s.repo.List(orgID, map[string]interface{}{})
+	if len(existingLogs) > 0 {
+		// Dummy logs already exist, don't add more
+		return nil
+	}
+
+	// Convert orgID to uint for database
+	orgIDUint, err := strconv.ParseUint(orgID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Create sample audit logs for the specific organization
+	dummyLogs := []models.AuditLog{
+		{
+			BaseModel: models.BaseModel{
+				CreatedAt: time.Now().Add(-2 * 24 * time.Hour),
+				UpdatedAt: time.Now().Add(-2 * 24 * time.Hour),
+			},
+			OrganizationID: uint(orgIDUint),
+			Action:         "CREATE",
+			EntityType:     "USER",
+			EntityID:       "33",
+			ChangedBy:      19,
+			ChangeSummary:  "John Doe was created",
+			IPAddress:      "127.0.0.1",
+		},
+		{
+			BaseModel: models.BaseModel{
+				CreatedAt: time.Now().Add(-1 * 24 * time.Hour),
+				UpdatedAt: time.Now().Add(-1 * 24 * time.Hour),
+			},
+			OrganizationID: uint(orgIDUint),
+			Action:         "UPDATE",
+			EntityType:     "USER",
+			EntityID:       "33",
+			ChangedBy:      19,
+			ChangeSummary:  "John Doe's CTC was changed - ₹50,000 → ₹60,000",
+			IPAddress:      "127.0.0.1",
+		},
+		{
+			BaseModel: models.BaseModel{
+				CreatedAt: time.Now().Add(-30 * time.Minute),
+				UpdatedAt: time.Now().Add(-30 * time.Minute),
+			},
+			OrganizationID: uint(orgIDUint),
+			Action:         "CREATE",
+			EntityType:     "LEAVE",
+			EntityID:       "1",
+			ChangedBy:      33,
+			ChangeSummary:  "Leave application submitted: Sick Leave from 2024-01-15 to 2024-01-17",
+			IPAddress:      "127.0.0.1",
+		},
+		{
+			BaseModel: models.BaseModel{
+				CreatedAt: time.Now().Add(-15 * time.Minute),
+				UpdatedAt: time.Now().Add(-15 * time.Minute),
+			},
+			OrganizationID: uint(orgIDUint),
+			Action:         "APPROVE",
+			EntityType:     "LEAVE",
+			EntityID:       "1",
+			ChangedBy:      19,
+			ChangeSummary:  "Leave approved:	Sick Leave from 2024-01-15 to 2024-01-17",
+			IPAddress:      "127.0.0.1",
+		},
+		{
+			BaseModel: models.BaseModel{
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			},
+			OrganizationID: uint(orgIDUint),
+			Action:         "CREATE",
+			EntityType:     "DOCUMENT",
+			EntityID:       "1",
+			ChangedBy:      33,
+			ChangeSummary:  "Document 'Employment Contract.pdf' uploaded",
+			IPAddress:      "127.0.0.1",
+		},
+	}
+
+	// Insert dummy logs
+	for _, log := range dummyLogs {
+		if err := s.repo.Create(&log); err != nil {
+			// Continue if some logs fail to insert
+			continue
+		}
+	}
+	return nil
+}
+
 // Helper to get client IP from request
 func (s *auditService) getClientIP(req *http.Request) string {
 	// Check for forwarded IP

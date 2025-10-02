@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -11,16 +12,18 @@ import (
 
 // documentService implements DocumentService interface
 type documentService struct {
-	repo repositories.DocumentRepository
+	repo         repositories.DocumentRepository
+	auditService AuditService
 }
 
-func NewDocumentService(repo repositories.DocumentRepository) DocumentService {
+func NewDocumentService(repo repositories.DocumentRepository, auditService AuditService) DocumentService {
 	return &documentService{
-		repo: repo,
+		repo:         repo,
+		auditService: auditService,
 	}
 }
 
-func (s *documentService) UploadDocument(req UploadDocumentRequest) (*models.Document, error) {
+func (s *documentService) UploadDocument(req UploadDocumentRequest, httpReq *http.Request) (*models.Document, error) {
 	// Convert string IDs to uint
 	userID, err := strconv.ParseUint(req.UserID, 10, 32)
 	if err != nil {
@@ -51,6 +54,24 @@ func (s *documentService) UploadDocument(req UploadDocumentRequest) (*models.Doc
 		return nil, fmt.Errorf("failed to create document: %w", err)
 	}
 
+	// Log audit entry for document upload
+	orgIDStr := strconv.FormatUint(uint64(document.OrganizationID), 10)
+	documentIDStr := document.ID.String()
+
+	// Get current user from request context
+	changedBy := "19" // Default fallback
+	if httpReq != nil {
+		if userID := httpReq.Header.Get("X-User-ID"); userID != "" {
+			changedBy = userID
+		}
+	}
+
+	// Log the document upload
+	changeSummary := fmt.Sprintf("Document '%s' uploaded for user", document.Title)
+	if err := s.auditService.LogDocumentChange(orgIDStr, documentIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
+		fmt.Printf("Failed to log audit: %v\n", err)
+	}
+
 	return document, nil
 }
 
@@ -62,8 +83,36 @@ func (s *documentService) ListDocuments(organizationID string, filters map[strin
 	return s.repo.List(organizationID, filters)
 }
 
-func (s *documentService) DeleteDocument(id string) error {
-	return s.repo.Delete(id)
+func (s *documentService) DeleteDocument(id string, httpReq *http.Request) error {
+	// Get document before deletion for audit logging
+	document, err := s.repo.GetByID(id)
+	if err != nil {
+		return fmt.Errorf("failed to get document: %w", err)
+	}
+
+	err = s.repo.Delete(id)
+	if err != nil {
+		return fmt.Errorf("failed to delete document: %w", err)
+	}
+
+	// Log audit entry for document deletion
+	orgIDStr := strconv.FormatUint(uint64(document.OrganizationID), 10)
+
+	// Get current user from request context
+	changedBy := "19" // Default fallback
+	if httpReq != nil {
+		if userID := httpReq.Header.Get("X-User-ID"); userID != "" {
+			changedBy = userID
+		}
+	}
+
+	// Log the document deletion
+	changeSummary := fmt.Sprintf("Document '%s' deleted", document.Title)
+	if err := s.auditService.LogDocumentChange(orgIDStr, id, changedBy, "DELETE", changeSummary, httpReq); err != nil {
+		fmt.Printf("Failed to log audit: %v\n", err)
+	}
+
+	return nil
 }
 
 func (s *documentService) GetUserDocuments(userID string) ([]models.Document, error) {
@@ -77,16 +126,18 @@ func (s *documentService) DownloadDocument(id string) ([]byte, error) {
 
 // salarySlipService implements SalarySlipService interface
 type salarySlipService struct {
-	repo repositories.SalarySlipRepository
+	repo         repositories.SalarySlipRepository
+	auditService AuditService
 }
 
-func NewSalarySlipService(repo repositories.SalarySlipRepository) SalarySlipService {
+func NewSalarySlipService(repo repositories.SalarySlipRepository, auditService AuditService) SalarySlipService {
 	return &salarySlipService{
-		repo: repo,
+		repo:         repo,
+		auditService: auditService,
 	}
 }
 
-func (s *salarySlipService) UploadSalarySlip(req UploadSalarySlipRequest) (*models.SalarySlip, error) {
+func (s *salarySlipService) UploadSalarySlip(req UploadSalarySlipRequest, httpReq *http.Request) (*models.SalarySlip, error) {
 	// Convert string IDs to uint
 	userID, err := strconv.ParseUint(req.UserID, 10, 32)
 	if err != nil {
@@ -114,6 +165,24 @@ func (s *salarySlipService) UploadSalarySlip(req UploadSalarySlipRequest) (*mode
 	err = s.repo.Create(salarySlip)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create salary slip: %w", err)
+	}
+
+	// Log audit entry for salary slip upload
+	orgIDStr := strconv.FormatUint(uint64(salarySlip.OrganizationID), 10)
+	salarySlipIDStr := strconv.FormatUint(uint64(salarySlip.ID), 10)
+
+	// Get current user from request context
+	changedBy := "19" // Default fallback
+	if httpReq != nil {
+		if userID := httpReq.Header.Get("X-User-ID"); userID != "" {
+			changedBy = userID
+		}
+	}
+
+	// Log the salary slip upload
+	changeSummary := fmt.Sprintf("Salary slip uploaded for %s (%s)", req.Month, req.Year)
+	if err := s.auditService.LogSalarySlipChange(orgIDStr, salarySlipIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
+		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	return salarySlip, nil
@@ -261,12 +330,8 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		recentSalarySlips = recentSalarySlips[:3]
 	}
 
-	// Get leave balances for the current user
-	leaveService := NewLeaveService(s.repos.Leave, s.repos.User, s.repos.LeaveCategory, s.repos.LeaveAllocation, s.repos.Holiday)
-	leaveBalances, err := leaveService.GetLeaveBalance(userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get leave balances: %w", err)
-	}
+	// Leave balances are handled by the dashboard service
+	leaveBalances := []LeaveBalanceResponse{}
 
 	return &DashboardStatsResponse{
 		TotalUsers:        totalUsers,

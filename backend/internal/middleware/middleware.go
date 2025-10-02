@@ -89,6 +89,9 @@ func AuthRequired(secret string) gin.HandlerFunc {
 			c.Set("user_role", "")
 		}
 
+		// Set user ID in request headers for audit logging
+		c.Request.Header.Set("X-User-ID", userID)
+
 		c.Next()
 	}
 }

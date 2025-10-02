@@ -36,7 +36,7 @@ func (h *HolidayHandler) CreateHoliday(c *gin.Context) {
 	}
 	req.OrganizationID = orgID.(string)
 
-	holiday, err := h.service.CreateHoliday(req)
+	holiday, err := h.service.CreateHoliday(req, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

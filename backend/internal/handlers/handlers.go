@@ -26,7 +26,7 @@ func New(services *services.Services, cfg *config.Config) *Handlers {
 	return &Handlers{
 		Auth:            NewAuthHandler(services.Auth),
 		User:            NewUserHandler(services.User),
-		Leave:           NewLeaveHandler(services.Leave),
+		Leave:           NewLeaveHandler(services.Leave, services.Audit),
 		LeaveCategory:   NewLeaveCategoryHandler(services.LeaveCategory),
 		LeaveAllocation: NewLeaveAllocationHandler(services.LeaveAllocation),
 		Document:        NewDocumentHandler(services.Document),

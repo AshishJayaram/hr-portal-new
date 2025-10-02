@@ -69,7 +69,7 @@ func (h *GodHandler) GetOrganization(c *gin.Context) {
 	response := gin.H{
 		"organization": org,
 	}
-	
+
 	if adminUser != nil {
 		response["admin_user"] = gin.H{
 			"id":       adminUser.ID,
@@ -194,7 +194,7 @@ func (h *GodHandler) CreateUser(c *gin.Context) {
 		Department:     req.Department,
 		OrganizationID: req.OrganizationID,
 		CTC:            req.CTC,
-	})
+	}, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
@@ -263,7 +263,7 @@ func (h *GodHandler) UpdateUser(c *gin.Context) {
 		Department:  &user.Department,
 		CTC:         &user.CTC,
 		IsActive:    &user.IsActive,
-	})
+	}, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return
@@ -276,7 +276,7 @@ func (h *GodHandler) UpdateUser(c *gin.Context) {
 func (h *GodHandler) DeleteUser(c *gin.Context) {
 	userID := c.Param("id")
 
-	if err := h.services.User.DeleteUser(userID); err != nil {
+	if err := h.services.User.DeleteUser(userID, c.Request); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
 		return
 	}

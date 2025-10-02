@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"hr-portal-backend/internal/models"
@@ -89,7 +90,7 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 	// Log audit entry for user creation
 	orgIDStr := strconv.FormatUint(uint64(user.OrganizationID), 10)
 	userIDStr := strconv.FormatUint(uint64(user.ID), 10)
-	
+
 	// Get current user from request context (from middleware)
 	changedBy := "19" // Default fallback
 	if httpReq != nil {
@@ -129,6 +130,9 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
+
+	// Store old user for audit logging
+	oldUser := *user
 
 	// Update fields if provided
 	if req.Username != nil {
@@ -199,7 +203,7 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 	// Log audit entry for user update
 	if req.CTC != nil || req.Name != nil || req.Role != nil || req.Department != nil || req.Designation != nil {
 		orgID := strconv.FormatUint(uint64(user.OrganizationID), 10)
-		
+
 		// Get current user from request context (from middleware)
 		changedBy := "19" // Default fallback
 		if httpReq != nil {
@@ -207,7 +211,7 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 				changedBy = userID
 			}
 		}
-		
+
 		// Log the user change (ignore any errors for now)
 		if err := s.auditService.LogUserChange(orgID, id, changedBy, "UPDATE", &oldUser, user, httpReq); err != nil {
 			fmt.Printf("Failed to log audit: %v\n", err)
@@ -230,7 +234,7 @@ func (s *userService) DeleteUser(id string, httpReq *http.Request) error {
 
 	// Log audit entry for user deletion
 	orgID := strconv.FormatUint(uint64(user.OrganizationID), 10)
-	
+
 	// Get current user from request context (from middleware)
 	changedBy := "19" // Default fallback
 	if httpReq != nil {
@@ -238,7 +242,7 @@ func (s *userService) DeleteUser(id string, httpReq *http.Request) error {
 			changedBy = userID
 		}
 	}
-	
+
 	// Log the user deletion
 	if err := s.auditService.LogUserChange(orgID, id, changedBy, "DELETE", user, nil, httpReq); err != nil {
 		fmt.Printf("Failed to log audit: %v\n", err)

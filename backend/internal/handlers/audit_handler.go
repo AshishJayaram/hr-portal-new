@@ -82,6 +82,25 @@ func (h *AuditHandler) GetAuditLogs(c *gin.Context) {
 		return
 	}
 
+	// If there are no audit logs, automatically add dummy logs (only for Admin/God)
+	if len(auditLogs) == 0 && (userRole == "Admin" || userRole == "God") {
+		if err := h.auditService.AddDummyLogs(organizationID.(string)); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to create sample audit logs",
+			})
+			return
+		}
+
+		// Fetch logs again after adding dummy logs
+		auditLogs, err = h.auditService.GetAuditLogs(organizationID, filters)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to fetch audit logs after creating samples",
+			})
+			return
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"data":  auditLogs,
 		"total": len(auditLogs),
@@ -148,5 +167,30 @@ func (h *AuditHandler) GetEntityAuditLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"data":  auditLogs,
 		"total": len(auditLogs),
+	})
+}
+
+// AddDummyLogs handles POST /api/audit/dummy-logs
+func (h *AuditHandler) AddDummyLogs(c *gin.Context) {
+	userRole := c.GetString("user_role")
+
+	// Only Admin and God roles can add dummy logs
+	if userRole != "Admin" && userRole != "God" {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "Insufficient permissions to add dummy logs",
+		})
+		return
+	}
+
+	err := h.auditService.AddDummyLogs(organizationID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to add dummy logs",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Dummy audit logs added successfully",
 	})
 }

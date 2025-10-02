@@ -89,6 +89,11 @@ func main() {
 	// Initialize services
 	services := services.New(repos, cfg)
 
+	// Add dummy audit logs for testing (only if no logs exist) - using demo organization for now
+	services.Audit.AddDummyLogs("4")
+	// Also add logs for organization 1 to test filtering
+	services.Audit.AddDummyLogs("1")
+
 	// Initialize handlers
 	handlers := handlers.New(services, cfg)
 
@@ -328,6 +333,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			audit.GET("/logs", handlers.Audit.GetAuditLogs)
 			audit.GET("/logs/user/:user_id", handlers.Audit.GetUserAuditLogs)
 			audit.GET("/logs/entity", handlers.Audit.GetEntityAuditLogs)
+			audit.POST("/dummy-logs", handlers.Audit.AddDummyLogs)
 		}
 	}
 

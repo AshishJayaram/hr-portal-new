@@ -43,27 +43,27 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 
 	// Parse query parameters
 	filters := make(map[string]interface{})
-	
+
 	if pageStr := c.Query("page"); pageStr != "" {
 		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
 			filters["page"] = page
 		}
 	}
-	
+
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= 100 {
 			filters["limit"] = limit
 		}
 	}
-	
+
 	if search := c.Query("search"); search != "" {
 		filters["search"] = search
 	}
-	
+
 	if role := c.Query("role"); role != "" {
 		filters["role"] = role
 	}
-	
+
 	if department := c.Query("department"); department != "" {
 		filters["department"] = department
 	}
@@ -78,7 +78,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": users,
+		"data":  users,
 		"total": len(users),
 	})
 }
@@ -145,7 +145,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	organizationID, _ := c.Get("current_organization_id")
 	req.OrganizationID = organizationID.(string)
 
-	user, err := h.userService.CreateUser(req)
+	user, err := h.userService.CreateUser(req, c.Request)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to create user")
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -155,7 +155,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"data": user,
+		"data":    user,
 		"message": "User created successfully",
 	})
 }
@@ -192,7 +192,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userService.UpdateUser(userID, req)
+	user, err := h.userService.UpdateUser(userID, req, c.Request)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to update user")
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -202,7 +202,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": user,
+		"data":    user,
 		"message": "User updated successfully",
 	})
 }
@@ -229,7 +229,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	err := h.userService.DeleteUser(userID)
+	err := h.userService.DeleteUser(userID, c.Request)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to delete user")
 		c.JSON(http.StatusBadRequest, gin.H{

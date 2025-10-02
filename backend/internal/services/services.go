@@ -34,12 +34,12 @@ func New(repos *repositories.Repositories, cfg *config.Config) *Services {
 	return &Services{
 		User:            NewUserService(repos.User, repos.Organization, auditService),
 		Auth:            NewAuthService(repos.User, repos.Organization, cfg.JWT),
-		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday),
+		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService),
 		LeaveCategory:   NewLeaveCategoryService(repos.LeaveCategory),
 		LeaveAllocation: NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory),
-		Document:        NewDocumentService(repos.Document),
-		SalarySlip:      NewSalarySlipService(repos.SalarySlip),
-		Holiday:         NewHolidayService(repos.Holiday),
+		Document:        NewDocumentService(repos.Document, auditService),
+		SalarySlip:      NewSalarySlipService(repos.SalarySlip, auditService),
+		Holiday:         NewHolidayService(repos.Holiday, auditService),
 		CompanySettings: NewCompanySettingsService(repos.CompanySettings),
 		Dashboard:       NewDashboardService(repos),
 		Organization:    NewOrganizationService(repos.Organization),
@@ -49,11 +49,11 @@ func New(repos *repositories.Repositories, cfg *config.Config) *Services {
 
 // UserService interface for user business logic
 type UserService interface {
-	CreateUser(req CreateUserRequest) (*models.User, error)
+	CreateUser(req CreateUserRequest, httpReq *http.Request) (*models.User, error)
 	GetUser(id string) (*models.User, error)
 	ListUsers(organizationID string, filters map[string]interface{}) ([]models.User, error)
-	UpdateUser(id string, req UpdateUserRequest) (*models.User, error)
-	DeleteUser(id string) error
+	UpdateUser(id string, req UpdateUserRequest, httpReq *http.Request) (*models.User, error)
+	DeleteUser(id string, httpReq *http.Request) error
 	ChangePassword(userID, currentPassword, newPassword string) error
 	IsSubordinate(organizationID, managerID, subordinateID string) (bool, error)
 	GetSubordinates(organizationID, managerID string) ([]models.User, error)
@@ -95,7 +95,7 @@ type PaginatedResponse struct {
 
 // LeaveService interface for leave business logic
 type LeaveService interface {
-	ApplyLeave(req ApplyLeaveRequest) (*models.Leave, error)
+	ApplyLeave(req ApplyLeaveRequest, httpReq *http.Request) (*models.Leave, error)
 	GetLeave(id string) (*models.Leave, error)
 	ListLeaves(organizationID string, filters map[string]interface{}) ([]models.Leave, error)
 	ListLeavesPaginated(organizationID string, filters map[string]interface{}, page, perPage int) (*PaginatedResponse, error)
@@ -118,6 +118,35 @@ type LeaveCategoryService interface {
 	DeleteCategory(id string) error
 }
 
+// DocumentService interface for document business logic
+type DocumentService interface {
+	UploadDocument(req UploadDocumentRequest, httpReq *http.Request) (*models.Document, error)
+	GetDocument(id string) (*models.Document, error)
+	ListDocuments(organizationID string, filters map[string]interface{}) ([]models.Document, error)
+	DeleteDocument(id string, httpReq *http.Request) error
+	GetUserDocuments(userID string) ([]models.Document, error)
+	DownloadDocument(id string) ([]byte, error)
+}
+
+// SalarySlipService interface for salary slip business logic
+type SalarySlipService interface {
+	UploadSalarySlip(req UploadSalarySlipRequest, httpReq *http.Request) (*models.SalarySlip, error)
+	GetSalarySlip(id string) (*models.SalarySlip, error)
+	ListSalarySlips(organizationID string, filters map[string]interface{}) ([]models.SalarySlip, error)
+	DeleteSalarySlip(id string) error
+	GetUserSalarySlips(userID string) ([]models.SalarySlip, error)
+	DownloadSalarySlip(id string) ([]byte, error)
+}
+
+// HolidayService interface for holiday business logic
+type HolidayService interface {
+	CreateHoliday(req CreateHolidayRequest, httpReq *http.Request) (*models.Holiday, error)
+	GetHoliday(id string) (*models.Holiday, error)
+	ListHolidays(organizationID string, filters map[string]interface{}) ([]models.Holiday, error)
+	UpdateHoliday(id string, req UpdateHolidayRequest) (*models.Holiday, error)
+	DeleteHoliday(id string) error
+}
+
 // LeaveAllocationService interface for leave allocation business logic
 type LeaveAllocationService interface {
 	CreateAllocation(req CreateLeaveAllocationRequest) (*models.LeaveAllocation, error)
@@ -126,24 +155,6 @@ type LeaveAllocationService interface {
 	ListAllocations(organizationID string, filters map[string]interface{}) ([]models.LeaveAllocation, error)
 	UpdateAllocation(id string, req UpdateLeaveAllocationRequest) (*models.LeaveAllocation, error)
 	DeleteAllocation(id string) error
-}
-
-// DocumentService interface for document business logic
-type DocumentService interface {
-	UploadDocument(req UploadDocumentRequest) (*models.Document, error)
-	GetDocument(id string) (*models.Document, error)
-	ListDocuments(organizationID string, filters map[string]interface{}) ([]models.Document, error)
-	DeleteDocument(id string) error
-	GetUserDocuments(userID string) ([]models.Document, error)
-}
-
-// SalarySlipService interface for salary slip business logic
-type SalarySlipService interface {
-	UploadSalarySlip(req UploadSalarySlipRequest) (*models.SalarySlip, error)
-	GetSalarySlip(id string) (*models.SalarySlip, error)
-	ListSalarySlips(organizationID string, filters map[string]interface{}) ([]models.SalarySlip, error)
-	DeleteSalarySlip(id string) error
-	GetUserSalarySlips(userID string) ([]models.SalarySlip, error)
 }
 
 // CompanySettingsService interface for company settings business logic
@@ -169,6 +180,7 @@ type AuditService interface {
 	GetEntityAuditLogs(entityType, entityID string) ([]models.AuditLog, error)
 	GetUserAuditLogs(userID string) ([]models.AuditLog, error)
 	DeleteOldLogs(organizationID string, olderThan time.Time) error
+	AddDummyLogs(organizationID string) error
 }
 
 // Request/Response DTOs

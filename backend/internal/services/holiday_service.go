@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -9,17 +10,19 @@ import (
 	"hr-portal-backend/internal/repositories"
 )
 
-type HolidayService struct {
-	repo repositories.HolidayRepository
+type holidayService struct {
+	repo         repositories.HolidayRepository
+	auditService AuditService
 }
 
-func NewHolidayService(repo repositories.HolidayRepository) HolidayService {
-	return HolidayService{
-		repo: repo,
+func NewHolidayService(repo repositories.HolidayRepository, auditService AuditService) HolidayService {
+	return &holidayService{
+		repo:         repo,
+		auditService: auditService,
 	}
 }
 
-func (s *HolidayService) CreateHoliday(req CreateHolidayRequest) (*models.Holiday, error) {
+func (s *holidayService) CreateHoliday(req CreateHolidayRequest, httpReq *http.Request) (*models.Holiday, error) {
 	// Convert string organization ID to uint
 	orgID, err := strconv.ParseUint(req.OrganizationID, 10, 32)
 	if err != nil {
@@ -48,10 +51,35 @@ func (s *HolidayService) CreateHoliday(req CreateHolidayRequest) (*models.Holida
 		return nil, fmt.Errorf("failed to create holiday: %w", err)
 	}
 
+	// Log audit entry for holiday creation
+	orgIDStr := strconv.FormatUint(uint64(holiday.OrganizationID), 10)
+	holidayIDStr := strconv.FormatUint(uint64(holiday.ID), 10)
+
+	// Get current user from request context
+	changedBy := "19" // Default fallback
+	if httpReq != nil {
+		if userID := httpReq.Header.Get("X-User-ID"); userID != "" {
+			changedBy = userID
+		}
+	}
+
+	// Log the holiday creation
+	changeSummary := fmt.Sprintf("Holiday '%s' created (%s)", holiday.Name, holiday.Type)
+	if err := s.auditService.LogAction(AuditActionRequest{
+		OrganizationID: orgIDStr,
+		Action:         "CREATE",
+		EntityType:     "HOLIDAY",
+		EntityID:       holidayIDStr,
+		ChangedBy:      changedBy,
+		ChangeSummary:  changeSummary,
+	}, httpReq); err != nil {
+		fmt.Printf("Failed to log audit: %v\n", err)
+	}
+
 	return holiday, nil
 }
 
-func (s *HolidayService) GetHoliday(id string) (*models.Holiday, error) {
+func (s *holidayService) GetHoliday(id string) (*models.Holiday, error) {
 	holiday, err := s.repo.GetByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("holiday not found: %w", err)
@@ -59,7 +87,7 @@ func (s *HolidayService) GetHoliday(id string) (*models.Holiday, error) {
 	return holiday, nil
 }
 
-func (s *HolidayService) ListHolidays(organizationID string, filters map[string]interface{}) ([]models.Holiday, error) {
+func (s *holidayService) ListHolidays(organizationID string, filters map[string]interface{}) ([]models.Holiday, error) {
 	holidays, err := s.repo.List(organizationID, filters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list holidays: %w", err)
@@ -67,7 +95,7 @@ func (s *HolidayService) ListHolidays(organizationID string, filters map[string]
 	return holidays, nil
 }
 
-func (s *HolidayService) UpdateHoliday(id string, req UpdateHolidayRequest) (*models.Holiday, error) {
+func (s *holidayService) UpdateHoliday(id string, req UpdateHolidayRequest) (*models.Holiday, error) {
 	holiday, err := s.repo.GetByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("holiday not found: %w", err)
@@ -105,7 +133,7 @@ func (s *HolidayService) UpdateHoliday(id string, req UpdateHolidayRequest) (*mo
 	return holiday, nil
 }
 
-func (s *HolidayService) DeleteHoliday(id string) error {
+func (s *holidayService) DeleteHoliday(id string) error {
 	err := s.repo.Delete(id)
 	if err != nil {
 		return fmt.Errorf("failed to delete holiday: %w", err)
@@ -113,7 +141,7 @@ func (s *HolidayService) DeleteHoliday(id string) error {
 	return nil
 }
 
-func (s *HolidayService) GetUpcomingHolidays(organizationID string, limit int) ([]models.Holiday, error) {
+func (s *holidayService) GetUpcomingHolidays(organizationID string, limit int) ([]models.Holiday, error) {
 	// TODO: Implement GetUpcoming method in repository
 	holidays, err := s.repo.List(organizationID, map[string]interface{}{"limit": limit})
 	if err != nil {

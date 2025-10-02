@@ -16,12 +16,14 @@ import (
 
 // LeaveHandler handles leave-related HTTP requests
 type LeaveHandler struct {
-	service services.LeaveService
+	service      services.LeaveService
+	auditService services.AuditService
 }
 
-func NewLeaveHandler(service services.LeaveService) *LeaveHandler {
+func NewLeaveHandler(service services.LeaveService, auditService services.AuditService) *LeaveHandler {
 	return &LeaveHandler{
-		service: service,
+		service:      service,
+		auditService: auditService,
 	}
 }
 
@@ -176,7 +178,7 @@ func (h *LeaveHandler) ApplyLeave(c *gin.Context) {
 		return
 	}
 
-	leave, err := h.service.ApplyLeave(req)
+	leave, err := h.service.ApplyLeave(req, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -270,6 +272,14 @@ func (h *LeaveHandler) ApproveLeave(c *gin.Context) {
 		return
 	}
 
+	// Log audit entry for leave approval
+	orgIDStr := strconv.FormatUint(uint64(approvedLeave.OrganizationID), 10)
+	leaveIDStr := strconv.FormatUint(uint64(approvedLeave.ID), 10)
+	changeSummary := fmt.Sprintf("Leave approved: %s from %s to %s", approvedLeave.Type, approvedLeave.FromDate.Format("2006-01-02"), approvedLeave.ToDate.Format("2006-01-02"))
+	if err := h.auditService.LogLeaveChange(orgIDStr, leaveIDStr, userID.(string), "APPROVE", changeSummary, c.Request); err != nil {
+		fmt.Printf("Failed to log audit: %v\n", err)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"data": approvedLeave, "message": "Leave approved successfully"})
 }
 
@@ -315,6 +325,14 @@ func (h *LeaveHandler) RejectLeave(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Log audit entry for leave rejection
+	orgIDStr := strconv.FormatUint(uint64(rejectedLeave.OrganizationID), 10)
+	leaveIDStr := strconv.FormatUint(uint64(rejectedLeave.ID), 10)
+	changeSummary := fmt.Sprintf("Leave rejected: %s from %s to %s (Reason: %s)", rejectedLeave.Type, rejectedLeave.FromDate.Format("2006-01-02"), rejectedLeave.ToDate.Format("2006-01-02"), req.Reason)
+	if err := h.auditService.LogLeaveChange(orgIDStr, leaveIDStr, userID.(string), "REJECT", changeSummary, c.Request); err != nil {
+		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": rejectedLeave, "message": "Leave rejected successfully"})

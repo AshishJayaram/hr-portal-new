@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -16,19 +17,21 @@ type leaveService struct {
 	leaveCategoryRepo   repositories.LeaveCategoryRepository
 	leaveAllocationRepo repositories.LeaveAllocationRepository
 	holidayRepo         repositories.HolidayRepository
+	auditService        AuditService
 }
 
-func NewLeaveService(leaveRepo repositories.LeaveRepository, userRepo repositories.UserRepository, leaveCategoryRepo repositories.LeaveCategoryRepository, leaveAllocationRepo repositories.LeaveAllocationRepository, holidayRepo repositories.HolidayRepository) LeaveService {
+func NewLeaveService(leaveRepo repositories.LeaveRepository, userRepo repositories.UserRepository, leaveCategoryRepo repositories.LeaveCategoryRepository, leaveAllocationRepo repositories.LeaveAllocationRepository, holidayRepo repositories.HolidayRepository, auditService AuditService) LeaveService {
 	return &leaveService{
 		leaveRepo:           leaveRepo,
 		userRepo:            userRepo,
 		leaveCategoryRepo:   leaveCategoryRepo,
 		leaveAllocationRepo: leaveAllocationRepo,
 		holidayRepo:         holidayRepo,
+		auditService:        auditService,
 	}
 }
 
-func (s *leaveService) ApplyLeave(req ApplyLeaveRequest) (*models.Leave, error) {
+func (s *leaveService) ApplyLeave(req ApplyLeaveRequest, httpReq *http.Request) (*models.Leave, error) {
 	// Validate dates
 	if req.ToDate.Before(req.FromDate) {
 		return nil, fmt.Errorf("end date cannot be before start date")
@@ -125,6 +128,24 @@ func (s *leaveService) ApplyLeave(req ApplyLeaveRequest) (*models.Leave, error) 
 	err = s.leaveRepo.Create(leave)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create leave: %w", err)
+	}
+
+	// Log audit entry for leave application
+	orgIDStr := strconv.FormatUint(uint64(leave.OrganizationID), 10)
+	leaveIDStr := strconv.FormatUint(uint64(leave.ID), 10)
+
+	// Get current user from request context
+	changedBy := strconv.FormatUint(uint64(leave.UserID), 10) // Self-application
+	if httpReq != nil {
+		if userID := httpReq.Header.Get("X-User-ID"); userID != "" {
+			changedBy = userID
+		}
+	}
+
+	// Log the leave application
+	changeSummary := fmt.Sprintf("Leave application submitted: %s from %s to %s", leave.Type, leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"))
+	if err := s.auditService.LogLeaveChange(orgIDStr, leaveIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
+		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	return leave, nil

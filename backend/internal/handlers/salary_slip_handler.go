@@ -88,7 +88,7 @@ func (h *SalarySlipHandler) UploadSalarySlip(c *gin.Context) {
 		Year:           year,
 	}
 
-	salarySlip, err := h.salarySlipService.UploadSalarySlip(req)
+	salarySlip, err := h.salarySlipService.UploadSalarySlip(req, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to upload salary slip",

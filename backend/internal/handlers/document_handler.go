@@ -68,7 +68,7 @@ func (h *DocumentHandler) UploadDocument(c *gin.Context) {
 		IsPublic:       isPublic,
 	}
 
-	document, err := h.documentService.UploadDocument(req)
+	document, err := h.documentService.UploadDocument(req, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to upload document",
@@ -98,7 +98,7 @@ func (h *DocumentHandler) GetDocument(c *gin.Context) {
 func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 	documentID := c.Param("id")
 
-	err := h.documentService.DeleteDocument(documentID)
+	err := h.documentService.DeleteDocument(documentID, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to delete document",
