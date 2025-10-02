@@ -201,7 +201,21 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
     try {
       final apiService = ref.read(apiServiceProvider);
-      final documents = await apiService.getDocuments();
+      final currentUser = await apiService.getCurrentUser();
+      
+      List<Map<String, dynamic>> documents = [];
+      
+      if (currentUser != null) {
+        // Get documents that are either public or assigned to the current user
+        final allDocuments = await apiService.getDocuments();
+        
+        documents = allDocuments.where((doc) {
+          bool isPublic = doc['is_public'] == true || doc['is_public'] == 1;
+          bool isAssignedToUser = doc['user_id'] == currentUser['id'].toString();
+          
+          return isPublic || isAssignedToUser;
+        }).toList();
+      }
 
       setState(() {
         _documents.clear();

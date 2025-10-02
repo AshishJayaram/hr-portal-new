@@ -62,16 +62,36 @@ func (h *AuditHandler) GetAuditLogs(c *gin.Context) {
 		filters["entity_id"] = entityID
 	}
 
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= 100 {
-			filters["limit"] = limit
-		}
+	// Parse pagination parameters
+	pageStr := c.Query("page")
+	if pageStr == "" {
+		pageStr = "1" // Default to page 1
+	}
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
 	}
 
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
-			filters["offset"] = offset
-		}
+	limitStr := c.Query("limit")
+	if limitStr == "" {
+		limitStr = "10" // Default limit of 10 items per page
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 || limit > 100 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+	filters["limit"] = limit
+	filters["offset"] = offset
+
+	// Get total count for pagination metadata first
+	totalCount, err := h.auditService.CountAuditLogs(organizationID, filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to count audit logs",
+		})
+		return
 	}
 
 	auditLogs, err := h.auditService.GetAuditLogs(organizationID, filters)
@@ -91,7 +111,7 @@ func (h *AuditHandler) GetAuditLogs(c *gin.Context) {
 			return
 		}
 
-		// Fetch logs again after adding dummy logs
+		// Fetch logs and count again after adding dummy logs
 		auditLogs, err = h.auditService.GetAuditLogs(organizationID, filters)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -99,11 +119,30 @@ func (h *AuditHandler) GetAuditLogs(c *gin.Context) {
 			})
 			return
 		}
+
+		totalCount, err = h.auditService.CountAuditLogs(organizationID, filters)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to count audit logs after creating samples",
+			})
+			return
+		}
+	}
+
+	// Calculate pagination metadata
+	totalPages := int((totalCount + int64(limit) - 1) / int64(limit))
+	if totalPages == 0 {
+		totalPages = 1
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data":  auditLogs,
-		"total": len(auditLogs),
+		"data": auditLogs,
+		"pagination": gin.H{
+			"page":        page,
+			"limit":       limit,
+			"total":       totalCount,
+			"total_pages": totalPages,
+		},
 	})
 }
 

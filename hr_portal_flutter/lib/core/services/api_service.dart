@@ -372,12 +372,26 @@ class ApiService {
   }
 
   // Document methods
-  Future<List<Map<String, dynamic>>> getDocuments() async {
+  Future<List<Map<String, dynamic>>> getDocuments({String? userId}) async {
     try {
-      final response = await _dio.get('/documents');
+      String url = '/documents';
+      if (userId != null) {
+        url += '?userId=$userId';
+      }
+      final response = await _dio.get(url);
       return List<Map<String, dynamic>>.from(response.data['documents'] ?? response.data['data'] ?? []);
     } catch (e) {
       print('Get documents error: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getUserDocuments(String userId) async {
+    try {
+      final response = await _dio.get('/users/$userId/documents');
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+    } catch (e) {
+      print('Get user documents error: $e');
       return [];
     }
   }
@@ -399,7 +413,7 @@ class ApiService {
     } catch (e) {
       print('Download document error: $e');
       return null;
-    }
+    };
   }
 
   // Salary slip methods
@@ -512,6 +526,18 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> uploadUserDocument(String userId, FormData formData) async {
+    try {
+      formData.fields.add(MapEntry('userId', userId));
+      formData.fields.add(MapEntry('isPublic', 'false')); // Default to private
+      final response = await _dio.post('/documents', data: formData);
+      return response.data['data'];
+    } catch (e) {
+      print('Upload user document error: $e');
+      rethrow;
+    }
+  }
+
   // Salary slip upload methods
   Future<Map<String, dynamic>?> uploadSalarySlip(FormData formData) async {
     try {
@@ -554,6 +580,30 @@ class ApiService {
     }
   }
 
+  Future<List<int>> getAvailableHolidayYears() async {
+    try {
+      final response = await _dio.get('/holidays/years');
+      return List<int>.from(response.data['data'] ?? []);
+    } catch (e) {
+      print('Get available holiday years error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getHolidaysWithFilters({int? year}) async {
+    try {
+      String url = '/holidays';
+      if (year != null) {
+        url += '?year=$year';
+      }
+      final response = await _dio.get(url);
+      return response.data;
+    } catch (e) {
+      print('Get holidays error: $e');
+      return {};
+    }
+  }
+
   // Team management methods
   Future<List<Map<String, dynamic>>> getTeam() async {
     try {
@@ -562,6 +612,73 @@ class ApiService {
     } catch (e) {
       print('Get team error: $e');
       return [];
+    }
+  }
+
+  // Audit logs methods
+  Future<Map<String, dynamic>> getAuditLogs({
+    int page = 1,
+    int limit = 10,
+    String? entityType,
+    String? action,
+    String? changedBy,
+  }) async {
+    try {
+      String url = '/audit/logs?page=$page&limit=$limit';
+      if (entityType != null) url += '&entity_type=$entityType';
+      if (action != null) url += '&action=$action';
+      if (changedBy != null) url += '&changed_by=$changedBy';
+      
+      final response = await _dio.get(url);
+      return response.data;
+    } catch (e) {
+      print('Get audit logs error: $e');
+      return {'data': [], 'pagination': {}};
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getUserAuditLogs(String userId) async {
+    try {
+      final response = await _dio.get('/audit/logs/user/$userId');
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+    } catch (e) {
+      print('Get user audit logs error: $e');
+      return [];
+    }
+  }
+
+  // User management methods (if not already present)
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    try {
+      final response = await _dio.get('/users');
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+    } catch (e) {
+      print('Get all users error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getUserById(String userId) async {
+    try {
+      final response = await _dio.get('/users/$userId');
+      return response.data['data'];
+    } catch (e) {
+      print('Get user by ID error: $e');
+      return null;
+    }
+  }
+
+  // Helper method to check if user can manage documents
+  Future<bool> canManageDocuments() async {
+    try {
+      final currentUser = await _getCurrentUser();
+      if (currentUser == null) return false;
+      
+      final role = currentUser['role']?.toString().toLowerCase();
+      return ['hr', 'admin', 'god'].contains(role);
+    } catch (e) {
+      print('Check manage documents permission error: $e');
+      return false;
     }
   }
 }

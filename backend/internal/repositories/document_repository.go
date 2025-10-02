@@ -5,6 +5,8 @@ import (
 	"strconv"
 
 	"hr-portal-backend/internal/models"
+
+	"gorm.io/gorm"
 )
 
 // documentRepository implements DocumentRepository interface
@@ -90,4 +92,34 @@ func (r *documentRepository) CountByOrganization(organizationID string, count *i
 		return fmt.Errorf("failed to count documents by organization: %w", err)
 	}
 	return nil
+}
+
+// buildQuery constructs a GORM query based on filters
+func (r *documentRepository) buildQuery(query *gorm.DB, filters map[string]interface{}) *gorm.DB {
+	for key, value := range filters {
+		switch key {
+		case "user_id":
+			if userIDStr, ok := value.(string); ok {
+				if userIDUint, err := strconv.ParseUint(userIDStr, 10, 32); err == nil {
+					query = query.Where("user_id = ?", uint(userIDUint))
+				}
+			}
+		case "user_id_or_public":
+			// For employees: show documents assigned to them OR public documents
+			if userIDStr, ok := value.(string); ok {
+				if userIDUint, err := strconv.ParseUint(userIDStr, 10, 32); err == nil {
+					query = query.Where("user_id = ? OR is_public = ?", uint(userIDUint), true)
+				}
+			}
+		case "is_public":
+			if isPublic, ok := value.(bool); ok {
+				query = query.Where("is_public = ?", isPublic)
+			}
+		case "category":
+			if category, ok := value.(string); ok && category != "" {
+				query = query.Where("category = ?", category)
+			}
+		}
+	}
+	return query
 }

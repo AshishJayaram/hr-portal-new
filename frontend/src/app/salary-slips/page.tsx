@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getUser, getCompanySettings, uploadUserDocument, getUserDocuments } from "@/lib/api";
+import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument } from "@/lib/api";
 import { computePayslipFromCTC } from "@/lib/payroll";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -544,13 +544,40 @@ function EmployeeDocsList({ userId }: { userId: string }) {
     retry: 1,
   });
   
+  const [deletingDocs, setDeletingDocs] = useState<Set<string>>(new Set());
+  
   if (isLoading) return <div className="text-sm text-gray-400">Loading documents...</div>;
   if (error) {
     console.error('Error loading documents for user', userId, error);
     return <div className="text-sm text-red-400">Failed to load documents. Please try again.</div>;
   }
   
-  const docs = data?.data || [];
+  const allDocs = data?.data || [];
+  // Filter to show only private documents (is_public: false) uploaded to this specific user
+  const docs = allDocs.filter((doc: any) => !doc.isPublic && doc.user_id === parseInt(userId));
+  
+  const handleDeleteDocument = async (docId: string, title: string) => {
+    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+      setDeletingDocs(prev => new Set(prev).add(docId));
+      
+      try {
+        await deleteDocument(docId);
+        queryClient.invalidateQueries({ queryKey: ["user-docs", userId] });
+        queryClient.invalidateQueries({ queryKey: ["documents"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+        toast.success("Document deleted successfully");
+      } catch (err: any) {
+        toast.error(err.message || "Failed to delete document");
+      } finally {
+        setDeletingDocs(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(docId);
+          return newSet;
+        });
+      }
+    }
+  };
+  
   return (
     <div className="space-y-2">
       {docs.map((doc: any) => (
@@ -559,27 +586,36 @@ function EmployeeDocsList({ userId }: { userId: string }) {
             <div className="text-sm font-medium">{doc.title}</div>
             <div className="text-xs text-gray-400">{new Date(doc.createdAt).toLocaleDateString()}</div>
           </div>
-          <button
-            onClick={async () => {
-              try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${doc.id}/download`, {
-                  headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'X-Organization-ID': localStorage.getItem('organizationId') || '',
-                  },
-                });
-                const data = await response.json();
-                if (data.fileUrl) {
-                  window.open(data.fileUrl, '_blank');
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${doc.id}/download`, {
+                    headers: {
+                      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                      'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                    },
+                  });
+                  const data = await response.json();
+                  if (data.fileUrl) {
+                    window.open(data.fileUrl, '_blank');
+                  }
+                } catch (error) {
+                  console.error('Failed to download document:', error);
                 }
-              } catch (error) {
-                console.error('Failed to download document:', error);
-              }
-            }}
-            className="text-indigo-300 hover:text-indigo-200"
-          >
-            View
-          </button>
+              }}
+              className="text-indigo-300 hover:text-indigo-200 text-sm"
+            >
+              View
+            </button>
+            <button
+              onClick={() => handleDeleteDocument(doc.id, doc.title)}
+              disabled={deletingDocs.has(doc.id)}
+              className="text-red-400 hover:text-red-300 text-sm disabled:opacity-50"
+            >
+              {deletingDocs.has(doc.id) ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
         </div>
       ))}
       {docs.length === 0 && (

@@ -954,18 +954,32 @@ export const deleteOrganization = async (id: number): Promise<{ message: string 
 // -------------------- Leave Allocations --------------------
 
 // -------------------- Audit Logs --------------------
-export const getAuditLogs = (filters?: { entity_type?: string; entity_id?: string; changed_by?: string; action?: string }) => {
+export const getAuditLogs = (filters?: { 
+  entity_type?: string; 
+  entity_id?: string; 
+  changed_by?: string; 
+  action?: string; 
+  page?: number; 
+  limit?: number; 
+}) => {
   const queryParams = new URLSearchParams();
   if (filters?.entity_type) queryParams.append('entity_type', filters.entity_type);
   if (filters?.entity_id) queryParams.append('entity_id', filters.entity_id);
   if (filters?.changed_by) queryParams.append('changed_by', filters.changed_by);
   if (filters?.action) queryParams.append('action', filters.action);
+  if (filters?.page) queryParams.append('page', filters.page.toString());
+  if (filters?.limit) queryParams.append('limit', filters.limit.toString());
   
   const queryString = queryParams.toString();
   return fetcher<any>(`/audit/logs${queryString ? `?${queryString}` : ''}`)
     .then((raw) => {
-      const items = raw?.data || raw || [];
-      return { data: items } as ApiResponse<any[]>;
+      // Return both data and pagination info
+      const items = raw?.data || [];
+      const pagination = raw?.pagination;
+      return { 
+        data: items, 
+        pagination: pagination 
+      } as ApiResponse<any[]> & { pagination?: any };
     });
 };
 
@@ -988,4 +1002,23 @@ export const getEntityAuditLogs = (entityType: string, entityId: string) => {
     });
 };
 
+// -------------------- Holidays --------------------
+export type Holiday = {
+  id: string;
+  name: string;
+  date?: string;
+  type: 'holiday' | 'event' | 'notice';
+  description?: string;
+  isCalendarEvent?: boolean;
+  color?: string;
+  created_at?: string;
+  updated_at?: string;
+};
 
+export const getAvailableHolidayYears = () => {
+  return fetcher<any>(`/holidays/years`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<number[]>;
+    });
+};

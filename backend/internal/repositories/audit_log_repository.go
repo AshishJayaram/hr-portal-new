@@ -43,6 +43,33 @@ func (r *auditLogRepository) List(organizationID string, filters map[string]inte
 	return auditLogs, nil
 }
 
+func (r *auditLogRepository) Count(organizationID string, filters map[string]interface{}) (int64, error) {
+	var count int64
+
+	// Convert string organizationID to uint
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	query := r.db.Model(&models.AuditLog{}).Where("organization_id = ?", uint(orgIDUint))
+	// Build query filters excluding pagination
+	countFilters := make(map[string]interface{})
+	for key, value := range filters {
+		if key != "limit" && key != "offset" {
+			countFilters[key] = value
+		}
+	}
+	query = r.buildAuditLogQuery(query, countFilters)
+
+	err = query.Count(&count).Error
+	if err != nil {
+		return 0, fmt.Errorf("failed to count audit logs: %w", err)
+	}
+
+	return count, nil
+}
+
 func (r *auditLogRepository) GetByEntity(entityType, entityID string) ([]models.AuditLog, error) {
 	var auditLogs []models.AuditLog
 	if err := r.db.Preload("ChangedByUser").Preload("Organization").

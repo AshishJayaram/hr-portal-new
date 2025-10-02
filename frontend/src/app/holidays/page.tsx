@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getHolidays, createHoliday, updateHoliday, deleteHoliday, Holiday, canManageHolidays } from "@/lib/api";
+import { getHolidays, getAvailableHolidayYears, createHoliday, updateHoliday, deleteHoliday, Holiday, canManageHolidays } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
@@ -24,6 +24,16 @@ export default function HolidaysPage() {
     color: "#ef4444",
   });
 
+  // Fetch available years once
+  const { data: availableYears = [] } = useQuery({
+    queryKey: ["available-holiday-years"],
+    queryFn: async () => {
+      const response = await getAvailableHolidayYears();
+      return response.data;
+    },
+    staleTime: 300000, // Cache for 5 minutes since years don't change often
+  });
+
   // Use React Query for automatic data fetching and caching
   const { data: holidays = [], isLoading: loading, error } = useQuery({
     queryKey: ["holidays", selectedYear],
@@ -42,6 +52,7 @@ export default function HolidaysPage() {
       // Invalidate and refetch holidays data
       queryClient.invalidateQueries({ queryKey: ["holidays"] });
       queryClient.invalidateQueries({ queryKey: ["holidays", selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ["available-holiday-years"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
       setShowForm(false);
@@ -62,6 +73,7 @@ export default function HolidaysPage() {
       // Invalidate and refetch holidays data
       queryClient.invalidateQueries({ queryKey: ["holidays"] });
       queryClient.invalidateQueries({ queryKey: ["holidays", selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ["available-holiday-years"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
       setShowForm(false);
@@ -82,6 +94,7 @@ export default function HolidaysPage() {
       // Invalidate and refetch holidays data
       queryClient.invalidateQueries({ queryKey: ["holidays"] });
       queryClient.invalidateQueries({ queryKey: ["holidays", selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ["available-holiday-years"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
       // Show success message
@@ -147,8 +160,13 @@ export default function HolidaysPage() {
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
               className="bg-gray-700 text-white border-gray-600"
-              options={Array.from({ length: 10 }, (_, i) => {
-                const year = new Date().getFullYear() - 5 + i;
+              options={availableYears.length > 0 ? availableYears.map((year) => {
+                const financialYearLabel = `${year} (Apr ${year.toString().slice(-2)} - Mar ${(year + 1).toString().slice(-2)})`;
+                return {
+                  value: year.toString(),
+                  label: financialYearLabel
+                };
+              }) : [new Date().getFullYear()].map((year) => {
                 const financialYearLabel = `${year} (Apr ${year.toString().slice(-2)} - Mar ${(year + 1).toString().slice(-2)})`;
                 return {
                   value: year.toString(),

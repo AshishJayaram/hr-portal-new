@@ -37,6 +37,51 @@ func (r *holidayRepository) List(organizationID string, filters map[string]inter
 	return holidays, nil
 }
 
+func (r *holidayRepository) GetAvailableYears(organizationID string) ([]int, error) {
+	var years []struct {
+		Year int `json:"year"`
+	}
+
+	// Get distinct years from holidays table for this organization
+	err := r.db.Model(&models.Holiday{}).
+		Select("DISTINCT CASE "+
+			"WHEN strftime('%m', date) >= '04' THEN CAST(strftime('%Y', date) AS INTEGER) "+
+			"ELSE CAST(strftime('%Y', date) AS INTEGER) - 1 "+
+			"END as year").
+		Where("organization_id = ? AND deleted_at IS NULL", organizationID).
+		Scan(&years).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get available years: %w", err)
+	}
+
+	var yearList []int
+	for _, y := range years {
+		yearList = append(yearList, y.Year)
+	}
+
+	// Remove duplicates and sort
+	yearMap := make(map[int]bool)
+	var uniqueYears []int
+	for _, year := range yearList {
+		if !yearMap[year] {
+			yearMap[year] = true
+			uniqueYears = append(uniqueYears, year)
+		}
+	}
+
+	// Sort in descending order
+	for i := 0; i < len(uniqueYears); i++ {
+		for j := i + 1; j < len(uniqueYears); j++ {
+			if uniqueYears[i] < uniqueYears[j] {
+				uniqueYears[i], uniqueYears[j] = uniqueYears[j], uniqueYears[i]
+			}
+		}
+	}
+
+	return uniqueYears, nil
+}
+
 func (r *holidayRepository) Update(holiday *models.Holiday) error {
 	if err := r.db.Save(holiday).Error; err != nil {
 		return fmt.Errorf("failed to update holiday: %w", err)

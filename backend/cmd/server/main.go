@@ -289,6 +289,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		holidays.Use(middleware.OrganizationRequired())
 		{
 			holidays.GET("", handlers.Holiday.ListHolidays)
+			holidays.GET("/years", handlers.Holiday.GetAvailableYears)
 			holidays.POST("", middleware.RoleRequired("HR", "Admin"), handlers.Holiday.CreateHoliday)
 			holidays.GET("/:id", handlers.Holiday.GetHoliday)
 			holidays.PATCH("/:id", middleware.RoleRequired("HR", "Admin"), handlers.Holiday.UpdateHoliday)

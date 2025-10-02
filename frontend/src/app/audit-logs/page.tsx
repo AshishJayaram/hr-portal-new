@@ -30,21 +30,28 @@ export default function AuditLogsPage() {
     action: "",
     changed_by: "",
   });
-  const [filteredLogs, setFilteredLogs] = useState<AuditLog[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
 
   const user = getCurrentUser();
 
   const { data: auditLogs, isLoading, error } = useQuery({
-    queryKey: ["audit-logs", filters],
-    queryFn: () => getAuditLogs(filters),
+    queryKey: ["audit-logs", filters, currentPage, pageSize],
+    queryFn: () => getAuditLogs({ ...filters, page: currentPage, limit: pageSize }),
     enabled: hasRole(["Admin", "HR", "God"]),
   });
 
-  useEffect(() => {
-    if (auditLogs?.data) {
-      setFilteredLogs(auditLogs.data);
-    }
-  }, [auditLogs]);
+  const filteredLogs = auditLogs?.data || [];
+  const pagination = auditLogs?.pagination;
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
@@ -63,9 +70,6 @@ export default function AuditLogsPage() {
     }
   };
 
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
 
   return (
     <RoleGuard allowedRoles={["Admin", "HR", "God"]}>
@@ -136,7 +140,7 @@ export default function AuditLogsPage() {
         </Card>
 
         {/* Audit Logs List */}
-        <Card title={`Audit Logs ${filteredLogs.length > 0 ? `(${filteredLogs.length})` : ''}`}>
+        <Card title={`Audit Logs ${pagination ? `(${pagination.total} total)` : ''}`}>
           {isLoading ? (
             <Loader />
           ) : error ? (
@@ -148,8 +152,9 @@ export default function AuditLogsPage() {
               <p className="text-gray-400">No audit logs found</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredLogs.map((log) => (
+            <>
+              <div className="space-y-4">
+                {filteredLogs.map((log) => (
                 <motion.div
                   key={log.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -164,19 +169,11 @@ export default function AuditLogsPage() {
                       <span className="text-gray-400 font-mono text-sm">
                         {log.entity_type}
                       </span>
-                      <span className="text-gray-60 text-sm">
-                        ID: {log.entity_id}
-                      </span>
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-gray-400">
                         {formatDate(log.created_at)}
                       </div>
-                      {log.ip_address && (
-                        <div className="text-xs text-gray-500">
-                          {log.ip_address}
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -222,6 +219,61 @@ export default function AuditLogsPage() {
                 </motion.div>
               ))}
             </div>
+            
+            {/* Pagination */}
+            {pagination && pagination.total_pages > 1 && (
+              <div className="flex justify-center mt-6 pt-4 border-t border-gray-700">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === 1
+                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  
+                  {Array.from({ length: Math.min(5, pagination.total_pages) }, (_, i) => {
+                    const startPage = Math.max(1, currentPage - 2);
+                    const page = startPage + i;
+                    return page <= pagination.total_pages ? page : null;
+                  }).filter(Boolean).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        page === currentPage
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === pagination.total_pages}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === pagination.total_pages
+                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+                
+                {/* Page info */}
+                <div className="ml-6 text-sm text-gray-400">
+                  Page {currentPage} of {pagination.total_pages} ({pagination.total} total logs)
+                </div>
+              </div>
+              )}
+            </>
           )}
         </Card>
       </div>

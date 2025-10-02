@@ -20,6 +20,24 @@ func NewHolidayHandler(service services.HolidayService) *HolidayHandler {
 	}
 }
 
+// GetAvailableYears returns financial years where holidays/events/notices exist
+func (h *HolidayHandler) GetAvailableYears(c *gin.Context) {
+	// Get organization ID from context (set by middleware)
+	orgID, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Organization ID not found"})
+		return
+	}
+
+	years, err := h.service.GetAvailableYears(orgID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": years})
+}
+
 // CreateHoliday creates a new holiday/event/notice
 func (h *HolidayHandler) CreateHoliday(c *gin.Context) {
 	var req services.CreateHolidayRequest

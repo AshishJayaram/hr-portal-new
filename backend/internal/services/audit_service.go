@@ -207,6 +207,10 @@ func (s *auditService) GetAuditLogs(organizationID string, filters map[string]in
 	return s.repo.List(organizationID, filters)
 }
 
+func (s *auditService) CountAuditLogs(organizationID string, filters map[string]interface{}) (int64, error) {
+	return s.repo.Count(organizationID, filters)
+}
+
 func (s *auditService) GetEntityAuditLogs(entityType, entityID string) ([]models.AuditLog, error) {
 	return s.repo.GetByEntity(entityType, entityID)
 }

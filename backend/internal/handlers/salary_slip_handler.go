@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 
 	"hr-portal-backend/internal/services"
@@ -81,11 +82,21 @@ func (h *SalarySlipHandler) UploadSalarySlip(c *gin.Context) {
 		targetUserID = userIdStr
 	}
 
+	// Get uploaded file
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "No file uploaded",
+		})
+		return
+	}
+
 	req := services.UploadSalarySlipRequest{
 		UserID:         targetUserID,
 		OrganizationID: organizationID,
 		Month:          month,
 		Year:           year,
+		FileHeader:     fileHeader,
 	}
 
 	salarySlip, err := h.salarySlipService.UploadSalarySlip(req, c.Request)
@@ -143,17 +154,21 @@ func (h *SalarySlipHandler) DownloadSalarySlip(c *gin.Context) {
 		return
 	}
 
+	// Check if file exists on disk
+	if _, err := os.Stat(salarySlip.FilePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "File not found on disk",
+		})
+		return
+	}
+
 	// Set headers for file download
-	c.Header("Content-Type", "application/pdf")
-	c.Header("Content-Disposition", "inline; filename=\""+salarySlip.FileName+".pdf\"")
+	c.Header("Content-Type", salarySlip.MimeType)
+	c.Header("Content-Disposition", "inline; filename=\""+salarySlip.FileName+"\"")
 	c.Header("Access-Control-Allow-Origin", "*")
 	c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
 	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
 
-	// For now, return a placeholder response with the file URL
-	// In a real implementation, you would serve the actual file content
-	c.JSON(http.StatusOK, gin.H{
-		"fileUrl": salarySlip.FilePath,
-		"title":   salarySlip.FileName,
-	})
+	// Serve the file
+	c.File(salarySlip.FilePath)
 }

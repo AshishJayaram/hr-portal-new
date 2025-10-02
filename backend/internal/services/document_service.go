@@ -2,8 +2,11 @@ package services
 
 import (
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"hr-portal-backend/internal/models"
@@ -35,18 +38,58 @@ func (s *documentService) UploadDocument(req UploadDocumentRequest, httpReq *htt
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
 	}
 
+	// Handle file upload
+	if req.FileHeader == nil {
+		return nil, fmt.Errorf("no file provided")
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("%d_%s_%s",
+		time.Now().Unix(),
+		strings.ReplaceAll(req.Title, " ", "_"),
+		req.FileHeader.Filename)
+
+	// Create upload directory if it doesn't exist
+	uploadDir := "uploads/documents"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create upload directory: %w", err)
+	}
+
+	// Save file to disk
+	filePath := uploadDir + "/" + filename
+	file, err := os.Create(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	src, err := req.FileHeader.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open uploaded file: %w", err)
+	}
+	defer src.Close()
+
+	_, err = io.Copy(file, src)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save file: %w", err)
+	}
+
+	// Get file info
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
 	document := &models.Document{
 		UserID:         uint(userID),
 		OrganizationID: uint(orgID),
 		Title:          req.Title,
 		Category:       req.Category,
 		IsPublic:       req.IsPublic,
-		// TODO: Add file handling logic here
-		// For now, we'll create a placeholder document record
-		FileName: "placeholder.txt",
-		FilePath: "/uploads/placeholder.txt",
-		FileSize: 0,
-		MimeType: "text/plain",
+		FileName:       req.FileHeader.Filename,
+		FilePath:       filePath,
+		FileSize:       fileInfo.Size(),
+		MimeType:       req.FileHeader.Header.Get("Content-Type"),
 	}
 
 	err = s.repo.Create(document)
@@ -56,7 +99,7 @@ func (s *documentService) UploadDocument(req UploadDocumentRequest, httpReq *htt
 
 	// Log audit entry for document upload
 	orgIDStr := strconv.FormatUint(uint64(document.OrganizationID), 10)
-	documentIDStr := document.ID.String()
+	documentIDStr := strconv.FormatUint(uint64(document.ID), 10)
 
 	// Get current user from request context
 	changedBy := "19" // Default fallback
@@ -84,10 +127,18 @@ func (s *documentService) ListDocuments(organizationID string, filters map[strin
 }
 
 func (s *documentService) DeleteDocument(id string, httpReq *http.Request) error {
-	// Get document before deletion for audit logging
+	// Get document before deletion for audit logging and file deletion
 	document, err := s.repo.GetByID(id)
 	if err != nil {
 		return fmt.Errorf("failed to get document: %w", err)
+	}
+
+	// Delete the actual file from disk
+	if document.FilePath != "" {
+		if err := os.Remove(document.FilePath); err != nil {
+			// Log error but continue with database deletion
+			fmt.Printf("Warning: Failed to delete file %s: %v\n", document.FilePath, err)
+		}
 	}
 
 	err = s.repo.Delete(id)
@@ -149,17 +200,58 @@ func (s *salarySlipService) UploadSalarySlip(req UploadSalarySlipRequest, httpRe
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
 	}
 
+	// Handle file upload
+	if req.FileHeader == nil {
+		return nil, fmt.Errorf("no file provided")
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("%d_%04d_%02d_%s",
+		time.Now().Unix(),
+		req.Year,
+		req.Month,
+		req.FileHeader.Filename)
+
+	// Create upload directory if it doesn't exist
+	uploadDir := "uploads/salary_slips"
+	if err = os.MkdirAll(uploadDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create upload directory: %w", err)
+	}
+
+	// Save file to disk
+	filePath := uploadDir + "/" + filename
+	file, err := os.Create(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	src, err := req.FileHeader.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open uploaded file: %w", err)
+	}
+	defer src.Close()
+
+	_, err = io.Copy(file, src)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save file: %w", err)
+	}
+
+	// Get file info
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
 	salarySlip := &models.SalarySlip{
 		UserID:         uint(userID),
 		OrganizationID: uint(orgID),
 		Month:          req.Month,
 		Year:           req.Year,
-		// TODO: Add file handling logic here
-		// For now, we'll create a placeholder salary slip record
-		FileName: "placeholder_salary_slip.pdf",
-		FilePath: "/uploads/salary_slips/placeholder_salary_slip.pdf",
-		FileSize: 0,
-		MimeType: "application/pdf",
+		FileName:       req.FileHeader.Filename,
+		FilePath:       filePath,
+		FileSize:       fileInfo.Size(),
+		MimeType:       req.FileHeader.Header.Get("Content-Type"),
 	}
 
 	err = s.repo.Create(salarySlip)

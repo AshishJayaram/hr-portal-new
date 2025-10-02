@@ -1,6 +1,7 @@
 package services
 
 import (
+	"mime/multipart"
 	"net/http"
 	"time"
 
@@ -143,6 +144,7 @@ type HolidayService interface {
 	CreateHoliday(req CreateHolidayRequest, httpReq *http.Request) (*models.Holiday, error)
 	GetHoliday(id string) (*models.Holiday, error)
 	ListHolidays(organizationID string, filters map[string]interface{}) ([]models.Holiday, error)
+	GetAvailableYears(organizationID string) ([]int, error)
 	UpdateHoliday(id string, req UpdateHolidayRequest) (*models.Holiday, error)
 	DeleteHoliday(id string) error
 }
@@ -177,6 +179,7 @@ type AuditService interface {
 	LogLeaveChange(organizationID, leaveID, changedBy string, action string, changeSummary string, req *http.Request) error
 	LogSalarySlipChange(organizationID, salarySlipID, changedBy string, action string, changeSummary string, req *http.Request) error
 	GetAuditLogs(organizationID string, filters map[string]interface{}) ([]models.AuditLog, error)
+	CountAuditLogs(organizationID string, filters map[string]interface{}) (int64, error)
 	GetEntityAuditLogs(entityType, entityID string) ([]models.AuditLog, error)
 	GetUserAuditLogs(userID string) ([]models.AuditLog, error)
 	DeleteOldLogs(organizationID string, olderThan time.Time) error
@@ -295,18 +298,20 @@ type UpdateLeaveAllocationRequest struct {
 }
 
 type UploadDocumentRequest struct {
-	UserID         string `json:"user_id" validate:"required"`
-	OrganizationID string `json:"organization_id" validate:"required"`
-	Title          string `json:"title" validate:"required"`
-	Category       string `json:"category" validate:"required"`
-	IsPublic       bool   `json:"is_public"`
+	UserID         string                `json:"user_id" validate:"required"`
+	OrganizationID string                `json:"organization_id" validate:"required"`
+	Title          string                `json:"title" validate:"required"`
+	Category       string                `json:"category" validate:"required"`
+	IsPublic       bool                  `json:"is_public"`
+	FileHeader     *multipart.FileHeader `json:"-"` // File header from form upload
 }
 
 type UploadSalarySlipRequest struct {
-	UserID         string `json:"user_id" validate:"required"`
-	OrganizationID string `json:"organization_id" validate:"required"`
-	Month          int    `json:"month" validate:"required,min=1,max=12"`
-	Year           int    `json:"year" validate:"required"`
+	UserID         string                `json:"user_id" validate:"required"`
+	OrganizationID string                `json:"organization_id" validate:"required"`
+	Month          int                   `json:"month" validate:"required,min=1,max=12"`
+	Year           int                   `json:"year" validate:"required"`
+	FileHeader     *multipart.FileHeader `json:"-"` // File header from form upload
 }
 
 type CreateHolidayRequest struct {

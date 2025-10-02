@@ -157,6 +157,7 @@ type HolidayRepository interface {
 	Create(holiday *models.Holiday) error
 	GetByID(id string) (*models.Holiday, error)
 	List(organizationID string, filters map[string]interface{}) ([]models.Holiday, error)
+	GetAvailableYears(organizationID string) ([]int, error)
 	Update(holiday *models.Holiday) error
 	Delete(id string) error
 }
@@ -173,6 +174,7 @@ type CompanySettingsRepository interface {
 type AuditLogRepository interface {
 	Create(auditLog *models.AuditLog) error
 	List(organizationID string, filters map[string]interface{}) ([]models.AuditLog, error)
+	Count(organizationID string, filters map[string]interface{}) (int64, error)
 	GetByEntity(entityType, entityID string) ([]models.AuditLog, error)
 	GetByUser(userID string) ([]models.AuditLog, error)
 	Delete(organizationID string, olderThan time.Time) error

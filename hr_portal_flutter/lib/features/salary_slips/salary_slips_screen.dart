@@ -15,6 +15,7 @@ class SalarySlipsScreen extends ConsumerStatefulWidget {
 class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
   int _selectedYear = 2023;
   List<Map<String, dynamic>> _filteredSalarySlips = [];
+  List<Map<String, dynamic>> _privateDocuments = [];
   bool _isLoading = false;
   
   final List<Map<String, dynamic>> _allSalarySlips = [];
@@ -23,6 +24,7 @@ class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
   void initState() {
     super.initState();
     _loadSalarySlips();
+    _loadPrivateDocuments();
   }
 
   void _filterSalarySlips() {
@@ -109,17 +111,62 @@ class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
                             ),
                           ],
                         ),
-                      )
+                        ),
                     : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredSalarySlips.length,
-                    itemBuilder: (context, index) {
-                      final slip = _filteredSalarySlips[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _filteredSalarySlips.length,
+                        itemBuilder: (context, index) {
+                          final slip = _filteredSalarySlips[index];
+                          return _buildSlipCard(slip);
+                        },
+                      ),
+          ),
+        ],
+      ),
+      // Private Documents Section
+      if (_privateDocuments.isNotEmpty) ...[
+        const Divider(),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Private Documents',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 0,
+          child: SizedBox(
+            height: 200, // Fixed height for private documents
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _privateDocuments.length,
+              itemBuilder: (context, index) {
+                final doc = _privateDocuments[index];
+                return _buildDocumentCard(doc);
+              },
+            ),
+          ),
+        ),
+      ],
+      ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: _generateSalarySlip,
+        backgroundColor: AppTheme.primaryColor,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildSlipCard(Map<String, dynamic> slip) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
@@ -321,5 +368,28 @@ class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Downloading salary slip $slipId')),
     );
+  }
+
+  Future<void> _loadPrivateDocuments() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final currentUser = await apiService.getCurrentUser();
+      
+      if (currentUser != null) {
+        // Get private documents for the current user
+        final allDocuments = await apiService.getDocuments();
+        
+        setState(() {
+          _privateDocuments = allDocuments.where((doc) {
+            bool isPrivate = doc['is_public'] == false || doc['is_public'] == 0;
+            bool isAssignedToUser = doc['user_id'] == currentUser['id'].toString();
+            
+            return isPrivate && isAssignedToUser;
+          }).toList();
+        });
+      }
+    } catch (e) {
+      print('Failed to load private documents: $e');
+    }
   }
 }

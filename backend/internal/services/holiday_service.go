@@ -95,6 +95,14 @@ func (s *holidayService) ListHolidays(organizationID string, filters map[string]
 	return holidays, nil
 }
 
+func (s *holidayService) GetAvailableYears(organizationID string) ([]int, error) {
+	years, err := s.repo.GetAvailableYears(organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get available years: %w", err)
+	}
+	return years, nil
+}
+
 func (s *holidayService) UpdateHoliday(id string, req UpdateHolidayRequest) (*models.Holiday, error) {
 	holiday, err := s.repo.GetByID(id)
 	if err != nil {

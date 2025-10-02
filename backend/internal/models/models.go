@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -163,19 +162,16 @@ type Leave struct {
 
 // Document represents uploaded documents
 type Document struct {
-	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
-	UserID         uint           `json:"user_id" gorm:"not null;index"`
-	OrganizationID uint           `json:"organization_id" gorm:"not null;index"`
-	Title          string         `json:"title" gorm:"not null"`
-	Category       string         `json:"category" gorm:"not null"`
-	FileName       string         `json:"file_name" gorm:"not null"`
-	FilePath       string         `json:"file_path" gorm:"not null"`
-	FileSize       int64          `json:"file_size" gorm:"not null"`
-	MimeType       string         `json:"mime_type" gorm:"not null"`
-	IsPublic       bool           `json:"is_public" gorm:"default:false"`
+	BaseModel
+	UserID         uint   `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint   `json:"organization_id" gorm:"not null;index"`
+	Title          string `json:"title" gorm:"not null"`
+	Category       string `json:"category" gorm:"not null"`
+	FileName       string `json:"file_name" gorm:"not null"`
+	FilePath       string `json:"file_path" gorm:"not null"`
+	FileSize       int64  `json:"file_size" gorm:"not null"`
+	MimeType       string `json:"mime_type" gorm:"not null"`
+	IsPublic       bool   `json:"is_public" gorm:"default:false"`
 
 	// Relationships
 	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
