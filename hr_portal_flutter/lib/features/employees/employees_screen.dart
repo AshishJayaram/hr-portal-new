@@ -141,7 +141,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                           onSelected: (value) {
                             switch (value) {
                               case 'edit':
-                                context.go('/employees/edit');
+                                context.go('/employees/edit/${employee['id']}');
                                 break;
                               case 'view':
                                 // TODO: Navigate to employee details

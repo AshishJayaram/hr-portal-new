@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"hr-portal-backend/internal/models"
+
+	"gorm.io/gorm"
 )
 
 // holidayRepository implements HolidayRepository interface
@@ -94,4 +96,40 @@ func (r *holidayRepository) Delete(id string) error {
 		return fmt.Errorf("failed to delete holiday: %w", err)
 	}
 	return nil
+}
+
+// buildQuery constructs a GORM query based on filters
+func (r *holidayRepository) buildQuery(query *gorm.DB, filters map[string]interface{}) *gorm.DB {
+	for key, value := range filters {
+		switch key {
+		case "year":
+			if yearStr, ok := value.(string); ok {
+				// Filter by year using SQLite strftime
+				if len(yearStr) == 4 {
+					query = query.Where("strftime('%Y', date) = ?", yearStr)
+				}
+			} else if year, ok := value.(int); ok {
+				if year > 0 {
+					query = query.Where("strftime('%Y', date) = ?", fmt.Sprintf("%d", year))
+				}
+			}
+		case "type":
+			if holidayType, ok := value.(string); ok && holidayType != "" {
+				query = query.Where("type = ?", holidayType)
+			}
+		case "is_calendar_event":
+			if isCalendarEvent, ok := value.(bool); ok {
+				query = query.Where("is_calendar_event = ?", isCalendarEvent)
+			}
+		case "date_from":
+			if fromDate, ok := value.(string); ok && fromDate != "" {
+				query = query.Where("date >= ?", fromDate)
+			}
+		case "date_to":
+			if toDate, ok := value.(string); ok && toDate != "" {
+				query = query.Where("date <= ?", toDate)
+			}
+		}
+	}
+	return query
 }

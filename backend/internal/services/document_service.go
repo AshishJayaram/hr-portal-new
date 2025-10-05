@@ -374,19 +374,20 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		return nil, fmt.Errorf("failed to get holidays: %w", err)
 	}
 
-	// Filter upcoming holidays (next 30 days)
+	// Filter upcoming holidays (all future holidays)
 	upcomingHolidays := []models.Holiday{}
 	now := time.Now()
-	thirtyDaysFromNow := now.AddDate(0, 0, 30)
 
 	for _, holiday := range holidays {
-		if holiday.Date != nil && holiday.Date.After(now) && holiday.Date.Before(thirtyDaysFromNow) {
+		if holiday.Date != nil && holiday.Date.After(now) {
 			upcomingHolidays = append(upcomingHolidays, holiday)
 		}
 	}
 
-	// Get recent leaves for the organization (last 10)
-	recentLeaves, err := s.repos.Leave.List(organizationID, map[string]interface{}{})
+	// Get recent leaves for the current user only
+	recentLeaves, err := s.repos.Leave.List(organizationID, map[string]interface{}{
+		"user_id": userID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recent leaves: %w", err)
 	}
@@ -422,8 +423,11 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		recentSalarySlips = recentSalarySlips[:3]
 	}
 
-	// Leave balances are handled by the dashboard service
-	leaveBalances := []LeaveBalanceResponse{}
+	// Get leave balances for the current user
+	leaveBalances, err := s.getLeaveBalances(organizationID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get leave balances: %w", err)
+	}
 
 	return &DashboardStatsResponse{
 		TotalUsers:        totalUsers,
@@ -437,4 +441,55 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		RecentSalarySlips: recentSalarySlips,
 		LeaveBalances:     leaveBalances,
 	}, nil
+}
+
+// getLeaveBalances calculates leave balances for a user
+func (s *dashboardService) getLeaveBalances(organizationID, userID string) ([]LeaveBalanceResponse, error) {
+	// Get leave allocations for the user
+	allocations, err := s.repos.LeaveAllocation.List(organizationID, map[string]interface{}{
+		"user_id": userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get leave allocations: %w", err)
+	}
+
+	fmt.Printf("DEBUG: Found %d leave allocations for user %s\n", len(allocations), userID)
+
+	// Get approved leaves for the user
+	leaves, err := s.repos.Leave.List(organizationID, map[string]interface{}{
+		"user_id": userID,
+		"status":  "approved",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get approved leaves: %w", err)
+	}
+
+	// Calculate balances
+	var balances []LeaveBalanceResponse
+	for _, allocation := range allocations {
+		// Calculate used days for this category
+		usedDays := 0
+		for _, leave := range leaves {
+			if leave.CategoryID == allocation.CategoryID {
+				usedDays += int(leave.Days)
+			}
+		}
+
+		// Calculate remaining days
+		remainingDays := allocation.TotalDays - usedDays
+		if remainingDays < 0 {
+			remainingDays = 0
+		}
+
+		balances = append(balances, LeaveBalanceResponse{
+			CategoryID:    strconv.FormatUint(uint64(allocation.CategoryID), 10),
+			CategoryName:  allocation.CategoryName,
+			TotalDays:     allocation.TotalDays,
+			UsedDays:      usedDays,
+			RemainingDays: remainingDays,
+			Year:          allocation.Year,
+		})
+	}
+
+	return balances, nil
 }

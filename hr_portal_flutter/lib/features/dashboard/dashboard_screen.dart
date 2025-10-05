@@ -38,8 +38,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     await Future.wait([
       _loadHolidays(),
       _loadEvents(),
-      _loadLeaveTypes(),
     ]);
+    
+    // Load leave types after dashboard stats (so we can use the data from stats)
+    await _loadLeaveTypes();
   }
 
   Future<void> _loadHolidays() async {
@@ -49,36 +51,148 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       
       setState(() {
         _upcomingHolidays.clear();
-        _upcomingHolidays.addAll(holidays);
+        if (holidays is List) {
+          _upcomingHolidays.addAll((holidays as List).cast<Map<String, dynamic>>());
+        }
       });
     } catch (e) {
-      print('Failed to load holidays: $e');
+      // Handle error silently
     }
   }
 
   Future<void> _loadEvents() async {
     try {
-      // TODO: Implement events API call when backend endpoint is available
-      // For now, keep empty list
+      final apiService = ref.read(apiServiceProvider);
+      
+      // Load holidays as events
+      final holidays = await apiService.getHolidays();
+      
       setState(() {
         _upcomingEvents.clear();
+        
+        // Add holidays as events
+        if (holidays is List) {
+          for (var holiday in holidays) {
+            _upcomingEvents.add({
+              'id': holiday['id'] ?? '',
+              'name': holiday['name'] ?? holiday['title'] ?? 'Holiday',
+              'type': holiday['type'] ?? 'Holiday',
+              'date': holiday['date'] ?? '',
+              'time': 'All Day', // Default time for holidays
+              'location': 'Office', // Default location for holidays
+              'description': holiday['description'] ?? '',
+              'color': holiday['color'] ?? 'purple',
+              'icon': Icons.event,
+              'isHoliday': true,
+            });
+          }
+        }
+        
+        // Sort by date
+        _upcomingEvents.sort((a, b) {
+          final dateA = DateTime.tryParse(a['date'] ?? '') ?? DateTime.now();
+          final dateB = DateTime.tryParse(b['date'] ?? '') ?? DateTime.now();
+          return dateA.compareTo(dateB);
+        });
+        
+        // Keep only upcoming events (next 5)
+        final now = DateTime.now();
+        _upcomingEvents.removeWhere((event) {
+          final eventDate = DateTime.tryParse(event['date'] ?? '') ?? DateTime.now();
+          return eventDate.isBefore(now);
+        });
+        
+        if (_upcomingEvents.length > 5) {
+          _upcomingEvents.removeRange(5, _upcomingEvents.length);
+        }
       });
     } catch (e) {
-      print('Failed to load events: $e');
+      // Handle error silently
     }
   }
 
   Future<void> _loadLeaveTypes() async {
     try {
-      final apiService = ref.read(apiServiceProvider);
-      final leaveCategories = await apiService.getLeaveCategories();
-      
-      setState(() {
-        _leaveTypes.clear();
-        _leaveTypes.addAll(leaveCategories);
-      });
+      // Use leave balances from dashboard stats if available
+      if (_dashboardStats != null && _dashboardStats!['leave_balances'] != null) {
+        final leaveBalances = _dashboardStats!['leave_balances'] as List;
+        
+        setState(() {
+          _leaveTypes.clear();
+          
+          // Convert leave balances to leave types for display
+          for (final balance in leaveBalances) {
+            final categoryName = balance['category_name'] ?? 'Leave';
+            final totalDays = balance['total_days'] ?? 0;
+            final usedDays = balance['used_days'] ?? 0;
+            final remainingDays = balance['remaining_days'] ?? 0;
+            
+            _leaveTypes.add({
+              'name': categoryName,
+              'description': 'Apply for $categoryName',
+              'balance': totalDays,
+              'used': usedDays,
+              'remaining': remainingDays,
+              'icon': _getLeaveTypeIcon(categoryName),
+              'color': _getLeaveTypeColor(categoryName),
+            });
+          }
+          
+          // Always add LOP (Loss of Pay) option
+          _leaveTypes.add({
+            'name': 'LOP',
+            'description': 'Loss of Pay',
+            'balance': 999, // Unlimited
+            'used': 0,
+            'remaining': 999,
+            'icon': Icons.money_off,
+            'color': Colors.orange,
+          });
+        });
+      } else {
+        // Fallback to separate API call if dashboard stats not available
+        final apiService = ref.read(apiServiceProvider);
+        final currentUser = await apiService.getCurrentUser();
+        
+        if (currentUser != null && currentUser['id'] != null) {
+          final leaveBalances = await apiService.getLeaveBalance(currentUser['id'].toString());
+          
+          setState(() {
+            _leaveTypes.clear();
+            
+            // Convert leave balances to leave types for display
+            for (final balance in leaveBalances) {
+              final categoryName = balance['category_name'] ?? 'Leave';
+              final totalDays = balance['total_days'] ?? 0;
+              final usedDays = balance['used_days'] ?? 0;
+              final remainingDays = balance['remaining_days'] ?? 0;
+              
+              _leaveTypes.add({
+                'name': categoryName,
+                'description': 'Apply for $categoryName',
+                'balance': totalDays,
+                'used': usedDays,
+                'remaining': remainingDays,
+                'icon': _getLeaveTypeIcon(categoryName),
+                'color': _getLeaveTypeColor(categoryName),
+              });
+            }
+            
+            // Always add LOP (Loss of Pay) option
+            _leaveTypes.add({
+              'name': 'LOP',
+              'description': 'Loss of Pay',
+              'balance': 999, // Unlimited
+              'used': 0,
+              'remaining': 999,
+              'icon': Icons.money_off,
+              'color': Colors.orange,
+            });
+          });
+        }
+      }
     } catch (e) {
-      print('Failed to load leave types: $e');
+      // Handle error silently
     }
   }
 
@@ -95,6 +209,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _dashboardStats = stats;
         _isLoadingStats = false;
       });
+      
+      // Load leave types using the dashboard stats data
+      await _loadLeaveTypes();
     } catch (e) {
       setState(() {
         _isLoadingStats = false;
@@ -308,7 +425,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 1.3,
+                    childAspectRatio: 1.1,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     children: _leaveTypes.map((leaveType) {
@@ -381,38 +498,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         },
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 leaveType['icon'],
-                size: 32,
-                color: leaveType['color'],
+                size: 28,
+                color: _parseColor(leaveType['color']),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 leaveType['name'],
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 12,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 leaveType['description'],
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 10,
                   color: AppTheme.secondaryColor,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: leaveType['color'].withOpacity(0.1),
+                  color: _parseColor(leaveType['color']).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -420,7 +541,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: leaveType['color'],
+                    color: _parseColor(leaveType['color']),
                   ),
                 ),
               ),
@@ -447,7 +568,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: holiday['color'],
+                      color: _parseColor(holiday['color']),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -476,7 +597,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Text(
                 holiday['type'],
                 style: TextStyle(
-                  color: holiday['color'],
+                  color: _parseColor(holiday['color']),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -505,15 +626,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
         title: Text(
-          event['name'],
+          event['name'] ?? 'Unknown Event',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${event['date']} at ${event['time']}'),
+            Text('${_formatEventDate(event['date'])} at ${event['time'] ?? 'No time'}'),
             Text(
-              event['location'],
+              event['location'] ?? 'No location',
               style: TextStyle(
                 color: AppTheme.secondaryColor,
                 fontSize: 12,
@@ -528,7 +649,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            event['type'],
+            event['type'] ?? 'Event',
             style: TextStyle(
               color: AppTheme.primaryColor,
               fontSize: 12,
@@ -573,7 +694,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         }
       }
     } catch (e) {
-      print('Failed to check leave availability: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to check leave availability. Please try again.')),
       );
@@ -682,5 +802,118 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  IconData _getLeaveTypeIcon(String? leaveType) {
+    if (leaveType == null) return Icons.event;
+    
+    switch (leaveType.toLowerCase()) {
+      case 'sick leave':
+      case 'sick':
+        return Icons.medical_services;
+      case 'casual leave':
+      case 'casual':
+        return Icons.beach_access;
+      case 'professional leave':
+      case 'professional':
+        return Icons.business;
+      case 'lop':
+      case 'loss of pay':
+        return Icons.money_off;
+      default:
+        return Icons.event;
+    }
+  }
+
+  Color _getLeaveTypeColor(String? leaveType) {
+    if (leaveType == null) return AppTheme.primaryColor;
+    
+    switch (leaveType.toLowerCase()) {
+      case 'sick leave':
+      case 'sick':
+        return Colors.red;
+      case 'casual leave':
+      case 'casual':
+        return Colors.blue;
+      case 'professional leave':
+      case 'professional':
+        return Colors.green;
+      case 'lop':
+      case 'loss of pay':
+        return Colors.orange;
+      default:
+        return AppTheme.primaryColor;
+    }
+  }
+
+  String _formatEventDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return 'No date';
+    
+    try {
+      // Handle date ranges (e.g., "2024-01-01 to 2024-01-03")
+      if (dateString.contains(' to ')) {
+        final parts = dateString.split(' to ');
+        if (parts.length == 2) {
+          final startDate = DateTime.parse(parts[0].trim());
+          final endDate = DateTime.parse(parts[1].trim());
+          return '${startDate.day}/${startDate.month}/${startDate.year} - ${endDate.day}/${endDate.month}/${endDate.year}';
+        }
+      }
+      
+      // Single date
+      final date = DateTime.parse(dateString);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return dateString; // Return original string if parsing fails
+    }
+  }
+
+  Color _parseColor(dynamic colorValue) {
+    if (colorValue == null) return AppTheme.primaryColor;
+    
+    if (colorValue is Color) return colorValue;
+    
+    if (colorValue is String) {
+      // Handle hex colors like "#FF0000" or "FF0000"
+      String hexColor = colorValue.replaceAll('#', '');
+      if (hexColor.length == 6) {
+        return Color(int.parse('FF$hexColor', radix: 16));
+      } else if (hexColor.length == 8) {
+        return Color(int.parse(hexColor, radix: 16));
+      }
+      
+      // Handle named colors
+      switch (colorValue.toLowerCase()) {
+        case 'red':
+          return Colors.red;
+        case 'blue':
+          return Colors.blue;
+        case 'green':
+          return Colors.green;
+        case 'orange':
+          return Colors.orange;
+        case 'purple':
+          return Colors.purple;
+        case 'yellow':
+          return Colors.yellow;
+        case 'pink':
+          return Colors.pink;
+        case 'teal':
+          return Colors.teal;
+        case 'cyan':
+          return Colors.cyan;
+        case 'indigo':
+          return Colors.indigo;
+        case 'brown':
+          return Colors.brown;
+        case 'grey':
+        case 'gray':
+          return Colors.grey;
+        default:
+          return AppTheme.primaryColor;
+      }
+    }
+    
+    return AppTheme.primaryColor;
   }
 }

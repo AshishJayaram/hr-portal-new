@@ -131,7 +131,7 @@ class AppDrawer extends ConsumerWidget {
               '/team',
               currentRoute,
             ),
-            // Show Employees only for HR, Admin
+            // Show Employees for HR, Admin, and God
             if (_canAccessEmployees(user?.role))
               _buildDrawerItem(
                 context,
@@ -140,23 +140,7 @@ class AppDrawer extends ConsumerWidget {
                 '/employees',
                 currentRoute,
               ),
-            // Show User Management only for Admin and God
-            if (user?.role == 'Admin' || user?.role == 'God')
-              _buildDrawerItem(
-                context,
-                Icons.admin_panel_settings,
-                'User Management',
-                '/admin/users',
-                currentRoute,
-              ),
-            _buildLeavesSection(context, currentRoute),
-            _buildDrawerItem(
-              context,
-              Icons.calendar_today,
-              'Holidays',
-              '/holidays',
-              currentRoute,
-            ),
+            _buildLeavesAndHolidaysSection(context, currentRoute),
             _buildDrawerItem(
               context,
               Icons.folder,
@@ -178,6 +162,15 @@ class AppDrawer extends ConsumerWidget {
               '/profile',
               currentRoute,
             ),
+            // Show Audit Logs only for Admin, HR, and God
+            if (user?.role == 'Admin' || user?.role == 'HR' || user?.role == 'God')
+              _buildDrawerItem(
+                context,
+                Icons.history,
+                'Audit Logs',
+                '/audit-logs',
+                currentRoute,
+              ),
             _buildDrawerItem(
               context,
               Icons.settings,
@@ -203,11 +196,11 @@ class AppDrawer extends ConsumerWidget {
     );
   }
 
-  Widget _buildLeavesSection(BuildContext context, String currentRoute) {
+  Widget _buildLeavesAndHolidaysSection(BuildContext context, String currentRoute) {
     // Empty leave balance data - will be populated from API
     final leaveBalances = <String, Map<String, int>>{};
 
-    final isSelected = currentRoute == '/leaves';
+    final isSelected = currentRoute == '/leaves' || currentRoute == '/holidays';
     
     return ExpansionTile(
       leading: Icon(
@@ -215,7 +208,7 @@ class AppDrawer extends ConsumerWidget {
         color: isSelected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurface,
       ),
       title: Text(
-        'Leaves',
+        'Leaves & Holidays',
         style: TextStyle(
           color: isSelected ? AppTheme.primaryColor : Theme.of(context).colorScheme.onSurface,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -266,35 +259,56 @@ class AppDrawer extends ConsumerWidget {
         // Quick action buttons
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
+          child: Column(
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    context.go('/leaves');
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Apply Leave', style: TextStyle(fontSize: 12)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        context.go('/leaves');
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Apply Leave', style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        context.go('/leaves');
+                      },
+                      icon: const Icon(Icons.history, size: 16),
+                      label: const Text('History', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: BorderSide(color: AppTheme.primaryColor),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    context.go('/leaves');
+                    context.go('/holidays');
                   },
-                  icon: const Icon(Icons.history, size: 16),
-                  label: const Text('History', style: TextStyle(fontSize: 12)),
+                  icon: const Icon(Icons.calendar_today, size: 16),
+                  label: const Text('View Holidays', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
-                    side: BorderSide(color: AppTheme.primaryColor),
+                    foregroundColor: AppTheme.accentColor,
+                    side: BorderSide(color: AppTheme.accentColor),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
@@ -336,7 +350,7 @@ class AppDrawer extends ConsumerWidget {
   }
 
   bool _canAccessEmployees(String? role) {
-    return role == 'HR' || role == 'Admin';
+    return role == 'HR' || role == 'Admin' || role == 'God';
   }
 
   Color _getRoleColor(String role) {

@@ -17,11 +17,13 @@ export default function HolidaysPage() {
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [formData, setFormData] = useState({
     name: "",
-    date: "",
+    startDate: "",
+    endDate: "",
     type: "holiday" as "holiday" | "event" | "notice",
     description: "",
     isCalendarEvent: true,
     color: "#ef4444",
+    isMultiDay: false,
   });
 
   // Fetch available years once
@@ -107,22 +109,58 @@ export default function HolidaysPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prepare the data for submission
+    const submitData = {
+      ...formData,
+      date: formData.isMultiDay 
+        ? `${formData.startDate} to ${formData.endDate}`
+        : formData.startDate,
+    };
+    
+    // Remove the multi-day specific fields
+    delete submitData.startDate;
+    delete submitData.endDate;
+    delete submitData.isMultiDay;
+    
     if (editingHoliday) {
-      updateHolidayMutation.mutate({ id: editingHoliday.id, data: formData });
+      updateHolidayMutation.mutate({ id: editingHoliday.id, data: submitData });
     } else {
-      createHolidayMutation.mutate(formData);
+      createHolidayMutation.mutate(submitData);
     }
   };
 
   const handleEdit = (holiday: Holiday) => {
     setEditingHoliday(holiday);
+    
+    // Parse the holiday date to determine if it's multi-day
+    let startDate = "";
+    let endDate = "";
+    let isMultiDay = false;
+    
+    if (holiday.date) {
+      // Check if the date contains a range (e.g., "2024-01-01 to 2024-01-03")
+      if (holiday.date.includes(" to ")) {
+        const [start, end] = holiday.date.split(" to ");
+        startDate = start.trim();
+        endDate = end.trim();
+        isMultiDay = true;
+      } else {
+        startDate = holiday.date;
+        endDate = holiday.date;
+        isMultiDay = false;
+      }
+    }
+    
     setFormData({
       name: holiday.name,
-      date: holiday.date || "",
+      startDate: startDate,
+      endDate: endDate,
       type: holiday.type || "holiday",
       description: holiday.description || "",
       isCalendarEvent: holiday.isCalendarEvent ?? true,
       color: holiday.color || "#ef4444",
+      isMultiDay: isMultiDay,
     });
     setShowForm(true);
   };
@@ -204,13 +242,6 @@ export default function HolidaysPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
-                <Input
-                  label="Date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  required={formData.type !== 'notice'}
-                />
                 <Select
                   label="Type"
                   value={formData.type}
@@ -219,7 +250,8 @@ export default function HolidaysPage() {
                     setFormData({ 
                       ...formData, 
                       type: newType,
-                      date: newType === 'notice' ? '' : formData.date, // Clear date for notices
+                      startDate: newType === 'notice' ? '' : formData.startDate, // Clear date for notices
+                      endDate: newType === 'notice' ? '' : formData.endDate,
                       color: newType === "holiday" ? "#ef4444" : newType === "event" ? "#3b82f6" : "#10b981"
                     });
                   }}
@@ -232,6 +264,26 @@ export default function HolidaysPage() {
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
+                    id="isMultiDay"
+                    checked={formData.isMultiDay}
+                    onChange={(e) => {
+                      const isMultiDay = e.target.checked;
+                      setFormData({ 
+                        ...formData, 
+                        isMultiDay,
+                        endDate: isMultiDay ? formData.endDate : formData.startDate // Set end date to start date if single day
+                      });
+                    }}
+                    className="rounded"
+                    disabled={formData.type === 'notice'}
+                  />
+                  <label htmlFor="isMultiDay" className="text-sm font-medium">
+                    Multi-day Event
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
                     id="isCalendarEvent"
                     checked={formData.isCalendarEvent}
                     onChange={(e) => setFormData({ ...formData, isCalendarEvent: e.target.checked })}
@@ -241,6 +293,33 @@ export default function HolidaysPage() {
                     Show on Calendar
                   </label>
                 </div>
+              </div>
+              
+              {/* Date Fields */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <Input
+                  label="Start Date"
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => {
+                    const startDate = e.target.value;
+                    setFormData({ 
+                      ...formData, 
+                      startDate,
+                      endDate: formData.isMultiDay ? formData.endDate : startDate // Auto-set end date if single day
+                    });
+                  }}
+                  required={formData.type !== 'notice'}
+                />
+                {formData.isMultiDay && (
+                  <Input
+                    label="End Date"
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    required={formData.isMultiDay}
+                  />
+                )}
               </div>
               
               <Input
@@ -263,7 +342,7 @@ export default function HolidaysPage() {
                   onClick={() => {
                     setShowForm(false);
                     setEditingHoliday(null);
-                    setFormData({ name: "", date: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444" });
+                    setFormData({ name: "", startDate: "", endDate: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444", isMultiDay: false });
                   }}
                 >
                   Cancel
@@ -330,12 +409,32 @@ export default function HolidaysPage() {
                   </div>
                   {holiday.date && (
                     <p className="text-sm text-secondary mb-1">
-                      {new Date(holiday.date).toLocaleDateString('en-US', { 
-                        weekday: 'long',
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
+                      {holiday.date.includes(" to ") ? (
+                        // Multi-day range
+                        (() => {
+                          const [start, end] = holiday.date.split(" to ");
+                          const startDate = new Date(start.trim());
+                          const endDate = new Date(end.trim());
+                          return `${startDate.toLocaleDateString('en-US', { 
+                            weekday: 'short',
+                            month: 'short', 
+                            day: 'numeric' 
+                          })} - ${endDate.toLocaleDateString('en-US', { 
+                            weekday: 'short',
+                            month: 'short', 
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}`;
+                        })()
+                      ) : (
+                        // Single day
+                        new Date(holiday.date).toLocaleDateString('en-US', { 
+                          weekday: 'long',
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })
+                      )}
                     </p>
                   )}
                   {!holiday.date && holiday.type === 'notice' && (

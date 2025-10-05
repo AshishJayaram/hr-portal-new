@@ -104,7 +104,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                     leading: CircleAvatar(
                       backgroundColor: AppTheme.primaryColor,
                       child: Text(
-                        member['name'][0],
+                        (member['name'] ?? 'U')[0],
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -112,15 +112,15 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                       ),
                     ),
                     title: Text(
-                      member['name'],
+                      member['name'] ?? 'Unknown',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(member['role']),
+                        Text(member['role'] ?? 'Unknown Role'),
                         Text(
-                          member['department'],
+                          member['department'] ?? 'Unknown Department',
                           style: TextStyle(
                             color: AppTheme.secondaryColor,
                             fontSize: 12,
@@ -137,7 +137,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        member['status'],
+                        member['status'] ?? 'Unknown',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -182,16 +182,21 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
     setState(() {
       _filteredTeamMembers = _allTeamMembers.where((member) {
         // Apply search filter
+        final name = (member['name'] ?? '').toString().toLowerCase();
+        final role = (member['role'] ?? '').toString().toLowerCase();
+        final department = (member['department'] ?? '').toString().toLowerCase();
+        
         final matchesSearch = _searchQuery.isEmpty ||
-            member['name'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            member['role'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            member['department'].toLowerCase().contains(_searchQuery.toLowerCase());
+            name.contains(_searchQuery.toLowerCase()) ||
+            role.contains(_searchQuery.toLowerCase()) ||
+            department.contains(_searchQuery.toLowerCase());
 
         // Apply status/department filter
         bool matchesFilter = true;
         if (_selectedFilter != 'All') {
-          matchesFilter = member['status'] == _selectedFilter ||
-              member['department'] == _selectedFilter;
+          final status = member['status'] ?? '';
+          final dept = member['department'] ?? '';
+          matchesFilter = status == _selectedFilter || dept == _selectedFilter;
         }
 
         return matchesSearch && matchesFilter;

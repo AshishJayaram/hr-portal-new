@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
@@ -239,15 +240,28 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   void _uploadDocument() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Upload Document'),
-        content: const Text('Document upload functionality - Coming Soon'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
+      builder: (context) => _UploadDocumentDialog(
+        onUpload: (formData) async {
+          try {
+            final apiService = ref.read(apiServiceProvider);
+            final result = await apiService.uploadDocument(formData);
+            
+            if (result != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Document uploaded successfully')),
+              );
+              _loadDocuments();
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Failed to upload document')),
+              );
+            }
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Upload failed: $e')),
+            );
+          }
+        },
       ),
     );
   }
@@ -535,5 +549,165 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         ],
       ),
     );
+  }
+}
+
+class _UploadDocumentDialog extends StatefulWidget {
+  final Function(FormData) onUpload;
+
+  const _UploadDocumentDialog({required this.onUpload});
+
+  @override
+  State<_UploadDocumentDialog> createState() => _UploadDocumentDialogState();
+}
+
+class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _categoryController = TextEditingController();
+  bool _isPublic = false;
+  bool _isUploading = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _categoryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Upload Document'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Document Title',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a title';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _categoryController,
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a category';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _isPublic,
+                    onChanged: (value) {
+                      setState(() {
+                        _isPublic = value ?? false;
+                      });
+                    },
+                  ),
+                  const Text('Make this document public'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                height: 120,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.cloud_upload,
+                      size: 48,
+                      color: AppTheme.primaryColor,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'File picker integration required',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                    const Text(
+                      'Use file_picker package for actual implementation',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isUploading ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isUploading ? null : _uploadFile,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: _isUploading 
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Upload'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _uploadFile() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      // Create FormData with mock file for demonstration
+      final formData = FormData.fromMap({
+        'title': _titleController.text,
+        'category': _categoryController.text,
+        'isPublic': _isPublic.toString(),
+        // Note: In a real app, you would add the actual file here
+        // 'file': await MultipartFile.fromFile(filePath),
+      });
+
+      await widget.onUpload(formData);
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Upload failed: $e')),
+      );
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
+    }
   }
 }

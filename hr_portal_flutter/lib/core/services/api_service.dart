@@ -681,4 +681,14 @@ class ApiService {
       return false;
     }
   }
+
+  Future<bool> changePassword(Map<String, dynamic> passwordData) async {
+    try {
+      final response = await _dio.post('/auth/change-password', data: passwordData);
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Change password error: $e');
+      rethrow;
+    }
+  }
 }

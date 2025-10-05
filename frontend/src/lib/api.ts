@@ -72,10 +72,6 @@ export interface Leave {
   createdAt: string;
 }
 
-export type LeaveBalance =
-  | { type: 'Sick Leave' | 'Casual Leave' | 'Professional Leave' | 'Sick' | 'Casual' | 'Professional'; balance: number }
-  | { id?: string; userId?: string; type: string; total: number; used: number; remaining: number }
-  | LeaveAllocation;
 
 export interface Document {
   id: string;
@@ -109,11 +105,26 @@ export interface Holiday {
   createdAt?: string;
 }
 
+export interface LeaveBalance {
+  category_id: string;
+  category_name: string;
+  total_days: number;
+  used_days: number;
+  remaining_days: number;
+  year: number;
+}
+
 export interface DashboardStats {
-  totalEmployees: number;
-  pendingLeaves: number;
-  approvedLeaves: number;
-  totalDocuments: number;
+  total_users: number;
+  total_leaves: number;
+  pending_leaves: number;
+  approved_leaves: number;
+  total_documents: number;
+  upcoming_holidays: Holiday[];
+  recent_leaves: Leave[];
+  recent_documents: Document[];
+  recent_salary_slips: SalarySlip[];
+  leave_balances: LeaveBalance[];
 }
 
 export interface ApiResponse<T> {
@@ -694,7 +705,7 @@ export const createHoliday = (body: Partial<Holiday>) =>
     data: {
       id: String(raw?.data?.id ?? raw.id),
       name: raw?.data?.name ?? raw.name,
-      date: raw?.data?.date ?? raw.date,
+      date: raw?.data?.date_range ?? raw?.data?.date ?? raw.date_range ?? raw.date,
       type: raw?.data?.type ?? raw.type ?? 'holiday',
       description: raw?.data?.description ?? raw.description,
       isCalendarEvent: raw?.data?.isCalendarEvent ?? raw?.data?.is_calendar_event ?? raw.isCalendarEvent ?? true,
@@ -718,7 +729,7 @@ export const updateHoliday = (id: string, body: Partial<Holiday>) =>
     data: {
       id: String(raw?.data?.id ?? raw.id ?? id),
       name: raw?.data?.name ?? raw.name ?? (body.name as string),
-      date: raw?.data?.date ?? raw.date ?? (body.date as string),
+      date: raw?.data?.date_range ?? raw?.data?.date ?? raw.date_range ?? raw.date ?? (body.date as string),
       type: raw?.data?.type ?? raw.type ?? body.type ?? 'holiday',
       description: raw?.data?.description ?? raw.description ?? body.description,
       isCalendarEvent: raw?.data?.isCalendarEvent ?? raw?.data?.is_calendar_event ?? raw.isCalendarEvent ?? body.isCalendarEvent ?? true,
@@ -741,16 +752,32 @@ export const getDashboardStats = () =>
   fetcher<any>("/dashboard/stats").then((raw) => {
     const d = raw?.data ?? raw ?? {};
     const mapped: DashboardStats = {
-      totalEmployees: d.totalEmployees ?? d.total_users ?? 0,
-      pendingLeaves: d.pendingLeaves ?? d.pending_leaves ?? 0,
-      approvedLeaves: d.approvedLeaves ?? d.approved_leaves ?? 0,
-      totalDocuments: d.totalDocuments ?? d.total_documents ?? 0,
+      total_users: d.total_users ?? 0,
+      total_leaves: d.total_leaves ?? 0,
+      pending_leaves: d.pending_leaves ?? 0,
+      approved_leaves: d.approved_leaves ?? 0,
+      total_documents: d.total_documents ?? 0,
+      upcoming_holidays: d.upcoming_holidays ?? [],
+      recent_leaves: d.recent_leaves ?? [],
+      recent_documents: d.recent_documents ?? [],
+      recent_salary_slips: d.recent_salary_slips ?? [],
+      leave_balances: d.leave_balances ?? [],
     };
-    const fallback = mapped.totalEmployees || mapped.pendingLeaves || mapped.approvedLeaves || mapped.totalDocuments
-      ? mapped
-      : { totalEmployees: 0, pendingLeaves: 0, approvedLeaves: 0, totalDocuments: 0 };
-    return { data: fallback } as ApiResponse<DashboardStats>;
-  }).catch(() => ({ data: { totalEmployees: 0, pendingLeaves: 0, approvedLeaves: 0, totalDocuments: 0 } } as ApiResponse<DashboardStats>));
+    return { data: mapped } as ApiResponse<DashboardStats>;
+  }).catch(() => ({ 
+    data: { 
+      total_users: 0, 
+      total_leaves: 0, 
+      pending_leaves: 0, 
+      approved_leaves: 0, 
+      total_documents: 0,
+      upcoming_holidays: [],
+      recent_leaves: [],
+      recent_documents: [],
+      recent_salary_slips: [],
+      leave_balances: []
+    } 
+  } as ApiResponse<DashboardStats>));
 
 // -------------------- Team --------------------
 export const getTeam = (params?: Record<string, string>) =>
@@ -1003,18 +1030,6 @@ export const getEntityAuditLogs = (entityType: string, entityId: string) => {
 };
 
 // -------------------- Holidays --------------------
-export type Holiday = {
-  id: string;
-  name: string;
-  date?: string;
-  type: 'holiday' | 'event' | 'notice';
-  description?: string;
-  isCalendarEvent?: boolean;
-  color?: string;
-  created_at?: string;
-  updated_at?: string;
-};
-
 export const getAvailableHolidayYears = () => {
   return fetcher<any>(`/holidays/years`)
     .then((raw) => {

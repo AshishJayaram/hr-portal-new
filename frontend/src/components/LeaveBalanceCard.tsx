@@ -22,16 +22,16 @@ export default function LeaveBalanceCard({ balance }: { balance: LeaveBalance[] 
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
       {balance.map((item, idx) => {
-        // Handle both legacy LeaveBalance and new LeaveAllocation formats
-        const isAllocation = 'categoryName' in item;
-        const type = isAllocation ? (item as LeaveAllocation).categoryName : (item as any).type;
-        const remaining = isAllocation ? (item as LeaveAllocation).remainingDays : (item as any).remaining;
-        const used = isAllocation ? (item as LeaveAllocation).usedDays : (item as any).used;
-        const total = isAllocation ? (item as LeaveAllocation).totalDays : (item as any).total;
+        // Handle different response formats from dashboard API
+        const type = (item as any).category_name || (item as any).type || 'Leave';
+        const remaining = (item as any).remaining_days || (item as any).remaining || 0;
+        const used = (item as any).used_days || (item as any).used || 0;
+        const total = (item as any).total_days || (item as any).total || 0;
+        const year = (item as any).year;
         
         return (
           <motion.div
-            key={isAllocation ? (item as LeaveAllocation).categoryId : (item as any).type}
+            key={(item as any).category_id || (item as any).type || idx}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.05, duration: 0.25 }}
@@ -44,9 +44,9 @@ export default function LeaveBalanceCard({ balance }: { balance: LeaveBalance[] 
               <p className="text-sm text-secondary">
                 {used} used of {total}
               </p>
-              {isAllocation && (
+              {year && (
                 <p className="text-xs text-muted mt-1">
-                  Year: {(item as LeaveAllocation).year}
+                  Year: {year}
                 </p>
               )}
             </Card>

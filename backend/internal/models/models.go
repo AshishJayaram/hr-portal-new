@@ -200,7 +200,8 @@ type Holiday struct {
 	BaseModel
 	OrganizationID  uint       `json:"organization_id" gorm:"not null;index"`
 	Name            string     `json:"name" gorm:"not null"`
-	Date            *time.Time `json:"date"` // Optional for notices
+	Date            *time.Time `json:"date"`       // Optional for notices, used for single-day events
+	DateRange       *string    `json:"date_range"` // Used for multi-day events (e.g., "2024-01-01 to 2024-01-03")
 	Type            string     `json:"type" gorm:"not null;check:type IN ('holiday','event','notice')"`
 	Description     string     `json:"description"`
 	IsCalendarEvent bool       `json:"is_calendar_event" gorm:"default:true"`

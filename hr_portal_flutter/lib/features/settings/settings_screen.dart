@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
@@ -86,7 +87,7 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle: const Text('Manage your profile information'),
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () {
-                      // TODO: Navigate to profile
+                      context.push('/profile');
                     },
                   ),
                   ListTile(
@@ -95,7 +96,7 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle: const Text('Update your password'),
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () {
-                      _showChangePasswordDialog(context);
+                      context.push('/change-password');
                     },
                   ),
                 ],
@@ -218,22 +219,6 @@ class SettingsScreen extends ConsumerWidget {
       case ThemeMode.system:
         return 'System';
     }
-  }
-
-  void _showChangePasswordDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Change Password'),
-        content: const Text('Password change functionality - Coming Soon'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showHelpDialog(BuildContext context) {

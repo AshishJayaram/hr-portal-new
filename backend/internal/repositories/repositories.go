@@ -231,9 +231,9 @@ func (r *BaseRepository) buildQuery(query *gorm.DB, filters map[string]interface
 			query = query.Where("to_date <= ?", toDate)
 		case "year":
 			if yearStr, ok := value.(string); ok {
-				// For holidays table, filter by year from date field
+				// For holidays table, filter by year from date field using SQLite strftime
 				if len(yearStr) == 4 {
-					query = query.Where("YEAR(date) = ?", yearStr)
+					query = query.Where("strftime('%Y', date) = ?", yearStr)
 				}
 			} else if year, ok := value.(int); ok {
 				if year > 0 {

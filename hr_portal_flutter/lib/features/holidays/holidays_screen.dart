@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/services/api_service.dart';
+import '../../core/providers/providers.dart';
 
 class HolidaysScreen extends ConsumerStatefulWidget {
   @override
@@ -14,13 +16,17 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
   late TabController _tabController;
   
   final List<Map<String, dynamic>> _upcomingHolidays = [];
-
   final List<Map<String, dynamic>> _userLeaves = [];
+  final List<int> _availableYears = [];
+  int? _selectedYear;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadAvailableYears();
+    _loadHolidays();
   }
 
   @override
@@ -41,7 +47,14 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
             Tab(text: 'My Leaves', icon: Icon(Icons.person)),
           ],
         ),
-        actions: [],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              context.go('/holidays/add');
+            },
+          ),
+        ],
       ),
       drawer: const AppDrawer(),
       body: TabBarView(
@@ -60,22 +73,74 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Upcoming Public Holidays',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Holidays & Events',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (_availableYears.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: _selectedYear,
+                      hint: const Text('Select Year'),
+                      items: _availableYears.map((year) {
+                        final financialYearLabel = '${year} (Apr ${year.toString().substring(2)} - Mar ${(year + 1).toString().substring(2)})';
+                        return DropdownMenuItem<int>(
+                          value: year,
+                          child: Text(
+                            financialYearLabel,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (year) {
+                        setState(() {
+                          _selectedYear = year;
+                        });
+                        _loadHolidays();
+                      },
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 16),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _upcomingHolidays.length,
-            itemBuilder: (context, index) {
-              final holiday = _upcomingHolidays[index];
-              return _buildHolidayCard(context, holiday);
-            },
-          ),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_upcomingHolidays.isEmpty)
+            const Center(
+              child: Column(
+                children: [
+                  Icon(Icons.event, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'No holidays found for selected year',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _upcomingHolidays.length,
+              itemBuilder: (context, index) {
+                final holiday = _upcomingHolidays[index];
+                return _buildHolidayCard(context, holiday);
+              },
+            ),
         ],
       ),
     );
@@ -125,6 +190,9 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
   }
 
   Widget _buildHolidayCard(BuildContext context, Map<String, dynamic> holiday) {
+    final type = holiday['type'] ?? 'holiday';
+    final color = _getHolidayTypeColor(type);
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -135,16 +203,16 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: holiday['color'].withOpacity(0.1),
+                color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
-                  color: holiday['color'],
+                  color: color,
                   width: 2,
                 ),
               ),
               child: Icon(
-                Icons.event,
-                color: holiday['color'],
+                _getHolidayTypeIcon(type),
+                color: color,
                 size: 30,
               ),
             ),
@@ -154,7 +222,7 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    holiday['name'],
+                    holiday['title'] ?? holiday['name'] ?? 'Untitled',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -162,33 +230,35 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    holiday['date'],
+                    _formatDate(holiday['date']),
                     style: TextStyle(
                       color: AppTheme.secondaryColor,
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    holiday['description'],
-                    style: TextStyle(
-                      color: AppTheme.secondaryColor,
-                      fontSize: 12,
+                  if (holiday['description'] != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      holiday['description'],
+                      style: TextStyle(
+                        color: AppTheme.secondaryColor,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: holiday['color'].withOpacity(0.1),
+                color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
-                holiday['type'],
+                type.toUpperCase(),
                 style: TextStyle(
-                  color: holiday['color'],
+                  color: color,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -400,5 +470,105 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
         ],
       ),
     );
+  }
+
+  Color _getHolidayTypeColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'holiday':
+        return Colors.red;
+      case 'event':
+        return Colors.blue;
+      case 'notice':
+        return Colors.green;
+      default:
+        return AppTheme.primaryColor;
+    }
+  }
+
+  IconData _getHolidayTypeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'holiday':
+        return Icons.event;
+      case 'event':
+        return Icons.calendar_today;
+      case 'notice':
+        return Icons.notifications;
+      default:
+        return Icons.event;
+    }
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return '';
+    try {
+      // Check if it's a date range (e.g., "2024-01-01 to 2024-01-03")
+      if (dateString.contains(' to ')) {
+        final parts = dateString.split(' to ');
+        if (parts.length == 2) {
+          final startDate = DateTime.parse(parts[0].trim());
+          final endDate = DateTime.parse(parts[1].trim());
+          return '${startDate.day}/${startDate.month}/${startDate.year} - ${endDate.day}/${endDate.month}/${endDate.year}';
+        }
+      }
+      
+      // Single date
+      final date = DateTime.parse(dateString);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  Future<void> _loadAvailableYears() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final years = await apiService.getAvailableHolidayYears();
+      
+      setState(() {
+        _availableYears.clear();
+        _availableYears.addAll(years);
+        if (years.isNotEmpty && _selectedYear == null) {
+          _selectedYear = years.first; // Default to first available year
+        }
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load available years: $e')),
+      );
+    }
+  }
+
+  Future<void> _loadHolidays() async {
+    // Use current year if no year is selected
+    final yearToLoad = _selectedYear ?? DateTime.now().year;
+    
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final holidays = await apiService.getHolidaysWithFilters(year: yearToLoad);
+      
+      setState(() {
+        _upcomingHolidays.clear();
+        if (holidays is List) {
+          _upcomingHolidays.addAll((holidays as List).cast<Map<String, dynamic>>());
+        } else if (holidays is Map && holidays.containsKey('data')) {
+          final data = holidays['data'];
+          if (data is List) {
+            _upcomingHolidays.addAll((data as List).cast<Map<String, dynamic>>());
+          }
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load holidays: $e')),
+      );
+    }
   }
 }

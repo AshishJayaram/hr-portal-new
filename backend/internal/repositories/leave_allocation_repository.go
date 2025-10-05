@@ -5,6 +5,8 @@ import (
 	"strconv"
 
 	"hr-portal-backend/internal/models"
+
+	"gorm.io/gorm"
 )
 
 // leaveAllocationRepository implements LeaveAllocationRepository interface
@@ -87,4 +89,29 @@ func (r *leaveAllocationRepository) UpdateUsedDays(userID, categoryID string, ye
 		return fmt.Errorf("failed to update used days: %w", err)
 	}
 	return nil
+}
+
+// buildQuery constructs a GORM query based on filters
+func (r *leaveAllocationRepository) buildQuery(query *gorm.DB, filters map[string]interface{}) *gorm.DB {
+	for key, value := range filters {
+		switch key {
+		case "user_id":
+			if userIDStr, ok := value.(string); ok {
+				if userIDUint, err := strconv.ParseUint(userIDStr, 10, 32); err == nil {
+					query = query.Where("user_id = ?", uint(userIDUint))
+				}
+			}
+		case "category_id":
+			if categoryIDStr, ok := value.(string); ok {
+				if categoryIDUint, err := strconv.ParseUint(categoryIDStr, 10, 32); err == nil {
+					query = query.Where("category_id = ?", uint(categoryIDUint))
+				}
+			}
+		case "year":
+			if year, ok := value.(int); ok {
+				query = query.Where("year = ?", year)
+			}
+		}
+	}
+	return query
 }
