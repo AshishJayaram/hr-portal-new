@@ -206,6 +206,14 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			users.POST("/change-password", handlers.User.ChangePassword)
 		}
 
+		// Team routes
+		team := api.Group("/team")
+		team.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		team.Use(middleware.OrganizationRequired())
+		{
+			team.GET("", handlers.Team.GetTeam)
+		}
+
 		// Leave routes
 		leaves := api.Group("/leaves")
 		leaves.Use(middleware.AuthRequired(cfg.JWT.Secret))

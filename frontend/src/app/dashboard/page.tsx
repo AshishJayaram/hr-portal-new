@@ -10,6 +10,7 @@ import Card from "@/components/ui/Card";
 import { motion } from "framer-motion";
 import RoleGuard from "../../components/RoleGuard";
 import Link from "next/link";
+import { FileText } from "lucide-react";
 
 export default function DashboardPage() {
   const user = getCurrentUser();
@@ -177,11 +178,28 @@ export default function DashboardPage() {
 
 
         {/* Recent Documents - compact */}
-        <Card title="Recent Documents" className="p-4">
+        <Card className="p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold">Recent Documents</h3>
+            <button
+              onClick={() => window.location.href = '/documents'}
+              className="text-indigo-400 hover:text-indigo-300 text-sm font-medium"
+            >
+              View All
+            </button>
+          </div>
           <ul className="divide-y divide-gray-700 text-sm">
             {(dashboardData?.data?.recent_documents || []).slice(0, 3).map((doc: any) => (
               <li key={doc.id} className="py-2 flex justify-between items-center">
-                <span className="truncate pr-3">{doc.title}</span>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white flex-shrink-0">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="truncate block font-medium">{doc.title}</span>
+                    <span className="text-xs text-gray-400">{doc.category}</span>
+                  </div>
+                </div>
                 <button
                   onClick={async () => {
                     try {
@@ -193,20 +211,27 @@ export default function DashboardPage() {
                       });
                       const data = await response.json();
                       if (data.fileUrl) {
-                        window.open(data.fileUrl, '_blank');
+                        if (data.fileUrl.toLowerCase().endsWith('.pdf')) {
+                          // Open PDF in custom viewer
+                          const encodedUrl = encodeURIComponent(data.fileUrl);
+                          const encodedTitle = encodeURIComponent(doc.title);
+                          window.open(`/pdf?url=${encodedUrl}&title=${encodedTitle}`, '_blank');
+                        } else {
+                          window.open(data.fileUrl, '_blank');
+                        }
                       }
                     } catch (error) {
                       console.error('Failed to download document:', error);
                     }
                   }}
-                  className="text-indigo-400 hover:underline"
+                  className="text-indigo-400 hover:text-indigo-300 text-sm font-medium ml-2 flex-shrink-0"
                 >
-                  View
+                  {doc.fileUrl?.toLowerCase().endsWith('.pdf') ? 'View PDF' : 'View'}
                 </button>
               </li>
             ))}
             {((dashboardData?.data?.recent_documents || []).length || 0) === 0 && (
-              <li className="text-gray-400">No documents</li>
+              <li className="text-gray-400 py-4 text-center">No documents available</li>
             )}
           </ul>
         </Card>

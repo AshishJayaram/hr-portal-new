@@ -397,10 +397,21 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		recentLeaves = recentLeaves[:10]
 	}
 
-	// Get recent documents for the current user only
-	recentDocuments, err := s.repos.Document.List(organizationID, map[string]interface{}{
-		"user_id": userID,
-	})
+	// Get recent documents using the same logic as Documents page
+	filters := make(map[string]interface{})
+
+	// Role-based access control (same as Documents page):
+	// - HR/Admin/God can see documents for any user in their organization
+	// - Employees can only see their own documents + public documents
+	if userRole == "HR" || userRole == "Admin" || userRole == "God" {
+		// HR/Admin/God can access documents for any user
+		// If no requestedUserID specified, show all documents in organization
+	} else {
+		// Regular employees can only see their own documents + public documents
+		filters["user_id_or_public"] = userID
+	}
+
+	recentDocuments, err := s.repos.Document.List(organizationID, filters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recent documents: %w", err)
 	}

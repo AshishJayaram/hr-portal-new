@@ -9,6 +9,7 @@ import (
 type Handlers struct {
 	Auth            *AuthHandler
 	User            *UserHandler
+	Team            *TeamHandler
 	Leave           *LeaveHandler
 	LeaveCategory   *LeaveCategoryHandler
 	LeaveAllocation *LeaveAllocationHandler
@@ -26,6 +27,7 @@ func New(services *services.Services, cfg *config.Config) *Handlers {
 	return &Handlers{
 		Auth:            NewAuthHandler(services.Auth),
 		User:            NewUserHandler(services.User),
+		Team:            NewTeamHandler(services.User),
 		Leave:           NewLeaveHandler(services.Leave, services.Audit),
 		LeaveCategory:   NewLeaveCategoryHandler(services.LeaveCategory),
 		LeaveAllocation: NewLeaveAllocationHandler(services.LeaveAllocation),
