@@ -235,3 +235,28 @@ func (h *AuditHandler) AddDummyLogs(c *gin.Context) {
 		"message": "Dummy audit logs added successfully",
 	})
 }
+
+// DeleteEntityAuditLogs handles DELETE /api/audit/logs/entity
+func (h *AuditHandler) DeleteEntityAuditLogs(c *gin.Context) {
+	entityType := c.Query("entity_type")
+	entityID := c.Query("entity_id")
+
+	if entityType == "" || entityID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "entity_type and entity_id are required",
+		})
+		return
+	}
+
+	err := h.auditService.DeleteEntityLogs(entityType, entityID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to delete entity audit logs",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Entity audit logs deleted successfully",
+	})
+}

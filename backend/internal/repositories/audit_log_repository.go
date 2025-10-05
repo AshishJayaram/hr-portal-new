@@ -111,6 +111,14 @@ func (r *auditLogRepository) Delete(organizationID string, olderThan time.Time) 
 	return nil
 }
 
+func (r *auditLogRepository) DeleteByEntity(entityType, entityID string) error {
+	if err := r.db.Where("entity_type = ? AND entity_id = ?", entityType, entityID).
+		Delete(&models.AuditLog{}).Error; err != nil {
+		return fmt.Errorf("failed to delete audit logs for entity %s:%s: %w", entityType, entityID, err)
+	}
+	return nil
+}
+
 // buildAuditLogQuery builds query with filters specific to audit logs
 func (r *auditLogRepository) buildAuditLogQuery(query *gorm.DB, filters map[string]interface{}) *gorm.DB {
 	for key, value := range filters {

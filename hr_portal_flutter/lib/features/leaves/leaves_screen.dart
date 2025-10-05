@@ -15,6 +15,7 @@ class LeavesScreen extends ConsumerStatefulWidget {
 class _LeavesScreenState extends ConsumerState<LeavesScreen> {
   final List<Map<String, dynamic>> _leaves = [];
   List<Map<String, dynamic>> _availableLeaveTypes = [];
+  List<Map<String, dynamic>> _leaveBalance = [];
   bool _isLoadingLeaveTypes = false;
 
   @override
@@ -55,6 +56,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
         
         setState(() {
           _availableLeaveTypes = availableTypes;
+          _leaveBalance = leaveBalance;
           _isLoadingLeaveTypes = false;
         });
       }
@@ -100,6 +102,100 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
               ],
             ),
           ),
+          
+          // Leave Balance Section
+          if (_leaveBalance.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.primaryColor.withOpacity(0.1),
+                    AppTheme.accentColor.withOpacity(0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.event_available,
+                        color: AppTheme.primaryColor,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Leave Balance',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: _leaveBalance.map((balance) {
+                      final categoryName = balance['category_name'] ?? 'Unknown';
+                      final totalDays = balance['total_days'] ?? 0;
+                      final usedDays = balance['used_days'] ?? 0;
+                      final remainingDays = totalDays - usedDays;
+                      
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: remainingDays > 0 
+                              ? AppTheme.successColor.withOpacity(0.1)
+                              : AppTheme.warningColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: remainingDays > 0 
+                                ? AppTheme.successColor.withOpacity(0.3)
+                                : AppTheme.warningColor.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              categoryName,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: remainingDays > 0 
+                                    ? AppTheme.successColor
+                                    : AppTheme.warningColor,
+                              ),
+                            ),
+                            Text(
+                              '$remainingDays / $totalDays days',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.secondaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
           
           // Leaves List
           Expanded(

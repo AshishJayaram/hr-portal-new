@@ -140,7 +140,7 @@ class AppDrawer extends ConsumerWidget {
                 '/employees',
                 currentRoute,
               ),
-            _buildLeavesAndHolidaysSection(context, currentRoute),
+            _buildLeavesAndHolidaysSection(context, currentRoute, ref),
             _buildDrawerItem(
               context,
               Icons.folder,
@@ -196,10 +196,7 @@ class AppDrawer extends ConsumerWidget {
     );
   }
 
-  Widget _buildLeavesAndHolidaysSection(BuildContext context, String currentRoute) {
-    // Empty leave balance data - will be populated from API
-    final leaveBalances = <String, Map<String, int>>{};
-
+  Widget _buildLeavesAndHolidaysSection(BuildContext context, String currentRoute, WidgetRef ref) {
     final isSelected = currentRoute == '/leaves' || currentRoute == '/holidays';
     
     return ExpansionTile(
@@ -216,45 +213,78 @@ class AppDrawer extends ConsumerWidget {
       ),
       children: [
         // Leave balance summary
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Leave Balance',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.secondaryColor,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...leaveBalances.entries.map((entry) {
-                final remaining = entry.value['total']! - entry.value['used']!;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        entry.key,
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      Text(
-                        '$remaining/${entry.value['total']}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: remaining > 0 ? AppTheme.successColor : AppTheme.errorColor,
-                        ),
-                      ),
-                    ],
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: _loadLeaveBalance(ref),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: const Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                );
-              }).toList(),
-            ],
-          ),
+                ),
+              );
+            }
+            
+            final leaveBalances = snapshot.data ?? [];
+            
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Leave Balance',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.secondaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (leaveBalances.isEmpty)
+                    Text(
+                      'No leave allocations',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.secondaryColor,
+                      ),
+                    )
+                  else
+                    ...leaveBalances.map((balance) {
+                      final categoryName = balance['category_name'] ?? 'Unknown';
+                      final totalDays = balance['total_days'] ?? 0;
+                      final usedDays = balance['used_days'] ?? 0;
+                      final remaining = totalDays - usedDays;
+                      
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              categoryName,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            Text(
+                              '$remaining/$totalDays',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: remaining > 0 ? AppTheme.successColor : AppTheme.errorColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                ],
+              ),
+            );
+          },
         ),
         // Quick action buttons
         Padding(
@@ -366,6 +396,20 @@ class AppDrawer extends ConsumerWidget {
         return AppTheme.secondaryColor;
       default:
         return AppTheme.secondaryColor;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _loadLeaveBalance(WidgetRef ref) async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final currentUser = await apiService.getCurrentUser();
+      
+      if (currentUser != null && currentUser['id'] != null) {
+        return await apiService.getLeaveBalance(currentUser['id'].toString());
+      }
+      return [];
+    } catch (e) {
+      return [];
     }
   }
 }

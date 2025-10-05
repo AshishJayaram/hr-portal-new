@@ -172,6 +172,7 @@ type Document struct {
 	FileSize       int64  `json:"file_size" gorm:"not null"`
 	MimeType       string `json:"mime_type" gorm:"not null"`
 	IsPublic       bool   `json:"is_public" gorm:"default:false"`
+	FileUrl        string `json:"file_url" gorm:"-"` // Computed field, not stored in DB
 
 	// Relationships
 	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
@@ -189,6 +190,7 @@ type SalarySlip struct {
 	FilePath       string `json:"file_path" gorm:"not null"`
 	FileSize       int64  `json:"file_size" gorm:"not null"`
 	MimeType       string `json:"mime_type" gorm:"not null"`
+	FileUrl        string `json:"file_url" gorm:"-"` // Computed field, not stored in DB
 
 	// Relationships
 	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`

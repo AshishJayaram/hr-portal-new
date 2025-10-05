@@ -9,8 +9,9 @@ import '../../core/providers/providers.dart';
 
 class EditEmployeeScreen extends ConsumerStatefulWidget {
   final String employeeId;
+  final String? returnRoute;
   
-  const EditEmployeeScreen({Key? key, required this.employeeId}) : super(key: key);
+  const EditEmployeeScreen({Key? key, required this.employeeId, this.returnRoute}) : super(key: key);
 
   @override
   ConsumerState<EditEmployeeScreen> createState() => _EditEmployeeScreenState();
@@ -40,7 +41,11 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
   // Data lists
   List<Map<String, dynamic>> _managers = [];
   List<Map<String, dynamic>> _organizations = [];
+  List<Map<String, dynamic>> _leaveCategories = [];
   Map<String, dynamic>? _employee;
+  
+  // Leave allocations
+  Map<String, int> _leaveAllocations = {};
 
   @override
   void initState() {
@@ -66,12 +71,14 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
       final managers = await apiService.getUsers();
       final organizations = await apiService.getOrganizations();
       final employee = await apiService.getUser(widget.employeeId);
+      final leaveCategories = await apiService.getLeaveCategories();
       
       setState(() {
         _managers = managers.where((user) => 
           user['role'] == 'Manager' || user['role'] == 'HR' || user['role'] == 'Admin'
         ).toList();
         _organizations = organizations;
+        _leaveCategories = leaveCategories;
         _employee = employee;
         _isLoadingData = false;
       });
@@ -88,6 +95,9 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
         _selectedManagerId = _employee!['manager_id']?.toString();
         _isActive = _employee!['is_active'] ?? true;
       }
+      
+      // Load existing leave allocations
+      await _loadLeaveAllocations();
     } catch (e) {
       setState(() {
         _isLoadingData = false;
@@ -95,6 +105,27 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load data: $e')),
       );
+    }
+  }
+
+  Future<void> _loadLeaveAllocations() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final allocations = await apiService.getLeaveAllocations(widget.employeeId);
+      
+      setState(() {
+        _leaveAllocations.clear();
+        if (allocations is List) {
+          for (var allocation in allocations) {
+            final categoryName = allocation['category_name'] ?? allocation['leave_category']?['name'];
+            if (categoryName != null) {
+              _leaveAllocations[categoryName] = allocation['total_days'] ?? allocation['allocated_days'] ?? 0;
+            }
+          }
+        }
+      });
+    } catch (e) {
+      // Handle error silently - leave allocations are optional
     }
   }
 
@@ -106,7 +137,13 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
           title: const Text('Edit Employee'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (widget.returnRoute != null) {
+                context.go(widget.returnRoute!);
+              } else {
+                context.pop();
+              }
+            },
           ),
         ),
         drawer: const AppDrawer(),
@@ -119,7 +156,13 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
         title: Text('Edit ${_employee?['name'] ?? 'Employee'}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (widget.returnRoute != null) {
+              context.go(widget.returnRoute!);
+            } else {
+              context.pop();
+            }
+          },
         ),
         actions: [
           if (_currentStep > 0)
@@ -128,8 +171,8 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
               child: const Text('Previous'),
             ),
           TextButton(
-            onPressed: _currentStep < 2 ? _nextStep : _submitForm,
-            child: Text(_currentStep < 2 ? 'Next' : 'Update'),
+            onPressed: _currentStep < 3 ? _nextStep : _submitForm,
+            child: Text(_currentStep < 3 ? 'Next' : 'Update'),
           ),
         ],
       ),
@@ -143,14 +186,14 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
               children: [
                 Expanded(
                   child: LinearProgressIndicator(
-                    value: (_currentStep + 1) / 3,
+                    value: (_currentStep + 1) / 4,
                     backgroundColor: Colors.grey[300],
                     valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Text(
-                  'Step ${_currentStep + 1} of 3',
+                  'Step ${_currentStep + 1} of 4',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryColor,
@@ -172,6 +215,7 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
               children: [
                 _buildPersonalInfoStep(),
                 _buildWorkInfoStep(),
+                _buildLeaveManagementStep(),
                 _buildReviewStep(),
               ],
             ),
@@ -556,6 +600,16 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
               : 'No Manager'),
             _buildReviewItem('Status', _isActive ? 'Active' : 'Inactive'),
           ]),
+          
+          const SizedBox(height: 16),
+          
+          _buildReviewCard('Leave Allocations', [
+            ..._leaveAllocations.entries.map((entry) {
+              return _buildReviewItem(entry.key, '${entry.value} days');
+            }).toList(),
+            if (_leaveAllocations.isEmpty)
+              _buildReviewItem('No allocations', 'No leave allocations set'),
+          ]),
         ],
       ),
     );
@@ -655,6 +709,9 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
 
       await apiService.updateUser(widget.employeeId, employeeData);
 
+      // Update leave allocations
+      await _updateLeaveAllocations();
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Employee updated successfully'),
@@ -662,7 +719,11 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
         ),
       );
       
-      context.pop();
+      if (widget.returnRoute != null) {
+        context.go(widget.returnRoute!);
+      } else {
+        context.pop();
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -675,5 +736,178 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _updateLeaveAllocations() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      
+      for (var category in _leaveCategories) {
+        final categoryName = category['name'] ?? 'Unknown';
+        final allocatedDays = _leaveAllocations[categoryName] ?? 0;
+        
+        if (allocatedDays > 0) {
+          await apiService.createLeaveAllocation({
+            'user_id': widget.employeeId,
+            'category_id': category['id'],
+            'total_days': allocatedDays,
+            'year': DateTime.now().year,
+          });
+        }
+      }
+    } catch (e) {
+      // Handle error silently - leave allocations are optional
+    }
+  }
+
+  Widget _buildLeaveManagementStep() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.event_available,
+                  size: 48,
+                  color: AppTheme.primaryColor,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Leave Management',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Manage leave allocations for this employee',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppTheme.secondaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Leave allocations
+          Text(
+            'Leave Allocations',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          ..._leaveCategories.map((category) {
+            final categoryName = category['name'] ?? 'Unknown';
+            final currentAllocation = _leaveAllocations[categoryName] ?? 0;
+            
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            categoryName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            category['description'] ?? '',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.secondaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            if (currentAllocation > 0) {
+                              setState(() {
+                                _leaveAllocations[categoryName] = currentAllocation - 1;
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.remove_circle_outline),
+                          color: AppTheme.primaryColor,
+                        ),
+                        Container(
+                          width: 60,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppTheme.primaryColor),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            currentAllocation.toString(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {
+                            setState(() {
+                              _leaveAllocations[categoryName] = currentAllocation + 1;
+                            });
+                          },
+                          icon: const Icon(Icons.add_circle_outline),
+                          color: AppTheme.primaryColor,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+          
+          if (_leaveCategories.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  'No leave categories available',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppTheme.secondaryColor,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

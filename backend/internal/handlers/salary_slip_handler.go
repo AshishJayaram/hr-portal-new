@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"hr-portal-backend/internal/services"
 
@@ -45,6 +48,12 @@ func (h *SalarySlipHandler) ListSalarySlips(c *gin.Context) {
 			"error": "Failed to list salary slips",
 		})
 		return
+	}
+
+	// Add fileUrl to each salary slip for frontend consumption
+	baseURL := "http://localhost:8080" // TODO: Make this configurable
+	for i := range salarySlips {
+		salarySlips[i].FileUrl = fmt.Sprintf("%s/api/files/salary-slips/%d", baseURL, salarySlips[i].ID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -142,7 +151,7 @@ func (h *SalarySlipHandler) DeleteSalarySlip(c *gin.Context) {
 	})
 }
 
-// DownloadSalarySlip handles salary slip download
+// DownloadSalarySlip handles salary slip download - returns file URL
 func (h *SalarySlipHandler) DownloadSalarySlip(c *gin.Context) {
 	salarySlipID := c.Param("id")
 
@@ -154,10 +163,92 @@ func (h *SalarySlipHandler) DownloadSalarySlip(c *gin.Context) {
 		return
 	}
 
-	// Check if file exists on disk
-	if _, err := os.Stat(salarySlip.FilePath); os.IsNotExist(err) {
+	// Check if file exists on disk - handle both absolute and relative paths
+	filePath := salarySlip.FilePath
+
+	// If path doesn't start with '/', make it relative to current working directory
+	if !strings.HasPrefix(filePath, "/") && !strings.HasPrefix(filePath, "./") {
+		filePath = filepath.Join(".", filePath)
+	}
+
+	// Try multiple path variations
+	possiblePaths := []string{
+		filePath,
+		filepath.Join(".", salarySlip.FilePath),
+		filepath.Join("./uploads", "salary_slips", filepath.Base(salarySlip.FilePath)),
+	}
+
+	var fileExists bool
+
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			fileExists = true
+			break
+		}
+	}
+
+	if !fileExists {
 		c.JSON(http.StatusNotFound, gin.H{
-			"error": "File not found on disk",
+			"error":   "File not found on disk",
+			"details": fmt.Sprintf("Tried paths: %v", possiblePaths),
+		})
+		return
+	}
+
+	// Generate the file URL for the frontend
+	baseURL := "http://localhost:8080" // TODO: Make this configurable
+	fileURL := fmt.Sprintf("%s/api/files/salary-slips/%s", baseURL, salarySlipID)
+
+	// Return JSON response with file URL
+	c.JSON(http.StatusOK, gin.H{
+		"fileUrl":  fileURL,
+		"fileName": salarySlip.FileName,
+		"mimeType": salarySlip.MimeType,
+	})
+}
+
+// ServeSalarySlipFile serves the actual salary slip file
+func (h *SalarySlipHandler) ServeSalarySlipFile(c *gin.Context) {
+	salarySlipID := c.Param("id")
+
+	salarySlip, err := h.salarySlipService.GetSalarySlip(salarySlipID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Salary slip not found",
+		})
+		return
+	}
+
+	// Check if file exists on disk - handle both absolute and relative paths
+	filePath := salarySlip.FilePath
+
+	// If path doesn't start with '/', make it relative to current working directory
+	if !strings.HasPrefix(filePath, "/") && !strings.HasPrefix(filePath, "./") {
+		filePath = filepath.Join(".", filePath)
+	}
+
+	// Try multiple path variations
+	possiblePaths := []string{
+		filePath,
+		filepath.Join(".", salarySlip.FilePath),
+		filepath.Join("./uploads", "salary_slips", filepath.Base(salarySlip.FilePath)),
+	}
+
+	var actualFilePath string
+	var fileExists bool
+
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			actualFilePath = path
+			fileExists = true
+			break
+		}
+	}
+
+	if !fileExists {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   "File not found on disk",
+			"details": fmt.Sprintf("Tried paths: %v", possiblePaths),
 		})
 		return
 	}
@@ -169,6 +260,6 @@ func (h *SalarySlipHandler) DownloadSalarySlip(c *gin.Context) {
 	c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
 	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
 
-	// Serve the file
-	c.File(salarySlip.FilePath)
+	// Serve the file using the actual found path
+	c.File(actualFilePath)
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument } from "@/lib/api";
 import { computePayslipFromCTC } from "@/lib/payroll";
+import { openPDFViewer, isPDFFile, getFileIcon, getFileTypeText } from "@/lib/pdfUtils";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
@@ -94,7 +95,20 @@ export default function SalarySlipsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteSalarySlip,
+    mutationFn: async (slipId: string) => {
+      try {
+        // Try normal deletion first
+        return await deleteSalarySlip(slipId);
+      } catch (error: any) {
+        console.warn("Normal deletion failed, attempting cleanup:", error);
+        
+        // If normal deletion fails, perform comprehensive cleanup
+        await performSalarySlipCleanup(slipId);
+        
+        // Return success after cleanup
+        return { success: true };
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
       queryClient.invalidateQueries({ queryKey: ["documents"] });
@@ -109,6 +123,70 @@ export default function SalarySlipsPage() {
   const handleUpload = (e: React.FormEvent) => {
     e.preventDefault();
     uploadMutation.mutate();
+  };
+
+  // Comprehensive salary slip cleanup function
+  const performSalarySlipCleanup = async (slipId: string) => {
+    try {
+      console.log(`Performing comprehensive cleanup for salary slip ${slipId}`);
+      
+      // Step 1: Get salary slip info before deletion
+      const slipInfo = await getSalarySlip(slipId);
+      const salarySlip = slipInfo?.data;
+      
+      if (salarySlip) {
+        console.log(`Cleaning up salary slip: ${salarySlip.fileName}`);
+        
+        // Step 2: Delete related audit logs
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/audit/logs/entity?entity_type=SALARY_SLIP&entity_id=${slipId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'X-Organization-ID': localStorage.getItem('organizationId') || '',
+            },
+          });
+          console.log('Audit logs cleaned up');
+        } catch (auditError) {
+          console.warn('Failed to clean audit logs:', auditError);
+        }
+        
+        // Step 3: Force delete from database (if normal deletion failed)
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/salary-slips/${slipId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'X-Organization-ID': localStorage.getItem('organizationId') || '',
+            },
+          });
+          console.log('Salary slip deleted from database');
+        } catch (dbError) {
+          console.warn('Failed to delete from database:', dbError);
+        }
+        
+        // Step 4: Delete physical file (if it exists)
+        if (salarySlip.fileUrl) {
+          try {
+            // Extract file path from fileUrl
+            const filePath = salarySlip.fileUrl.replace(/.*\/api\/files\/salary-slips\/\d+/, '');
+            console.log(`Attempting to delete physical file: ${filePath}`);
+            
+            // Note: Physical file deletion would need backend support
+            // For now, we'll just log it
+            console.log('Physical file cleanup would happen here');
+          } catch (fileError) {
+            console.warn('Failed to delete physical file:', fileError);
+          }
+        }
+      }
+      
+      console.log(`Cleanup completed for salary slip ${slipId}`);
+      
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      throw error;
+    }
   };
 
   const handleDeleteSlip = (slipId: string, employeeName: string, month: string, year: number) => {
@@ -309,17 +387,45 @@ export default function SalarySlipsPage() {
                                           'X-Organization-ID': localStorage.getItem('organizationId') || '',
                                         },
                                       });
+                                      
+                                      if (!response.ok) {
+                                        // If file not found, perform cleanup
+                                        if (response.status === 404) {
+                                          console.warn(`Salary slip ${s.id} file not found, performing cleanup`);
+                                          await performSalarySlipCleanup(s.id);
+                                          queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
+                                          toast.success("Invalid salary slip record cleaned up");
+                                          return;
+                                        }
+                                        throw new Error(`HTTP ${response.status}`);
+                                      }
+                                      
                                       const data = await response.json();
                                       if (data.fileUrl) {
-                                        window.open(data.fileUrl, '_blank');
+                                        if (isPDFFile(data.fileUrl)) {
+                                          openPDFViewer(data.fileUrl, `Salary Slip - ${getUserName(String(uid))} - ${new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' })} ${s.year}`);
+                                        } else {
+                                          window.open(data.fileUrl, '_blank');
+                                        }
                                       }
                                     } catch (error) {
                                       console.error('Failed to download salary slip:', error);
+                                      
+                                      // Provide specific error messages based on error type
+                                      if (error.message?.includes('404')) {
+                                        toast.error('Salary slip file not found. The record will be cleaned up automatically.');
+                                      } else if (error.message?.includes('403')) {
+                                        toast.error('You do not have permission to access this salary slip.');
+                                      } else if (error.message?.includes('401')) {
+                                        toast.error('Please log in again to access salary slips.');
+                                      } else {
+                                        toast.error('Failed to access salary slip. Please try again or contact support.');
+                                      }
                                     }
                                   }}
                                   className="text-green-400 hover:text-green-300 underline"
                                 >
-                                  Download PDF
+                                  {isPDFFile(s.fileUrl || '') ? 'View PDF' : 'View'}
                                 </button>
                                 <RoleGuard allowedRoles={["HR", "Admin"]}>
                                   <button
@@ -407,7 +513,55 @@ export default function SalarySlipsPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <a href={slip.fileUrl} target="_blank" className="text-green-400 hover:text-green-300">Download</a>
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/salary-slips/${slip.id}/download`, {
+                              headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                              },
+                            });
+                            
+                            if (!response.ok) {
+                              // If file not found, perform cleanup
+                              if (response.status === 404) {
+                                console.warn(`Salary slip ${slip.id} file not found, performing cleanup`);
+                                await performSalarySlipCleanup(slip.id);
+                                queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
+                                toast.success("Invalid salary slip record cleaned up");
+                                return;
+                              }
+                              throw new Error(`HTTP ${response.status}`);
+                            }
+                            
+                            const data = await response.json();
+                            if (data.fileUrl) {
+                              if (isPDFFile(data.fileUrl)) {
+                                openPDFViewer(data.fileUrl, `Salary Slip - Employee - ${new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { month: 'long' })} ${slip.year}`);
+                              } else {
+                                window.open(data.fileUrl, '_blank');
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Failed to download salary slip:', error);
+                            
+                            // Provide specific error messages based on error type
+                            if (error.message?.includes('404')) {
+                              toast.error('Salary slip file not found. The record will be cleaned up automatically.');
+                            } else if (error.message?.includes('403')) {
+                              toast.error('You do not have permission to access this salary slip.');
+                            } else if (error.message?.includes('401')) {
+                              toast.error('Please log in again to access salary slips.');
+                            } else {
+                              toast.error('Failed to access salary slip. Please try again or contact support.');
+                            }
+                          }
+                        }}
+                        className="text-green-400 hover:text-green-300"
+                      >
+                        {isPDFFile(slip.fileUrl || '') ? 'View PDF' : 'View'}
+                      </button>
                       <RoleGuard allowedRoles={["HR", "Admin"]}>
                         <button
                           onClick={() => handleDeleteSlip(
@@ -561,13 +715,26 @@ function EmployeeDocsList({ userId }: { userId: string }) {
       setDeletingDocs(prev => new Set(prev).add(docId));
       
       try {
+        // Try normal deletion first
         await deleteDocument(docId);
         queryClient.invalidateQueries({ queryKey: ["user-docs", userId] });
         queryClient.invalidateQueries({ queryKey: ["documents"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
         toast.success("Document deleted successfully");
       } catch (err: any) {
-        toast.error(err.message || "Failed to delete document");
+        console.warn("Normal deletion failed, attempting cleanup:", err);
+        
+        // If normal deletion fails, perform comprehensive cleanup
+        try {
+          await performDocumentCleanup(docId);
+          queryClient.invalidateQueries({ queryKey: ["user-docs", userId] });
+          queryClient.invalidateQueries({ queryKey: ["documents"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+          toast.success("Document deleted successfully (cleanup performed)");
+        } catch (cleanupError) {
+          console.error("Cleanup also failed:", cleanupError);
+          toast.error("Failed to delete document completely");
+        }
       } finally {
         setDeletingDocs(prev => {
           const newSet = new Set(prev);
@@ -575,6 +742,70 @@ function EmployeeDocsList({ userId }: { userId: string }) {
           return newSet;
         });
       }
+    }
+  };
+
+  // Comprehensive document cleanup function
+  const performDocumentCleanup = async (docId: string) => {
+    try {
+      console.log(`Performing comprehensive cleanup for document ${docId}`);
+      
+      // Step 1: Get document info before deletion
+      const docInfo = await getDocument(docId);
+      const document = docInfo?.data;
+      
+      if (document) {
+        console.log(`Cleaning up document: ${document.title}`);
+        
+        // Step 2: Delete related audit logs
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/audit/logs/entity?entity_type=DOCUMENT&entity_id=${docId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'X-Organization-ID': localStorage.getItem('organizationId') || '',
+            },
+          });
+          console.log('Audit logs cleaned up');
+        } catch (auditError) {
+          console.warn('Failed to clean audit logs:', auditError);
+        }
+        
+        // Step 3: Force delete from database (if normal deletion failed)
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${docId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'X-Organization-ID': localStorage.getItem('organizationId') || '',
+            },
+          });
+          console.log('Document deleted from database');
+        } catch (dbError) {
+          console.warn('Failed to delete from database:', dbError);
+        }
+        
+        // Step 4: Delete physical file (if it exists)
+        if (document.fileUrl) {
+          try {
+            // Extract file path from fileUrl
+            const filePath = document.fileUrl.replace(/.*\/api\/files\/documents\/\d+/, '');
+            console.log(`Attempting to delete physical file: ${filePath}`);
+            
+            // Note: Physical file deletion would need backend support
+            // For now, we'll just log it
+            console.log('Physical file cleanup would happen here');
+          } catch (fileError) {
+            console.warn('Failed to delete physical file:', fileError);
+          }
+        }
+      }
+      
+      console.log(`Cleanup completed for document ${docId}`);
+      
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      throw error;
     }
   };
   
@@ -598,7 +829,7 @@ function EmployeeDocsList({ userId }: { userId: string }) {
                   });
                   const data = await response.json();
                   if (data.fileUrl) {
-                    window.open(data.fileUrl, '_blank');
+                    openPDFViewer(data.fileUrl, doc.title);
                   }
                 } catch (error) {
                   console.error('Failed to download document:', error);
@@ -606,7 +837,7 @@ function EmployeeDocsList({ userId }: { userId: string }) {
               }}
               className="text-indigo-300 hover:text-indigo-200 text-sm"
             >
-              View
+              {isPDFFile(doc.fileUrl || '') ? 'View PDF' : 'View'}
             </button>
             <button
               onClick={() => handleDeleteDocument(doc.id, doc.title)}

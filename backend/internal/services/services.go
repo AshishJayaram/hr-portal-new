@@ -183,6 +183,7 @@ type AuditService interface {
 	GetEntityAuditLogs(entityType, entityID string) ([]models.AuditLog, error)
 	GetUserAuditLogs(userID string) ([]models.AuditLog, error)
 	DeleteOldLogs(organizationID string, olderThan time.Time) error
+	DeleteEntityLogs(entityType, entityID string) error
 	AddDummyLogs(organizationID string) error
 }
 

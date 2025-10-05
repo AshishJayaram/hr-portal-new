@@ -169,7 +169,7 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Add /api prefix if not already present
   const fullPath = path.startsWith('/api/') ? path : `/api${path}`;
 
-  const res = await fetch(fullPath, {
+  const res = await fetch(`${API_URL}${fullPath}`, {
     ...options,
     headers,
     credentials: "include", // Include cookies for NextAuth
@@ -560,7 +560,7 @@ export const getDocuments = (params?: Record<string, string>) =>
       title: d.title,
       category: d.category,
       isPublic: Boolean(d.is_public ?? d.isPublic),
-      fileUrl: d.fileUrl ?? d.file_path,
+      fileUrl: d.file_url ?? d.fileUrl ?? d.file_path,
       createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
     }));
     return { data: mapped.length ? mapped : [] } as ApiResponse<Document[]>;
@@ -646,7 +646,7 @@ export const getUserDocuments = (userId: string) =>
       title: d.title,
       category: d.category ?? 'Payslip Document',
       isPublic: Boolean(d.is_public ?? d.isPublic ?? false),
-      fileUrl: d.fileUrl ?? d.file_path,
+      fileUrl: d.file_url ?? d.fileUrl ?? d.file_path,
       createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
     }));
     return { data: mapped } as ApiResponse<Document[]>;
@@ -659,7 +659,7 @@ export const getUserDocuments = (userId: string) =>
         title: d.title,
         category: d.category ?? 'Payslip Document',
         isPublic: Boolean(d.is_public ?? d.isPublic ?? false),
-        fileUrl: d.fileUrl ?? d.file_path,
+        fileUrl: d.file_url ?? d.fileUrl ?? d.file_path,
         createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
       }));
       return { data: mapped } as ApiResponse<Document[]>;

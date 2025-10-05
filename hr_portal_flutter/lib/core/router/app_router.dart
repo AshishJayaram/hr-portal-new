@@ -64,6 +64,7 @@ final appRouter = GoRouter(
       path: '/employees/edit/:id',
       builder: (context, state) => EditEmployeeScreen(
         employeeId: state.pathParameters['id']!,
+        returnRoute: state.uri.queryParameters['returnRoute'],
       ),
     ),
     GoRoute(

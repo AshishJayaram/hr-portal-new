@@ -234,6 +234,13 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			documents.GET("/:id/download", handlers.Document.DownloadDocument)
 		}
 
+		// File serving routes (no auth required for file access)
+		files := api.Group("/files")
+		{
+			files.GET("/documents/:id", handlers.Document.ServeDocumentFile)
+			files.GET("/salary-slips/:id", handlers.SalarySlip.ServeSalarySlipFile)
+		}
+
 		// Salary slip routes
 		salarySlips := api.Group("/salary-slips")
 		salarySlips.Use(middleware.AuthRequired(cfg.JWT.Secret))
@@ -334,6 +341,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			audit.GET("/logs", handlers.Audit.GetAuditLogs)
 			audit.GET("/logs/user/:user_id", handlers.Audit.GetUserAuditLogs)
 			audit.GET("/logs/entity", handlers.Audit.GetEntityAuditLogs)
+			audit.DELETE("/logs/entity", handlers.Audit.DeleteEntityAuditLogs)
 			audit.POST("/dummy-logs", handlers.Audit.AddDummyLogs)
 		}
 	}

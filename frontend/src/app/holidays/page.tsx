@@ -261,7 +261,11 @@ export default function HolidaysPage() {
                     { value: "notice", label: "Notice" }
                   ]}
                 />
-                <div className="flex items-center space-x-2">
+              </div>
+
+              {/* Multi-day Event Checkbox - More Prominent */}
+              <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
+                <div className="flex items-center space-x-3">
                   <input
                     type="checkbox"
                     id="isMultiDay"
@@ -274,31 +278,36 @@ export default function HolidaysPage() {
                         endDate: isMultiDay ? formData.endDate : formData.startDate // Set end date to start date if single day
                       });
                     }}
-                    className="rounded"
+                    className="w-4 h-4 rounded text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500 focus:ring-2"
                     disabled={formData.type === 'notice'}
                   />
-                  <label htmlFor="isMultiDay" className="text-sm font-medium">
-                    Multi-day Event
+                  <label htmlFor="isMultiDay" className="text-sm font-medium text-gray-200 cursor-pointer">
+                    📅 Multi-day Event
                   </label>
+                  <span className="text-xs text-gray-400">
+                    {formData.isMultiDay ? "Select start and end dates" : "Select single date"}
+                  </span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isCalendarEvent"
-                    checked={formData.isCalendarEvent}
-                    onChange={(e) => setFormData({ ...formData, isCalendarEvent: e.target.checked })}
-                    className="rounded"
-                  />
-                  <label htmlFor="isCalendarEvent" className="text-sm font-medium">
-                    Show on Calendar
-                  </label>
-                </div>
+              </div>
+
+              {/* Calendar Event Checkbox */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="isCalendarEvent"
+                  checked={formData.isCalendarEvent}
+                  onChange={(e) => setFormData({ ...formData, isCalendarEvent: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-500 focus:ring-2"
+                />
+                <label htmlFor="isCalendarEvent" className="text-sm font-medium text-gray-200">
+                  Show on Calendar
+                </label>
               </div>
               
               {/* Date Fields */}
               <div className="grid md:grid-cols-2 gap-4">
                 <Input
-                  label="Start Date"
+                  label={formData.isMultiDay ? "Start Date" : "Date"}
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => {

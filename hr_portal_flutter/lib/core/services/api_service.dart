@@ -515,6 +515,16 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> createLeaveAllocation(Map<String, dynamic> allocationData) async {
+    try {
+      final response = await _dio.post('/leave-allocations', data: allocationData);
+      return response.data['data'];
+    } catch (e) {
+      print('Create leave allocation error: $e');
+      rethrow;
+    }
+  }
+
   // Document upload methods
   Future<Map<String, dynamic>?> uploadDocument(FormData formData) async {
     try {

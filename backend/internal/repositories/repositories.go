@@ -178,6 +178,7 @@ type AuditLogRepository interface {
 	GetByEntity(entityType, entityID string) ([]models.AuditLog, error)
 	GetByUser(userID string) ([]models.AuditLog, error)
 	Delete(organizationID string, olderThan time.Time) error
+	DeleteByEntity(entityType, entityID string) error
 }
 
 // Common query helpers

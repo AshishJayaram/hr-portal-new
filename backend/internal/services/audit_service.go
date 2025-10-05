@@ -223,6 +223,10 @@ func (s *auditService) DeleteOldLogs(organizationID string, olderThan time.Time)
 	return s.repo.Delete(organizationID, olderThan)
 }
 
+func (s *auditService) DeleteEntityLogs(entityType, entityID string) error {
+	return s.repo.DeleteByEntity(entityType, entityID)
+}
+
 // AddDummyLogs creates some sample audit logs for testing
 func (s *auditService) AddDummyLogs(organizationID string) error {
 	// Use the provided organization ID

@@ -17,7 +17,7 @@ const hrAdminLinks = [
   { href: "/team", label: "Team", icon: " 🏢" },
   { href: "/documents", label: "Documents", icon: "📑" },
   { href: "/salary-slips", label: "Salary Slips", icon: "💰" },
-  { href: "/holidays", label: "Events and Notices", icon: "📅" },
+  { href: "/holidays", label: "Holidays & Events", icon: "📅" },
   { href: "/audit-logs", label: "Audit Logs", icon: "📊" },
 ];
 

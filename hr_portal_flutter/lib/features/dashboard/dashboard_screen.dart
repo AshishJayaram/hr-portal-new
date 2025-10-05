@@ -52,7 +52,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       setState(() {
         _upcomingHolidays.clear();
         if (holidays is List) {
-          _upcomingHolidays.addAll((holidays as List).cast<Map<String, dynamic>>());
+          // Filter out notices (only show holidays and events)
+          final filteredHolidays = (holidays as List).where((holiday) => 
+            holiday['type'] != 'notice').toList();
+          _upcomingHolidays.addAll(filteredHolidays.cast<Map<String, dynamic>>());
         }
       });
     } catch (e) {
@@ -64,27 +67,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     try {
       final apiService = ref.read(apiServiceProvider);
       
-      // Load holidays as events
+      // Load holidays and filter for notices only
       final holidays = await apiService.getHolidays();
       
       setState(() {
         _upcomingEvents.clear();
         
-        // Add holidays as events
+        // Add only notices (type = 'notice')
         if (holidays is List) {
           for (var holiday in holidays) {
-            _upcomingEvents.add({
-              'id': holiday['id'] ?? '',
-              'name': holiday['name'] ?? holiday['title'] ?? 'Holiday',
-              'type': holiday['type'] ?? 'Holiday',
-              'date': holiday['date'] ?? '',
-              'time': 'All Day', // Default time for holidays
-              'location': 'Office', // Default location for holidays
-              'description': holiday['description'] ?? '',
-              'color': holiday['color'] ?? 'purple',
-              'icon': Icons.event,
-              'isHoliday': true,
-            });
+            if (holiday['type'] == 'notice') {
+              _upcomingEvents.add({
+                'id': holiday['id'] ?? '',
+                'name': holiday['name'] ?? holiday['title'] ?? 'Notice',
+                'type': holiday['type'] ?? 'Notice',
+                'date': holiday['date'] ?? '',
+                'time': 'All Day', // Default time for notices
+                'location': 'Office', // Default location for notices
+                'description': holiday['description'] ?? '',
+                'color': holiday['color'] ?? 'purple',
+                'icon': Icons.notifications,
+                'isNotice': true,
+              });
+            }
           }
         }
         
@@ -256,19 +261,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 24),
             
-            // Upcoming Events (First)
+            // Notices (First)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Upcoming Events',
+                  'Notices',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 TextButton(
                   onPressed: () {
-                    // TODO: Navigate to events page
+                    // TODO: Navigate to notices page
                   },
                   child: const Text('View All'),
                 ),
@@ -280,7 +285,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     child: Padding(
                       padding: EdgeInsets.all(32.0),
                       child: Text(
-                        'No upcoming events',
+                        'No notices available',
                         style: TextStyle(color: Colors.grey),
                       ),
                     ),
@@ -297,12 +302,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             
             const SizedBox(height: 32),
             
-            // Upcoming Holidays (Second)
+            // Upcoming Holidays & Events (Second)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Upcoming Holidays',
+                  'Upcoming Holidays & Events',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -504,7 +509,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               Icon(
                 leaveType['icon'],
-                size: 28,
+                size: 32,
                 color: _parseColor(leaveType['color']),
               ),
               const SizedBox(height: 6),
@@ -512,39 +517,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 leaveType['name'],
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                leaveType['description'],
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppTheme.secondaryColor,
+                  fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _parseColor(leaveType['color']).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$remaining/$balance left',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _parseColor(leaveType['color']),
+              // Only show "days left" for non-LOP leave types
+              if (leaveType['name'].toString().toLowerCase() != 'lop' && 
+                  leaveType['name'].toString().toLowerCase() != 'loss of pay')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _parseColor(leaveType['color']).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$remaining/$balance left',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _parseColor(leaveType['color']),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

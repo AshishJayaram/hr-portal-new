@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -53,6 +54,12 @@ func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 			"error": "Failed to list documents",
 		})
 		return
+	}
+
+	// Add fileUrl to each document for frontend consumption
+	baseURL := "http://localhost:8080" // TODO: Make this configurable
+	for i := range documents {
+		documents[i].FileUrl = fmt.Sprintf("%s/api/files/documents/%d", baseURL, documents[i].ID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -177,8 +184,41 @@ func (h *DocumentHandler) DeleteDocument(c *gin.Context) {
 	})
 }
 
-// DownloadDocument handles document download
+// DownloadDocument handles document download - returns file URL
 func (h *DocumentHandler) DownloadDocument(c *gin.Context) {
+	documentID := c.Param("id")
+
+	document, err := h.documentService.GetDocument(documentID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Document not found",
+		})
+		return
+	}
+
+	// Check if file exists on disk
+	if _, err := os.Stat(document.FilePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "File not found on disk",
+		})
+		return
+	}
+
+	// Generate the file URL for the frontend
+	// Use the backend server URL + the file serving endpoint
+	baseURL := "http://localhost:8080" // TODO: Make this configurable
+	fileURL := fmt.Sprintf("%s/api/files/documents/%s", baseURL, documentID)
+
+	// Return JSON response with file URL
+	c.JSON(http.StatusOK, gin.H{
+		"fileUrl":  fileURL,
+		"fileName": document.FileName,
+		"mimeType": document.MimeType,
+	})
+}
+
+// ServeDocumentFile serves the actual document file
+func (h *DocumentHandler) ServeDocumentFile(c *gin.Context) {
 	documentID := c.Param("id")
 
 	document, err := h.documentService.GetDocument(documentID)

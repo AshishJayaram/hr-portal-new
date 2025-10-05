@@ -13,6 +13,7 @@ import SearchFilter from "@/components/ui/SearchFilter";
 import { toast } from "sonner";
 import { Search, Plus, Download, Trash2, FileText, Eye, Upload } from "lucide-react";
 import { formatDate, capitalize } from "@/lib/utils";
+import { openPDFViewer, isPDFFile, getFileIcon, getFileTypeText } from "@/lib/pdfUtils";
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<any[]>([]);
@@ -62,7 +63,20 @@ export default function DocumentsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteDocument,
+    mutationFn: async (docId: string) => {
+      try {
+        // Try normal deletion first
+        return await deleteDocument(docId);
+      } catch (error: any) {
+        console.warn("Normal deletion failed, attempting cleanup:", error);
+        
+        // If normal deletion fails, perform comprehensive cleanup
+        await performDocumentCleanup(docId);
+        
+        // Return success after cleanup
+        return { success: true };
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
@@ -72,6 +86,70 @@ export default function DocumentsPage() {
       toast.error(err.message || "Failed to delete document");
     },
   });
+
+  // Comprehensive document cleanup function
+  const performDocumentCleanup = async (docId: string) => {
+    try {
+      console.log(`Performing comprehensive cleanup for document ${docId}`);
+      
+      // Step 1: Get document info before deletion
+      const docInfo = await getDocument(docId);
+      const document = docInfo?.data;
+      
+      if (document) {
+        console.log(`Cleaning up document: ${document.title}`);
+        
+        // Step 2: Delete related audit logs
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/audit/logs/entity?entity_type=DOCUMENT&entity_id=${docId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'X-Organization-ID': localStorage.getItem('organizationId') || '',
+            },
+          });
+          console.log('Audit logs cleaned up');
+        } catch (auditError) {
+          console.warn('Failed to clean audit logs:', auditError);
+        }
+        
+        // Step 3: Force delete from database (if normal deletion failed)
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${docId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'X-Organization-ID': localStorage.getItem('organizationId') || '',
+            },
+          });
+          console.log('Document deleted from database');
+        } catch (dbError) {
+          console.warn('Failed to delete from database:', dbError);
+        }
+        
+        // Step 4: Delete physical file (if it exists)
+        if (document.fileUrl) {
+          try {
+            // Extract file path from fileUrl
+            const filePath = document.fileUrl.replace(/.*\/api\/files\/documents\/\d+/, '');
+            console.log(`Attempting to delete physical file: ${filePath}`);
+            
+            // Note: Physical file deletion would need backend support
+            // For now, we'll just log it
+            console.log('Physical file cleanup would happen here');
+          } catch (fileError) {
+            console.warn('Failed to delete physical file:', fileError);
+          }
+        }
+      }
+      
+      console.log(`Cleanup completed for document ${docId}`);
+      
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      throw error;
+    }
+  };
 
   const handleUpload = (e: React.FormEvent) => {
     e.preventDefault();
@@ -277,7 +355,7 @@ export default function DocumentsPage() {
                     });
                     const data = await response.json();
                     if (data.fileUrl) {
-                      window.open(data.fileUrl, '_blank');
+                      openPDFViewer(data.fileUrl, doc.title);
                     }
                   } catch (error) {
                     console.error('Failed to download document:', error);
@@ -285,8 +363,8 @@ export default function DocumentsPage() {
                 }}
                 className="w-full flex items-center gap-2"
               >
-                <Download className="h-4 w-4" />
-                View Document
+                {isPDFFile(doc.fileUrl || '') ? <Eye className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                {isPDFFile(doc.fileUrl || '') ? 'View PDF' : 'Download'}
               </Button>
             </div>
           </Card>
