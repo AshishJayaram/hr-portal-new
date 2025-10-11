@@ -24,6 +24,10 @@ type Repositories struct {
 	Holiday         HolidayRepository
 	CompanySettings CompanySettingsRepository
 	AuditLog        AuditLogRepository
+	OffSite         OffSiteRepository
+	Reimbursement   *ReimbursementRepository
+	Feedback        *FeedbackRepository
+	EmployeeGrowth  *EmployeeGrowthRepository
 }
 
 // New creates a new instance of Repositories
@@ -39,6 +43,10 @@ func New(db *gorm.DB, rdb *redis.Client) *Repositories {
 		Holiday:         &holidayRepository{BaseRepository: NewBaseRepository(db, rdb)},
 		CompanySettings: &companySettingsRepository{BaseRepository: NewBaseRepository(db, rdb)},
 		AuditLog:        &auditLogRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		OffSite:         NewOffSiteRepository(db),
+		Reimbursement:   NewReimbursementRepository(db),
+		Feedback:        NewFeedbackRepository(db),
+		EmployeeGrowth:  NewEmployeeGrowthRepository(db),
 	}
 }
 
@@ -199,7 +207,7 @@ func (r *BaseRepository) buildQuery(query *gorm.DB, filters map[string]interface
 		case "search":
 			search := value.(string)
 			if search != "" {
-				query = query.Where("name ILIKE ? OR email ILIKE ?", "%"+search+"%", "%"+search+"%")
+				query = query.Where("name LIKE ? OR email LIKE ?", "%"+search+"%", "%"+search+"%")
 			}
 		case "role":
 			role := value.(string)

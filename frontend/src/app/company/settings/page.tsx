@@ -29,17 +29,24 @@ export default function CompanySettingsPage() {
     queryFn: () => getLeaveCategories(),
   });
   const [settings, setSettings] = useState<PayrollSettings>(defaultPayrollSettings);
+  const [currency, setCurrency] = useState<string>('INR');
   const [annualCTC, setAnnualCTC] = useState<number>(1000000);
   const [lop, setLop] = useState<number>(0);
   const [tds, setTds] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'payroll' | 'leaves'>('payroll');
+  const [activeTab, setActiveTab] = useState<'payroll' | 'leaves' | 'general' | 'categories'>('payroll');
 
   useEffect(() => {
-    if (data?.data) setSettings(data.data);
+    if (data?.data) {
+      setSettings(data.data);
+      // Extract currency from company settings if available
+      if (data.currency) {
+        setCurrency(data.currency);
+      }
+    }
   }, [data]);
 
   const saveMutation = useMutation({
-    mutationFn: () => updateCompanySettings(companyId, settings),
+    mutationFn: () => updateCompanySettings(companyId, settings, currency),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
@@ -102,6 +109,16 @@ export default function CompanySettingsPage() {
       {/* Tab Navigation */}
       <div className="flex space-x-1 bg-white/5 p-1 rounded-lg">
         <button
+          onClick={() => setActiveTab('general')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'general'
+              ? 'bg-white/10 text-white'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          General Settings
+        </button>
+        <button
           onClick={() => setActiveTab('payroll')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'payroll'
@@ -121,7 +138,60 @@ export default function CompanySettingsPage() {
         >
           Leave Categories
         </button>
+        <button
+          onClick={() => setActiveTab('categories')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'categories'
+              ? 'bg-white/10 text-white'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Payroll Categories
+        </button>
       </div>
+
+      {activeTab === 'general' && (
+        <>
+          <h2 className="text-2xl font-bold text-primary">General Settings</h2>
+          
+          <Card>
+            <h3 className="text-xl font-semibold mb-4">Currency Settings</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary mb-2">
+                  Default Currency
+                </label>
+                <Select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  options={[
+                    { value: 'INR', label: 'Indian Rupee (₹)' },
+                    { value: 'USD', label: 'US Dollar ($)' },
+                    { value: 'EUR', label: 'Euro (€)' },
+                    { value: 'GBP', label: 'British Pound (£)' },
+                    { value: 'JPY', label: 'Japanese Yen (¥)' },
+                    { value: 'CAD', label: 'Canadian Dollar (C$)' },
+                    { value: 'AUD', label: 'Australian Dollar (A$)' },
+                  ]}
+                />
+                <p className="text-xs text-gray-400 mt-2">
+                  This will be used as the default currency for all monetary values across the system.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {saveMutation.isPending ? "Saving..." : "Save Settings"}
+            </Button>
+          </div>
+        </>
+      )}
 
       {activeTab === 'payroll' && (
         <>
@@ -281,6 +351,51 @@ export default function CompanySettingsPage() {
           </div>
         </div>
       </Card>
+
+      <Card>
+        <h2 className="text-xl font-semibold mb-4">LOP (Loss of Pay) Settings</h2>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
+            <div className="text-sm text-gray-300">Calculation Method</div>
+            <Select
+              value={settings.lop.calculationMethod}
+              onChange={(e) => setSettings({
+                ...settings,
+                lop: { ...settings.lop, calculationMethod: e.target.value as any }
+              })}
+              options={[
+                { value: 'NET_PAY_BY_DAYS', label: 'Net Pay ÷ Days in Month' },
+                { value: 'BASIC_BY_DAYS', label: 'Basic Salary ÷ Days in Month' },
+                { value: 'FIXED_AMOUNT', label: 'Fixed Amount per Day' },
+              ]}
+            />
+          </div>
+          <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
+            <div className="text-sm text-gray-300">Default Days in Month</div>
+            <Input
+              type="number"
+              value={settings.lop.defaultDaysInMonth}
+              onChange={(e) => setSettings({
+                ...settings,
+                lop: { ...settings.lop, defaultDaysInMonth: parseInt(e.target.value) || 30 }
+              })}
+              min="28"
+              max="31"
+            />
+          </div>
+        </div>
+        <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <h3 className="text-sm font-medium text-blue-300 mb-2">LOP Calculation Preview</h3>
+          <div className="text-sm text-gray-300 space-y-1">
+            <div>Method: {settings.lop.calculationMethod === 'NET_PAY_BY_DAYS' ? 'Net Pay ÷ Days' : 
+                          settings.lop.calculationMethod === 'BASIC_BY_DAYS' ? 'Basic ÷ Days' : 'Fixed Amount'}</div>
+            <div>Days in Month: {settings.lop.defaultDaysInMonth}</div>
+            <div className="text-xs text-gray-400 mt-2">
+              Example: For 1 LOP day with ₹50,000 net pay: ₹{(50000 / settings.lop.defaultDaysInMonth).toLocaleString('en-IN')}
+            </div>
+          </div>
+        </div>
+      </Card>
         </>
       )}
 
@@ -293,6 +408,18 @@ export default function CompanySettingsPage() {
             onUpdate={updateCategoryMutation.mutate}
             onDelete={deleteCategoryMutation.mutate}
             isLoading={createCategoryMutation.isPending || updateCategoryMutation.isPending || deleteCategoryMutation.isPending}
+          />
+        </>
+      )}
+
+      {activeTab === 'categories' && (
+        <>
+          <h2 className="text-2xl font-bold text-primary">Payroll Categories</h2>
+          <PayrollCategoriesManager 
+            settings={settings}
+            onUpdate={setSettings}
+            onSave={() => saveMutation.mutate()}
+            isLoading={saveMutation.isPending}
           />
         </>
       )}
@@ -483,6 +610,238 @@ function LeaveCategoriesManager({
           )}
         </div>
       </Card>
+    </div>
+  );
+}
+
+function PayrollCategoriesManager({ 
+  settings, 
+  onUpdate, 
+  onSave, 
+  isLoading 
+}: { 
+  settings: PayrollSettings;
+  onUpdate: (settings: PayrollSettings) => void;
+  onSave: () => void;
+  isLoading: boolean;
+}) {
+  const [newEarningKey, setNewEarningKey] = useState('');
+  const [newEarningLabel, setNewEarningLabel] = useState('');
+  const [newEarningMode, setNewEarningMode] = useState<PayrollMode>('FIXED');
+  const [newEarningValue, setNewEarningValue] = useState(0);
+  
+  const [newDeductionKey, setNewDeductionKey] = useState('');
+  const [newDeductionLabel, setNewDeductionLabel] = useState('');
+  const [newDeductionMode, setNewDeductionMode] = useState<PayrollMode>('FIXED');
+  const [newDeductionValue, setNewDeductionValue] = useState(0);
+
+  const addEarningCategory = () => {
+    if (!newEarningKey || !newEarningLabel) return;
+    
+    const updatedSettings = {
+      ...settings,
+      earnings: {
+        ...settings.earnings,
+        [newEarningKey]: {
+          mode: newEarningMode,
+          value: newEarningMode !== 'REMAINDER' ? newEarningValue : undefined
+        }
+      },
+      customEarnings: [
+        ...(settings.customEarnings || []),
+        { key: newEarningKey, label: newEarningLabel, mode: newEarningMode, value: newEarningValue }
+      ]
+    };
+    
+    onUpdate(updatedSettings);
+    setNewEarningKey('');
+    setNewEarningLabel('');
+    setNewEarningMode('FIXED');
+    setNewEarningValue(0);
+  };
+
+  const addDeductionCategory = () => {
+    if (!newDeductionKey || !newDeductionLabel) return;
+    
+    const updatedSettings = {
+      ...settings,
+      deductions: {
+        ...settings.deductions,
+        [newDeductionKey]: {
+          mode: newDeductionMode,
+          value: newDeductionMode !== 'REMAINDER' ? newDeductionValue : undefined
+        }
+      },
+      customDeductions: [
+        ...(settings.customDeductions || []),
+        { key: newDeductionKey, label: newDeductionLabel, mode: newDeductionMode, value: newDeductionValue }
+      ]
+    };
+    
+    onUpdate(updatedSettings);
+    setNewDeductionKey('');
+    setNewDeductionLabel('');
+    setNewDeductionMode('FIXED');
+    setNewDeductionValue(0);
+  };
+
+  const removeEarningCategory = (key: string) => {
+    const updatedSettings = {
+      ...settings,
+      earnings: { ...settings.earnings },
+      customEarnings: (settings.customEarnings || []).filter(cat => cat.key !== key)
+    };
+    delete updatedSettings.earnings[key];
+    onUpdate(updatedSettings);
+  };
+
+  const removeDeductionCategory = (key: string) => {
+    const updatedSettings = {
+      ...settings,
+      deductions: { ...settings.deductions },
+      customDeductions: (settings.customDeductions || []).filter(cat => cat.key !== key)
+    };
+    delete updatedSettings.deductions[key];
+    onUpdate(updatedSettings);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Earnings Categories */}
+      <Card>
+        <h3 className="text-xl font-semibold mb-4">Earnings Categories</h3>
+        
+        {/* Add New Earning Category */}
+        <div className="p-4 rounded-lg bg-white/5 border border-white/10 mb-4">
+          <h4 className="font-medium mb-3">Add New Earning Category</h4>
+          <div className="grid md:grid-cols-4 gap-3">
+            <Input
+              placeholder="Key (e.g., bonus)"
+              value={newEarningKey}
+              onChange={(e) => setNewEarningKey(e.target.value)}
+            />
+            <Input
+              placeholder="Label (e.g., Performance Bonus)"
+              value={newEarningLabel}
+              onChange={(e) => setNewEarningLabel(e.target.value)}
+            />
+            <Select
+              value={newEarningMode}
+              onChange={(e) => setNewEarningMode(e.target.value as PayrollMode)}
+              options={[
+                { value: 'FIXED', label: 'Fixed' },
+                { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                { value: 'PERCENT_OF_CTC', label: '% of CTC' },
+              ]}
+            />
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Value"
+                value={String(newEarningValue)}
+                onChange={(e) => setNewEarningValue(Number(e.target.value))}
+                disabled={newEarningMode === 'REMAINDER'}
+              />
+              <Button onClick={addEarningCategory} disabled={!newEarningKey || !newEarningLabel}>
+                Add
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Existing Custom Earnings */}
+        <div className="space-y-2">
+          {(settings.customEarnings || []).map((category) => (
+            <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+              <div>
+                <div className="font-medium">{category.label}</div>
+                <div className="text-sm text-gray-400">
+                  {category.mode} {category.value ? `(${category.value})` : ''}
+                </div>
+              </div>
+              <Button
+                onClick={() => removeEarningCategory(category.key)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Deductions Categories */}
+      <Card>
+        <h3 className="text-xl font-semibold mb-4">Deductions Categories</h3>
+        
+        {/* Add New Deduction Category */}
+        <div className="p-4 rounded-lg bg-white/5 border border-white/10 mb-4">
+          <h4 className="font-medium mb-3">Add New Deduction Category</h4>
+          <div className="grid md:grid-cols-4 gap-3">
+            <Input
+              placeholder="Key (e.g., advance)"
+              value={newDeductionKey}
+              onChange={(e) => setNewDeductionKey(e.target.value)}
+            />
+            <Input
+              placeholder="Label (e.g., Salary Advance)"
+              value={newDeductionLabel}
+              onChange={(e) => setNewDeductionLabel(e.target.value)}
+            />
+            <Select
+              value={newDeductionMode}
+              onChange={(e) => setNewDeductionMode(e.target.value as PayrollMode)}
+              options={[
+                { value: 'FIXED', label: 'Fixed' },
+                { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                { value: 'PERCENT_OF_CTC', label: '% of CTC' },
+              ]}
+            />
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Value"
+                value={String(newDeductionValue)}
+                onChange={(e) => setNewDeductionValue(Number(e.target.value))}
+                disabled={newDeductionMode === 'REMAINDER'}
+              />
+              <Button onClick={addDeductionCategory} disabled={!newDeductionKey || !newDeductionLabel}>
+                Add
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Existing Custom Deductions */}
+        <div className="space-y-2">
+          {(settings.customDeductions || []).map((category) => (
+            <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+              <div>
+                <div className="font-medium">{category.label}</div>
+                <div className="text-sm text-gray-400">
+                  {category.mode} {category.value ? `(${category.value})` : ''}
+                </div>
+              </div>
+              <Button
+                onClick={() => removeDeductionCategory(category.key)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button
+          onClick={onSave}
+          disabled={isLoading}
+          className="bg-indigo-600 hover:bg-indigo-700"
+        >
+          {isLoading ? "Saving..." : "Save Changes"}
+        </Button>
+      </div>
     </div>
   );
 }

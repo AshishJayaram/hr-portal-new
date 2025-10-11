@@ -146,7 +146,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                       ),
                     ),
                     onTap: () {
-                      // TODO: Navigate to member details
+                      _showMemberDetails(member);
                     },
                   ),
                 );
@@ -248,6 +248,58 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMemberDetails(Map<String, dynamic> member) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(member['name'] ?? 'Team Member Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDetailRow('Name', member['name'] ?? 'N/A'),
+              _buildDetailRow('Email', member['email'] ?? 'N/A'),
+              _buildDetailRow('Designation', member['designation'] ?? 'N/A'),
+              _buildDetailRow('Department', member['department'] ?? 'N/A'),
+              _buildDetailRow('Role', member['role'] ?? 'N/A'),
+              _buildDetailRow('Status', member['status'] ?? 'N/A'),
+              if (member['manager'] != null)
+                _buildDetailRow('Manager', member['manager']['name'] ?? 'N/A'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
           ),
         ],
       ),

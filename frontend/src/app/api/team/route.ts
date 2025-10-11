@@ -7,7 +7,7 @@ export async function GET(request: Request) {
 
     // Forward the request to the backend API
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/api/users${queryString ? `?${queryString}` : ''}`, {
+    const response = await fetch(`${backendUrl}/api/team${queryString ? `?${queryString}` : ''}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

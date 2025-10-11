@@ -9,6 +9,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
+import GrowthTracker from "@/components/GrowthTracker";
 
 export default function EmployeesPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -170,6 +171,7 @@ export default function EmployeesPage() {
                   {u.department && <span className="text-xs">{u.department}</span>}
                 </div>
                 <div className="flex items-center gap-2">
+                  <Link href={`/employees/documentation/${u.id}`} className="text-blue-400 hover:underline">Docs</Link>
                   <Link href={`/employees/edit?id=${u.id}`} className="text-indigo-400 hover:underline">Edit</Link>
                   <button
                     onClick={() => setDeleteConfirm({ id: u.id, name: u.name })}
@@ -179,6 +181,9 @@ export default function EmployeesPage() {
                   </button>
                 </div>
               </div>
+              
+              {/* Growth Tracker */}
+              <GrowthTracker userId={u.id} userName={u.name} maxItems={2} />
             </div>
           ))}
         </div>

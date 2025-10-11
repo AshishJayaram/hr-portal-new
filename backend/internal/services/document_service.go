@@ -15,14 +15,16 @@ import (
 
 // documentService implements DocumentService interface
 type documentService struct {
-	repo         repositories.DocumentRepository
-	auditService AuditService
+	repo                repositories.DocumentRepository
+	auditService        AuditService
+	notificationService NotificationService
 }
 
-func NewDocumentService(repo repositories.DocumentRepository, auditService AuditService) DocumentService {
+func NewDocumentService(repo repositories.DocumentRepository, auditService AuditService, notificationService NotificationService) DocumentService {
 	return &documentService{
-		repo:         repo,
-		auditService: auditService,
+		repo:                repo,
+		auditService:        auditService,
+		notificationService: notificationService,
 	}
 }
 
@@ -115,6 +117,11 @@ func (s *documentService) UploadDocument(req UploadDocumentRequest, httpReq *htt
 		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
+	// Send notification to the user if it's a private document
+	if !req.IsPublic && document.User.Name != "" {
+		s.notificationService.SendDocumentUploadNotification(document, &document.User)
+	}
+
 	return document, nil
 }
 
@@ -177,14 +184,16 @@ func (s *documentService) DownloadDocument(id string) ([]byte, error) {
 
 // salarySlipService implements SalarySlipService interface
 type salarySlipService struct {
-	repo         repositories.SalarySlipRepository
-	auditService AuditService
+	repo                repositories.SalarySlipRepository
+	auditService        AuditService
+	notificationService NotificationService
 }
 
-func NewSalarySlipService(repo repositories.SalarySlipRepository, auditService AuditService) SalarySlipService {
+func NewSalarySlipService(repo repositories.SalarySlipRepository, auditService AuditService, notificationService NotificationService) SalarySlipService {
 	return &salarySlipService{
-		repo:         repo,
-		auditService: auditService,
+		repo:                repo,
+		auditService:        auditService,
+		notificationService: notificationService,
 	}
 }
 
@@ -252,6 +261,8 @@ func (s *salarySlipService) UploadSalarySlip(req UploadSalarySlipRequest, httpRe
 		FilePath:       filePath,
 		FileSize:       fileInfo.Size(),
 		MimeType:       req.FileHeader.Header.Get("Content-Type"),
+		LOPDays:        req.LOPDays,
+		LOPAmount:      req.LOPAmount,
 	}
 
 	err = s.repo.Create(salarySlip)
@@ -272,9 +283,14 @@ func (s *salarySlipService) UploadSalarySlip(req UploadSalarySlipRequest, httpRe
 	}
 
 	// Log the salary slip upload
-	changeSummary := fmt.Sprintf("Salary slip uploaded for %s (%s)", req.Month, req.Year)
+	changeSummary := fmt.Sprintf("Salary slip uploaded for %s (%d)", req.Month, req.Year)
 	if err := s.auditService.LogSalarySlipChange(orgIDStr, salarySlipIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
 		fmt.Printf("Failed to log audit: %v\n", err)
+	}
+
+	// Send notification to the user
+	if salarySlip.User.Name != "" {
+		s.notificationService.SendSalarySlipUploadNotification(salarySlip, &salarySlip.User)
 	}
 
 	return salarySlip, nil
@@ -384,12 +400,22 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		}
 	}
 
-	// Get recent leaves for the current user only
-	recentLeaves, err := s.repos.Leave.List(organizationID, map[string]interface{}{
-		"user_id": userID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get recent leaves: %w", err)
+	// Get recent leaves - role-based access
+	var recentLeaves []models.Leave
+	if userRole == "HR" || userRole == "Admin" || userRole == "God" {
+		// Admin/HR/God can see all leaves in the organization
+		recentLeaves, err = s.repos.Leave.List(organizationID, map[string]interface{}{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get all leaves: %w", err)
+		}
+	} else {
+		// Regular employees can only see their own leaves
+		recentLeaves, err = s.repos.Leave.List(organizationID, map[string]interface{}{
+			"user_id": userID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get recent leaves: %w", err)
+		}
 	}
 
 	// Sort by created_at desc and limit to 10
@@ -440,6 +466,19 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		return nil, fmt.Errorf("failed to get leave balances: %w", err)
 	}
 
+	// Get recent off-site entries for the current user
+	recentOffSites, err := s.repos.OffSite.List(organizationID, map[string]interface{}{
+		"user_id": userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent off-sites: %w", err)
+	}
+
+	// Sort by created_at desc and limit to 5
+	if len(recentOffSites) > 5 {
+		recentOffSites = recentOffSites[:5]
+	}
+
 	return &DashboardStatsResponse{
 		TotalUsers:        totalUsers,
 		TotalLeaves:       totalLeaves,
@@ -451,6 +490,7 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		RecentDocuments:   recentDocuments,
 		RecentSalarySlips: recentSalarySlips,
 		LeaveBalances:     leaveBalances,
+		RecentOffSites:    recentOffSites,
 	}, nil
 }
 

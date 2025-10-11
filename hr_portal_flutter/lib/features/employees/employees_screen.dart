@@ -62,7 +62,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                 const SizedBox(width: 8),
                 IconButton(
                   onPressed: () {
-                    // TODO: Show filter options
+                    _showFilterOptions();
                   },
                   icon: const Icon(Icons.filter_list),
                 ),
@@ -140,11 +140,14 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                         PopupMenuButton<String>(
                           onSelected: (value) {
                             switch (value) {
+                              case 'documentation':
+                                context.go('/employees/documentation/${employee['id']}?name=${Uri.encodeComponent(employee['name'] ?? 'Employee')}');
+                                break;
                               case 'edit':
                                 context.go('/employees/edit/${employee['id']}?returnRoute=/employees');
                                 break;
                               case 'view':
-                                // TODO: Navigate to employee details
+                                _showEmployeeDetails(employee);
                                 break;
                               case 'delete':
                                 _deleteEmployee(employee['id'].toString(), employee['name']);
@@ -152,6 +155,10 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                             }
                           },
                           itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'documentation',
+                              child: Text('Documentation'),
+                            ),
                             const PopupMenuItem(
                               value: 'view',
                               child: Text('View Details'),
@@ -169,12 +176,193 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                       ],
                     ),
                     onTap: () {
-                      // TODO: Navigate to employee details
+                      _showEmployeeDetails(employee);
                     },
                   ),
                 );
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEmployeeDetails(Map<String, dynamic> employee) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(employee['name'] ?? 'Employee Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDetailRow('Name', employee['name'] ?? 'N/A'),
+              _buildDetailRow('Email', employee['email'] ?? 'N/A'),
+              _buildDetailRow('Designation', employee['designation'] ?? 'N/A'),
+              _buildDetailRow('Department', employee['department'] ?? 'N/A'),
+              _buildDetailRow('Role', employee['role'] ?? 'N/A'),
+              _buildDetailRow('Status', employee['is_active'] == true ? 'Active' : 'Inactive'),
+              if (employee['ctc'] != null)
+                _buildDetailRow('CTC', '₹${employee['ctc']}'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.go('/employees/edit/${employee['id']}?returnRoute=/employees');
+            },
+            child: const Text('Edit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFilterOptions() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filter Options'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('All Employees'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for all employees
+              },
+            ),
+            ListTile(
+              title: const Text('Active Only'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for active employees only
+              },
+            ),
+            ListTile(
+              title: const Text('By Department'),
+              onTap: () {
+                Navigator.pop(context);
+                _showDepartmentFilter();
+              },
+            ),
+            ListTile(
+              title: const Text('By Role'),
+              onTap: () {
+                Navigator.pop(context);
+                _showRoleFilter();
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDepartmentFilter() {
+    // Get unique departments
+    final departments = _employees.map((e) => e['department']).toSet().toList();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filter by Department'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('All Departments'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for all departments
+              },
+            ),
+            ...departments.map((dept) => ListTile(
+              title: Text(dept ?? 'Unknown'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for specific department
+              },
+            )),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRoleFilter() {
+    // Get unique roles
+    final roles = _employees.map((e) => e['role']).toSet().toList();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filter by Role'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('All Roles'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for all roles
+              },
+            ),
+            ...roles.map((role) => ListTile(
+              title: Text(role ?? 'Unknown'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for specific role
+              },
+            )),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),

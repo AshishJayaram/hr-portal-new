@@ -15,6 +15,7 @@ import { FileText } from "lucide-react";
 export default function DashboardPage() {
   const user = getCurrentUser();
   const userId = user?.id || "u1";
+  const userRole = user?.role || "Employee";
 
   // Single API call for all dashboard data
   const { data: dashboardData, isLoading, error } = useQuery({
@@ -22,7 +23,9 @@ export default function DashboardPage() {
     queryFn: getDashboardStats,
   });
 
+
   if (isLoading) return <Loader />;
+
 
   if (error) {
     return (
@@ -36,16 +39,207 @@ export default function DashboardPage() {
     );
   }
 
+  // Group leaves by date for Admin/HR users
+  const groupLeavesByDate = (leaves: any[]) => {
+    const grouped: { [key: string]: any[] } = {};
+    
+    leaves.forEach((leave) => {
+      const startDate = new Date(leave.from_date || leave.from);
+      const endDate = new Date(leave.to_date || leave.to);
+      
+      // Add leave to each date in the range
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateKey = d.toISOString().split('T')[0];
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = [];
+        }
+        grouped[dateKey].push(leave);
+      }
+    });
+    
+    return grouped;
+  };
+
+  // Create calendar events with grouping for Admin/HR users
+  const createCalendarEvents = () => {
+    const events: any[] = [];
+    
+    // Add holidays
+    events.push(...(dashboardData?.data?.upcoming_holidays || [])
+      .filter((h: any) => h.isCalendarEvent !== false && h.date)
+      .map((h: any) => ({
+        title: h.name || h.title,
+        start: new Date(h.date),
+        end: new Date(h.date),
+        color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#f59e0b" : "#10b981"),
+        extendedProps: {
+          type: h.type || 'holiday'
+        }
+      })));
+
+    // Add off-site entries
+    events.push(...(dashboardData?.data?.recent_off_sites || [])
+      .filter((o: any) => o.start_date && o.end_date)
+      .map((o: any) => ({
+        title: `${o.title}`,
+        start: new Date(o.start_date),
+        end: new Date(o.end_date),
+        color: "#f97316",
+        extendedProps: {
+          type: 'offsite'
+        }
+      })));
+
+    // Add leaves with grouping for Admin/HR users - only approved leaves
+    const leaves = (dashboardData?.data?.recent_leaves || []).filter((leave: any) => leave.status === 'approved');
+    
+    if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
+      // Group leaves by date
+      const groupedLeaves = groupLeavesByDate(leaves);
+      
+      Object.entries(groupedLeaves).forEach(([date, dayLeaves]) => {
+        // Check if current user is in this group
+        const currentUserInGroup = dayLeaves.some((leave: any) => leave.user_id === userId);
+        
+        if (dayLeaves.length === 1) {
+          // Single leave - show normally
+          const leave = dayLeaves[0];
+          const isCurrentUser = leave.user_id === userId;
+          events.push({
+            title: `${leave.user?.name || 'Employee'} - ${leave.type}`,
+            start: new Date(date),
+            end: new Date(date),
+            color: isCurrentUser ? "#10b981" : "#6366f1", // Green for current user, indigo for others
+            extendedProps: {
+              type: 'leave',
+              employees: [{
+                name: leave.user?.name || 'Employee',
+                type: leave.type,
+                status: leave.status,
+                reason: leave.reason
+              }],
+              count: 1,
+              isCurrentUser
+            }
+          });
+        } else {
+          // Multiple leaves - show grouped
+          const color = currentUserInGroup ? "#10b981" : "#6366f1"; // Green if current user is in group, indigo otherwise
+          events.push({
+            title: `${dayLeaves.length} employees on leave`,
+            start: new Date(date),
+            end: new Date(date),
+            color,
+            extendedProps: {
+              type: 'leave',
+              employees: dayLeaves.map((leave: any) => ({
+                name: leave.user?.name || 'Employee',
+                type: leave.type,
+                status: leave.status,
+                reason: leave.reason
+              })),
+              count: dayLeaves.length,
+              hasCurrentUser: currentUserInGroup
+            }
+          });
+        }
+      });
+    } else {
+      // Regular employees - show only their own approved leaves
+      const myLeaves = leaves.filter((l: any) => l.user_id === userId);
+      
+      events.push(...myLeaves.map((l: any) => ({
+          title: l.type,
+          start: new Date(l.from_date || l.from),
+          end: new Date(l.to_date || l.to),
+          color: "#10b981", // Green for current user's leaves
+          extendedProps: {
+            type: 'leave',
+            employees: [{
+              name: l.user?.name || 'You',
+              type: l.type,
+              status: l.status,
+              reason: l.reason
+            }],
+            count: 1,
+            isCurrentUser: true
+          }
+        })));
+    }
+
+    return events;
+  };
+
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Dashboard</h1>
+    <main className="space-y-8" role="main" aria-label="Dashboard overview">
+      {/* AI-Friendly Page Structure */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "HR Portal Dashboard",
+            "description": "Overview of HR metrics, employee activities, and organizational data",
+            "url": typeof window !== 'undefined' ? window.location.href : '',
+            "isPartOf": {
+              "@type": "WebSite",
+              "name": "HR Portal"
+            },
+            "about": {
+              "@type": "Organization",
+              "name": "HR Management System"
+            },
+            "mainEntity": {
+              "@type": "ItemList",
+              "name": "Dashboard Metrics",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "name": "Leave Balances",
+                  "description": "Current leave balances for all employees"
+                },
+                {
+                  "@type": "ListItem", 
+                  "name": "Upcoming Events",
+                  "description": "Holidays, notices, and important dates"
+                },
+                {
+                  "@type": "ListItem",
+                  "name": "Recent Activities",
+                  "description": "Recent leaves, documents, and off-site entries"
+                },
+                {
+                  "@type": "ListItem",
+                  "name": "Calendar View",
+                  "description": "Monthly calendar with events and activities"
+                }
+              ]
+            }
+          })
+        }}
+      />
+
+      <header>
+        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+          Dashboard
+        </h1>
+        <p className="text-gray-400 mt-2">
+          Overview of HR metrics, employee activities, and organizational data
+        </p>
+      </header>
 
 
       {/* Leave Balances */}
-      <LeaveBalanceCard balance={dashboardData?.data?.leave_balances || []} />
+      <section aria-labelledby="leave-balances-heading">
+        <h2 id="leave-balances-heading" className="sr-only">Leave Balances</h2>
+        <LeaveBalanceCard balance={dashboardData?.data?.leave_balances || []} />
+      </section>
 
       {/* Events & Notices */}
-      <Card title="Upcoming Events & Notices">
+      <section aria-labelledby="events-notices-heading">
+        <h2 id="events-notices-heading" className="sr-only">Upcoming Events & Notices</h2>
+        <Card title="Upcoming Events & Notices">
         <div className="space-y-3">
           
           {(dashboardData?.data?.upcoming_holidays || [])
@@ -76,7 +270,7 @@ export default function DashboardPage() {
                     <h4 className="font-medium text-primary">{event.name || event.title}</h4>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       event.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
-                      event.type === 'event' ? 'bg-blue-500/20 text-blue-400' :
+                      event.type === 'event' ? 'bg-amber-500/20 text-amber-400' :
                       'bg-green-500/20 text-green-400'
                     }`}>
                       {event.type || 'holiday'}
@@ -119,63 +313,36 @@ export default function DashboardPage() {
           </Link>
         </div>
       </Card>
+      </section>
 
       <div className="space-y-6">
         {/* Calendar or List (responsive) */}
-        <Card title="Upcoming Leaves & Holidays">
-          <div className="hidden sm:block">
-            <Calendar
-              events={[
-                ...(dashboardData?.data?.recent_leaves || []).map((l: any) => ({
-                  title: l.type,
-                  start: new Date(l.from),
-                  end: new Date(l.to),
-                  color: "#3b82f6",
-                })),
-                ...(dashboardData?.data?.upcoming_holidays || [])
-                  .filter((h: any) => h.isCalendarEvent !== false && h.date)
-                  .map((h: any) => ({
-                    title: h.name || h.title,
-                    start: new Date(h.date),
-                    end: new Date(h.date),
-                    color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#3b82f6" : "#10b981"),
-                  })),
-              ]}
-            />
-          </div>
+        <section aria-labelledby="calendar-heading">
+          <h2 id="calendar-heading" className="sr-only">Calendar View</h2>
+          <Card title="Upcoming Leaves & Holidays">
+      <div className="hidden sm:block">
+        <Calendar events={createCalendarEvents()} userRole={userRole} />
+      </div>
           <div className="sm:hidden space-y-3">
-            {[
-              ...(dashboardData?.data?.recent_leaves || []).map((l: any) => ({
-                id: `leave-${l.id}`,
-                dateLabel: new Date(l.from).toLocaleDateString(),
-                range: l.from === l.to ? null : `${new Date(l.from).toLocaleDateString()} - ${new Date(l.to).toLocaleDateString()}`,
-                title: l.type,
-                color: 'bg-indigo-500',
-              })),
-              ...(dashboardData?.data?.upcoming_holidays || [])
-                .filter((h: any) => h.isCalendarEvent !== false && h.date)
-                .map((h: any) => ({
-                  id: `holiday-${h.id}`,
-                  dateLabel: new Date(h.date).toLocaleDateString(),
-                  range: null,
-                  title: `${h.type === 'holiday' ? 'Holiday' : h.type === 'event' ? 'Event' : 'Notice'}: ${h.name || h.title}`,
-                  color: h.type === 'holiday' ? 'bg-red-500' : h.type === 'event' ? 'bg-blue-500' : 'bg-green-500',
-                })),
-            ]
-              .filter((e) => new Date(e.dateLabel) >= new Date(new Date().toDateString()))
+            {createCalendarEvents()
+              .filter((e) => new Date(e.start) >= new Date(new Date().toDateString()))
               .slice(0, 10)
-              .map((e) => (
-                <div key={e.id} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
-                  <div className={`w-2 h-8 rounded ${e.color}`} />
+              .map((e, index) => (
+                <div key={`mobile-${index}`} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div className={`w-2 h-8 rounded`} style={{ backgroundColor: e.color }} />
                   <div>
                     <div className="text-sm text-gray-300">{e.title}</div>
-                    <div className="text-xs text-gray-400">{e.range || e.dateLabel}</div>
+                    <div className="text-xs text-gray-400">
+                      {e.start instanceof Date 
+                        ? e.start.toLocaleDateString() 
+                        : new Date(e.start).toLocaleDateString()}
+                    </div>
                   </div>
                 </div>
               ))}
           </div>
         </Card>
-
+        </section>
 
         {/* Recent Documents - compact */}
         <Card className="p-4">
@@ -189,7 +356,15 @@ export default function DashboardPage() {
             </button>
           </div>
           <ul className="divide-y divide-gray-700 text-sm">
-            {(dashboardData?.data?.recent_documents || []).slice(0, 3).map((doc: any) => (
+            {(dashboardData?.data?.recent_documents || [])
+              .filter((doc: any) => {
+                // Filter out private documents for non-HR/Admin users
+                if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
+                  return true; // HR/Admin can see all documents
+                }
+                return doc.isPublic || doc.user_id === userId; // Employees can only see public docs or their own
+              })
+              .slice(0, 3).map((doc: any) => (
               <li key={doc.id} className="py-2 flex justify-between items-center">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white flex-shrink-0">
@@ -273,6 +448,6 @@ export default function DashboardPage() {
           </ul>
         </Card>
       </div>
-    </div>
+    </main>
   );
 }

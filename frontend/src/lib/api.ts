@@ -114,6 +114,22 @@ export interface LeaveBalance {
   year: number;
 }
 
+export interface OffSite {
+  id: string;
+  title: string;
+  description?: string;
+  location?: string;
+  type: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  user_id: string;
+  organization_id: string;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+}
+
 export interface DashboardStats {
   total_users: number;
   total_leaves: number;
@@ -125,6 +141,7 @@ export interface DashboardStats {
   recent_documents: Document[];
   recent_salary_slips: SalarySlip[];
   leave_balances: LeaveBalance[];
+  recent_off_sites: OffSite[];
 }
 
 export interface ApiResponse<T> {
@@ -160,11 +177,15 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(organizationId ? { "X-Organization-ID": organizationId } : {}),
     ...(options.headers as Record<string, string> || {}),
   };
+
+  // Only set Content-Type for non-FormData requests
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   // Add /api prefix if not already present
   const fullPath = path.startsWith('/api/') ? path : `/api${path}`;
@@ -743,9 +764,56 @@ export const deleteHoliday = (id: string) =>
     method: "DELETE",
   });
 
+// -------------------- Off-site Tracker --------------------
+export const getOffSites = (params?: string) =>
+  fetcher<any>(`/off-sites?${params || ''}`).then((raw) => {
+    const items = (raw?.data || raw || []) as any[];
+    const mapped = items.map((o: any) => ({
+      id: String(o.id),
+      title: o.title,
+      description: o.description,
+      location: o.location,
+      type: o.type,
+      status: o.status,
+      start_date: o.start_date,
+      end_date: o.end_date,
+      user: o.user ? {
+        id: String(o.user.id),
+        name: o.user.name,
+        designation: o.user.designation,
+      } : null,
+    }));
+    return { 
+      data: mapped.length ? mapped : [],
+      total: raw?.total || 0,
+      total_pages: raw?.total_pages || 0,
+    } as ApiResponse<any[]>;
+  }).catch(() => ({ data: [], total: 0, total_pages: 0 } as ApiResponse<any[]>));
+
+export const createOffSite = (body: any) =>
+  fetcher<ApiResponse<any>>("/off-sites", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const updateOffSite = (id: string, body: any) =>
+  fetcher<ApiResponse<any>>(`/off-sites/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+
+export const deleteOffSite = (id: string) =>
+  fetcher<ApiResponse<void>>(`/off-sites/${id}`, {
+    method: "DELETE",
+  });
+
+export const canManageOffSites = () => {
+  const user = getCurrentUser();
+  return user?.role === "Manager" || user?.role === "HR" || user?.role === "Admin" || user?.role === "God";
+};
+
 // -------------------- Organization Tree --------------------
-export const getOrgTree = () =>
-  fetcher<ApiResponse<any>>("/org/tree");
+// Note: getOrgTree endpoint not implemented as it's not currently used
 
 // -------------------- Dashboard --------------------
 export const getDashboardStats = () =>
@@ -762,6 +830,7 @@ export const getDashboardStats = () =>
       recent_documents: d.recent_documents ?? [],
       recent_salary_slips: d.recent_salary_slips ?? [],
       leave_balances: d.leave_balances ?? [],
+      recent_off_sites: d.recent_off_sites ?? [],
     };
     return { data: mapped } as ApiResponse<DashboardStats>;
   }).catch(() => ({ 
@@ -775,7 +844,8 @@ export const getDashboardStats = () =>
       recent_leaves: [],
       recent_documents: [],
       recent_salary_slips: [],
-      leave_balances: []
+      leave_balances: [],
+      recent_off_sites: []
     } 
   } as ApiResponse<DashboardStats>));
 
@@ -831,11 +901,12 @@ export const getCompanySettings = async (companyId: string): Promise<ApiResponse
   return { data: defaultPayrollSettings };
 };
 
-export const updateCompanySettings = async (companyId: string, settings: PayrollSettings): Promise<ApiResponse<PayrollSettings>> => {
+export const updateCompanySettings = async (companyId: string, settings: PayrollSettings, currency?: string): Promise<ApiResponse<PayrollSettings>> => {
   try {
+    const payload = currency ? { ...settings, currency } : settings;
     const res = await fetcher<any>(`/companies/${companyId}/payroll-settings`, {
       method: "PUT",
-      body: JSON.stringify(settings),
+      body: JSON.stringify(payload),
     });
     if (res?.data) return { data: res.data as PayrollSettings };
   } catch (_) {
@@ -845,6 +916,109 @@ export const updateCompanySettings = async (companyId: string, settings: Payroll
     localStorage.setItem(localSettingsKey(companyId), JSON.stringify(settings));
   }
   return { data: settings };
+};
+
+// -------------------- Reimbursements --------------------
+export interface ReimbursementRequest {
+  id?: string;
+  reason: string;
+  amount: number;
+  date: string;
+  status?: 'pending' | 'approved' | 'rejected' | 'returned';
+  bills?: Array<{
+    id: string;
+    file_name: string;
+    file_url: string;
+  }>;
+  created_at?: string;
+}
+
+export const getReimbursements = async (status?: string): Promise<ApiResponse<ReimbursementRequest[]>> => {
+  const params = status ? `?status=${status}` : '';
+  return await fetcher<ReimbursementRequest[]>(`/reimbursements${params}`);
+};
+
+export const createReimbursement = async (data: {
+  reason: string;
+  amount: number;
+  date: string;
+  bills: File[];
+}): Promise<ApiResponse<ReimbursementRequest>> => {
+  const formData = new FormData();
+  formData.append('reason', data.reason);
+  formData.append('amount', data.amount.toString());
+  formData.append('date', data.date);
+  
+  data.bills.forEach((file) => {
+    formData.append('bills', file);
+  });
+
+  return await fetcher<ReimbursementRequest>('/reimbursements', {
+    method: 'POST',
+    body: formData,
+  });
+};
+
+export const updateReimbursementStatus = async (
+  id: string, 
+  status: 'approved' | 'rejected' | 'returned',
+  reason?: string
+): Promise<ApiResponse<ReimbursementRequest>> => {
+  return await fetcher<ReimbursementRequest>(`/reimbursements/${id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status, reason }),
+  });
+};
+
+// -------------------- Employee Growth --------------------
+export interface EmployeeGrowthRecord {
+  id?: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  type: 'promotion' | 'skill_development' | 'certification' | 'project_completion' | 'achievement' | 'milestone';
+  date: string;
+  added_by: string;
+  created_at?: string;
+}
+
+export const getEmployeeGrowth = async (userId: string): Promise<ApiResponse<EmployeeGrowthRecord[]>> => {
+  return await fetcher<EmployeeGrowthRecord[]>(`/employee-growth/${userId}`);
+};
+
+export const getGrowthStats = async (userId: string): Promise<ApiResponse<any>> => {
+  return await fetcher<any>(`/employee-growth/stats/${userId}`);
+};
+
+export const createGrowthRecord = async (data: {
+  user_id: string;
+  title: string;
+  description?: string;
+  type: string;
+  date: string;
+}): Promise<ApiResponse<EmployeeGrowthRecord>> => {
+  return await fetcher<EmployeeGrowthRecord>('/employee-growth', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateGrowthRecord = async (id: string, data: {
+  title: string;
+  description?: string;
+  type: string;
+  date: string;
+}): Promise<ApiResponse<EmployeeGrowthRecord>> => {
+  return await fetcher<EmployeeGrowthRecord>(`/employee-growth/record/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteGrowthRecord = async (id: string): Promise<ApiResponse<void>> => {
+  return await fetcher<void>(`/employee-growth/record/${id}`, {
+    method: 'DELETE',
+  });
 };
 
 // -------------------- Current User --------------------

@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { LeaveCategory, LeaveAllocation } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
+import { formatCurrency, getDefaultCurrency } from "@/lib/currency";
 
 export default function AddEmployeePage() {
   const router = useRouter();
@@ -241,7 +242,7 @@ export default function AddEmployeePage() {
 function ManagerSearch({ query, onSelect, selectedId }: { query: string; onSelect: (id: string, name: string) => void; selectedId?: string }) {
   const { data } = useQuery({
     queryKey: ["users", query],
-    queryFn: () => getUsers(query ? { q: query } : {}),
+    queryFn: () => getUsers(query ? { search: query } : {}),
   });
   const users = data?.data || [];
   return (
@@ -424,7 +425,7 @@ function CTCAddManager({
         <div className="grid md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-secondary mb-2">
-              Annual CTC (₹)
+              Annual CTC ({getDefaultCurrency() === 'INR' ? '₹' : '$'})
             </label>
             <Input
               type="number"
@@ -455,7 +456,7 @@ function CTCAddManager({
           </div>
           <div>
             <label className="block text-sm font-medium text-secondary mb-2">
-              TDS Override (₹)
+              TDS Override (Yearly) ({getDefaultCurrency() === 'INR' ? '₹' : '$'})
             </label>
             <Input
               type="number"
@@ -477,10 +478,10 @@ function CTCAddManager({
             <div className="grid md:grid-cols-3 gap-6">
               <div className="space-y-3">
                 <div className="text-sm text-secondary">
-                  Annual CTC: ₹{ctcData.annualCTC.toLocaleString('en-IN')}
+                  Annual CTC: {formatCurrency(ctcData.annualCTC, getDefaultCurrency())}
                 </div>
                 <div className="text-sm text-secondary">
-                  Monthly CTC: ₹{breakdown.monthlyCTC.toLocaleString('en-IN')}
+                  Monthly CTC: {formatCurrency(breakdown.monthlyCTC, getDefaultCurrency())}
                 </div>
                 {ctcData.lopDays > 0 && (
                   <div className="text-sm text-yellow-400">
@@ -489,7 +490,7 @@ function CTCAddManager({
                 )}
                 {ctcData.tdsOverride > 0 && (
                   <div className="text-sm text-blue-400">
-                    TDS Override: ₹{ctcData.tdsOverride.toLocaleString('en-IN')}
+                    TDS Override (Yearly): {formatCurrency(ctcData.tdsOverride, getDefaultCurrency())}
                   </div>
                 )}
               </div>

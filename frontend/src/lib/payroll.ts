@@ -26,9 +26,21 @@ export interface PayrollSettings {
     conveyance: ComponentSetting;
     lta: ComponentSetting;
     specialAllowance: ComponentSetting; // typically REMAINDER
+    // Dynamic categories
+    [key: string]: ComponentSetting;
   };
-  deductions: EmployeeDeductionsSettings;
+  deductions: EmployeeDeductionsSettings & {
+    // Dynamic categories
+    [key: string]: ComponentSetting | any;
+  };
   employerPF: EmployerPFSettingsReadOnly; // read-only config for display
+  lop: {
+    calculationMethod: 'NET_PAY_BY_DAYS' | 'BASIC_BY_DAYS' | 'FIXED_AMOUNT';
+    defaultDaysInMonth: number; // default 30 or 31
+  };
+  // Dynamic category definitions
+  customEarnings?: Array<{ key: string; label: string; mode: PayrollMode; value?: number }>;
+  customDeductions?: Array<{ key: string; label: string; mode: PayrollMode; value?: number }>;
 }
 
 export interface PayslipBreakdown {
@@ -50,6 +62,7 @@ export interface PayslipBreakdown {
     empPF: number; // mirrors 12% of basic (cap optional on employee side?)
     professionalTax: number;
     esi: number;
+    tds: number; // monthly TDS (yearly override / 12)
   };
   totals: {
     totalEarnings: number;
@@ -85,10 +98,36 @@ export const defaultPayrollSettings: PayrollSettings = {
     epsPercentOfBasic: 8.33,
     epsCap: 1250,
   },
+  lop: {
+    calculationMethod: 'NET_PAY_BY_DAYS',
+    defaultDaysInMonth: 30,
+  },
 };
 
 function round2(n: number): number {
   return Math.round(n);
+}
+
+export function calculateLOPAmount(
+  lopDays: number,
+  netPay: number,
+  basicSalary: number,
+  settings: PayrollSettings
+): number {
+  if (lopDays <= 0) return 0;
+  
+  const daysInMonth = settings.lop.defaultDaysInMonth;
+  
+  switch (settings.lop.calculationMethod) {
+    case 'NET_PAY_BY_DAYS':
+      return (netPay / daysInMonth) * lopDays;
+    case 'BASIC_BY_DAYS':
+      return (basicSalary / daysInMonth) * lopDays;
+    case 'FIXED_AMOUNT':
+      return lopDays * 1000; // Default fixed amount per day
+    default:
+      return (netPay / daysInMonth) * lopDays;
+  }
 }
 
 export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettings, ctx?: ComputeContext): PayslipBreakdown {
@@ -160,7 +199,8 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
   const esi = settings.deductions.esiEnabled ? computeByMode(settings.deductions.esi) : 0;
 
   const totalEarnings = earningsExceptSpecial + special;
-  const tds = round2(ctx?.tdsOverride || 0);
+  // TDS override is yearly, so divide by 12 for monthly calculation
+  const tds = round2((ctx?.tdsOverride || 0) / 12);
   const totalDeductions = empPF + professionalTax + esi + tds;
   const netPay = totalEarnings - totalDeductions;
 
@@ -168,7 +208,7 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
     monthlyCTC,
     earnings: { basic: effBasic, hra: effHra, medical: effMedical, conveyance: effConveyance, lta: effLta, special },
     employer: { totalPF: employerPFTotal, eps, epf },
-    deductions: { empPF, professionalTax, esi },
+    deductions: { empPF, professionalTax, esi, tds },
     totals: { totalEarnings, totalDeductions, netPay },
   };
 }

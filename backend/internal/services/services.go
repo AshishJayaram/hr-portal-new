@@ -25,6 +25,11 @@ type Services struct {
 	Dashboard       DashboardService
 	Organization    OrganizationService
 	Audit           AuditService
+	Notification    NotificationService
+	OffSite         OffSiteService
+	Reimbursement   *ReimbursementService
+	Feedback        *FeedbackService
+	EmployeeGrowth  *EmployeeGrowthService
 }
 
 // New creates a new instance of Services
@@ -33,18 +38,23 @@ func New(repos *repositories.Repositories, cfg *config.Config) *Services {
 	auditService := NewAuditService(repos.AuditLog, repos.User)
 
 	return &Services{
-		User:            NewUserService(repos.User, repos.Organization, auditService),
+		User:            NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, auditService),
 		Auth:            NewAuthService(repos.User, repos.Organization, cfg.JWT),
-		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService),
+		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService, NewNotificationService()),
 		LeaveCategory:   NewLeaveCategoryService(repos.LeaveCategory),
 		LeaveAllocation: NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory),
-		Document:        NewDocumentService(repos.Document, auditService),
-		SalarySlip:      NewSalarySlipService(repos.SalarySlip, auditService),
+		Document:        NewDocumentService(repos.Document, auditService, NewNotificationService()),
+		SalarySlip:      NewSalarySlipService(repos.SalarySlip, auditService, NewNotificationService()),
 		Holiday:         NewHolidayService(repos.Holiday, auditService),
 		CompanySettings: NewCompanySettingsService(repos.CompanySettings),
 		Dashboard:       NewDashboardService(repos),
 		Organization:    NewOrganizationService(repos.Organization),
 		Audit:           auditService,
+		Notification:    NewNotificationService(),
+		OffSite:         NewOffSiteService(repos.OffSite, repos.User, auditService),
+		Reimbursement:   NewReimbursementService(repos.Reimbursement),
+		Feedback:        NewFeedbackService(repos.Feedback),
+		EmployeeGrowth:  NewEmployeeGrowthService(repos.EmployeeGrowth),
 	}
 }
 
@@ -178,6 +188,7 @@ type AuditService interface {
 	LogDocumentChange(organizationID, documentID, changedBy string, action string, changeSummary string, req *http.Request) error
 	LogLeaveChange(organizationID, leaveID, changedBy string, action string, changeSummary string, req *http.Request) error
 	LogSalarySlipChange(organizationID, salarySlipID, changedBy string, action string, changeSummary string, req *http.Request) error
+	LogOffSiteChange(organizationID, offSiteID, changedBy string, action string, changeSummary string, req *http.Request) error
 	GetAuditLogs(organizationID string, filters map[string]interface{}) ([]models.AuditLog, error)
 	CountAuditLogs(organizationID string, filters map[string]interface{}) (int64, error)
 	GetEntityAuditLogs(entityType, entityID string) ([]models.AuditLog, error)
@@ -312,7 +323,9 @@ type UploadSalarySlipRequest struct {
 	OrganizationID string                `json:"organization_id" validate:"required"`
 	Month          int                   `json:"month" validate:"required,min=1,max=12"`
 	Year           int                   `json:"year" validate:"required"`
-	FileHeader     *multipart.FileHeader `json:"-"` // File header from form upload
+	LOPDays        float64               `json:"lop_days"`   // Loss of Pay days
+	LOPAmount      float64               `json:"lop_amount"` // Calculated LOP deduction amount
+	FileHeader     *multipart.FileHeader `json:"-"`          // File header from form upload
 }
 
 type CreateHolidayRequest struct {
@@ -349,6 +362,7 @@ type DashboardStatsResponse struct {
 	RecentDocuments   []models.Document      `json:"recent_documents"`
 	RecentSalarySlips []models.SalarySlip    `json:"recent_salary_slips"`
 	LeaveBalances     []LeaveBalanceResponse `json:"leave_balances"`
+	RecentOffSites    []models.OffSite       `json:"recent_off_sites"`
 }
 
 // AuditActionRequest represents the request to create an audit log

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getDocuments, uploadDocument, deleteDocument, canManageDocuments } from "@/lib/api";
+import { getDocuments, uploadDocument, deleteDocument, canManageDocuments, getCurrentUser } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -16,6 +16,10 @@ import { formatDate, capitalize } from "@/lib/utils";
 import { openPDFViewer, isPDFFile, getFileIcon, getFileTypeText } from "@/lib/pdfUtils";
 
 export default function DocumentsPage() {
+  const user = getCurrentUser();
+  const userId = user?.id || "u1";
+  const userRole = user?.role || "Employee";
+  
   const [documents, setDocuments] = useState<any[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<any[]>([]);
   const [showUpload, setShowUpload] = useState(false);
@@ -35,9 +39,18 @@ export default function DocumentsPage() {
   useEffect(() => {
     if (data?.data) {
       setDocuments(data.data);
-      setFilteredDocuments(data.data);
+      
+      // Apply role-based filtering
+      const roleFilteredDocs = data.data.filter((doc: any) => {
+        if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
+          return true; // HR/Admin can see all documents
+        }
+        return doc.isPublic || doc.user_id === userId; // Employees can only see public docs or their own
+      });
+      
+      setFilteredDocuments(roleFilteredDocs);
     }
-  }, [data]);
+  }, [data, userRole, userId]);
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -157,7 +170,15 @@ export default function DocumentsPage() {
   };
 
   const handleSearch = (query: string) => {
-    const filtered = documents.filter(doc =>
+    // First apply role-based filtering, then search
+    const roleFilteredDocs = documents.filter((doc: any) => {
+      if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
+        return true; // HR/Admin can see all documents
+      }
+      return doc.isPublic || doc.user_id === userId; // Employees can only see public docs or their own
+    });
+    
+    const filtered = roleFilteredDocs.filter(doc =>
       doc.title.toLowerCase().includes(query.toLowerCase()) ||
       doc.category.toLowerCase().includes(query.toLowerCase())
     );
@@ -165,7 +186,13 @@ export default function DocumentsPage() {
   };
 
   const handleFilter = (filters: Record<string, string>) => {
-    let filtered = documents;
+    // First apply role-based filtering, then category filter
+    let filtered = documents.filter((doc: any) => {
+      if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
+        return true; // HR/Admin can see all documents
+      }
+      return doc.isPublic || doc.user_id === userId; // Employees can only see public docs or their own
+    });
     
     if (filters.category) {
       filtered = filtered.filter(doc => doc.category === filters.category);
@@ -183,6 +210,7 @@ export default function DocumentsPage() {
   if (error) return <p className="text-red-400">Error loading documents</p>;
 
   const publicDocs = filteredDocuments.filter(d => d.isPublic);
+  const privateDocs = filteredDocuments.filter(d => !d.isPublic);
 
   return (
     <div className="space-y-6">
@@ -371,7 +399,107 @@ export default function DocumentsPage() {
         ))}
       </div>
 
-      
+      {/* HR/Admin Private Documents Section */}
+      <RoleGuard allowedRoles={["HR", "Admin"]}>
+        {privateDocs.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
+                Private Documents
+              </h2>
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
+                HR/Admin Only
+              </span>
+            </div>
+            <p className="text-gray-400 text-sm">
+              Confidential documents accessible only to HR and Admin users
+            </p>
+            
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {privateDocs.map((doc) => (
+                <Card key={doc.id} className="group hover:bg-white/10 transition-all duration-300 border-red-500/20">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center text-white">
+                        <FileText className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white group-hover:text-red-300 transition-colors">
+                          {doc.title}
+                        </h3>
+                        <p className="text-sm text-gray-400">{doc.category}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(doc.fileUrl, '_blank')}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm("Are you sure you want to delete this private document?")) {
+                            deleteMutation.mutate(doc.id);
+                          }
+                        }}
+                        className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-600">
+                        {doc.category}
+                      </span>
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
+                        Private
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Uploaded by {doc.uploadedBy} on {formatDate(doc.createdAt)}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${doc.id}/download`, {
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                              'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                            },
+                          });
+                          const data = await response.json();
+                          if (data.fileUrl) {
+                            openPDFViewer(data.fileUrl, doc.title);
+                          }
+                        } catch (error) {
+                          console.error('Failed to download document:', error);
+                        }
+                      }}
+                      className="w-full flex items-center gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    >
+                      {isPDFFile(doc.fileUrl || '') ? <Eye className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                      {isPDFFile(doc.fileUrl || '') ? 'View PDF' : 'Download'}
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+      </RoleGuard>
 
       {filteredDocuments.length === 0 && (
         <Card className="text-center py-12">

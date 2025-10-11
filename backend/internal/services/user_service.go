@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
@@ -12,17 +13,19 @@ import (
 
 // userService implements UserService interface
 type userService struct {
-	userRepo         repositories.UserRepository
-	organizationRepo repositories.OrganizationRepository
-	auditService     AuditService
+	userRepo            repositories.UserRepository
+	organizationRepo    repositories.OrganizationRepository
+	leaveAllocationRepo repositories.LeaveAllocationRepository
+	auditService        AuditService
 }
 
 // NewUserService creates a new user service
-func NewUserService(userRepo repositories.UserRepository, organizationRepo repositories.OrganizationRepository, auditService AuditService) UserService {
+func NewUserService(userRepo repositories.UserRepository, organizationRepo repositories.OrganizationRepository, leaveAllocationRepo repositories.LeaveAllocationRepository, auditService AuditService) UserService {
 	return &userService{
-		userRepo:         userRepo,
-		organizationRepo: organizationRepo,
-		auditService:     auditService,
+		userRepo:            userRepo,
+		organizationRepo:    organizationRepo,
+		leaveAllocationRepo: leaveAllocationRepo,
+		auditService:        auditService,
 	}
 }
 
@@ -33,8 +36,8 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 		return nil, fmt.Errorf("organization not found: %w", err)
 	}
 
-	// Check if username already exists in organization
-	existingUser, _ := s.userRepo.GetByUsername(req.Username, req.OrganizationID)
+	// Check if username already exists across all organizations
+	existingUser, _ := s.userRepo.GetByUsernameAcrossOrgs(req.Username)
 	if existingUser != nil {
 		return nil, fmt.Errorf("username already exists")
 	}
@@ -87,6 +90,12 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
+	// Create default leave allocations for the new user
+	if err := s.createDefaultLeaveAllocations(user); err != nil {
+		// Log the error but don't fail user creation
+		fmt.Printf("Warning: Failed to create leave allocations for user %s: %v\n", user.Username, err)
+	}
+
 	// Log audit entry for user creation
 	orgIDStr := strconv.FormatUint(uint64(user.OrganizationID), 10)
 	userIDStr := strconv.FormatUint(uint64(user.ID), 10)
@@ -136,8 +145,8 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 
 	// Update fields if provided
 	if req.Username != nil {
-		// Check if username already exists
-		existingUser, _ := s.userRepo.GetByUsername(*req.Username, strconv.FormatUint(uint64(user.OrganizationID), 10))
+		// Check if username already exists across all organizations
+		existingUser, _ := s.userRepo.GetByUsernameAcrossOrgs(*req.Username)
 		if existingUser != nil && existingUser.ID != user.ID {
 			return nil, fmt.Errorf("username already exists")
 		}
@@ -289,6 +298,44 @@ func (s *userService) IsSubordinate(organizationID, managerID, subordinateID str
 
 func (s *userService) GetSubordinates(organizationID, managerID string) ([]models.User, error) {
 	return s.userRepo.GetSubordinates(organizationID, managerID)
+}
+
+// createDefaultLeaveAllocations creates default leave allocations for a new user
+func (s *userService) createDefaultLeaveAllocations(user *models.User) error {
+	// Create default allocations based on common leave types
+	currentYear := time.Now().Year()
+
+	// Default leave allocations (these should ideally come from organization settings)
+	defaultAllocations := []struct {
+		categoryName string
+		totalDays    int
+	}{
+		{"Sick Leave", 12},
+		{"Casual Leave", 12},
+		{"Professional Leave", 5},
+		{"Annual Leave", 21},
+	}
+
+	// Create allocations for each default category
+	for _, alloc := range defaultAllocations {
+		allocation := &models.LeaveAllocation{
+			UserID:         user.ID,
+			OrganizationID: user.OrganizationID,
+			CategoryName:   alloc.categoryName,
+			TotalDays:      alloc.totalDays,
+			UsedDays:       0,
+			RemainingDays:  alloc.totalDays,
+			Year:           currentYear,
+		}
+
+		// Create the allocation directly using the repository
+		if err := s.leaveAllocationRepo.Create(allocation); err != nil {
+			fmt.Printf("Failed to create leave allocation %s for user %s: %v\n", alloc.categoryName, user.Username, err)
+			// Continue with other allocations even if one fails
+		}
+	}
+
+	return nil
 }
 
 func (s *userService) Count(count *int64) error {

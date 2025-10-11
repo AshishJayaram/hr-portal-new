@@ -52,7 +52,7 @@ INSERT INTO holidays (id, organization_id, name, date, type, description, is_cal
 ('550e8400-e29b-41d4-a716-446655440023', '550e8400-e29b-41d4-a716-446655440000', 'Gandhi Jayanti', '2024-10-02', 'holiday', 'Birthday of Mahatma Gandhi', true, '#ef4444'),
 ('550e8400-e29b-41d4-a716-446655440024', '550e8400-e29b-41d4-a716-446655440000', 'Diwali', '2024-11-01', 'holiday', 'Festival of Lights', true, '#f59e0b'),
 ('550e8400-e29b-41d4-a716-446655440025', '550e8400-e29b-41d4-a716-446655440000', 'Christmas', '2024-12-25', 'holiday', 'Christmas Day', true, '#10b981'),
-('550e8400-e29b-41d4-a716-446655440026', '550e8400-e29b-41d4-a716-446655440000', 'Company Annual Meeting', '2024-03-15', 'event', 'Annual company meeting', true, '#3b82f6'),
+('550e8400-e29b-41d4-a716-446655440026', '550e8400-e29b-41d4-a716-446655440000', 'Company Annual Meeting', '2024-03-15', 'event', 'Annual company meeting', true, '#f59e0b'),
 ('550e8400-e29b-41d4-a716-446655440027', '550e8400-e29b-41d4-a716-446655440000', 'Important Notice', NULL, 'notice', 'Please update your emergency contact information', false, '#8b5cf6');
 
 -- Insert company settings

@@ -213,7 +213,7 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
                       _selectedColor = '#ef4444';
                       break;
                     case 'event':
-                      _selectedColor = '#3b82f6';
+                      _selectedColor = '#f59e0b';
                       break;
                     case 'notice':
                       _selectedColor = '#10b981';

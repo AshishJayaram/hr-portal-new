@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/login_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/profile/edit_profile_screen.dart';
+import '../../features/off_site/off_site_screen.dart';
 import '../../features/team/team_screen.dart';
 import '../../features/employees/employees_screen.dart';
 import '../../features/employees/add_employee_screen.dart';
@@ -15,11 +16,17 @@ import '../../features/salary_slips/salary_slips_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/settings/change_password_screen.dart';
 import '../../features/holidays/holidays_screen.dart';
+import '../../features/holidays/holidays_only_screen.dart';
 import '../../features/holidays/add_holiday_screen.dart';
+import '../../features/leaves/leaves_only_screen.dart';
 import '../../features/god/god_dashboard_screen.dart';
 import '../../features/admin/user_management_screen.dart';
 import '../../features/admin/organization_management_screen.dart';
 import '../../features/audit_logs/audit_logs_screen.dart';
+import '../../features/ai_friendly/ai_friendly_page.dart';
+import '../../features/reimbursements/reimbursements_screen.dart';
+import '../../features/feedback/feedback_screen.dart';
+import '../../features/employees/employee_documentation_screen.dart';
 import '../providers/providers.dart';
 
 final appRouter = GoRouter(
@@ -37,6 +44,10 @@ final appRouter = GoRouter(
   },
   routes: [
     GoRoute(
+      path: '/',
+      redirect: (context, state) => '/dashboard',
+    ),
+    GoRoute(
       path: '/login',
       builder: (context, state) => LoginScreen(),
     ),
@@ -47,6 +58,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/profile',
       builder: (context, state) => ProfileScreen(),
+    ),
+    GoRoute(
+      path: '/profile/edit',
+      builder: (context, state) => EditProfileScreen(),
+    ),
+    GoRoute(
+      path: '/off-site',
+      builder: (context, state) => OffSiteScreen(),
     ),
     GoRoute(
       path: '/team',
@@ -69,6 +88,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/leaves',
+      builder: (context, state) => LeavesOnlyScreen(),
+    ),
+    GoRoute(
+      path: '/leaves-old',
       builder: (context, state) => LeavesScreen(),
     ),
     GoRoute(
@@ -89,6 +112,10 @@ final appRouter = GoRouter(
     ),
         GoRoute(
           path: '/holidays',
+          builder: (context, state) => HolidaysOnlyScreen(),
+        ),
+        GoRoute(
+          path: '/holidays-old',
           builder: (context, state) => HolidaysScreen(),
         ),
         GoRoute(
@@ -110,6 +137,29 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/audit-logs',
           builder: (context, state) => AuditLogsScreen(),
+        ),
+        GoRoute(
+          path: '/ai-friendly',
+          builder: (context, state) => AIFriendlyPage(),
+        ),
+        GoRoute(
+          path: '/reimbursements',
+          builder: (context, state) => ReimbursementsScreen(),
+        ),
+        GoRoute(
+          path: '/feedback',
+          builder: (context, state) => FeedbackScreen(),
+        ),
+        GoRoute(
+          path: '/employees/documentation/:userId',
+          builder: (context, state) {
+            final userId = state.pathParameters['userId']!;
+            final userName = state.uri.queryParameters['name'] ?? 'Employee';
+            return EmployeeDocumentationScreen(
+              userId: userId,
+              userName: userName,
+            );
+          },
         ),
   ],
 );

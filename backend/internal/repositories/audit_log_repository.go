@@ -89,8 +89,13 @@ func (r *auditLogRepository) GetByUser(userID string) ([]models.AuditLog, error)
 		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
 
+	// Get all audit logs related to this user:
+	// 1. Logs where the user was the entity (USER entity type with this user's ID)
+	// 2. Logs where the user made changes (changed_by = userID)
+	// 3. Logs for user-related entities like leaves, salary slips, etc. where entity_id = userID
 	if err := r.db.Preload("ChangedByUser").Preload("Organization").
-		Where("changed_by = ?", uint(userIDUint)).
+		Where("(entity_type = 'USER' AND entity_id = ?) OR changed_by = ? OR (entity_type IN ('LEAVE', 'SALARY_SLIP', 'DOCUMENT') AND entity_id = ?)",
+			userID, uint(userIDUint), userID).
 		Order("created_at DESC").Find(&auditLogs).Error; err != nil {
 		return nil, fmt.Errorf("failed to get audit logs by user: %w", err)
 	}

@@ -182,6 +182,27 @@ func (s *auditService) LogLeaveChange(organizationID, leaveID, changedBy string,
 	}, req)
 }
 
+func (s *auditService) LogOffSiteChange(organizationID, offSiteID, changedBy string, action string, changeSummary string, req *http.Request) error {
+	// Find who made the change
+	var changedByUser *models.User
+	if changedBy != "" {
+		if user, err := s.userRepo.GetByID(changedBy); err == nil {
+			changedByUser = user
+		}
+	}
+
+	changeSummary += fmt.Sprintf(" - By %s", changedByUser.Name)
+
+	return s.LogAction(AuditActionRequest{
+		OrganizationID: organizationID,
+		Action:         action,
+		EntityType:     "OFF_SITE",
+		EntityID:       offSiteID,
+		ChangedBy:      changedBy,
+		ChangeSummary:  changeSummary,
+	}, req)
+}
+
 func (s *auditService) LogSalarySlipChange(organizationID, salarySlipID, changedBy string, action string, changeSummary string, req *http.Request) error {
 	// Find who made the change
 	var changedByUser *models.User

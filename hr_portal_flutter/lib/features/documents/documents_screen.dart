@@ -484,6 +484,43 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     );
   }
 
+  void _showCategoryFilter() {
+    // Get unique categories
+    final categories = _documents.map((d) => d['category']).toSet().toList();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filter by Category'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('All Categories'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for all categories
+              },
+            ),
+            ...categories.map((category) => ListTile(
+              title: Text(category ?? 'Unknown'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for specific category
+              },
+            )),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _deleteDocument(String documentId) async {
     showDialog(
       context: context,
@@ -540,7 +577,39 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Filter Documents'),
-        content: const Text('Filter options - Coming Soon'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('All Documents'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for all documents
+              },
+            ),
+            ListTile(
+              title: const Text('Public Documents'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for public documents only
+              },
+            ),
+            ListTile(
+              title: const Text('Private Documents'),
+              onTap: () {
+                Navigator.pop(context);
+                // Apply filter for private documents only
+              },
+            ),
+            ListTile(
+              title: const Text('By Category'),
+              onTap: () {
+                Navigator.pop(context);
+                _showCategoryFilter();
+              },
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:ai="https://schema.org/AI"
+        xmlns:hr="https://schema.org/Organization">
+  
+  <!-- Main Dashboard -->
+  <url>
+    <loc>https://hr-portal.example.com/dashboard</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <ai:description>HR Portal Dashboard - Overview of metrics, activities, and organizational data</ai:description>
+    <ai:category>Overview</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+  </url>
+
+  <!-- Employee Management -->
+  <url>
+    <loc>https://hr-portal.example.com/employees</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <ai:description>Employee Management - Manage employee profiles, information, and organizational structure</ai:description>
+    <ai:category>Management</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+    <ai:roles>hr,admin,god</ai:roles>
+  </url>
+
+  <!-- Leave Management -->
+  <url>
+    <loc>https://hr-portal.example.com/leaves</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <ai:description>Leave Management - Track leave applications, balances, and approval workflows</ai:description>
+    <ai:category>Management</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+  </url>
+
+  <!-- Holiday Management -->
+  <url>
+    <loc>https://hr-portal.example.com/holidays</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <ai:description>Holiday Management - Manage company holidays, events, and notices</ai:description>
+    <ai:category>Management</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+    <ai:roles>hr,admin,god</ai:roles>
+  </url>
+
+  <!-- Off-site Tracking -->
+  <url>
+    <loc>https://hr-portal.example.com/off-site</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <ai:description>Off-site Tracker - Track and manage off-site work activities and remote work</ai:description>
+    <ai:category>Tracking</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+  </url>
+
+  <!-- Document Management -->
+  <url>
+    <loc>https://hr-portal.example.com/documents</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <ai:description>Document Management - Upload, manage, and organize company documents and files</ai:description>
+    <ai:category>Management</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+    <ai:roles>hr,admin,god</ai:roles>
+  </url>
+
+  <!-- Salary Slips -->
+  <url>
+    <loc>https://hr-portal.example.com/salary-slips</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <ai:description>Salary Slips - View and manage employee salary slips and payroll information</ai:description>
+    <ai:category>Payroll</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+  </url>
+
+  <!-- Team Management -->
+  <url>
+    <loc>https://hr-portal.example.com/team</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <ai:description>Team Management - View team structure, hierarchy, and team member information</ai:description>
+    <ai:category>Organization</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+  </url>
+
+  <!-- User Profile -->
+  <url>
+    <loc>https://hr-portal.example.com/profile</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <ai:description>User Profile - Manage personal profile information and account settings</ai:description>
+    <ai:category>Personal</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+  </url>
+
+  <!-- Settings -->
+  <url>
+    <loc>https://hr-portal.example.com/settings</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <ai:description>Settings - Configure application settings and preferences</ai:description>
+    <ai:category>Configuration</ai:category>
+    <ai:requires-auth>true</ai:requires-auth>
+  </url>
+
+  <!-- Login Page -->
+  <url>
+    <loc>https://hr-portal.example.com/signin</loc>
+    <lastmod>2025-01-10</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+    <ai:description>Login Page - User authentication and access control</ai:description>
+    <ai:category>Authentication</ai:category>
+    <ai:requires-auth>false</ai:requires-auth>
+  </url>
+
+</urlset>

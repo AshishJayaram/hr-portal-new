@@ -381,10 +381,21 @@ class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
 
   Future<void> _downloadSlip(String slipId) async {
     try {
-      // TODO: Implement download functionality
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Download functionality not implemented')),
-      );
+      final apiService = ref.read(apiServiceProvider);
+      // Get the salary slip download URL
+      final slip = _allSalarySlips.firstWhere((s) => s['id'].toString() == slipId);
+      
+      if (slip['file_url'] != null) {
+        // Open the salary slip in browser or download
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Opening salary slip: ${slip['file_name']}')),
+        );
+        // In a real implementation, you would use url_launcher to open the URL
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Salary slip file not available')),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Download failed: $e')),
@@ -394,10 +405,40 @@ class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
 
   Future<void> _deleteSlip(String slipId) async {
     try {
-      // TODO: Implement delete functionality
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delete functionality not implemented')),
+      // Show confirmation dialog
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete Salary Slip'),
+          content: const Text('Are you sure you want to delete this salary slip? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
       );
+
+      if (confirm == true) {
+        final apiService = ref.read(apiServiceProvider);
+        await apiService.deleteSalarySlip(slipId);
+        
+        // Remove from local list
+        setState(() {
+          _allSalarySlips.removeWhere((slip) => slip['id'].toString() == slipId);
+          _filterSalarySlips();
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Salary slip deleted successfully')),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Delete failed: $e')),

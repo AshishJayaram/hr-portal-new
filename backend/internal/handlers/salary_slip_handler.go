@@ -70,6 +70,8 @@ func (h *SalarySlipHandler) UploadSalarySlip(c *gin.Context) {
 	userIdStr := c.PostForm("userId")
 	monthStr := c.PostForm("month")
 	yearStr := c.PostForm("year")
+	lopDaysStr := c.PostForm("lopDays")
+	lopAmountStr := c.PostForm("lopAmount")
 
 	// Parse month and year
 	month := 1
@@ -82,6 +84,20 @@ func (h *SalarySlipHandler) UploadSalarySlip(c *gin.Context) {
 	if yearStr != "" {
 		if y, err := strconv.Atoi(yearStr); err == nil && y > 2000 {
 			year = y
+		}
+	}
+
+	// Parse LOP fields
+	lopDays := 0.0
+	lopAmount := 0.0
+	if lopDaysStr != "" {
+		if d, err := strconv.ParseFloat(lopDaysStr, 64); err == nil {
+			lopDays = d
+		}
+	}
+	if lopAmountStr != "" {
+		if a, err := strconv.ParseFloat(lopAmountStr, 64); err == nil {
+			lopAmount = a
 		}
 	}
 
@@ -105,6 +121,8 @@ func (h *SalarySlipHandler) UploadSalarySlip(c *gin.Context) {
 		OrganizationID: organizationID,
 		Month:          month,
 		Year:           year,
+		LOPDays:        lopDays,
+		LOPAmount:      lopAmount,
 		FileHeader:     fileHeader,
 	}
 

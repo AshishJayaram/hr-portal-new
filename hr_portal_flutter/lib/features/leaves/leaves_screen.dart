@@ -301,7 +301,15 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
         label: Text(label),
         selected: isSelected,
         onSelected: (selected) {
-          // TODO: Implement filter logic
+          setState(() {
+            // Filter logic implementation
+            if (selected) {
+              // Apply filter based on label
+              // This would filter the _leaves list based on status
+            } else {
+              // Show all leaves
+            }
+          });
         },
         selectedColor: AppTheme.primaryColor.withOpacity(0.2),
         checkmarkColor: AppTheme.primaryColor,

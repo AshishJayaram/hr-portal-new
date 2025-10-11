@@ -65,11 +65,15 @@ type Organization struct {
 	IsActive bool   `json:"is_active" gorm:"default:true"`
 
 	// Relationships
-	Users           []User          `json:"users,omitempty" gorm:"foreignKey:OrganizationID"`
-	Documents       []Document      `json:"documents,omitempty" gorm:"foreignKey:OrganizationID"`
-	SalarySlips     []SalarySlip    `json:"salary_slips,omitempty" gorm:"foreignKey:OrganizationID"`
-	Holidays        []Holiday       `json:"holidays,omitempty" gorm:"foreignKey:OrganizationID"`
-	LeaveCategories []LeaveCategory `json:"leave_categories,omitempty" gorm:"foreignKey:OrganizationID"`
+	Users           []User           `json:"users,omitempty" gorm:"foreignKey:OrganizationID"`
+	Documents       []Document       `json:"documents,omitempty" gorm:"foreignKey:OrganizationID"`
+	SalarySlips     []SalarySlip     `json:"salary_slips,omitempty" gorm:"foreignKey:OrganizationID"`
+	Holidays        []Holiday        `json:"holidays,omitempty" gorm:"foreignKey:OrganizationID"`
+	LeaveCategories []LeaveCategory  `json:"leave_categories,omitempty" gorm:"foreignKey:OrganizationID"`
+	Reimbursements  []Reimbursement  `json:"reimbursements,omitempty" gorm:"foreignKey:OrganizationID"`
+	Feedback        []Feedback       `json:"feedback,omitempty" gorm:"foreignKey:OrganizationID"`
+	EmployeeGrowth  []EmployeeGrowth `json:"employee_growth,omitempty" gorm:"foreignKey:OrganizationID"`
+	OffSites        []OffSite        `json:"off_sites,omitempty" gorm:"foreignKey:OrganizationID"`
 }
 
 // User represents a user in the system
@@ -85,6 +89,7 @@ type User struct {
 	Role           string     `json:"role" gorm:"not null;check:role IN ('Employee','Manager','HR','Admin','God')"`
 	ManagerID      *uint      `json:"manager_id" gorm:"index"`
 	CTC            float64    `json:"ctc" gorm:"default:0"`
+	Phone          string     `json:"phone" gorm:"size:20"` // For WhatsApp notifications
 	IsActive       bool       `json:"is_active" gorm:"default:true"`
 	LastLoginAt    *time.Time `json:"last_login_at"`
 
@@ -96,6 +101,10 @@ type User struct {
 	LeaveAllocations []LeaveAllocation `json:"leave_allocations,omitempty" gorm:"foreignKey:UserID"`
 	Documents        []Document        `json:"documents,omitempty" gorm:"foreignKey:UserID"`
 	SalarySlips      []SalarySlip      `json:"salary_slips,omitempty" gorm:"foreignKey:UserID"`
+	Reimbursements   []Reimbursement   `json:"reimbursements,omitempty" gorm:"foreignKey:UserID"`
+	Feedback         []Feedback        `json:"feedback,omitempty" gorm:"foreignKey:UserID"`
+	EmployeeGrowth   []EmployeeGrowth  `json:"employee_growth,omitempty" gorm:"foreignKey:UserID"`
+	OffSites         []OffSite         `json:"off_sites,omitempty" gorm:"foreignKey:UserID"`
 }
 
 // LeaveCategory represents different types of leaves
@@ -182,15 +191,17 @@ type Document struct {
 // SalarySlip represents salary slip records
 type SalarySlip struct {
 	BaseModel
-	UserID         uint   `json:"user_id" gorm:"not null;index"`
-	OrganizationID uint   `json:"organization_id" gorm:"not null;index"`
-	Month          int    `json:"month" gorm:"not null;check:month >= 1 AND month <= 12"`
-	Year           int    `json:"year" gorm:"not null"`
-	FileName       string `json:"file_name" gorm:"not null"`
-	FilePath       string `json:"file_path" gorm:"not null"`
-	FileSize       int64  `json:"file_size" gorm:"not null"`
-	MimeType       string `json:"mime_type" gorm:"not null"`
-	FileUrl        string `json:"file_url" gorm:"-"` // Computed field, not stored in DB
+	UserID         uint    `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint    `json:"organization_id" gorm:"not null;index"`
+	Month          int     `json:"month" gorm:"not null;check:month >= 1 AND month <= 12"`
+	Year           int     `json:"year" gorm:"not null"`
+	FileName       string  `json:"file_name" gorm:"not null"`
+	FilePath       string  `json:"file_path" gorm:"not null"`
+	FileSize       int64   `json:"file_size" gorm:"not null"`
+	MimeType       string  `json:"mime_type" gorm:"not null"`
+	LOPDays        float64 `json:"lop_days" gorm:"default:0"`   // Loss of Pay days
+	LOPAmount      float64 `json:"lop_amount" gorm:"default:0"` // Calculated LOP deduction amount
+	FileUrl        string  `json:"file_url" gorm:"-"`           // Computed field, not stored in DB
 
 	// Relationships
 	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
@@ -218,8 +229,27 @@ type CompanySettings struct {
 	BaseModel
 	OrganizationID uint   `json:"organization_id" gorm:"not null;uniqueIndex"`
 	Settings       string `json:"settings" gorm:"type:jsonb;not null"` // JSON string for payroll settings
+	Currency       string `json:"currency" gorm:"default:'INR'"`       // Currency code (INR, USD, EUR, etc.)
 
 	// Relationships
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+}
+
+// OffSite represents off-site work tracking
+type OffSite struct {
+	BaseModel
+	UserID         uint      `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint      `json:"organization_id" gorm:"not null;index"`
+	Title          string    `json:"title" gorm:"not null"`
+	Description    string    `json:"description"`
+	Location       string    `json:"location"`
+	StartDate      time.Time `json:"start_date" gorm:"not null"`
+	EndDate        time.Time `json:"end_date" gorm:"not null"`
+	Type           string    `json:"type" gorm:"not null;check:type IN ('training','meeting','conference','client_visit','other')"`
+	Status         string    `json:"status" gorm:"not null;default:'planned';check:status IN ('planned','in_progress','completed','cancelled')"`
+
+	// Relationships
+	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
 	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
 }
 
@@ -262,6 +292,102 @@ func (CompanySettings) TableName() string {
 
 func (AuditLog) TableName() string {
 	return "audit_logs"
+}
+
+func (ReimbursementBill) TableName() string {
+	return "reimbursement_bills"
+}
+
+func (Reimbursement) TableName() string {
+	return "reimbursements"
+}
+
+func (Feedback) TableName() string {
+	return "feedback"
+}
+
+func (EmployeeGrowth) TableName() string {
+	return "employee_growth"
+}
+
+// ReimbursementBill represents individual bills within a reimbursement request
+type ReimbursementBill struct {
+	BaseModel
+	ReimbursementID uint   `json:"reimbursement_id" gorm:"not null;index"`
+	FileName        string `json:"file_name" gorm:"not null"`
+	FilePath        string `json:"file_path" gorm:"not null"`
+	FileSize        int64  `json:"file_size" gorm:"not null"`
+	MimeType        string `json:"mime_type" gorm:"not null"`
+	FileUrl         string `json:"file_url" gorm:"-"` // Computed field, not stored in DB
+
+	// Relationships
+	Reimbursement Reimbursement `json:"reimbursement,omitempty" gorm:"foreignKey:ReimbursementID"`
+}
+
+// Reimbursement represents a reimbursement request
+type Reimbursement struct {
+	BaseModel
+	UserID          uint       `json:"user_id" gorm:"not null;index"`
+	OrganizationID  uint       `json:"organization_id" gorm:"not null;index"`
+	Reason          string     `json:"reason" gorm:"not null"` // Reasoning for payment
+	Amount          float64    `json:"amount" gorm:"not null"` // Total amount
+	Date            time.Time  `json:"date" gorm:"not null"`   // Date of expense
+	Status          string     `json:"status" gorm:"not null;default:'pending';check:status IN ('pending','approved','rejected','returned')"`
+	ApprovedBy      *uint      `json:"approved_by" gorm:"index"`
+	ApprovedAt      *time.Time `json:"approved_at"`
+	RejectedBy      *uint      `json:"rejected_by" gorm:"index"`
+	RejectedAt      *time.Time `json:"rejected_at"`
+	RejectionReason *string    `json:"rejection_reason"`
+	ReturnedBy      *uint      `json:"returned_by" gorm:"index"`
+	ReturnedAt      *time.Time `json:"returned_at"`
+	ReturnReason    *string    `json:"return_reason"`
+
+	// Relationships
+	User         User                `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Organization Organization        `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+	Approver     *User               `json:"approver,omitempty" gorm:"foreignKey:ApprovedBy"`
+	Rejecter     *User               `json:"rejecter,omitempty" gorm:"foreignKey:RejectedBy"`
+	Returner     *User               `json:"returner,omitempty" gorm:"foreignKey:ReturnedBy"`
+	Bills        []ReimbursementBill `json:"bills,omitempty" gorm:"foreignKey:ReimbursementID"`
+}
+
+// Feedback represents bug reports and feedback from users
+type Feedback struct {
+	BaseModel
+	UserID         uint       `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint       `json:"organization_id" gorm:"not null;index"`
+	Title          string     `json:"title" gorm:"not null"`
+	Description    string     `json:"description" gorm:"not null"`
+	Type           string     `json:"type" gorm:"not null;check:type IN ('bug','feature','improvement','other')"`
+	Priority       string     `json:"priority" gorm:"not null;default:'medium';check:priority IN ('low','medium','high','critical')"`
+	Status         string     `json:"status" gorm:"not null;default:'open';check:status IN ('open','in_progress','resolved','closed')"`
+	AssignedTo     *uint      `json:"assigned_to" gorm:"index"`
+	Resolution     *string    `json:"resolution"`
+	ResolvedAt     *time.Time `json:"resolved_at"`
+	ResolvedBy     *uint      `json:"resolved_by" gorm:"index"`
+
+	// Relationships
+	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+	Assignee     *User        `json:"assignee,omitempty" gorm:"foreignKey:AssignedTo"`
+	Resolver     *User        `json:"resolver,omitempty" gorm:"foreignKey:ResolvedBy"`
+}
+
+// EmployeeGrowth represents employee growth and development tracking
+type EmployeeGrowth struct {
+	BaseModel
+	UserID         uint      `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint      `json:"organization_id" gorm:"not null;index"`
+	Title          string    `json:"title" gorm:"not null"`
+	Description    string    `json:"description"`
+	Type           string    `json:"type" gorm:"not null;check:type IN ('promotion','skill_development','certification','project_completion','achievement','milestone')"`
+	Date           time.Time `json:"date" gorm:"not null"`
+	AddedBy        uint      `json:"added_by" gorm:"not null;index"`
+
+	// Relationships
+	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+	AddedByUser  User         `json:"added_by_user,omitempty" gorm:"foreignKey:AddedBy"`
 }
 
 // AuditLog represents audit trail logs for tracking changes

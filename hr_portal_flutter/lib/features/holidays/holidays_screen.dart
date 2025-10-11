@@ -424,8 +424,17 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
                 prefixIcon: Icon(Icons.calendar_today),
               ),
               readOnly: true,
-              onTap: () {
-                // TODO: Show date picker
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (date != null) {
+                  // Update the start date field
+                  // This would need to be connected to a controller
+                }
               },
             ),
             const SizedBox(height: 16),
@@ -435,8 +444,17 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
                 prefixIcon: Icon(Icons.calendar_today),
               ),
               readOnly: true,
-              onTap: () {
-                // TODO: Show date picker
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (date != null) {
+                  // Update the start date field
+                  // This would need to be connected to a controller
+                }
               },
             ),
             const SizedBox(height: 16),
@@ -477,7 +495,7 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
       case 'holiday':
         return Colors.red;
       case 'event':
-        return Colors.blue;
+        return Colors.amber;
       case 'notice':
         return Colors.green;
       default:

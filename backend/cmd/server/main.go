@@ -249,6 +249,9 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			files.GET("/salary-slips/:id", handlers.SalarySlip.ServeSalarySlipFile)
 		}
 
+		// Static file serving for uploads
+		router.Static("/api/uploads", "./uploads")
+
 		// Salary slip routes
 		salarySlips := api.Group("/salary-slips")
 		salarySlips.Use(middleware.AuthRequired(cfg.JWT.Secret))
@@ -351,6 +354,60 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			audit.GET("/logs/entity", handlers.Audit.GetEntityAuditLogs)
 			audit.DELETE("/logs/entity", handlers.Audit.DeleteEntityAuditLogs)
 			audit.POST("/dummy-logs", handlers.Audit.AddDummyLogs)
+		}
+
+		// Off-site routes
+		offSites := api.Group("/off-sites")
+		offSites.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		offSites.Use(middleware.OrganizationRequired())
+		{
+			offSites.GET("", handlers.OffSite.ListOffSites)
+			offSites.POST("", handlers.OffSite.CreateOffSite)
+			offSites.GET("/:id", handlers.OffSite.GetOffSite)
+			offSites.PATCH("/:id", handlers.OffSite.UpdateOffSite)
+			offSites.DELETE("/:id", handlers.OffSite.DeleteOffSite)
+			offSites.GET("/date-range", handlers.OffSite.GetOffSitesByDateRange)
+		}
+
+		// Reimbursement routes
+		reimbursements := api.Group("/reimbursements")
+		reimbursements.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		reimbursements.Use(middleware.OrganizationRequired())
+		{
+			reimbursements.GET("", handlers.Reimbursement.GetReimbursements)
+			reimbursements.POST("", handlers.Reimbursement.CreateReimbursement)
+			reimbursements.GET("/:id", handlers.Reimbursement.GetReimbursementByID)
+			reimbursements.GET("/:id/bills", handlers.Reimbursement.GetReimbursementBills)
+			reimbursements.POST("/:id/approve", middleware.RoleRequired("HR", "Admin"), handlers.Reimbursement.ApproveReimbursement)
+			reimbursements.POST("/:id/reject", middleware.RoleRequired("HR", "Admin"), handlers.Reimbursement.RejectReimbursement)
+			reimbursements.POST("/:id/return", middleware.RoleRequired("HR", "Admin"), handlers.Reimbursement.ReturnReimbursement)
+			reimbursements.DELETE("/:id", handlers.Reimbursement.DeleteReimbursement)
+		}
+
+		// Feedback routes
+		feedback := api.Group("/feedback")
+		feedback.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		feedback.Use(middleware.OrganizationRequired())
+		{
+			feedback.GET("", handlers.Feedback.GetFeedback)
+			feedback.POST("", handlers.Feedback.CreateFeedback)
+			feedback.GET("/stats", handlers.Feedback.GetFeedbackStats)
+			feedback.GET("/:id", handlers.Feedback.GetFeedbackByID)
+			feedback.PATCH("/:id", middleware.RoleRequired("HR", "Admin", "God"), handlers.Feedback.UpdateFeedbackStatus)
+			feedback.DELETE("/:id", middleware.RoleRequired("HR", "Admin", "God"), handlers.Feedback.DeleteFeedback)
+		}
+
+		// Employee growth routes
+		employeeGrowth := api.Group("/employee-growth")
+		employeeGrowth.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		employeeGrowth.Use(middleware.OrganizationRequired())
+		{
+			employeeGrowth.GET("/:user_id", handlers.EmployeeGrowth.GetEmployeeGrowth)
+			employeeGrowth.POST("", handlers.EmployeeGrowth.CreateGrowthRecord)
+			employeeGrowth.GET("/stats/:user_id", handlers.EmployeeGrowth.GetGrowthStats)
+			employeeGrowth.GET("/record/:id", handlers.EmployeeGrowth.GetGrowthRecordByID)
+			employeeGrowth.PATCH("/record/:id", handlers.EmployeeGrowth.UpdateGrowthRecord)
+			employeeGrowth.DELETE("/record/:id", handlers.EmployeeGrowth.DeleteGrowthRecord)
 		}
 	}
 

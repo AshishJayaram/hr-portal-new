@@ -14,6 +14,10 @@ const titles: Record<string, string> = {
   "/holidays": "Holidays",
   "/mocks": "Mock Data",
   "/god": "God Dashboard",
+  "/profile": "Profile",
+  "/off-site": "Off-site Tracker",
+  "/audit-logs": "Audit Logs",
+  "/settings": "Settings",
 };
 
 export default function Topbar() {

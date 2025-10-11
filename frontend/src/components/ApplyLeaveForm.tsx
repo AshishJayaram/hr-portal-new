@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { applyLeave, getLeaveBalance, getCurrentUser, getHolidays } from "../lib/api";
+import { applyLeave, getLeaveBalance, getCurrentUser, getHolidays, getUsers, hasRole } from "../lib/api";
 import { calculateLeaveDays } from "../lib/leaveUtils";
+import { toast } from "sonner";
 
-export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: any[] }) {
+export default function ApplyLeaveForm({ bankHolidays = [], forUserId }: { bankHolidays?: any[], forUserId?: string }) {
   const [type, setType] = useState<string>("");
   const [reason, setReason] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -13,15 +14,24 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
   const [startHalf, setStartHalf] = useState<"FULL" | "AM" | "PM">("FULL");
   const [endHalf, setEndHalf] = useState<"FULL" | "AM" | "PM">("FULL");
   const [calculatedDays, setCalculatedDays] = useState(0);
+  const [selectedUserId, setSelectedUserId] = useState(forUserId || "");
 
   const queryClient = useQueryClient();
   const currentUser = getCurrentUser();
+  const canApplyForOthers = hasRole(["HR", "Admin"]);
+
+  // Fetch users if HR/Admin
+  const { data: users } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => getUsers(),
+    enabled: canApplyForOthers,
+  });
 
   // Fetch leave balance to get available leave categories
   const { data: leaveBalance } = useQuery({
-    queryKey: ["leave-balance", currentUser?.id],
-    queryFn: () => getLeaveBalance(currentUser?.id || ""),
-    enabled: !!currentUser?.id,
+    queryKey: ["leave-balance", selectedUserId || currentUser?.id],
+    queryFn: () => getLeaveBalance(selectedUserId || currentUser?.id || ""),
+    enabled: !!(selectedUserId || currentUser?.id),
   });
 
   // Fetch holidays for leave calculation
@@ -47,12 +57,15 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
   useEffect(() => {
     if (startDate && (endDate || startDate)) {
       // Combine bank holidays and fetched holidays
+      // Only include actual holidays, not events or notices
       const allHolidays = [
         ...bankHolidays,
-        ...(holidays?.data || []).map((h: any) => ({
-          title: h.type === "holiday" ? "Holiday" : "BH",
-          start: h.date,
-        }))
+        ...(holidays?.data || [])
+          .filter((h: any) => h.type === "holiday") // Only include holidays, not events or notices
+          .map((h: any) => ({
+            title: "Holiday",
+            start: h.date,
+          }))
       ];
       
       const days = calculateLeaveDays(
@@ -82,6 +95,14 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
       setStartHalf("FULL");
       setEndHalf("FULL");
       setCalculatedDays(0);
+      if (canApplyForOthers) {
+        setSelectedUserId("");
+      }
+      toast.success("Leave request submitted successfully!");
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to submit leave request";
+      toast.error(errorMessage);
     },
   });
 
@@ -100,12 +121,33 @@ export default function ApplyLeaveForm({ bankHolidays = [] }: { bankHolidays?: a
       reason,
       from: startDate,
       to: endDate || startDate,
+      userId: selectedUserId || currentUser?.id,
     });
   };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-card dark:bg-white/10 dark:border-white/10">
       <form onSubmit={handleSubmit} className="px-6 pt-6 pb-6 space-y-4">
+        {/* Employee Selection for HR/Admin */}
+        {canApplyForOthers && (
+          <div className="space-y-2">
+            <label className="block text-sm mb-1 text-primary">Apply Leave For</label>
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="w-full p-3 rounded border border-card bg-gray-100 text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              required
+            >
+              <option value="">Select Employee</option>
+              {users?.data?.map((user: any) => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.email})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Leave Type */}
         <div className="space-y-2">
           <label className="block text-sm mb-1 text-primary">Leave Type</label>

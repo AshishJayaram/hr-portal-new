@@ -41,6 +41,7 @@ func (r *leaveRepository) List(organizationID string, filters map[string]interfa
 
 	query := r.db.Preload("User").Preload("Category").Where("organization_id = ?", uint(orgIDUint))
 	query = r.buildQuery(query, filters)
+	query = query.Order("created_at DESC")
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to list leaves: %w", err)
@@ -245,6 +246,7 @@ func (r *leaveRepository) GetTeamLeaves(managerID string, organizationID string,
 
 	// Apply additional filters
 	query = r.buildQuery(query, filters)
+	query = query.Order("created_at DESC")
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to get team leaves: %w", err)

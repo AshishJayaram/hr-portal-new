@@ -15,6 +15,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final List<Map<String, dynamic>> _upcomingHolidays = [];
   final List<Map<String, dynamic>> _upcomingEvents = [];
   final List<Map<String, dynamic>> _leaveTypes = [];
+  final List<Map<String, dynamic>> _recentOffSites = [];
   
   // Dashboard stats
   Map<String, dynamic>? _dashboardStats;
@@ -38,6 +39,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     await Future.wait([
       _loadHolidays(),
       _loadEvents(),
+      _loadOffSites(),
     ]);
     
     // Load leave types after dashboard stats (so we can use the data from stats)
@@ -201,6 +203,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  Future<void> _loadOffSites() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final offSites = await apiService.getOffSites();
+      
+      setState(() {
+        _recentOffSites.clear();
+        if (offSites is List) {
+          // Filter to show only upcoming off-sites (next 5)
+          final now = DateTime.now();
+          final upcomingOffSites = offSites.where((offSite) {
+            final startDate = DateTime.tryParse(offSite['start_date'] ?? '') ?? DateTime.now();
+            return startDate.isAfter(now) || startDate.isAtSameMomentAs(now);
+          }).toList();
+          
+          // Sort by start date and take first 5
+          upcomingOffSites.sort((a, b) {
+            final dateA = DateTime.tryParse(a['start_date'] ?? '') ?? DateTime.now();
+            final dateB = DateTime.tryParse(b['start_date'] ?? '') ?? DateTime.now();
+            return dateA.compareTo(dateB);
+          });
+          
+          _recentOffSites.addAll(upcomingOffSites.take(5).cast<Map<String, dynamic>>());
+        }
+      });
+    } catch (e) {
+      // Handle error silently
+    }
+  }
+
   Future<void> _loadDashboardStats() async {
     setState(() {
       _isLoadingStats = true;
@@ -273,7 +305,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 TextButton(
                   onPressed: () {
-                    // TODO: Navigate to notices page
+                    context.go('/holidays');
                   },
                   child: const Text('View All'),
                 ),
@@ -299,6 +331,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       return _buildEventCard(context, event);
                     },
                   ),
+            
+            const SizedBox(height: 32),
+            
+            // Calendar View
+            Text(
+              'Calendar',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildCalendarView(),
             
             const SizedBox(height: 32),
             
@@ -341,6 +385,47 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         return _buildHolidayCard(context, holiday);
                       },
                     ),
+                  ),
+            
+            const SizedBox(height: 32),
+            
+            // Recent Off-site Work (Third)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recent Off-site Work',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    context.go('/off-site');
+                  },
+                  child: const Text('View All'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _recentOffSites.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text(
+                        'No upcoming off-site work',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _recentOffSites.length,
+                    itemBuilder: (context, index) {
+                      final offSite = _recentOffSites[index];
+                      return _buildOffSiteCard(context, offSite);
+                    },
                   ),
             
             const SizedBox(height: 32),
@@ -865,6 +950,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  String _formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return 'No date';
+    
+    try {
+      final date = DateTime.parse(dateString);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return dateString; // Return original string if parsing fails
+    }
+  }
+
   Color _parseColor(dynamic colorValue) {
     if (colorValue == null) return AppTheme.primaryColor;
     
@@ -912,5 +1008,296 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
     
     return AppTheme.primaryColor;
+  }
+
+  Widget _buildCalendarView() {
+    final now = DateTime.now();
+    final currentMonth = now.month;
+    final currentYear = now.year;
+    final firstDayOfMonth = DateTime(currentYear, currentMonth, 1);
+    final lastDayOfMonth = DateTime(currentYear, currentMonth + 1, 0);
+    final firstWeekday = firstDayOfMonth.weekday;
+    
+    // Get all events for the current month
+    final monthEvents = <DateTime, List<Map<String, dynamic>>>{};
+    
+    // Add holidays
+    for (final holiday in _upcomingHolidays) {
+      final date = DateTime.tryParse(holiday['date'] ?? '');
+      if (date != null && date.month == currentMonth && date.year == currentYear) {
+        monthEvents[date] = (monthEvents[date] ?? [])..add({
+          'title': holiday['name'] ?? 'Holiday',
+          'type': 'holiday',
+          'color': Colors.red,
+        });
+      }
+    }
+    
+    // Add off-site entries
+    for (final offSite in _recentOffSites) {
+      final startDate = DateTime.tryParse(offSite['start_date'] ?? '');
+      final endDate = DateTime.tryParse(offSite['end_date'] ?? '');
+      if (startDate != null && endDate != null) {
+        var currentDate = DateTime(startDate.year, startDate.month, startDate.day);
+        final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
+        
+        while (currentDate.isBefore(endDateOnly.add(const Duration(days: 1)))) {
+          if (currentDate.month == currentMonth && currentDate.year == currentYear) {
+            monthEvents[currentDate] = (monthEvents[currentDate] ?? [])..add({
+              'title': offSite['title'] ?? 'Off-site',
+              'type': 'offsite',
+              'color': Colors.orange,
+            });
+          }
+          currentDate = currentDate.add(const Duration(days: 1));
+        }
+      }
+    }
+    
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Month header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_getMonthName(currentMonth)} $currentYear',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      onPressed: () {
+                        // TODO: Navigate to previous month
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      onPressed: () {
+                        // TODO: Navigate to next month
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Calendar grid
+            Table(
+              children: [
+                // Weekday headers
+                TableRow(
+                  children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                      .map((day) => Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(
+                              day,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+                
+                // Calendar days
+                ...List.generate(6, (weekIndex) {
+                  return TableRow(
+                    children: List.generate(7, (dayIndex) {
+                      final dayNumber = weekIndex * 7 + dayIndex - firstWeekday + 2;
+                      final isCurrentMonth = dayNumber >= 1 && dayNumber <= lastDayOfMonth.day;
+                      final isToday = isCurrentMonth && 
+                          dayNumber == now.day && 
+                          currentMonth == now.month && 
+                          currentYear == now.year;
+                      
+                      if (!isCurrentMonth) {
+                        return const SizedBox(height: 40);
+                      }
+                      
+                      final dayDate = DateTime(currentYear, currentMonth, dayNumber);
+                      final dayEvents = monthEvents[dayDate] ?? [];
+                      
+                      return Container(
+                        height: 40,
+                        margin: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: isToday ? AppTheme.primaryColor.withOpacity(0.1) : null,
+                          borderRadius: BorderRadius.circular(8),
+                          border: isToday ? Border.all(color: AppTheme.primaryColor) : null,
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              dayNumber.toString(),
+                              style: TextStyle(
+                                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                                color: isToday ? AppTheme.primaryColor : null,
+                              ),
+                            ),
+                            if (dayEvents.isNotEmpty)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: dayEvents.take(3).map((event) {
+                                  return Container(
+                                    width: 6,
+                                    height: 6,
+                                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                                    decoration: BoxDecoration(
+                                      color: event['color'],
+                                      shape: BoxShape.circle,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
+                  );
+                }),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Legend
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                _buildLegendItem('Holidays', Colors.red),
+                _buildLegendItem('Off-site', Colors.orange),
+                _buildLegendItem('Today', AppTheme.primaryColor),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return months[month - 1];
+  }
+
+  Widget _buildOffSiteCard(BuildContext context, Map<String, dynamic> offSite) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.purple.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.work_outline,
+            color: Colors.purple,
+          ),
+        ),
+        title: Text(
+          offSite['title'] ?? 'Untitled',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${_formatDate(offSite['start_date'])} - ${_formatDate(offSite['end_date'])}'),
+            if (offSite['location'] != null && offSite['location'].isNotEmpty)
+              Text(
+                offSite['location'],
+                style: TextStyle(
+                  color: AppTheme.secondaryColor,
+                  fontSize: 12,
+                ),
+              ),
+          ],
+        ),
+        trailing: _buildOffSiteStatusChip(offSite['status'] ?? 'planned'),
+        onTap: () {
+          context.go('/off-site');
+        },
+      ),
+    );
+  }
+
+  Widget _buildOffSiteStatusChip(String status) {
+    Color color;
+    String label;
+    
+    switch (status.toLowerCase()) {
+      case 'planned':
+        color = Colors.blue;
+        label = 'Planned';
+        break;
+      case 'in_progress':
+        color = Colors.orange;
+        label = 'In Progress';
+        break;
+      case 'completed':
+        color = Colors.green;
+        label = 'Completed';
+        break;
+      case 'cancelled':
+        color = Colors.red;
+        label = 'Cancelled';
+        break;
+      default:
+        color = Colors.grey;
+        label = 'Unknown';
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 }

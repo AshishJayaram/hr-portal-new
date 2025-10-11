@@ -311,7 +311,12 @@ class ApiService {
   // Leave management methods
   Future<List<Map<String, dynamic>>> getLeaves() async {
     try {
-      final response = await _dio.get('/leaves');
+      final currentUser = await getCurrentUser();
+      if (currentUser == null || currentUser['id'] == null) {
+        return [];
+      }
+      
+      final response = await _dio.get('/leaves?userId=${currentUser['id']}');
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } catch (e) {
       print('Get leaves error: $e');
@@ -427,6 +432,16 @@ class ApiService {
     }
   }
 
+  Future<bool> deleteSalarySlip(String slipId) async {
+    try {
+      await _dio.delete('/salary-slips/$slipId');
+      return true;
+    } catch (e) {
+      print('Delete salary slip error: $e');
+      return false;
+    }
+  }
+
   // Holiday methods
   Future<List<Map<String, dynamic>>> getHolidays() async {
     try {
@@ -525,6 +540,47 @@ class ApiService {
     }
   }
 
+  // Off-site management methods
+  Future<List<Map<String, dynamic>>> getOffSites() async {
+    try {
+      final response = await _dio.get('/off-sites');
+      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+    } catch (e) {
+      print('Get off-sites error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> createOffSite(Map<String, dynamic> offSiteData) async {
+    try {
+      final response = await _dio.post('/off-sites', data: offSiteData);
+      return response.data['data'];
+    } catch (e) {
+      print('Create off-site error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateOffSite(String offSiteId, Map<String, dynamic> offSiteData) async {
+    try {
+      final response = await _dio.patch('/off-sites/$offSiteId', data: offSiteData);
+      return response.data['data'];
+    } catch (e) {
+      print('Update off-site error: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteOffSite(String offSiteId) async {
+    try {
+      await _dio.delete('/off-sites/$offSiteId');
+      return true;
+    } catch (e) {
+      print('Delete off-site error: $e');
+      return false;
+    }
+  }
+
   // Document upload methods
   Future<Map<String, dynamic>?> uploadDocument(FormData formData) async {
     try {
@@ -586,6 +642,27 @@ class ApiService {
       return true;
     } catch (e) {
       print('Delete holiday error: $e');
+      return false;
+    }
+  }
+
+  // Leave management methods
+  Future<bool> deleteLeave(String leaveId) async {
+    try {
+      await _dio.delete('/leaves/$leaveId');
+      return true;
+    } catch (e) {
+      print('Delete leave error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> cancelLeave(String leaveId) async {
+    try {
+      await _dio.patch('/leaves/$leaveId/cancel');
+      return true;
+    } catch (e) {
+      print('Cancel leave error: $e');
       return false;
     }
   }
@@ -691,6 +768,7 @@ class ApiService {
       return false;
     }
   }
+
 
   Future<bool> changePassword(Map<String, dynamic> passwordData) async {
     try {

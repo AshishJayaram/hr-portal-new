@@ -21,7 +21,7 @@ import Select from "@/components/ui/Select";
 import Loader from "@/components/ui/Loader";
 import SearchFilter from "@/components/ui/SearchFilter";
 import { toast } from "sonner";
-import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit } from "lucide-react";
+import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit, ChevronDown, ChevronUp } from "lucide-react";
 import { formatDate, capitalize } from "@/lib/utils";
 import ApplyLeaveForm from "@/components/ApplyLeaveForm";
 import EditLeaveForm from "@/components/EditLeaveForm";
@@ -42,6 +42,7 @@ export default function LeavesPage() {
   const [perPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [showApplyForm, setShowApplyForm] = useState(false);
   const queryClient = useQueryClient();
 
   // Check if user can approve leaves (Manager, HR, Admin, God)
@@ -254,8 +255,28 @@ export default function LeavesPage() {
 
       {/* Apply Leave Form - Employees only */}
       <RoleGuard allowedRoles={["Employee", "Manager", "HR"]}>
-        <Card title="Apply for Leave">
-          <ApplyLeaveForm />
+        <Card>
+          <div className="border-b border-gray-700">
+            <button
+              onClick={() => setShowApplyForm(!showApplyForm)}
+              className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-800/50 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <Plus className="h-5 w-5 text-indigo-400" />
+                <h3 className="text-lg font-semibold text-white">Apply for Leave</h3>
+              </div>
+              {showApplyForm ? (
+                <ChevronUp className="h-5 w-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              )}
+            </button>
+          </div>
+          {showApplyForm && (
+            <div className="p-4">
+              <ApplyLeaveForm />
+            </div>
+          )}
         </Card>
       </RoleGuard>
 

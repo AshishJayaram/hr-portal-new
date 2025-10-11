@@ -18,9 +18,10 @@ type leaveService struct {
 	leaveAllocationRepo repositories.LeaveAllocationRepository
 	holidayRepo         repositories.HolidayRepository
 	auditService        AuditService
+	notificationService NotificationService
 }
 
-func NewLeaveService(leaveRepo repositories.LeaveRepository, userRepo repositories.UserRepository, leaveCategoryRepo repositories.LeaveCategoryRepository, leaveAllocationRepo repositories.LeaveAllocationRepository, holidayRepo repositories.HolidayRepository, auditService AuditService) LeaveService {
+func NewLeaveService(leaveRepo repositories.LeaveRepository, userRepo repositories.UserRepository, leaveCategoryRepo repositories.LeaveCategoryRepository, leaveAllocationRepo repositories.LeaveAllocationRepository, holidayRepo repositories.HolidayRepository, auditService AuditService, notificationService NotificationService) LeaveService {
 	return &leaveService{
 		leaveRepo:           leaveRepo,
 		userRepo:            userRepo,
@@ -28,6 +29,7 @@ func NewLeaveService(leaveRepo repositories.LeaveRepository, userRepo repositori
 		leaveAllocationRepo: leaveAllocationRepo,
 		holidayRepo:         holidayRepo,
 		auditService:        auditService,
+		notificationService: notificationService,
 	}
 }
 
@@ -146,6 +148,21 @@ func (s *leaveService) ApplyLeave(req ApplyLeaveRequest, httpReq *http.Request) 
 	changeSummary := fmt.Sprintf("Leave application submitted: %s from %s to %s", leave.Type, leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"))
 	if err := s.auditService.LogLeaveChange(orgIDStr, leaveIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
 		fmt.Printf("Failed to log audit: %v\n", err)
+	}
+
+	// Send notification to manager
+	if leave.User.ManagerID != nil {
+		manager, err := s.userRepo.GetByID(strconv.FormatUint(uint64(*leave.User.ManagerID), 10))
+		if err == nil && manager != nil {
+			// Load the category for the notification
+			if leave.Category.Name == "" {
+				category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(leave.CategoryID), 10))
+				if category != nil {
+					leave.Category = *category
+				}
+			}
+			s.notificationService.SendLeaveRequestNotification(leave, manager, "applied")
+		}
 	}
 
 	return leave, nil
@@ -337,8 +354,25 @@ func (s *leaveService) ApproveLeave(id, approverID string) (*models.Leave, error
 		}
 	}
 
-	// Return the updated leave
-	return s.leaveRepo.GetByID(id)
+	// Get the updated leave with relationships
+	updatedLeave, err := s.leaveRepo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send notification to employee
+	if updatedLeave.User.Name != "" {
+		// Load the category for the notification
+		if updatedLeave.Category.Name == "" {
+			category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(updatedLeave.CategoryID), 10))
+			if category != nil {
+				updatedLeave.Category = *category
+			}
+		}
+		s.notificationService.SendLeaveRequestNotification(updatedLeave, &updatedLeave.User, "approved")
+	}
+
+	return updatedLeave, nil
 }
 
 func (s *leaveService) RejectLeave(id, rejecterID, reason string) (*models.Leave, error) {
@@ -361,8 +395,25 @@ func (s *leaveService) RejectLeave(id, rejecterID, reason string) (*models.Leave
 
 	// No need to update leave balance for rejected leaves as they were never deducted
 
-	// Return the updated leave
-	return s.leaveRepo.GetByID(id)
+	// Get the updated leave with relationships
+	updatedLeave, err := s.leaveRepo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send notification to employee
+	if updatedLeave.User.Name != "" {
+		// Load the category for the notification
+		if updatedLeave.Category.Name == "" {
+			category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(updatedLeave.CategoryID), 10))
+			if category != nil {
+				updatedLeave.Category = *category
+			}
+		}
+		s.notificationService.SendLeaveRequestNotification(updatedLeave, &updatedLeave.User, "rejected")
+	}
+
+	return updatedLeave, nil
 }
 
 func (s *leaveService) GetUserLeaves(userID string, filters map[string]interface{}) ([]models.Leave, error) {
