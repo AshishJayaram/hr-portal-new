@@ -621,7 +621,7 @@ X-Organization-ID: <organizationId>
 ```
 
 ### POST /salary-slips
-**Description**: Upload salary slip
+**Description**: Add salary slip
 
 **Request Body**: Multipart form data
 - `file`: PDF file
@@ -653,6 +653,12 @@ X-Organization-ID: <organizationId>
   "message": "Salary slip deleted successfully"
 }
 ```
+
+### GET /salary-slips/{slip_id}/pdf
+**Description**: Generate and download payslip PDF
+**Access**: HR/Admin only
+
+**Response**: PDF file download
 
 ---
 
@@ -825,7 +831,7 @@ X-Organization-ID: <organizationId>
 
 ## 10. Company Settings
 
-### GET /companies/{company_id}/payroll-settings
+### GET /company/settings
 **Description**: Get company payroll settings
 
 **Response**:
@@ -850,7 +856,7 @@ X-Organization-ID: <organizationId>
 }
 ```
 
-### PUT /companies/{company_id}/payroll-settings
+### PATCH /company/settings
 **Description**: Update company payroll settings
 
 **Request Body**:

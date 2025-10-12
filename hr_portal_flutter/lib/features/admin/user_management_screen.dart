@@ -119,7 +119,6 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                           children: [
                             'All',
                             'Employee',
-                            'Manager',
                             'HR',
                             'Admin',
                           ].map((filter) {
@@ -450,7 +449,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                       labelText: 'Role',
                       prefixIcon: Icon(Icons.work),
                     ),
-                    items: ['Employee', 'Manager', 'HR', 'Admin'].map((role) {
+                    items: ['Employee', 'HR', 'Admin'].map((role) {
                       return DropdownMenuItem<String>(
                         value: role,
                         child: Text(role),

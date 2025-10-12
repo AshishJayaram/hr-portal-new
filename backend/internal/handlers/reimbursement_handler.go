@@ -67,6 +67,8 @@ func (h *ReimbursementHandler) CreateReimbursement(c *gin.Context) {
 
 func (h *ReimbursementHandler) GetReimbursements(c *gin.Context) {
 	organizationID := c.GetUint("organization_id")
+	loggedInUserID := c.GetUint("user_id")
+	loggedInUserRole := c.GetString("role")
 	userIDStr := c.Query("user_id")
 	status := c.Query("status")
 
@@ -83,13 +85,41 @@ func (h *ReimbursementHandler) GetReimbursements(c *gin.Context) {
 		statusPtr = &status
 	}
 
-	reimbursements, err := h.service.GetReimbursements(organizationID, userID, statusPtr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// Role-based access control:
+	// - HR/Admin/God can see all reimbursements in their organization
+	// - Managers can see their own and their subordinates' reimbursements
+	// - Employees can only see their own reimbursements
+	if loggedInUserRole == "HR" || loggedInUserRole == "Admin" || loggedInUserRole == "God" {
+		// HR/Admin/God can access reimbursements for any user
+		if userID != nil {
+			// If specific user requested, only show that user's reimbursements
+			reimbursements, err := h.service.GetReimbursements(organizationID, userID, statusPtr)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"data": reimbursements})
+			return
+		}
+		// If no specific user, show all reimbursements in organization
+		reimbursements, err := h.service.GetReimbursements(organizationID, nil, statusPtr)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": reimbursements})
+		return
+	} else {
+		// Regular employees can only see their own reimbursements
+		// Managers can see their own and their team's reimbursements
+		reimbursements, err := h.service.GetReimbursementsForUser(organizationID, loggedInUserID, statusPtr)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": reimbursements})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"data": reimbursements})
 }
 
 func (h *ReimbursementHandler) GetReimbursementByID(c *gin.Context) {
@@ -100,13 +130,31 @@ func (h *ReimbursementHandler) GetReimbursementByID(c *gin.Context) {
 		return
 	}
 
+	loggedInUserID := c.GetUint("user_id")
+	loggedInUserRole := c.GetString("role")
+
 	reimbursement, err := h.service.GetReimbursementByID(uint(id))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Reimbursement not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": reimbursement})
+	// Role-based access control:
+	// - HR/Admin/God can see any reimbursement in their organization
+	// - Employees can only see their own reimbursements
+	if loggedInUserRole == "HR" || loggedInUserRole == "Admin" || loggedInUserRole == "God" {
+		// HR/Admin/God can access any reimbursement in their organization
+		c.JSON(http.StatusOK, gin.H{"data": reimbursement})
+		return
+	} else {
+		// Regular employees can only see their own reimbursements
+		if reimbursement.UserID != loggedInUserID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You can only view your own reimbursements"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": reimbursement})
+		return
+	}
 }
 
 func (h *ReimbursementHandler) ApproveReimbursement(c *gin.Context) {
@@ -206,6 +254,33 @@ func (h *ReimbursementHandler) DeleteReimbursement(c *gin.Context) {
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	// RBAC: allow delete if HR/Admin/God or if the requester is the uploader (owner)
+	requesterID := c.GetUint("user_id")
+	requesterRole := c.GetString("role")
+
+	// HR/Admin/God can delete any reimbursement in org
+	if requesterRole == "HR" || requesterRole == "Admin" || requesterRole == "God" {
+		err = h.service.DeleteReimbursement(uint(id))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Reimbursement deleted successfully"})
+		return
+	}
+
+	// Otherwise, only allow owner (uploader)
+	reimbursement, getErr := h.service.GetReimbursementByID(uint(id))
+	if getErr != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Reimbursement not found"})
+		return
+	}
+
+	if reimbursement.UserID != requesterID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only delete your own reimbursement"})
 		return
 	}
 

@@ -72,6 +72,7 @@ export default function GodDashboard() {
     staleTime: 0, // Always fetch fresh data
   });
 
+
   // Create organization mutation
   const createOrgMutation = useMutation({
     mutationFn: async (orgData: CreateOrgRequest) => {

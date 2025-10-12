@@ -421,7 +421,6 @@ export default function UsersManagement() {
                   required
                 >
                   <option value="Employee">Employee</option>
-                  <option value="Manager">Manager</option>
                   <option value="HR">HR</option>
                   <option value="Admin">Admin</option>
                   <option value="God">God</option>

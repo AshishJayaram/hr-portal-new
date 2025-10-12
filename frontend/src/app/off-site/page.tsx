@@ -36,7 +36,7 @@ export default function OffSitePage() {
   const [total, setTotal] = useState(0);
   const queryClient = useQueryClient();
 
-  // Check if user can manage off-sites (Manager, HR, Admin, God)
+  // Check if user can manage off-sites (HR, Admin, God)
   const canManage = canManageOffSites();
 
   // Fetch off-site entries - different scope based on view type
@@ -183,7 +183,7 @@ export default function OffSitePage() {
           <p className="text-gray-400">Track and manage off-site work activities</p>
         </div>
         <div className="flex gap-3">
-          {/* View Toggle for Managers */}
+          {/* View Toggle for HR/Admin */}
           {canManage && (
             <div className="flex bg-gray-800/50 rounded-lg p-1">
               <button

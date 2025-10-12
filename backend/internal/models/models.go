@@ -86,7 +86,7 @@ type User struct {
 	Name           string     `json:"name" gorm:"not null"`
 	Designation    string     `json:"designation"`
 	Department     string     `json:"department" gorm:"not null"`
-	Role           string     `json:"role" gorm:"not null;check:role IN ('Employee','Manager','HR','Admin','God')"`
+	Role           string     `json:"role" gorm:"not null;check:role IN ('Employee','HR','Admin','God')"`
 	ManagerID      *uint      `json:"manager_id" gorm:"index"`
 	CTC            float64    `json:"ctc" gorm:"default:0"`
 	Phone          string     `json:"phone" gorm:"size:20"` // For WhatsApp notifications
@@ -181,12 +181,48 @@ type Document struct {
 	FileSize       int64  `json:"file_size" gorm:"not null"`
 	MimeType       string `json:"mime_type" gorm:"not null"`
 	IsPublic       bool   `json:"is_public" gorm:"default:false"`
-	FileUrl        string `json:"file_url" gorm:"-"` // Computed field, not stored in DB
+	DocumentScope  string `json:"document_scope" gorm:"default:'user_private'"` // public, hr_private, user_private
+	FileUrl        string `json:"file_url" gorm:"-"`                            // Computed field, not stored in DB
 
 	// Relationships
 	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
 	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
 }
+
+// EmployeePrivateDocument represents private documents uploaded from salary slips page
+type EmployeePrivateDocument struct {
+	BaseModel
+	UserID         uint   `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint   `json:"organization_id" gorm:"not null;index"`
+	Title          string `json:"title" gorm:"not null"`
+	FileName       string `json:"file_name" gorm:"not null"`
+	FilePath       string `json:"file_path" gorm:"not null"`
+	FileSize       int64  `json:"file_size" gorm:"not null"`
+	MimeType       string `json:"mime_type" gorm:"not null"`
+	FileUrl        string `json:"file_url" gorm:"-"`
+
+	// Relationships
+	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+}
+
+func (EmployeePrivateDocument) TableName() string { return "employee_private_documents" }
+
+// DocumentAcknowledgment represents user acknowledgments for documents
+type DocumentAcknowledgment struct {
+	BaseModel
+	DocumentID     uint      `json:"document_id" gorm:"not null;index"`
+	UserID         uint      `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint      `json:"organization_id" gorm:"not null;index"`
+	AcknowledgedAt time.Time `json:"acknowledged_at" gorm:"not null"`
+
+	// Relationships
+	Document     Document     `json:"document,omitempty" gorm:"foreignKey:DocumentID"`
+	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+}
+
+func (DocumentAcknowledgment) TableName() string { return "document_acknowledgments" }
 
 // SalarySlip represents salary slip records
 type SalarySlip struct {

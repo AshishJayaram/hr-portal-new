@@ -140,7 +140,21 @@ class AppDrawer extends ConsumerWidget {
                 '/employees',
                 currentRoute,
               ),
-            _buildLeavesAndHolidaysSection(context, currentRoute, ref),
+            // Separate entries for My Leaves and Upcoming Holidays
+            _buildDrawerItem(
+              context,
+              Icons.beach_access,
+              'My Leaves',
+              '/leaves',
+              currentRoute,
+            ),
+            _buildDrawerItem(
+              context,
+              Icons.event_available,
+              'Upcoming Holidays',
+              '/holidays',
+              currentRoute,
+            ),
             _buildDrawerItem(
               context,
               Icons.folder,

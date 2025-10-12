@@ -75,7 +75,7 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
       
       setState(() {
         _managers = managers.where((user) => 
-          user['role'] == 'Manager' || user['role'] == 'HR' || user['role'] == 'Admin'
+          user['role'] == 'HR' || user['role'] == 'Admin'
         ).toList();
         _organizations = organizations;
         _leaveCategories = leaveCategories;
@@ -426,7 +426,7 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
               prefixIcon: Icon(Icons.work),
               border: OutlineInputBorder(),
             ),
-            items: ['Employee', 'Manager', 'HR', 'Admin'].map((role) {
+            items: ['Employee', 'HR', 'Admin'].map((role) {
               return DropdownMenuItem<String>(
                 value: role,
                 child: Text(role),

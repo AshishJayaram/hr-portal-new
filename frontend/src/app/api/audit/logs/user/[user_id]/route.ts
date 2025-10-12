@@ -26,7 +26,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
     }
     
     return NextResponse.json(data);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: { message: 'Internal server error' } },
       { status: 500 }

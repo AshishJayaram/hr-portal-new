@@ -1,7 +1,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 // Types for better type safety
-export type Role = 'Employee' | 'Manager' | 'HR' | 'Admin' | 'God';
+export type Role = 'Employee' | 'HR' | 'Admin' | 'God';
 
 export interface Organization {
   id: number;
@@ -82,6 +82,9 @@ export interface Document {
   uploadedBy?: string;
   organizationId?: string;
   createdAt: string;
+  // Added fields to support filtering and scoping
+  userId?: string;
+  documentScope?: string; // 'public' | 'hr_private' | 'user_private'
 }
 
 export interface SalarySlip {
@@ -197,6 +200,19 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (!res.ok) {
+    // Handle authentication errors (token expired/invalid)
+    if (res.status === 401) {
+      // Clear local storage and redirect to login
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("organizationId");
+        // Redirect to login page
+        window.location.href = "/signin";
+      }
+      throw new Error("Session expired. Please log in again.");
+    }
+
     const errorData = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
     const message = typeof (errorData?.error) === 'string' ? errorData.error : (errorData?.error?.message || `API error ${res.status}`);
     throw new Error(message);
@@ -583,6 +599,8 @@ export const getDocuments = (params?: Record<string, string>) =>
       isPublic: Boolean(d.is_public ?? d.isPublic),
       fileUrl: d.file_url ?? d.fileUrl ?? d.file_path,
       createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
+      userId: d.user_id != null ? String(d.user_id) : (d.userId != null ? String(d.userId) : undefined),
+      documentScope: d.document_scope ?? d.documentScope,
     }));
     return { data: mapped.length ? mapped : [] } as ApiResponse<Document[]>;
   }).catch(() => ({ data: [] } as ApiResponse<Document[]>));
@@ -650,13 +668,26 @@ export const getSalarySlip = (id: string) =>
 export const downloadSalarySlip = (id: string) =>
   fetcher<{ fileUrl: string; title: string }>(`/salary-slips/${id}/download`);
 
-export const uploadSalarySlip = (formData: FormData) =>
+export const addSalarySlip = (formData: FormData) =>
   uploadFile<ApiResponse<SalarySlip>>("/api/salary-slips", formData);
 
 export const deleteSalarySlip = (id: string) =>
   fetcher<ApiResponse<void>>(`/salary-slips/${id}`, {
     method: "DELETE",
   });
+
+export const downloadPayslipPDF = (id: string) => {
+  const token = localStorage.getItem("token");
+  const organizationId = localStorage.getItem("organizationId");
+
+  return fetch(`${API_URL}/salary-slips/${id}/pdf`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "X-Organization-ID": organizationId || "",
+    },
+  });
+};
 
 // Per-employee private documents
 export const getUserDocuments = (userId: string) =>
@@ -669,6 +700,8 @@ export const getUserDocuments = (userId: string) =>
       isPublic: Boolean(d.is_public ?? d.isPublic ?? false),
       fileUrl: d.file_url ?? d.fileUrl ?? d.file_path,
       createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
+      userId: d.user_id != null ? String(d.user_id) : (d.userId != null ? String(d.userId) : undefined),
+      documentScope: d.document_scope ?? d.documentScope,
     }));
     return { data: mapped } as ApiResponse<Document[]>;
   }).catch(() => {
@@ -682,12 +715,19 @@ export const getUserDocuments = (userId: string) =>
         isPublic: Boolean(d.is_public ?? d.isPublic ?? false),
         fileUrl: d.file_url ?? d.fileUrl ?? d.file_path,
         createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
+        userId: d.user_id != null ? String(d.user_id) : (d.userId != null ? String(d.userId) : undefined),
+        documentScope: d.document_scope ?? d.documentScope,
       }));
       return { data: mapped } as ApiResponse<Document[]>;
     });
   });
 
 export const uploadUserDocument = (userId: string, formData: FormData) => {
+  // Safety check to prevent undefined formData
+  if (!formData) {
+    throw new Error('FormData is required for document upload');
+  }
+  
   // Ensure private by default for employee-scoped docs
   if (!formData.has('isPublic')) formData.append('isPublic', 'false');
   if (!formData.has('userId')) formData.append('userId', userId);
@@ -809,7 +849,7 @@ export const deleteOffSite = (id: string) =>
 
 export const canManageOffSites = () => {
   const user = getCurrentUser();
-  return user?.role === "Manager" || user?.role === "HR" || user?.role === "Admin" || user?.role === "God";
+  return user?.role === "HR" || user?.role === "Admin" || user?.role === "God";
 };
 
 // -------------------- Organization Tree --------------------
@@ -883,7 +923,7 @@ const localSettingsKey = (companyId: string) => `payroll_settings:${companyId}`;
 
 export const getCompanySettings = async (companyId: string): Promise<ApiResponse<PayrollSettings>> => {
   try {
-    const res = await fetcher<any>(`/companies/${companyId}/payroll-settings`);
+    const res = await fetcher<any>(`/company/settings`);
     if (res?.data) return { data: res.data as PayrollSettings };
   } catch (_) {
     // ignore and fallback
@@ -904,8 +944,8 @@ export const getCompanySettings = async (companyId: string): Promise<ApiResponse
 export const updateCompanySettings = async (companyId: string, settings: PayrollSettings, currency?: string): Promise<ApiResponse<PayrollSettings>> => {
   try {
     const payload = currency ? { ...settings, currency } : settings;
-    const res = await fetcher<any>(`/companies/${companyId}/payroll-settings`, {
-      method: "PUT",
+    const res = await fetcher<any>(`/company/settings`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     });
     if (res?.data) return { data: res.data as PayrollSettings };
@@ -921,6 +961,7 @@ export const updateCompanySettings = async (companyId: string, settings: Payroll
 // -------------------- Reimbursements --------------------
 export interface ReimbursementRequest {
   id?: string;
+  user_id?: number;
   reason: string;
   amount: number;
   date: string;
@@ -930,6 +971,19 @@ export interface ReimbursementRequest {
     file_name: string;
     file_url: string;
   }>;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  rejection_reason?: string;
+  return_reason?: string;
+  approved_by?: number;
+  approved_at?: string;
+  rejected_by?: number;
+  rejected_at?: string;
+  returned_by?: number;
+  returned_at?: string;
   created_at?: string;
 }
 
@@ -962,11 +1016,29 @@ export const createReimbursement = async (data: {
 export const updateReimbursementStatus = async (
   id: string, 
   status: 'approved' | 'rejected' | 'returned',
-  reason?: string
+  message?: string
 ): Promise<ApiResponse<ReimbursementRequest>> => {
-  return await fetcher<ReimbursementRequest>(`/reimbursements/${id}/status`, {
-    method: 'PUT',
-    body: JSON.stringify({ status, reason }),
+  // Use the appropriate endpoint based on status
+  const endpoint = status === 'approved' 
+    ? `/reimbursements/${id}/approve` 
+    : status === 'rejected'
+    ? `/reimbursements/${id}/reject`
+    : `/reimbursements/${id}/return`;
+  
+  // Only send message for reject and return actions
+  const body = (status === 'rejected' || status === 'returned') 
+    ? JSON.stringify({ reason: message })
+    : undefined;
+  
+  return await fetcher<ReimbursementRequest>(endpoint, {
+    method: 'POST',
+    body,
+  });
+};
+
+export const deleteReimbursement = async (id: string): Promise<ApiResponse<void>> => {
+  return await fetcher<void>(`/reimbursements/${id}`, {
+    method: 'DELETE',
   });
 };
 
@@ -1032,8 +1104,6 @@ export const toCanonicalRole = (inputRole: string | undefined | null): Role => {
     case 'hr':
     case 'human resources':
       return 'HR';
-    case 'manager':
-      return 'Manager';
     case 'employee':
     default:
       return 'Employee';
@@ -1080,8 +1150,8 @@ export const canManageUsers = () => hasRole(['HR', 'Admin']);
 export const canManageDocuments = () => hasRole(['HR', 'Admin']);
 export const canManageSalarySlips = () => hasRole(['HR', 'Admin']);
 export const canManageHolidays = () => hasRole(['HR', 'Admin']);
-export const canApproveLeaves = () => hasRole(['Manager', 'HR', 'Admin']);
-export const isManager = () => hasRole(['Manager', 'HR', 'Admin']);
+export const canApproveLeaves = () => hasRole(['HR', 'Admin']);
+export const isManager = () => hasRole(['HR', 'Admin']);
 export const isGod = () => hasRole(['God']);
 
 // God API functions
@@ -1211,3 +1281,66 @@ export const getAvailableHolidayYears = () => {
       return { data: items } as ApiResponse<number[]>;
     });
 };
+
+// -------------------- Document Acknowledgments --------------------
+export const acknowledgeDocument = (documentId: string) =>
+  fetcher<any>(`/document-acknowledgments/${documentId}`, {
+    method: 'POST',
+  });
+
+export const getDocumentAcknowledgments = (documentId: string) =>
+  fetcher<any>(`/document-acknowledgments/document/${documentId}`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<any[]>;
+    });
+
+export const getUserAcknowledgments = () =>
+  fetcher<any>(`/document-acknowledgments/user`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<any[]>;
+    });
+
+export const getAcknowledgedUsersForDocument = (documentId: string) =>
+  fetcher<any>(`/document-acknowledgments/document/${documentId}/users`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<any[]>;
+    });
+
+// -------------------- Private Documents (Salary Slips) --------------------
+export const uploadPrivateDocument = (userId: string, formData: FormData) => {
+  if (!formData) {
+    throw new Error('FormData is required for private document upload');
+  }
+  
+  // Ensure userId is set
+  if (!formData.has('userId')) formData.append('userId', userId);
+  
+  return uploadFile<ApiResponse<any>>('/api/private-documents', formData);
+};
+
+export const getPrivateDocumentsByUser = (userId: string) =>
+  fetcher<any>(`/api/private-documents/user/${userId}`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<any[]>;
+    });
+
+export const deletePrivateDocument = (docId: string) =>
+  fetcher<any>(`/api/private-documents/${docId}`, {
+    method: 'DELETE',
+  });
+
+// -------------------- Feedback --------------------
+export const getFeedback = () =>
+  fetcher<any>('/feedback')
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<any[]>;
+    });
+
+export const getFeedbackStats = () =>
+  fetcher<any>('/feedback/stats')
+    .then((raw) => raw?.data || {});

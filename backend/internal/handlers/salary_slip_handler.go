@@ -61,8 +61,8 @@ func (h *SalarySlipHandler) ListSalarySlips(c *gin.Context) {
 	})
 }
 
-// UploadSalarySlip handles salary slip upload
-func (h *SalarySlipHandler) UploadSalarySlip(c *gin.Context) {
+// AddSalarySlip handles salary slip upload
+func (h *SalarySlipHandler) AddSalarySlip(c *gin.Context) {
 	organizationID := c.GetString("organization_id")
 	userID := c.GetString("user_id")
 
@@ -126,10 +126,10 @@ func (h *SalarySlipHandler) UploadSalarySlip(c *gin.Context) {
 		FileHeader:     fileHeader,
 	}
 
-	salarySlip, err := h.salarySlipService.UploadSalarySlip(req, c.Request)
+	salarySlip, err := h.salarySlipService.AddSalarySlip(req, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to upload salary slip",
+			"error": "Failed to add salary slip",
 		})
 		return
 	}

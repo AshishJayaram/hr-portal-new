@@ -12,11 +12,15 @@ import (
 )
 
 type ReimbursementService struct {
-	repo *repositories.ReimbursementRepository
+	repo     *repositories.ReimbursementRepository
+	userRepo repositories.UserRepository
 }
 
-func NewReimbursementService(repo *repositories.ReimbursementRepository) *ReimbursementService {
-	return &ReimbursementService{repo: repo}
+func NewReimbursementService(repo *repositories.ReimbursementRepository, userRepo repositories.UserRepository) *ReimbursementService {
+	return &ReimbursementService{
+		repo:     repo,
+		userRepo: userRepo,
+	}
 }
 
 func (s *ReimbursementService) CreateReimbursement(userID, organizationID uint, reason string, amount float64, date time.Time, bills []*multipart.FileHeader) (*models.Reimbursement, error) {
@@ -75,6 +79,35 @@ func (s *ReimbursementService) CreateReimbursement(userID, organizationID uint, 
 
 func (s *ReimbursementService) GetReimbursements(organizationID uint, userID *uint, status *string) ([]models.Reimbursement, error) {
 	return s.repo.GetReimbursements(organizationID, userID, status)
+}
+
+// GetReimbursementsForUser returns reimbursements for a user and their subordinates if they're a manager
+func (s *ReimbursementService) GetReimbursementsForUser(organizationID, userID uint, status *string) ([]models.Reimbursement, error) {
+	// Get user's own reimbursements
+	uid := userID
+	ownReimbursements, err := s.repo.GetReimbursements(organizationID, &uid, status)
+	if err != nil {
+		return nil, err
+	}
+
+	// If user has subordinates, get their reimbursements too
+	subordinates, err := s.userRepo.GetSubordinates(fmt.Sprintf("%d", organizationID), fmt.Sprintf("%d", userID))
+	if err != nil || len(subordinates) == 0 {
+		return ownReimbursements, nil
+	}
+
+	// Collect all reimbursements
+	allReimbursements := ownReimbursements
+	for _, subordinate := range subordinates {
+		subordinateID := subordinate.ID
+		subordinateReimbursements, err := s.repo.GetReimbursements(organizationID, &subordinateID, status)
+		if err != nil {
+			continue // Skip if error fetching subordinate's reimbursements
+		}
+		allReimbursements = append(allReimbursements, subordinateReimbursements...)
+	}
+
+	return allReimbursements, nil
 }
 
 func (s *ReimbursementService) GetReimbursementByID(id uint) (*models.Reimbursement, error) {

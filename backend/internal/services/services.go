@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
+
 	"hr-portal-backend/internal/config"
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
@@ -13,48 +16,54 @@ import (
 
 // Services holds all service interfaces
 type Services struct {
-	User            UserService
-	Auth            AuthService
-	Leave           LeaveService
-	LeaveCategory   LeaveCategoryService
-	LeaveAllocation LeaveAllocationService
-	Document        DocumentService
-	SalarySlip      SalarySlipService
-	Holiday         HolidayService
-	CompanySettings CompanySettingsService
-	Dashboard       DashboardService
-	Organization    OrganizationService
-	Audit           AuditService
-	Notification    NotificationService
-	OffSite         OffSiteService
-	Reimbursement   *ReimbursementService
-	Feedback        *FeedbackService
-	EmployeeGrowth  *EmployeeGrowthService
+	User                    UserService
+	Auth                    AuthService
+	Leave                   LeaveService
+	LeaveCategory           LeaveCategoryService
+	LeaveAllocation         LeaveAllocationService
+	Document                DocumentService
+	SalarySlip              SalarySlipService
+	Holiday                 HolidayService
+	CompanySettings         CompanySettingsService
+	Dashboard               DashboardService
+	Organization            OrganizationService
+	Audit                   AuditService
+	Notification            NotificationService
+	OffSite                 OffSiteService
+	Reimbursement           *ReimbursementService
+	Feedback                *FeedbackService
+	EmployeeGrowth          *EmployeeGrowthService
+	DocumentAcknowledgment  DocumentAcknowledgmentService
+	EmployeePrivateDocument EmployeePrivateDocumentService
+	PayslipPDF              PayslipPDFService
 }
 
 // New creates a new instance of Services
-func New(repos *repositories.Repositories, cfg *config.Config) *Services {
+func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb *redis.Client) *Services {
 	// Create audit service first since other services depend on it
 	auditService := NewAuditService(repos.AuditLog, repos.User)
 
 	return &Services{
-		User:            NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, auditService),
-		Auth:            NewAuthService(repos.User, repos.Organization, cfg.JWT),
-		Leave:           NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService, NewNotificationService()),
-		LeaveCategory:   NewLeaveCategoryService(repos.LeaveCategory),
-		LeaveAllocation: NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory),
-		Document:        NewDocumentService(repos.Document, auditService, NewNotificationService()),
-		SalarySlip:      NewSalarySlipService(repos.SalarySlip, auditService, NewNotificationService()),
-		Holiday:         NewHolidayService(repos.Holiday, auditService),
-		CompanySettings: NewCompanySettingsService(repos.CompanySettings),
-		Dashboard:       NewDashboardService(repos),
-		Organization:    NewOrganizationService(repos.Organization),
-		Audit:           auditService,
-		Notification:    NewNotificationService(),
-		OffSite:         NewOffSiteService(repos.OffSite, repos.User, auditService),
-		Reimbursement:   NewReimbursementService(repos.Reimbursement),
-		Feedback:        NewFeedbackService(repos.Feedback),
-		EmployeeGrowth:  NewEmployeeGrowthService(repos.EmployeeGrowth),
+		User:                    NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, auditService),
+		Auth:                    NewAuthService(repos.User, repos.Organization, cfg.JWT),
+		Leave:                   NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService, NewNotificationService()),
+		LeaveCategory:           NewLeaveCategoryService(repos.LeaveCategory),
+		LeaveAllocation:         NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory),
+		Document:                NewDocumentService(repos.Document, auditService, NewNotificationService()),
+		SalarySlip:              NewSalarySlipService(repos.SalarySlip, auditService, NewNotificationService()),
+		Holiday:                 NewHolidayService(repos.Holiday, auditService),
+		CompanySettings:         NewCompanySettingsService(repos.CompanySettings),
+		Dashboard:               NewDashboardService(repos),
+		Organization:            NewOrganizationService(repos.Organization),
+		Audit:                   auditService,
+		Notification:            NewNotificationService(),
+		OffSite:                 NewOffSiteService(repos.OffSite, repos.User, auditService),
+		Reimbursement:           NewReimbursementService(repos.Reimbursement, repos.User),
+		Feedback:                NewFeedbackService(repos.Feedback),
+		EmployeeGrowth:          NewEmployeeGrowthService(repos.EmployeeGrowth),
+		DocumentAcknowledgment:  NewDocumentAcknowledgmentService(repos.DocumentAcknowledgment),
+		EmployeePrivateDocument: NewEmployeePrivateDocumentService(repos.EmployeePrivateDocument),
+		PayslipPDF:              NewPayslipPDFService("./uploads"),
 	}
 }
 
@@ -141,7 +150,7 @@ type DocumentService interface {
 
 // SalarySlipService interface for salary slip business logic
 type SalarySlipService interface {
-	UploadSalarySlip(req UploadSalarySlipRequest, httpReq *http.Request) (*models.SalarySlip, error)
+	AddSalarySlip(req UploadSalarySlipRequest, httpReq *http.Request) (*models.SalarySlip, error)
 	GetSalarySlip(id string) (*models.SalarySlip, error)
 	ListSalarySlips(organizationID string, filters map[string]interface{}) ([]models.SalarySlip, error)
 	DeleteSalarySlip(id string) error

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"hr-portal-backend/internal/models"
+	"hr-portal-backend/internal/repositories"
 	"hr-portal-backend/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -12,12 +13,14 @@ import (
 // GodHandler handles God-level operations
 type GodHandler struct {
 	services *services.Services
+	repos    *repositories.Repositories
 }
 
 // NewGodHandler creates a new God handler
-func NewGodHandler(services *services.Services) *GodHandler {
+func NewGodHandler(services *services.Services, repos *repositories.Repositories) *GodHandler {
 	return &GodHandler{
 		services: services,
+		repos:    repos,
 	}
 }
 
@@ -59,6 +62,12 @@ func (h *GodHandler) GetOrganization(c *gin.Context) {
 		return
 	}
 
+	// Get user count for this organization
+	var userCount int64
+	if err := h.repos.User.CountByOrganization(orgID, &userCount); err != nil {
+		userCount = 0
+	}
+
 	// Get admin user for this organization
 	adminUser, err := h.services.User.GetAdminByOrganizationID(orgID)
 	if err != nil {
@@ -66,8 +75,19 @@ func (h *GodHandler) GetOrganization(c *gin.Context) {
 		adminUser = nil
 	}
 
+	// Create organization response with user count
+	orgResponse := map[string]interface{}{
+		"id":         org.ID,
+		"created_at": org.CreatedAt,
+		"updated_at": org.UpdatedAt,
+		"name":       org.Name,
+		"domain":     org.Domain,
+		"is_active":  org.IsActive,
+		"user_count": userCount,
+	}
+
 	response := gin.H{
-		"organization": org,
+		"organization": orgResponse,
 	}
 
 	if adminUser != nil {

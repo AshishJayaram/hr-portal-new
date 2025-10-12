@@ -168,8 +168,8 @@ func RoleRequired(allowedRoles ...string) gin.HandlerFunc {
 	}
 }
 
-// ManagerOrSelfRequired middleware allows managers to access their subordinates' data
-func ManagerOrSelfRequired(userService *services.UserService) gin.HandlerFunc {
+// HROrSelfRequired middleware allows HR to access their subordinates' data
+func HROrSelfRequired(userService *services.UserService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
@@ -220,8 +220,8 @@ func ManagerOrSelfRequired(userService *services.UserService) gin.HandlerFunc {
 			return
 		}
 
-		// Managers can access their subordinates
-		if role == "Manager" {
+		// HR can access their subordinates
+		if role == "HR" {
 			orgID, exists := c.Get("organization_id")
 			if !exists {
 				c.JSON(http.StatusUnauthorized, gin.H{

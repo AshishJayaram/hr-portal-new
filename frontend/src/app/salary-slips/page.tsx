@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSalarySlips, uploadSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument } from "@/lib/api";
+import { getSalarySlips, addSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument, getDocuments, downloadPayslipPDF, uploadPrivateDocument, getPrivateDocumentsByUser, deletePrivateDocument } from "@/lib/api";
 import { computePayslipFromCTC, calculateLOPAmount } from "@/lib/payroll";
 import { openPDFViewer, isPDFFile, getFileIcon, getFileTypeText } from "@/lib/pdfUtils";
 import Input from "@/components/ui/Input";
@@ -17,7 +17,15 @@ export default function SalarySlipsPage() {
   const user = getCurrentUser();
   const userId = user?.id || "u1";
   const [showUpload, setShowUpload] = useState(false);
+  const [showGenerate, setShowGenerate] = useState(false);
   const [showPrivateDocUpload, setShowPrivateDocUpload] = useState(false);
+  const [generateData, setGenerateData] = useState({
+    userId: "",
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+  });
+  const [generateUserQuery, setGenerateUserQuery] = useState("");
+  const [selectedGenerateUserName, setSelectedGenerateUserName] = useState("");
   const [uploadData, setUploadData] = useState({
     userId: "",
     month: new Date().getMonth() + 1,
@@ -28,7 +36,7 @@ export default function SalarySlipsPage() {
   const [privateDocData, setPrivateDocData] = useState({
     userId: "",
     title: "",
-    category: "private",
+    category: "hr_private",
     isPublic: false,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -62,6 +70,12 @@ export default function SalarySlipsPage() {
     enabled: canManageSalarySlips() && showPrivateDocUpload,
   });
 
+  const { data: generateUsersData } = useQuery({
+    queryKey: ["users", generateUserQuery],
+    queryFn: () => getUsers(generateUserQuery ? { search: generateUserQuery } : {}),
+    enabled: canManageSalarySlips() && showGenerate,
+  });
+
   const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
   const { data: companySettings } = useQuery({
     queryKey: ["company-settings", companyId],
@@ -73,6 +87,13 @@ export default function SalarySlipsPage() {
     const list = (usersData?.data || []) as any[];
     const found = list.find((u) => String(u.id) === String(id));
     return found?.name || `Employee`;
+  };
+
+  const collapseAllEmployees = () => {
+    // Force close all details elements
+    document.querySelectorAll('details[data-employee-card]').forEach((el) => {
+      (el as HTMLDetailsElement).open = false;
+    });
   };
 
   const calculateLOPAmountAuto = (lopDays: number) => {
@@ -95,12 +116,14 @@ export default function SalarySlipsPage() {
     const formData = new FormData();
     formData.append('file', state.file);
     formData.append('title', state.title || state.file.name);
-    formData.append('isPublic', 'false');
     try {
-      await uploadUserDocument(String(uid), formData);
+      await uploadPrivateDocument(String(uid), formData);
       setUploadDocState((s) => ({ ...s, [uid]: { file: null, title: '' } }));
-    } catch {
-      setUploadDocState((s) => ({ ...s, [uid]: { file: null, title: '' } }));
+      queryClient.invalidateQueries({ queryKey: ["private-docs", String(uid)] });
+      toast.success("Private document uploaded successfully");
+    } catch (err: any) {
+      console.error("Failed to upload private document:", err);
+      toast.error("Failed to upload private document");
     }
   };
 
@@ -114,7 +137,7 @@ export default function SalarySlipsPage() {
       formData.append("year", uploadData.year.toString());
       formData.append("lopDays", uploadData.lopDays.toString());
       formData.append("lopAmount", uploadData.lopAmount.toString());
-      return uploadSalarySlip(formData);
+      return addSalarySlip(formData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
@@ -152,6 +175,24 @@ export default function SalarySlipsPage() {
     },
   });
 
+  const generatePayslipMutation = useMutation({
+    mutationFn: async (data: { userId: string; month: number; year: number }) => {
+      return downloadPayslipPDF(`${data.userId}-${data.month}-${data.year}`);
+    },
+    onSuccess: (response) => {
+      // The downloadPayslipPDF function handles the download
+      toast.success("Payslip PDF generated successfully!");
+      setShowGenerate(false);
+      setGenerateData({ userId: "", month: new Date().getMonth() + 1, year: new Date().getFullYear() });
+      setGenerateUserQuery("");
+      setSelectedGenerateUserName("");
+    },
+    onError: (error: any) => {
+      console.error("Failed to generate payslip:", error);
+      toast.error("Failed to generate payslip PDF");
+    },
+  });
+
   const privateDocUploadMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPrivateFile || !privateDocData.userId || !privateDocData.title) {
@@ -163,13 +204,13 @@ export default function SalarySlipsPage() {
       formData.append("category", privateDocData.category);
       formData.append("userId", privateDocData.userId);
       formData.append("isPublic", privateDocData.isPublic.toString());
-      return uploadUserDocument(formData);
+      return uploadPrivateDocument(privateDocData.userId, formData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["private-docs", privateDocData.userId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       setShowPrivateDocUpload(false);
-      setPrivateDocData({ userId: "", title: "", category: "private", isPublic: false });
+      setPrivateDocData({ userId: "", title: "", category: "hr_private", isPublic: false });
       setSelectedPrivateFile(null);
       setPrivateDocUserQuery("");
       setSelectedPrivateUserName("");
@@ -188,6 +229,14 @@ export default function SalarySlipsPage() {
   const handlePrivateDocUpload = (e: React.FormEvent) => {
     e.preventDefault();
     privateDocUploadMutation.mutate();
+  };
+
+  const handleGeneratePayslip = () => {
+    if (!generateData.userId) {
+      toast.error("Please select an employee");
+      return;
+    }
+    generatePayslipMutation.mutate(generateData);
   };
 
   // Comprehensive salary slip cleanup function
@@ -273,7 +322,7 @@ export default function SalarySlipsPage() {
               onClick={() => setShowUpload(true)}
               className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700"
             >
-              Upload Salary Slip
+              Add Salary Slip
             </button>
             <button
               onClick={() => setShowPrivateDocUpload(true)}
@@ -288,7 +337,7 @@ export default function SalarySlipsPage() {
       <RoleGuard allowedRoles={["HR", "Admin"]}>
         {showUpload && (
           <Card>
-            <h2 className="text-xl font-semibold mb-4">Upload Salary Slip</h2>
+            <h2 className="text-xl font-semibold mb-4">Add Salary Slip</h2>
             <form onSubmit={handleUpload} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Employee</label>
@@ -396,7 +445,17 @@ export default function SalarySlipsPage() {
                   disabled={uploadMutation.isPending}
                   className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded disabled:opacity-50"
                 >
-                  {uploadMutation.isPending ? "Uploading..." : "Upload"}
+                  {uploadMutation.isPending ? "Uploading..." : "Upload Salary Slip"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUpload(false);
+                    setShowGenerate(true);
+                  }}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                >
+                  Generate Payslip PDF
                 </button>
                 <button
                   type="button"
@@ -407,6 +466,94 @@ export default function SalarySlipsPage() {
                 </button>
               </div>
             </form>
+          </Card>
+        )}
+      </RoleGuard>
+
+      <RoleGuard allowedRoles={["HR", "Admin"]}>
+        {showGenerate && (
+          <Card>
+            <h2 className="text-xl font-semibold mb-4">Generate Payslip PDF</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Employee</label>
+                <input
+                  type="text"
+                  value={generateUserQuery}
+                  onChange={(e) => setGenerateUserQuery(e.target.value)}
+                  placeholder="Search by name or ID..."
+                  className="w-full p-2 rounded bg-white/10 border border-white/20 mb-2"
+                />
+                <div className="max-h-40 overflow-y-auto border border-white/10 rounded">
+                  {(generateUsersData?.data || []).map((u: any) => (
+                    <button
+                      type="button"
+                      key={u.id}
+                      className={`w-full text-left px-3 py-2 hover:bg-white/10 ${generateData.userId === String(u.id) ? 'bg-white/5' : ''}`}
+                      onClick={() => {
+                        setGenerateData({ ...generateData, userId: String(u.id) });
+                        setGenerateUserQuery(`${u.name} (ID: ${u.id})`);
+                        setSelectedGenerateUserName(u.name);
+                      }}
+                    >
+                      {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
+                    </button>
+                  ))}
+                  {(generateUsersData?.data || []).length === 0 && (
+                    <div className="px-3 py-2 text-sm text-gray-400">No users</div>
+                  )}
+                </div>
+                {generateData.userId && (
+                  <p className="text-xs text-gray-400 mt-1">Selected: {selectedGenerateUserName || 'User'} (ID: {generateData.userId})</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Month</label>
+                  <select
+                    value={generateData.month}
+                    onChange={(e) => setGenerateData({ ...generateData, month: parseInt(e.target.value) })}
+                    className="w-full p-2 rounded bg-white/10 border border-white/20"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                      <option key={month} value={month}>
+                        {new Date(2024, month - 1).toLocaleDateString('en-US', { month: 'long' })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Year</label>
+                  <select
+                    value={generateData.year}
+                    onChange={(e) => setGenerateData({ ...generateData, year: parseInt(e.target.value) })}
+                    className="w-full p-2 rounded bg-white/10 border border-white/20"
+                  >
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleGeneratePayslip}
+                  disabled={!generateData.userId || generatePayslipMutation.isPending}
+                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:from-green-600 hover:to-teal-700 disabled:opacity-50"
+                >
+                  {generatePayslipMutation.isPending ? 'Generating...' : 'Generate PDF'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGenerate(false)}
+                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </Card>
         )}
       </RoleGuard>
@@ -515,10 +662,18 @@ export default function SalarySlipsPage() {
           <div className="space-y-4">
             {/* Group by employee */}
             {[...new Set((data?.data || []).map((s: any) => s.userId))].map((uid) => (
-              <details key={uid} className="rounded-lg border border-white/10 bg-white/5">
-                <summary className="list-none p-4 cursor-pointer flex items-center justify-between">
+              <details 
+                key={uid} 
+                className="rounded-lg border border-white/10 bg-white/5"
+                data-employee-card="true"
+              >
+                <summary 
+                  className="list-none p-4 cursor-pointer flex items-center justify-between"
+                >
                   <span className="font-semibold">{getUserName(String(uid))} (ID: {uid})</span>
-                  <span className="text-xs text-gray-400">Click to view slips</span>
+                  <span className="text-xs text-gray-400">
+                    Click to expand/collapse
+                  </span>
                 </summary>
                 <div className="p-4 pt-0 space-y-4">
                   {/* Dynamic Salary Breakdown Section */}
@@ -627,10 +782,37 @@ export default function SalarySlipsPage() {
                                 </button>
                                 <RoleGuard allowedRoles={["HR", "Admin"]}>
                                   <button
+                                    onClick={async () => {
+                                      try {
+                                        const response = await downloadPayslipPDF(s.id);
+                                        if (response.ok) {
+                                          const blob = await response.blob();
+                                          const url = window.URL.createObjectURL(blob);
+                                          const a = document.createElement('a');
+                                          a.style.display = 'none';
+                                          a.href = url;
+                                          a.download = `payslip_${s.id}.pdf`;
+                                          document.body.appendChild(a);
+                                          a.click();
+                                          window.URL.revokeObjectURL(url);
+                                          toast.success('Payslip PDF downloaded successfully');
+                                        } else {
+                                          toast.error('Failed to download payslip PDF');
+                                        }
+                                      } catch (error) {
+                                        console.error('Failed to download payslip PDF:', error);
+                                        toast.error('Failed to download payslip PDF');
+                                      }
+                                    }}
+                                    className="text-blue-400 hover:text-blue-300 underline"
+                                  >
+                                    Download PDF
+                                  </button>
+                                  <button
                                     onClick={() => handleDeleteSlip(
-                                      s.id, 
-                                      getUserName(String(uid)), 
-                                      new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' }), 
+                                      s.id,
+                                      getUserName(String(uid)),
+                                      new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' }),
                                       s.year
                                     )}
                                     disabled={deleteMutation.isPending}
@@ -652,11 +834,13 @@ export default function SalarySlipsPage() {
                       <h3 className="font-semibold">Private Documents</h3>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Input label="Title" value={uploadDocState[uid]?.title || ''} onChange={(e) => setDocTitle(String(uid), e.target.value)} />
-                        <input type="file" onChange={(e) => setDocFile(String(uid), e.target.files?.[0] || null)} className="w-full p-2 rounded bg-white/10 border border-white/20" />
-                        <button onClick={() => handleEmployeePrivateDocUpload(String(uid))} className="px-3 py-2 rounded bg-indigo-600 text-white disabled:opacity-50" disabled={!uploadDocState[uid]?.file}>Upload Private Document</button>
-                      </div>
+                      <RoleGuard allowedRoles={["HR", "Admin"]}>
+                        <div className="space-y-2">
+                          <Input label="Title" value={uploadDocState[uid]?.title || ''} onChange={(e) => setDocTitle(String(uid), e.target.value)} />
+                          <input type="file" onChange={(e) => setDocFile(String(uid), e.target.files?.[0] || null)} className="w-full p-2 rounded bg-white/10 border border-white/20" />
+                          <button onClick={() => handleEmployeePrivateDocUpload(String(uid))} className="px-3 py-2 rounded bg-indigo-600 text-white disabled:opacity-50" disabled={!uploadDocState[uid]?.file}>Upload Private Document</button>
+                        </div>
+                      </RoleGuard>
                       <EmployeeDocsList userId={String(uid)} />
                     </div>
                   </div>
@@ -692,6 +876,20 @@ export default function SalarySlipsPage() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* My Documents Section */}
+            <Card>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">My Documents</h2>
+                <button
+                  onClick={() => setShowPrivateDocUpload(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:from-green-600 hover:to-teal-700"
+                >
+                  Upload Private Document
+                </button>
+              </div>
+              <EmployeeDocsList userId={userId} />
+            </Card>
+
             {/* Salary Breakdown for Current User */}
             <EmployeeSalaryBreakdown userId={userId} companySettings={companySettings?.data} isCurrentUser={true} />
 
@@ -805,6 +1003,29 @@ export default function SalarySlipsPage() {
           </div>
         )}
       </Card>
+
+      {/* Floating Collapse All Button */}
+      {canManageSalarySlips() && data?.data && data.data.length > 0 && (
+        <button
+          onClick={collapseAllEmployees}
+          className="fixed bottom-6 right-6 px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg shadow-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 flex items-center gap-2 z-50"
+          title="Collapse all employee cards"
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-5 w-5" 
+            viewBox="0 0 20 20" 
+            fill="currentColor"
+          >
+            <path 
+              fillRule="evenodd" 
+              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" 
+              clipRule="evenodd" 
+            />
+          </svg>
+          Collapse All
+        </button>
+      )}
     </div>
   );
 }
@@ -890,49 +1111,37 @@ function EmployeeSalaryBreakdown({ userId, companySettings, isCurrentUser = fals
 }
 
 function EmployeeDocsList({ userId }: { userId: string }) {
+  const currentUser = getCurrentUser();
+  const isHR = currentUser?.role === 'HR' || currentUser?.role === 'Admin' || currentUser?.role === 'God';
+  const queryClient = useQueryClient();
+  const [deletingDocs, setDeletingDocs] = useState<Set<string>>(new Set());
+
+  // Use private documents API specifically for salary slips page
   const { data, isLoading, error } = useQuery({
-    queryKey: ["user-docs", userId],
-    queryFn: () => getUserDocuments(userId),
+    queryKey: ["private-docs", userId],
+    queryFn: () => getPrivateDocumentsByUser(userId),
     retry: 1,
   });
   
-  const [deletingDocs, setDeletingDocs] = useState<Set<string>>(new Set());
-  
   if (isLoading) return <div className="text-sm text-gray-400">Loading documents...</div>;
   if (error) {
-    console.error('Error loading documents for user', userId, error);
+    console.error('Error loading private documents for user', userId, error);
     return <div className="text-sm text-red-400">Failed to load documents. Please try again.</div>;
   }
   
-  const allDocs = data?.data || [];
-  // Filter to show only private documents (is_public: false) uploaded to this specific user
-  const docs = allDocs.filter((doc: any) => !doc.isPublic && doc.user_id === parseInt(userId));
+  const docs = data?.data || [];
   
   const handleDeleteDocument = async (docId: string, title: string) => {
     if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
       setDeletingDocs(prev => new Set(prev).add(docId));
       
       try {
-        // Try normal deletion first
-        await deleteDocument(docId);
-        queryClient.invalidateQueries({ queryKey: ["user-docs", userId] });
-        queryClient.invalidateQueries({ queryKey: ["documents"] });
-        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+        await deletePrivateDocument(docId);
+        queryClient.invalidateQueries({ queryKey: ["private-docs", userId] });
         toast.success("Document deleted successfully");
       } catch (err: any) {
-        console.warn("Normal deletion failed, attempting cleanup:", err);
-        
-        // If normal deletion fails, perform comprehensive cleanup
-        try {
-          await performDocumentCleanup(docId);
-          queryClient.invalidateQueries({ queryKey: ["user-docs", userId] });
-          queryClient.invalidateQueries({ queryKey: ["documents"] });
-          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-          toast.success("Document deleted successfully (cleanup performed)");
-        } catch (cleanupError) {
-          console.error("Cleanup also failed:", cleanupError);
-          toast.error("Failed to delete document completely");
-        }
+        console.error("Failed to delete private document:", err);
+        toast.error("Failed to delete document");
       } finally {
         setDeletingDocs(prev => {
           const newSet = new Set(prev);
@@ -943,69 +1152,6 @@ function EmployeeDocsList({ userId }: { userId: string }) {
     }
   };
 
-  // Comprehensive document cleanup function
-  const performDocumentCleanup = async (docId: string) => {
-    try {
-      console.log(`Performing comprehensive cleanup for document ${docId}`);
-      
-      // Step 1: Get document info before deletion
-      const docInfo = await getDocument(docId);
-      const document = docInfo?.data;
-      
-      if (document) {
-        console.log(`Cleaning up document: ${document.title}`);
-        
-        // Step 2: Delete related audit logs
-        try {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/audit/logs/entity?entity_type=DOCUMENT&entity_id=${docId}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'X-Organization-ID': localStorage.getItem('organizationId') || '',
-            },
-          });
-          console.log('Audit logs cleaned up');
-        } catch (auditError) {
-          console.warn('Failed to clean audit logs:', auditError);
-        }
-        
-        // Step 3: Force delete from database (if normal deletion failed)
-        try {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${docId}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'X-Organization-ID': localStorage.getItem('organizationId') || '',
-            },
-          });
-          console.log('Document deleted from database');
-        } catch (dbError) {
-          console.warn('Failed to delete from database:', dbError);
-        }
-        
-        // Step 4: Delete physical file (if it exists)
-        if (document.fileUrl) {
-          try {
-            // Extract file path from fileUrl
-            const filePath = document.fileUrl.replace(/.*\/api\/files\/documents\/\d+/, '');
-            console.log(`Attempting to delete physical file: ${filePath}`);
-            
-            // Note: Physical file deletion would need backend support
-            // For now, we'll just log it
-            console.log('Physical file cleanup would happen here');
-          } catch (fileError) {
-            console.warn('Failed to delete physical file:', fileError);
-          }
-        }
-      }
-      
-      console.log(`Cleanup completed for document ${docId}`);
-      
-    } catch (error) {
-      console.error('Cleanup failed:', error);
-      throw error;
-    }
-  };
   
   return (
     <div className="space-y-2">
@@ -1013,37 +1159,58 @@ function EmployeeDocsList({ userId }: { userId: string }) {
         <div key={doc.id} className="p-3 rounded border border-white/10 flex items-center justify-between">
           <div>
             <div className="text-sm font-medium">{doc.title}</div>
-            <div className="text-xs text-gray-400">{new Date(doc.createdAt).toLocaleDateString()}</div>
+            <div className="text-xs text-gray-400">
+              {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'N/A'}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={async () => {
                 try {
-                  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/documents/${doc.id}/download`, {
-                    headers: {
-                      'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                      'X-Organization-ID': localStorage.getItem('organizationId') || '',
-                    },
-                  });
-                  const data = await response.json();
-                  if (data.fileUrl) {
-                    openPDFViewer(data.fileUrl, doc.title);
+                  // Use the file_url directly from the doc object
+                  if (doc.file_url) {
+                    const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${doc.file_url}`;
+                    if (isPDFFile(doc.file_url)) {
+                      openPDFViewer(fullUrl, doc.title);
+                    } else {
+                      window.open(fullUrl, '_blank');
+                    }
+                  } else {
+                    // Fallback: fetch from download endpoint
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/private-documents/${doc.id}/download`, {
+                      headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                      },
+                    });
+                    const data = await response.json();
+                    if (data.fileUrl) {
+                      const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${data.fileUrl}`;
+                      if (isPDFFile(data.fileUrl)) {
+                        openPDFViewer(fullUrl, doc.title);
+                      } else {
+                        window.open(fullUrl, '_blank');
+                      }
+                    }
                   }
                 } catch (error) {
-                  console.error('Failed to download document:', error);
+                  console.error('Failed to view private document:', error);
+                  toast.error('Failed to view document');
                 }
               }}
               className="text-indigo-300 hover:text-indigo-200 text-sm"
             >
-              {isPDFFile(doc.fileUrl || '') ? 'View PDF' : 'View'}
+              {isPDFFile(doc.file_url || '') ? 'View PDF' : 'View'}
             </button>
-            <button
-              onClick={() => handleDeleteDocument(doc.id, doc.title)}
-              disabled={deletingDocs.has(doc.id)}
-              className="text-red-400 hover:text-red-300 text-sm disabled:opacity-50"
-            >
-              {deletingDocs.has(doc.id) ? 'Deleting...' : 'Delete'}
-            </button>
+            {isHR && (
+              <button
+                onClick={() => handleDeleteDocument(doc.id, doc.title)}
+                disabled={deletingDocs.has(doc.id)}
+                className="text-red-400 hover:text-red-300 text-sm disabled:opacity-50"
+              >
+                {deletingDocs.has(doc.id) ? 'Deleting...' : 'Delete'}
+              </button>
+            )}
           </div>
         </div>
       ))}

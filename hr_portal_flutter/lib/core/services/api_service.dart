@@ -604,13 +604,13 @@ class ApiService {
     }
   }
 
-  // Salary slip upload methods
-  Future<Map<String, dynamic>?> uploadSalarySlip(FormData formData) async {
+  // Salary slip add methods
+  Future<Map<String, dynamic>?> addSalarySlip(FormData formData) async {
     try {
       final response = await _dio.post('/salary-slips', data: formData);
       return response.data['data'];
     } catch (e) {
-      print('Upload salary slip error: $e');
+      print('Add salary slip error: $e');
       rethrow;
     }
   }

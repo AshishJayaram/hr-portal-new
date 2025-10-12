@@ -33,6 +33,7 @@ function EditEmployeeForm({ id }: { id: string }) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     username: "",
+    email: "",
     designation: "",
     role: "Employee" as "Employee" | "Manager" | "HR" | "Admin",
     department: "",
@@ -58,6 +59,7 @@ function EditEmployeeForm({ id }: { id: string }) {
   const { data: managers } = useQuery({
     queryKey: ["users", managerQuery],
     queryFn: () => getUsers(managerQuery ? { search: managerQuery } : {}),
+    enabled: managerQuery.length > 0 || true, // Always enable to show all users when clicked
   });
 
   const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
@@ -85,14 +87,22 @@ function EditEmployeeForm({ id }: { id: string }) {
 
   useEffect(() => {
     if (user?.data) {
+      const managerId = (user.data as any).managerId || (user.data as any).manager_id || "";
       setFormData({
         username: user.data.name || user.data.email || "",
+        email: user.data.email || "",
         designation: user.data.designation || "",
         role: user.data.role,
         department: user.data.department || "",
-        manager_id: (user.data as any).managerId || (user.data as any).manager_id || "",
+        manager_id: managerId,
         ctc: user.data.ctc ? String(user.data.ctc) : "",
       });
+      
+      // Set manager query to show current manager
+      if (managerId && (user.data as any).manager?.name) {
+        setManagerQuery(`${(user.data as any).manager.name} (ID: ${managerId})`);
+        setSelectedManagerName((user.data as any).manager.name);
+      }
       
       // Initialize CTC data
       if (user.data.ctc) {
@@ -139,6 +149,7 @@ function EditEmployeeForm({ id }: { id: string }) {
       router.push("/employees");
     },
     onError: (error: any) => {
+      console.error("Employee update failed:", error);
       toast.error(error.message || "Failed to update employee");
     },
   });
@@ -233,26 +244,31 @@ function EditEmployeeForm({ id }: { id: string }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     console.log('Employee details form submitted');
     console.log('formData:', formData);
     console.log('id:', id);
-    
-    // Prevent self-assignment as manager
+
+    // Prevent self-assignment as manager and circular references
     if (formData.manager_id && String(formData.manager_id) === String(id)) {
       toast.error("An employee cannot be assigned as their own manager");
       return;
     }
-    
+
+    // Additional validation will be handled by the backend to prevent circular references
+
     const payload = {
       username: formData.username,
+      email: formData.email,
       designation: formData.designation,
       role: toCanonicalRole(formData.role),
       department: formData.department,
       manager_id: formData.manager_id ? String(formData.manager_id) : undefined, // Convert to string to match backend
     };
-    
+
+    console.log('Current formData:', formData);
     console.log('Payload to be sent:', payload);
+    console.log('About to call mutation.mutate with payload');
     mutation.mutate(payload);
   };
 
@@ -343,6 +359,13 @@ function EditEmployeeForm({ id }: { id: string }) {
                   required
                 />
                 <Input
+                  label="Email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+                <Input
                   label="Designation"
                   value={formData.designation}
                   onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
@@ -354,7 +377,6 @@ function EditEmployeeForm({ id }: { id: string }) {
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
                   options={[
                     { value: "Employee", label: "Employee" },
-                    { value: "Manager", label: "Manager" },
                     { value: "HR", label: "HR" },
                   ]}
                 />
@@ -364,30 +386,73 @@ function EditEmployeeForm({ id }: { id: string }) {
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
             />
                 <div>
-                  <label className="block text-sm mb-2">Manager (search and select)</label>
-                  <Input value={managerQuery} onChange={(e) => setManagerQuery(e.target.value)} placeholder="Search by name or ID..." />
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm">Manager (search and select)</label>
+                    {formData.manager_id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, manager_id: "" });
+                          setManagerQuery("");
+                          setSelectedManagerName("");
+                        }}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        Clear Manager
+                      </button>
+                    )}
+                  </div>
+                  <Input 
+                    value={managerQuery} 
+                    onChange={(e) => setManagerQuery(e.target.value)} 
+                    onFocus={() => {
+                      if (managerQuery.length === 0) {
+                        setManagerQuery(" "); // Trigger showing all users
+                      }
+                    }}
+                    placeholder="Click to see all users or search by name..." 
+                  />
+                  {formData.manager_id && (
+                    <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded text-green-400 text-sm">
+                      ✓ Selected: {selectedManagerName || `Manager ID: ${formData.manager_id}`}
+                    </div>
+                  )}
                   {formData.manager_id && String(formData.manager_id) === String(id) && (
                     <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-sm">
                       ⚠️ An employee cannot be assigned as their own manager
                     </div>
                   )}
-                  <div className="mt-2 max-h-48 overflow-y-auto border border-white/10 rounded">
-                    {(managers?.data || [])
-                      .filter((u: any) => String(u.id) !== String(id)) // Exclude current employee
-                      .map((u: any) => (
-                      <button
-                        type="button"
-                        key={u.id}
-                        className={`w-full text-left px-3 py-2 hover:bg-white/10 ${String(formData.manager_id) === String(u.id) ? 'bg-white/5' : ''}`}
-                        onClick={() => { setFormData({ ...formData, manager_id: String(u.id) }); setManagerQuery(`${u.name} (ID: ${u.id})`); setSelectedManagerName(u.name); }}
-                      >
-                        {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
-                      </button>
-                    ))}
-                    {(!managers?.data || managers.data.filter((u: any) => String(u.id) !== String(id)).length === 0) && (
-                      <div className="px-3 py-2 text-sm text-gray-400">No other users available</div>
-                    )}
-                  </div>
+                  {(managerQuery.length > 0 || managers?.data) && (
+                    <div className="mt-2 max-h-48 overflow-y-auto border border-white/10 rounded bg-gray-900">
+                      {(managers?.data || [])
+                        .filter((u: any) => String(u.id) !== String(id)) // Exclude current employee
+                        .map((u: any) => (
+                        <button
+                          type="button"
+                          key={u.id}
+                          className={`w-full text-left px-3 py-2 hover:bg-white/10 transition-colors ${String(formData.manager_id) === String(u.id) ? 'bg-indigo-500/20 border-l-2 border-indigo-500' : ''}`}
+                          onClick={() => { 
+                            console.log(`Selected manager: ${u.name} (ID: ${u.id})`);
+                            console.log(`Setting manager_id to: ${String(u.id)}`);
+                            const newFormData = { ...formData, manager_id: String(u.id) };
+                            console.log(`New form data:`, newFormData);
+                            setFormData(newFormData); 
+                            setManagerQuery(`${u.name} (ID: ${u.id})`); 
+                            setSelectedManagerName(u.name); 
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>{u.name}</span>
+                            <span className="text-xs text-gray-400">ID: {u.id} • {u.role}</span>
+                          </div>
+                          {u.designation && <div className="text-xs text-gray-500 mt-1">{u.designation}</div>}
+                        </button>
+                      ))}
+                      {(!managers?.data || managers.data.filter((u: any) => String(u.id) !== String(id)).length === 0) && (
+                        <div className="px-3 py-2 text-sm text-gray-400">No matching users found. Try typing to search...</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

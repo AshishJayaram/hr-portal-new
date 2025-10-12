@@ -159,19 +159,19 @@ export default function AuditLogsPage() {
                   key={log.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 hover:bg-gray-800/70 transition-colors"
+                  className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       <span className={`px-2 py-1 rounded text-xs font-medium border ${getActionColor(log.action)}`}>
                         {log.action}
                       </span>
-                      <span className="text-gray-400 font-mono text-sm">
+                      <span className="text-gray-600 dark:text-gray-400 font-mono text-sm">
                         {log.entity_type}
                       </span>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-gray-400">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
                         {formatDate(log.created_at)}
                       </div>
                     </div>
@@ -179,25 +179,25 @@ export default function AuditLogsPage() {
 
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <span className="text-gray-400">Changed by: </span>
-                      <span className="text-white font-medium">
+                      <span className="text-gray-600 dark:text-gray-400">Changed by: </span>
+                      <span className="text-gray-900 dark:text-white font-medium">
                         {log.changed_by_user?.name || log.changed_by_user?.email || 'Unknown User'}
                       </span>
                     </div>
-                    
+
                     <div className="text-sm">
-                      <span className="text-gray-400">Summary: </span>
-                      <span className="text-white">{log.change_summary}</span>
+                      <span className="text-gray-600 dark:text-gray-400">Summary: </span>
+                      <span className="text-gray-900 dark:text-white">{log.change_summary}</span>
                     </div>
 
                     {(log.old_values || log.new_values) && (
-                      <div className="border-t border-gray-700 pt-2 mt-3">
+                      <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-3">
                         {log.old_values && (
                           <details className="mb-2">
-                            <summary className="text-sm text-gray-400 cursor-pointer hover:text-gray-300">
+                            <summary className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-500 dark:hover:text-gray-300">
                               View Old Values
                             </summary>
-                            <pre className="mt-2 p-2 bg-gray-900 rounded text-xs overflow-x-auto">
+                            <pre className="mt-2 p-2 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-x-auto text-gray-900 dark:text-gray-100">
                               {JSON.stringify(JSON.parse(log.old_values), null, 2)}
                             </pre>
                           </details>
@@ -205,10 +205,10 @@ export default function AuditLogsPage() {
                         
                         {log.new_values && (
                           <details>
-                            <summary className="text-sm text-gray-400 cursor-pointer hover:text-gray-300">
+                            <summary className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-500 dark:hover:text-gray-300">
                               View New Values
                             </summary>
-                            <pre className="mt-2 p-2 bg-gray-900 rounded text-xs overflow-x-auto">
+                            <pre className="mt-2 p-2 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-x-auto text-gray-900 dark:text-gray-100">
                               {JSON.stringify(JSON.parse(log.new_values), null, 2)}
                             </pre>
                           </details>

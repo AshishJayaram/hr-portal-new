@@ -87,7 +87,7 @@ func main() {
 	repos := repositories.New(db, nil)
 
 	// Initialize services
-	services := services.New(repos, cfg)
+	services := services.New(repos, cfg, db, nil)
 
 	// Add dummy audit logs for testing (only if no logs exist) - using demo organization for now
 	services.Audit.AddDummyLogs("4")
@@ -95,7 +95,7 @@ func main() {
 	services.Audit.AddDummyLogs("1")
 
 	// Initialize handlers
-	handlers := handlers.New(services, cfg)
+	handlers := handlers.New(services, repos, cfg)
 
 	// Setup Gin router
 	router := setupRouter(cfg, handlers)
@@ -223,8 +223,8 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			leaves.POST("", handlers.Leave.ApplyLeave)
 			leaves.GET("/:id", handlers.Leave.GetLeave)
 			leaves.PATCH("/:id", handlers.Leave.UpdateLeave)
-			leaves.POST("/:id/approve", middleware.RoleRequired("Manager", "HR", "Admin", "God"), handlers.Leave.ApproveLeave)
-			leaves.POST("/:id/reject", middleware.RoleRequired("Manager", "HR", "Admin", "God"), handlers.Leave.RejectLeave)
+			leaves.POST("/:id/approve", middleware.RoleRequired("HR", "Admin", "God"), handlers.Leave.ApproveLeave)
+			leaves.POST("/:id/reject", middleware.RoleRequired("HR", "Admin", "God"), handlers.Leave.RejectLeave)
 			leaves.PUT("/:id/edit", handlers.Leave.EditLeave)
 			leaves.POST("/:id/cancel", handlers.Leave.CancelLeave)
 			leaves.GET("/balance/:user_id", handlers.Leave.GetLeaveBalance)
@@ -251,6 +251,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 
 		// Static file serving for uploads
 		router.Static("/api/uploads", "./uploads")
+		router.Static("/api/files/private-docs", "./uploads/private_docs")
 
 		// Salary slip routes
 		salarySlips := api.Group("/salary-slips")
@@ -258,10 +259,11 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		salarySlips.Use(middleware.OrganizationRequired())
 		{
 			salarySlips.GET("", handlers.SalarySlip.ListSalarySlips)
-			salarySlips.POST("", handlers.SalarySlip.UploadSalarySlip)
+			salarySlips.POST("", handlers.SalarySlip.AddSalarySlip)
 			salarySlips.GET("/:id", handlers.SalarySlip.GetSalarySlip)
 			salarySlips.DELETE("/:id", handlers.SalarySlip.DeleteSalarySlip)
 			salarySlips.GET("/:id/download", handlers.SalarySlip.DownloadSalarySlip)
+			salarySlips.GET("/:id/pdf", middleware.RoleRequired("HR", "Admin", "God"), handlers.PayslipPDF.GeneratePayslipPDF)
 		}
 
 		// Company settings routes
@@ -408,6 +410,28 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			employeeGrowth.GET("/record/:id", handlers.EmployeeGrowth.GetGrowthRecordByID)
 			employeeGrowth.PATCH("/record/:id", handlers.EmployeeGrowth.UpdateGrowthRecord)
 			employeeGrowth.DELETE("/record/:id", handlers.EmployeeGrowth.DeleteGrowthRecord)
+		}
+
+		// Document acknowledgment routes
+		documentAcknowledgment := api.Group("/document-acknowledgments")
+		documentAcknowledgment.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		documentAcknowledgment.Use(middleware.OrganizationRequired())
+		{
+			documentAcknowledgment.POST("/:id", handlers.DocumentAcknowledgment.AcknowledgeDocument)
+			documentAcknowledgment.GET("/document/:id", handlers.DocumentAcknowledgment.GetDocumentAcknowledgments)
+			documentAcknowledgment.GET("/user", handlers.DocumentAcknowledgment.GetUserAcknowledgments)
+			documentAcknowledgment.GET("/document/:id/users", handlers.DocumentAcknowledgment.GetAcknowledgedUsersForDocument)
+		}
+
+		// Private document routes (for salary slips page)
+		privateDocuments := api.Group("/private-documents")
+		privateDocuments.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		privateDocuments.Use(middleware.OrganizationRequired())
+		{
+			privateDocuments.POST("", handlers.PrivateDocument.Upload)
+			privateDocuments.GET("/user/:user_id", handlers.PrivateDocument.ListByUser)
+			privateDocuments.GET("/:id/download", handlers.PrivateDocument.Download)
+			privateDocuments.DELETE("/:id", handlers.PrivateDocument.Delete)
 		}
 	}
 

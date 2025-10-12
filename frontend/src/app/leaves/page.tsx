@@ -43,9 +43,10 @@ export default function LeavesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [showApplyForm, setShowApplyForm] = useState(false);
+  const [showApplyOnBehalfForm, setShowApplyOnBehalfForm] = useState(false);
   const queryClient = useQueryClient();
 
-  // Check if user can approve leaves (Manager, HR, Admin, God)
+  // Check if user can approve leaves (HR, Admin, God)
   const canApprove = canApproveLeaves();
 
   // Fetch leave requests - different scope based on view type
@@ -223,7 +224,7 @@ export default function LeavesPage() {
           </p>
         </div>
         
-        {/* View Toggle for Managers */}
+        {/* View Toggle for HR/Admin */}
         {canApprove && (
           <div className="flex gap-2">
             <Button
@@ -254,7 +255,7 @@ export default function LeavesPage() {
       <LeaveBalanceCard balance={balance?.data || []} />
 
       {/* Apply Leave Form - Employees only */}
-      <RoleGuard allowedRoles={["Employee", "Manager", "HR"]}>
+      <RoleGuard allowedRoles={["Employee", "HR"]}>
         <Card>
           <div className="border-b border-gray-700">
             <button
@@ -280,6 +281,34 @@ export default function LeavesPage() {
         </Card>
       </RoleGuard>
 
+      {/* Apply Leave on Behalf Modal */}
+      {showApplyOnBehalfForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Apply Leave on Behalf of Employee</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowApplyOnBehalfForm(false)}
+                className="h-8 w-8 p-0"
+              >
+                ×
+              </Button>
+            </div>
+            <ApplyLeaveForm />
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowApplyOnBehalfForm(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Search and Filters */}
       <SearchFilter
         onSearch={handleSearch}
@@ -304,7 +333,19 @@ export default function LeavesPage() {
       />
 
       {/* Leaves List */}
-      <Card title={viewType === 'team' ? "Team Leave Requests" : "My Leave Requests"}>
+      <Card 
+        title={viewType === 'team' ? "Team Leave Requests" : "My Leave Requests"}
+        extra={viewType === 'team' && canApprove ? (
+          <Button
+            size="sm"
+            onClick={() => setShowApplyOnBehalfForm(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Apply on Behalf
+          </Button>
+        ) : undefined}
+      >
         <div className="space-y-4">
           {filteredLeaves.map((leave, idx) => (
             <motion.div
@@ -380,7 +421,7 @@ export default function LeavesPage() {
                           </Button>
                         </>
                       )}
-                      {/* Managers/HR can approve/reject team leaves */}
+                      {/* HR/Admin can approve/reject team leaves */}
                       {viewType === 'team' && canApprove && (
                         <>
                           <Button

@@ -34,17 +34,19 @@ func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 	filters := make(map[string]interface{})
 
 	// Role-based access control:
-	// - HR/Admin/God can see documents for any user in their organization
-	// - Employees can only see their own documents + public documents
+	// - HR/Admin/God can see all documents in their organization (public, hr_private, and user_private)
+	// - Employees can see their own documents + public documents + HR private documents
 	if loggedInUserRole == "HR" || loggedInUserRole == "Admin" || loggedInUserRole == "God" {
 		// HR/Admin/God can access documents for any user
 		if requestedUserID != "" {
 			filters["user_id"] = requestedUserID
+		} else {
+			// Explicitly mark HR scope all for clarity in repository
+			filters["hr_scope_all"] = true
 		}
 		// If no requestedUserID specified, show all documents in organization
 	} else {
-		// Regular employees can only see their own documents + public documents
-		// We'll handle this in the service layer to allow proper filtering
+		// Regular employees can see their own documents + public documents + HR private documents
 		filters["user_id_or_public"] = loggedInUserID
 	}
 

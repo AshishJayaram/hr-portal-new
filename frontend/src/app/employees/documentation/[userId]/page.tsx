@@ -33,16 +33,22 @@ export default function EmployeeDocumentationPage() {
   const [date, setDate] = useState('');
   const [editingRecord, setEditingRecord] = useState<EmployeeGrowthRecord | null>(null);
 
-  const { data: auditData, isLoading: auditLoading } = useQuery({
+  const { data: auditData, isLoading: auditLoading, error: auditError } = useQuery({
     queryKey: ["user-audit-logs", userId],
     queryFn: () => getUserAuditLogs(userId),
     enabled: !!userId,
+    onError: (error) => {
+      console.error("Audit logs fetch error:", error);
+    },
   });
 
-  const { data: growthData, isLoading: growthLoading } = useQuery({
+  const { data: growthData, isLoading: growthLoading, error: growthError } = useQuery({
     queryKey: ["employee-growth", userId],
     queryFn: () => getEmployeeGrowth(userId),
     enabled: !!userId,
+    onError: (error) => {
+      console.error("Growth data fetch error:", error);
+    },
   });
 
   const { data: statsData, isLoading: statsLoading } = useQuery({
@@ -51,10 +57,13 @@ export default function EmployeeDocumentationPage() {
     enabled: !!userId,
   });
 
-  const { data: userData, isLoading: userLoading } = useQuery({
+  const { data: userData, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ["user", userId],
     queryFn: () => getUser(userId),
     enabled: !!userId,
+    onError: (error) => {
+      console.error("User data fetch error:", error);
+    },
   });
 
   const queryClient = useQueryClient();
@@ -360,6 +369,9 @@ export default function EmployeeDocumentationPage() {
               {growthRecords.length === 0 ? (
                 <div className="text-center py-8 text-gray-600 dark:text-gray-400">
                   No growth records found. Add one above to get started.
+                  {growthError && (
+                    <p className="text-red-400 text-sm mt-2">Error: {growthError.message}</p>
+                  )}
                 </div>
               ) : (
                 growthRecords.map((record: EmployeeGrowthRecord) => (
@@ -429,6 +441,9 @@ export default function EmployeeDocumentationPage() {
               <div className="text-center py-8">
                 <div className="text-4xl mb-2">📊</div>
                 <p className="text-gray-600 dark:text-gray-400">No recent activity found for this employee</p>
+                {auditError && (
+                  <p className="text-red-400 text-sm mt-2">Error: {auditError.message}</p>
+                )}
               </div>
             )}
           </div>

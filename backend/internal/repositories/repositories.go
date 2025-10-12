@@ -14,39 +14,43 @@ import (
 
 // Repositories holds all repository interfaces
 type Repositories struct {
-	User            UserRepository
-	Organization    OrganizationRepository
-	Leave           LeaveRepository
-	LeaveCategory   LeaveCategoryRepository
-	LeaveAllocation LeaveAllocationRepository
-	Document        DocumentRepository
-	SalarySlip      SalarySlipRepository
-	Holiday         HolidayRepository
-	CompanySettings CompanySettingsRepository
-	AuditLog        AuditLogRepository
-	OffSite         OffSiteRepository
-	Reimbursement   *ReimbursementRepository
-	Feedback        *FeedbackRepository
-	EmployeeGrowth  *EmployeeGrowthRepository
+	User                    UserRepository
+	Organization            OrganizationRepository
+	Leave                   LeaveRepository
+	LeaveCategory           LeaveCategoryRepository
+	LeaveAllocation         LeaveAllocationRepository
+	Document                DocumentRepository
+	SalarySlip              SalarySlipRepository
+	Holiday                 HolidayRepository
+	CompanySettings         CompanySettingsRepository
+	AuditLog                AuditLogRepository
+	OffSite                 OffSiteRepository
+	Reimbursement           *ReimbursementRepository
+	Feedback                *FeedbackRepository
+	EmployeeGrowth          *EmployeeGrowthRepository
+	DocumentAcknowledgment  DocumentAcknowledgmentRepository
+	EmployeePrivateDocument EmployeePrivateDocumentRepository
 }
 
 // New creates a new instance of Repositories
 func New(db *gorm.DB, rdb *redis.Client) *Repositories {
 	return &Repositories{
-		User:            &userRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		Organization:    &organizationRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		Leave:           &leaveRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		LeaveCategory:   &leaveCategoryRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		LeaveAllocation: &leaveAllocationRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		Document:        &documentRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		SalarySlip:      &salarySlipRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		Holiday:         &holidayRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		CompanySettings: &companySettingsRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		AuditLog:        &auditLogRepository{BaseRepository: NewBaseRepository(db, rdb)},
-		OffSite:         NewOffSiteRepository(db),
-		Reimbursement:   NewReimbursementRepository(db),
-		Feedback:        NewFeedbackRepository(db),
-		EmployeeGrowth:  NewEmployeeGrowthRepository(db),
+		User:                    &userRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		Organization:            &organizationRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		Leave:                   &leaveRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		LeaveCategory:           &leaveCategoryRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		LeaveAllocation:         &leaveAllocationRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		Document:                &documentRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		SalarySlip:              &salarySlipRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		Holiday:                 &holidayRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		CompanySettings:         &companySettingsRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		AuditLog:                &auditLogRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		OffSite:                 NewOffSiteRepository(db),
+		Reimbursement:           NewReimbursementRepository(db),
+		Feedback:                NewFeedbackRepository(db),
+		EmployeeGrowth:          NewEmployeeGrowthRepository(db),
+		DocumentAcknowledgment:  NewDocumentAcknowledgmentRepository(db),
+		EmployeePrivateDocument: NewEmployeePrivateDocumentRepository(db, rdb),
 	}
 }
 

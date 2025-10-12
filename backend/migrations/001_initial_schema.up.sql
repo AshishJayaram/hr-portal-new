@@ -27,7 +27,7 @@ CREATE TABLE users (
     name VARCHAR(100) NOT NULL,
     designation VARCHAR(100),
     department VARCHAR(100) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('Employee', 'Manager', 'HR', 'Admin')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('Employee', 'HR', 'Admin')),
     manager_id UUID REFERENCES users(id) ON DELETE SET NULL,
     ctc DECIMAL(12,2) DEFAULT 0,
     is_active BOOLEAN DEFAULT true,

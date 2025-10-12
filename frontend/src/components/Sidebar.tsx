@@ -16,7 +16,7 @@ const baseLinks = [
 
 const hrAdminLinks = [
   { href: "/employees", label: "Employees", icon: "👤" },
-  { href: "/team", label: "Team", icon: " 🏢" },
+  { href: "/team", label: "Team", icon: "👥" },
   { href: "/documents", label: "Documents", icon: "📑" },
   { href: "/salary-slips", label: "Salary Slips", icon: "💰" },
   { href: "/holidays", label: "Holidays & Events", icon: "📅" },
@@ -24,12 +24,6 @@ const hrAdminLinks = [
   { href: "/audit-logs", label: "Audit Logs", icon: "📊" },
 ];
 
-const managerLinks = [
-  { href: "/documents", label: "Documents", icon: "📑" },
-  { href: "/salary-slips", label: "Salary Slips", icon: "💰" },
-  { href: "/team", label: "Team", icon: "👥" },
-  { href: "/off-site", label: "Off-site Tracker", icon: "🏢" },
-];
 
 const employeeLinks = [
   { href: "/documents", label: "Documents", icon: "📑" },
@@ -41,11 +35,12 @@ const employeeLinks = [
 
 const godLinks = [
   { href: "/god", label: "God Dashboard", icon: "👑" },
+  { href: "/god/feedback", label: "Feedback", icon: "💬" },
 ];
 
 export default function Sidebar() {
-  // Avoid hydration mismatch: compute pathname on client
-  const pathname = typeof window !== 'undefined' ? usePathname() : undefined;
+  // React hooks must be called unconditionally
+  const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -65,14 +60,15 @@ export default function Sidebar() {
   }, []);
 
   const getLinks = () => {
+    // For God users, ONLY show God Dashboard and Feedback
+    if (isGod()) {
+      return godLinks;
+    }
+    
     const links = [...baseLinks];
     
-    if (isGod()) {
-      links.push(...godLinks);
-    } else if (canManageUsers()) {
+    if (canManageUsers()) {
       links.push(...hrAdminLinks);
-    } else if (isManager()) {
-      links.push(...managerLinks);
     } else {
       links.push(...employeeLinks);
     }

@@ -108,9 +108,14 @@ func (r *documentRepository) buildQuery(query *gorm.DB, filters map[string]inter
 			// For employees: show documents assigned to them OR public documents
 			if userIDStr, ok := value.(string); ok {
 				if userIDUint, err := strconv.ParseUint(userIDStr, 10, 32); err == nil {
-					query = query.Where("user_id = ? OR is_public = ?", uint(userIDUint), true)
+					query = query.Where("user_id = ? OR document_scope = 'public'", uint(userIDUint))
 				}
 			}
+		case "hr_scope_all":
+			// For HR/Admin: include all documents (public, hr_private, user_private) within org
+			// No extra where clause; base query already scoped by organization
+			// Kept for explicitness if future filters are added
+			_ = value
 		case "is_public":
 			if isPublic, ok := value.(bool); ok {
 				query = query.Where("is_public = ?", isPublic)

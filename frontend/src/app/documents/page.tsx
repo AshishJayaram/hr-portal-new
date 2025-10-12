@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getDocuments, uploadDocument, deleteDocument, canManageDocuments, getCurrentUser } from "@/lib/api";
+import { getDocuments, uploadDocument, deleteDocument, canManageDocuments, getCurrentUser, acknowledgeDocument, getAcknowledgedUsersForDocument } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -11,7 +11,7 @@ import Select from "@/components/ui/Select";
 import Loader from "@/components/ui/Loader";
 import SearchFilter from "@/components/ui/SearchFilter";
 import { toast } from "sonner";
-import { Search, Plus, Download, Trash2, FileText, Eye, Upload } from "lucide-react";
+import { Search, Plus, Download, Trash2, FileText, Eye, Upload, CheckCircle, Users } from "lucide-react";
 import { formatDate, capitalize } from "@/lib/utils";
 import { openPDFViewer, isPDFFile, getFileIcon, getFileTypeText } from "@/lib/pdfUtils";
 
@@ -29,6 +29,11 @@ export default function DocumentsPage() {
     isPublic: true,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [acknowledgedUsers, setAcknowledgedUsers] = useState<any[]>([]);
+  const [showAcknowledgedUsers, setShowAcknowledgedUsers] = useState<string | null>(null);
+  const [ackSearch, setAckSearch] = useState("");
+  const [ackPage, setAckPage] = useState(1);
+  const ackPerPage = 10;
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -45,7 +50,8 @@ export default function DocumentsPage() {
         if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
           return true; // HR/Admin can see all documents
         }
-        return doc.isPublic || doc.user_id === userId; // Employees can only see public docs or their own
+        // Employees can see: their own documents + public documents (exclude HR-private)
+        return doc.isPublic || doc.user_id === userId;
       });
       
       setFilteredDocuments(roleFilteredDocs);
@@ -99,6 +105,42 @@ export default function DocumentsPage() {
       toast.error(err.message || "Failed to delete document");
     },
   });
+
+  const acknowledgeMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      return await acknowledgeDocument(docId);
+    },
+    onSuccess: () => {
+      toast.success("Document acknowledged successfully");
+    },
+    onError: (err: any) => {
+      const msg = String(err?.message || "Failed to acknowledge document");
+      if (msg.toLowerCase().includes("already acknowledged")) {
+        toast.info("Document already acknowledged by this user");
+      } else {
+        toast.error(msg);
+      }
+    },
+  });
+
+  const handleShowAcknowledgedUsers = async (docId: string) => {
+    try {
+      const response = await getAcknowledgedUsersForDocument(docId);
+      // Map possible raw user objects into the shape the modal expects
+      const users = (response.data || []).map((u: any) => ({
+        id: u.id ?? u.user_id ?? Math.random().toString(36).slice(2),
+        user: {
+          name: u.name ?? u.user?.name ?? u.username ?? 'User',
+          email: u.email ?? u.user?.email ?? 'N/A',
+        },
+        acknowledged_at: u.acknowledged_at ?? u.created_at ?? new Date().toISOString(),
+      }));
+      setAcknowledgedUsers(users);
+      setShowAcknowledgedUsers(docId);
+    } catch (error) {
+      toast.error("Failed to load acknowledged users");
+    }
+  };
 
   // Comprehensive document cleanup function
   const performDocumentCleanup = async (docId: string) => {
@@ -191,7 +233,8 @@ export default function DocumentsPage() {
       if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
         return true; // HR/Admin can see all documents
       }
-      return doc.isPublic || doc.user_id === userId; // Employees can only see public docs or their own
+      // Employees can see: their own documents + public documents (exclude HR-private)
+      return doc.isPublic || doc.user_id === userId;
     });
     
     if (filters.category) {
@@ -223,7 +266,7 @@ export default function DocumentsPage() {
             Manage and access organizational documents
           </p>
         </div>
-        <RoleGuard allowedRoles={["HR", "Admin", "Manager"]}>
+        <RoleGuard allowedRoles={["HR", "Admin"]}>
           <Button
             onClick={() => setShowUpload(true)}
             className="flex items-center gap-2"
@@ -249,7 +292,7 @@ export default function DocumentsPage() {
       />
 
       {/* Upload Form */}
-      <RoleGuard allowedRoles={["HR", "Admin", "Manager"]}>
+      <RoleGuard allowedRoles={["HR", "Admin"]}>
         {showUpload && (
           <Card>
             <div className="flex items-center justify-between mb-6">
@@ -281,6 +324,7 @@ export default function DocumentsPage() {
                 <label className="block text-sm font-medium mb-2">File</label>
                 <input
                   type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png"
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                   className="w-full p-3 border border-white/20 rounded-lg bg-white/10 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500 file:text-white hover:file:bg-indigo-600"
                   required
@@ -329,10 +373,10 @@ export default function DocumentsPage() {
                   <h3 className="font-semibold text-white group-hover:text-indigo-300 transition-colors">
                     {doc.title}
                   </h3>
-                  <p className="text-sm text-gray-400">{doc.category}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{doc.category}</p>
                 </div>
               </div>
-              <RoleGuard allowedRoles={["HR", "Admin", "Manager"]}>
+              <RoleGuard allowedRoles={["HR", "Admin"]}>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button
                     variant="ghost"
@@ -360,16 +404,39 @@ export default function DocumentsPage() {
             
             <div className="mt-4 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-600">
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200">
                   {doc.category}
                 </span>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-600 dark:text-gray-500">
                 Uploaded by {doc.uploadedBy} on {formatDate(doc.createdAt)}
               </p>
             </div>
 
             <div className="mt-4 pt-4 border-t border-white/10">
+              <div className="flex gap-2 mb-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => acknowledgeMutation.mutate(doc.id)}
+                  disabled={acknowledgeMutation.isPending}
+                  className="flex-1"
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Acknowledge
+                </Button>
+                {(userRole === 'HR' || userRole === 'Admin' || userRole === 'God') && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleShowAcknowledgedUsers(doc.id)}
+                    className="px-2"
+                    title="View acknowledged users"
+                  >
+                    <Users className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -427,7 +494,7 @@ export default function DocumentsPage() {
                         <h3 className="font-semibold text-white group-hover:text-red-300 transition-colors">
                           {doc.title}
                         </h3>
-                        <p className="text-sm text-gray-400">{doc.category}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{doc.category}</p>
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -456,14 +523,14 @@ export default function DocumentsPage() {
                   
                   <div className="mt-4 space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-600">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-200 text-red-800 dark:bg-red-600 dark:text-red-200">
                         {doc.category}
                       </span>
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 border border-red-300 dark:border-red-500/30">
                         Private
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-600 dark:text-gray-500">
                       Uploaded by {doc.uploadedBy} on {formatDate(doc.createdAt)}
                     </p>
                   </div>
@@ -510,6 +577,102 @@ export default function DocumentsPage() {
           </p>
         </Card>
       )}
+
+      {/* Acknowledged Users Modal */}
+      {showAcknowledgedUsers && (() => {
+        const filtered = acknowledgedUsers.filter((ack: any) =>
+          ack.user?.name?.toLowerCase().includes(ackSearch.toLowerCase()) ||
+          ack.user?.email?.toLowerCase().includes(ackSearch.toLowerCase())
+        );
+        const totalPages = Math.ceil(filtered.length / ackPerPage);
+        const paginatedUsers = filtered.slice((ackPage - 1) * ackPerPage, ackPage * ackPerPage);
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Acknowledged Users</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowAcknowledgedUsers(null);
+                    setAckSearch("");
+                    setAckPage(1);
+                  }}
+                  className="h-8 w-8 p-0"
+                >
+                  ×
+                </Button>
+              </div>
+
+              {/* Search */}
+              <div className="mb-4">
+                <Input
+                  placeholder="Search by name or email..."
+                  value={ackSearch}
+                  onChange={(e) => {
+                    setAckSearch(e.target.value);
+                    setAckPage(1);
+                  }}
+                  className="w-full"
+                />
+              </div>
+
+              {/* User List */}
+              <div className="space-y-2 overflow-y-auto flex-1 mb-4">
+                {paginatedUsers.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">
+                    {ackSearch ? "No matching users found." : "No users have acknowledged this document yet."}
+                  </p>
+                ) : (
+                  paginatedUsers.map((ack: any) => (
+                    <div key={ack.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                        {ack.user?.name?.charAt(0) || 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{ack.user?.name || 'Unknown User'}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{ack.user?.email || 'N/A'}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                          Acknowledged: {ack.acknowledged_at ? new Date(ack.acknowledged_at).toLocaleString() : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Showing {(ackPage - 1) * ackPerPage + 1} - {Math.min(ackPage * ackPerPage, filtered.length)} of {filtered.length}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAckPage(p => Math.max(1, p - 1))}
+                      disabled={ackPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAckPage(p => Math.min(totalPages, p + 1))}
+                      disabled={ackPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -45,11 +46,30 @@ func (s *documentService) UploadDocument(req UploadDocumentRequest, httpReq *htt
 		return nil, fmt.Errorf("no file provided")
 	}
 
-	// Generate unique filename
+	// Validate file type
+	if !s.isValidFileType(req.FileHeader.Header.Get("Content-Type"), req.FileHeader.Filename) {
+		return nil, fmt.Errorf("unsupported file type. Allowed types: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, JPG, JPEG, PNG")
+	}
+
+	// Generate unique filename - sanitize to remove invalid characters
+	sanitizeFilename := func(name string) string {
+		// Replace spaces and other problematic characters
+		name = strings.ReplaceAll(name, " ", "_")
+		name = strings.ReplaceAll(name, "/", "_")
+		name = strings.ReplaceAll(name, "\\", "_")
+		name = strings.ReplaceAll(name, ":", "_")
+		name = strings.ReplaceAll(name, "*", "_")
+		name = strings.ReplaceAll(name, "?", "_")
+		name = strings.ReplaceAll(name, "\"", "_")
+		name = strings.ReplaceAll(name, "<", "_")
+		name = strings.ReplaceAll(name, ">", "_")
+		name = strings.ReplaceAll(name, "|", "_")
+		return name
+	}
 	filename := fmt.Sprintf("%d_%s_%s",
 		time.Now().Unix(),
-		strings.ReplaceAll(req.Title, " ", "_"),
-		req.FileHeader.Filename)
+		sanitizeFilename(req.Title),
+		sanitizeFilename(req.FileHeader.Filename))
 
 	// Create upload directory if it doesn't exist
 	uploadDir := "uploads/documents"
@@ -82,12 +102,22 @@ func (s *documentService) UploadDocument(req UploadDocumentRequest, httpReq *htt
 		return nil, fmt.Errorf("failed to get file info: %w", err)
 	}
 
+	// Determine document scope based on isPublic and category
+	documentScope := "user_private" // Default to user_private for non-public
+	if req.IsPublic {
+		documentScope = "public"
+	} else if strings.EqualFold(req.Category, "hr_private") {
+		// Explicit HR private category
+		documentScope = "hr_private"
+	}
+
 	document := &models.Document{
 		UserID:         uint(userID),
 		OrganizationID: uint(orgID),
 		Title:          req.Title,
 		Category:       req.Category,
 		IsPublic:       req.IsPublic,
+		DocumentScope:  documentScope,
 		FileName:       req.FileHeader.Filename,
 		FilePath:       filePath,
 		FileSize:       fileInfo.Size(),
@@ -197,7 +227,7 @@ func NewSalarySlipService(repo repositories.SalarySlipRepository, auditService A
 	}
 }
 
-func (s *salarySlipService) UploadSalarySlip(req UploadSalarySlipRequest, httpReq *http.Request) (*models.SalarySlip, error) {
+func (s *salarySlipService) AddSalarySlip(req UploadSalarySlipRequest, httpReq *http.Request) (*models.SalarySlip, error) {
 	// Convert string IDs to uint
 	userID, err := strconv.ParseUint(req.UserID, 10, 32)
 	if err != nil {
@@ -329,12 +359,76 @@ func NewCompanySettingsService(repo repositories.CompanySettingsRepository) Comp
 }
 
 func (s *companySettingsService) GetSettings(organizationID string) (*models.CompanySettings, error) {
-	return s.repo.GetByOrganizationID(organizationID)
+	settings, err := s.repo.GetByOrganizationID(organizationID)
+	if err != nil {
+		// If settings don't exist, return default settings
+		orgID, parseErr := strconv.ParseUint(organizationID, 10, 32)
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid organization ID: %w", parseErr)
+		}
+
+		// Return default settings
+		return &models.CompanySettings{
+			OrganizationID: uint(orgID),
+			Settings:       `{"earnings":{"basic":{"mode":"PERCENT_OF_CTC","value":40},"hra":{"mode":"PERCENT_OF_BASIC","value":50},"medical":{"mode":"FIXED","value":1250},"conveyance":{"mode":"FIXED","value":1600},"lta":{"mode":"FIXED","value":8000},"specialAllowance":{"mode":"REMAINDER"}},"deductions":{"empPF":{"mode":"PERCENT_OF_BASIC","value":12},"professionalTax":{"mode":"FIXED","value":200},"esi":{"mode":"PERCENT_OF_CTC","value":0.75}},"employerPF":{"mode":"PERCENT_OF_BASIC","value":12},"lop":{"calculationMethod":"NET_PAY_BY_DAYS","defaultDaysInMonth":30}}`,
+			Currency:       "INR",
+		}, nil
+	}
+
+	return settings, nil
 }
 
 func (s *companySettingsService) UpdateSettings(organizationID string, req UpdateCompanySettingsRequest) (*models.CompanySettings, error) {
-	// TODO: Implement settings update logic
-	return nil, fmt.Errorf("not implemented")
+	// Parse the settings JSON to extract currency if provided
+	var settingsMap map[string]interface{}
+	if err := json.Unmarshal([]byte(req.Settings), &settingsMap); err != nil {
+		return nil, fmt.Errorf("invalid settings JSON: %w", err)
+	}
+
+	// Extract currency from settings if provided
+	currency := "INR" // Default currency
+	if currencyVal, exists := settingsMap["currency"]; exists {
+		if currencyStr, ok := currencyVal.(string); ok {
+			currency = currencyStr
+		}
+		// Remove currency from settings map as it's stored separately
+		delete(settingsMap, "currency")
+		// Re-marshal the settings without currency
+		settingsJSON, err := json.Marshal(settingsMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to re-marshal settings: %w", err)
+		}
+		req.Settings = string(settingsJSON)
+	}
+
+	// Get existing settings or create new ones
+	settings, err := s.repo.GetByOrganizationID(organizationID)
+	if err != nil {
+		// If settings don't exist, create new ones
+		orgID, parseErr := strconv.ParseUint(organizationID, 10, 32)
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid organization ID: %w", parseErr)
+		}
+
+		settings = &models.CompanySettings{
+			OrganizationID: uint(orgID),
+			Settings:       req.Settings,
+			Currency:       currency,
+		}
+
+		if err := s.repo.Create(settings); err != nil {
+			return nil, fmt.Errorf("failed to create company settings: %w", err)
+		}
+	} else {
+		// Update existing settings
+		settings.Settings = req.Settings
+		settings.Currency = currency
+		if err := s.repo.Update(settings); err != nil {
+			return nil, fmt.Errorf("failed to update company settings: %w", err)
+		}
+	}
+
+	return settings, nil
 }
 
 func (s *companySettingsService) CreateSettings(organizationID string, req UpdateCompanySettingsRequest) (*models.CompanySettings, error) {
@@ -428,12 +522,12 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 
 	// Role-based access control (same as Documents page):
 	// - HR/Admin/God can see documents for any user in their organization
-	// - Employees can only see their own documents + public documents
+	// - Employees can see their own documents + public documents + HR private documents
 	if userRole == "HR" || userRole == "Admin" || userRole == "God" {
 		// HR/Admin/God can access documents for any user
 		// If no requestedUserID specified, show all documents in organization
 	} else {
-		// Regular employees can only see their own documents + public documents
+		// Regular employees can see their own documents + public documents + HR private documents
 		filters["user_id_or_public"] = userID
 	}
 
@@ -543,4 +637,43 @@ func (s *dashboardService) getLeaveBalances(organizationID, userID string) ([]Le
 	}
 
 	return balances, nil
+}
+
+// isValidFileType checks if the file type is allowed
+func (s *documentService) isValidFileType(contentType, filename string) bool {
+	// Allowed MIME types
+	allowedMimeTypes := map[string]bool{
+		"application/pdf":    true,
+		"application/msword": true,
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
+		"application/vnd.ms-excel": true,
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":         true,
+		"application/vnd.ms-powerpoint":                                             true,
+		"application/vnd.openxmlformats-officedocument.presentationml.presentation": true,
+		"image/jpeg": true,
+		"image/jpg":  true,
+		"image/png":  true,
+	}
+
+	// Check MIME type
+	if allowedMimeTypes[contentType] {
+		return true
+	}
+
+	// Check file extension as fallback
+	ext := strings.ToLower(strings.TrimPrefix(strings.ToLower(filename), "."))
+	allowedExtensions := map[string]bool{
+		"pdf":  true,
+		"doc":  true,
+		"docx": true,
+		"xls":  true,
+		"xlsx": true,
+		"ppt":  true,
+		"pptx": true,
+		"jpg":  true,
+		"jpeg": true,
+		"png":  true,
+	}
+
+	return allowedExtensions[ext]
 }

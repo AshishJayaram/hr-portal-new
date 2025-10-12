@@ -9,11 +9,10 @@ INSERT INTO organizations (id, name, domain, settings, is_active) VALUES
 INSERT INTO users (id, organization_id, username, email, password_hash, name, designation, department, role, ctc, is_active) VALUES 
 ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', 'admin', 'admin@demo.com', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4j5Kz8Kz8K', 'Admin User', 'System Administrator', 'IT', 'Admin', 1200000, true),
 ('550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440000', 'hr', 'hr@demo.com', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4j5Kz8Kz8K', 'HR Manager', 'HR Manager', 'HR', 'HR', 800000, true),
-('550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000', 'manager', 'manager@demo.com', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4j5Kz8Kz8K', 'Team Manager', 'Project Manager', 'Engineering', 'Manager', 900000, true),
 ('550e8400-e29b-41d4-a716-446655440004', '550e8400-e29b-41d4-a716-446655440000', 'employee', 'employee@demo.com', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4j5Kz8Kz8K', 'John Doe', 'Software Developer', 'Engineering', 'Employee', 600000, true);
 
 -- Update manager relationships
-UPDATE users SET manager_id = '550e8400-e29b-41d4-a716-446655440003' WHERE id = '550e8400-e29b-41d4-a716-446655440004';
+UPDATE users SET manager_id = '550e8400-e29b-41d4-a716-446655440001' WHERE id = '550e8400-e29b-41d4-a716-446655440004';
 
 -- Insert leave categories
 INSERT INTO leave_categories (id, organization_id, name, description, max_days_per_year, requires_approval, is_active) VALUES 
