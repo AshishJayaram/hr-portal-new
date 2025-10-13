@@ -187,10 +187,14 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 				return nil, fmt.Errorf("an employee cannot be assigned as their own manager")
 			}
 
-			// Allow any non-self manager (temporarily relax circular guard for flexibility)
 			managerIDUint, err := strconv.ParseUint(*req.ManagerID, 10, 32)
 			if err != nil {
 				return nil, fmt.Errorf("invalid manager ID: %w", err)
+			}
+
+			// Check for circular dependency
+			if err := s.checkCircularDependency(id, uint(managerIDUint)); err != nil {
+				return nil, err
 			}
 
 			managerIDUintPtr := uint(managerIDUint)
@@ -357,4 +361,46 @@ func (s *userService) ListAll() ([]models.User, error) {
 
 func (s *userService) GetAdminByOrganizationID(organizationID string) (*models.User, error) {
 	return s.userRepo.GetAdminByOrganizationID(organizationID)
+}
+
+// checkCircularDependency checks if assigning the given manager would create a circular dependency
+func (s *userService) checkCircularDependency(userID string, managerID uint) error {
+	// Get the user to access organization ID
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	organizationID := strconv.FormatUint(uint64(user.OrganizationID), 10)
+
+	// Get the user's current subordinates
+	subordinates, err := s.userRepo.GetSubordinates(organizationID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get subordinates: %w", err)
+	}
+
+	// Check if the proposed manager is in the user's subordinate chain
+	return s.checkSubordinateChain(subordinates, managerID, organizationID)
+}
+
+// checkSubordinateChain recursively checks if the managerID exists in the subordinate chain
+func (s *userService) checkSubordinateChain(subordinates []models.User, managerID uint, organizationID string) error {
+	for _, subordinate := range subordinates {
+		// Direct subordinate check
+		if subordinate.ID == managerID {
+			return fmt.Errorf("cannot assign manager: would create circular dependency (manager is a direct subordinate)")
+		}
+
+		// Recursive check for indirect subordinates
+		indirectSubordinates, err := s.userRepo.GetSubordinates(organizationID, strconv.FormatUint(uint64(subordinate.ID), 10))
+		if err != nil {
+			continue // Skip if we can't get subordinates
+		}
+
+		if err := s.checkSubordinateChain(indirectSubordinates, managerID, organizationID); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
