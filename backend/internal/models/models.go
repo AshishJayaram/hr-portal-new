@@ -256,6 +256,9 @@ type Holiday struct {
 	Description     string     `json:"description"`
 	IsCalendarEvent bool       `json:"is_calendar_event" gorm:"default:true"`
 	Color           string     `json:"color" gorm:"default:'#ef4444'"`
+	MediaUrl        *string    `json:"media_url"`        // URL to uploaded media file
+	MediaType       *string    `json:"media_type"`       // Type of media: 'image' or 'video'
+	MediaFileName   *string    `json:"media_file_name"`  // Original filename
 
 	// Relationships
 	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`

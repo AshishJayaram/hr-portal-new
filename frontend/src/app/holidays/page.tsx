@@ -247,7 +247,7 @@ export default function HolidaysPage() {
                       type: newType,
                       startDate: newType === 'notice' ? '' : formData.startDate, // Clear date for notices
                       endDate: newType === 'notice' ? '' : formData.endDate,
-                      color: newType === "holiday" ? "#ef4444" : newType === "event" ? "#3b82f6" : "#10b981"
+                      color: newType === "holiday" ? "#ef4444" : newType === "event" ? "#ec4899" : "#8b5cf6"
                     });
                   }}
                   options={[

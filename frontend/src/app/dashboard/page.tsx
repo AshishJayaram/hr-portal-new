@@ -75,9 +75,10 @@ export default function DashboardPage() {
             title: h.name || h.title,
             start: new Date(start.trim()),
             end: new Date(end.trim()),
-            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#f59e0b" : "#10b981"),
+            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
             extendedProps: {
-              type: h.type || 'holiday'
+              type: h.type || 'holiday',
+              description: h.description
             }
           };
         } else {
@@ -86,9 +87,10 @@ export default function DashboardPage() {
             title: h.name || h.title,
             start: new Date(h.date),
             end: new Date(h.date),
-            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#f59e0b" : "#10b981"),
+            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
             extendedProps: {
-              type: h.type || 'holiday'
+              type: h.type || 'holiday',
+              description: h.description
             }
           };
         }

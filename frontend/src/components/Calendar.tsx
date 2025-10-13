@@ -55,8 +55,12 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
             <span className="text-xs text-gray-600 dark:text-gray-400">Holidays</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: "#f59e0b" }}></div>
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: "#ec4899" }}></div>
             <span className="text-xs text-gray-600 dark:text-gray-400">Events</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: "#8b5cf6" }}></div>
+            <span className="text-xs text-gray-600 dark:text-gray-400">Notices</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#f97316" }}></div>
@@ -127,7 +131,7 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
                   </div>
                   <div className="space-y-2">
                     {selectedEvent.extendedProps.employees.map((employee, index) => (
-                      <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded p-3">
+                      <div key={index} className="bg-gray-100 dark:bg-gray-600 rounded p-3 border border-gray-200 dark:border-gray-500">
                         <div className="flex justify-between items-start">
                           <div>
                             <div className="font-medium text-gray-900 dark:text-white">
@@ -146,6 +150,10 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
                       </div>
                     ))}
                   </div>
+                </div>
+              ) : selectedEvent.extendedProps?.description ? (
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <strong>Description:</strong> {selectedEvent.extendedProps.description}
                 </div>
               ) : (
                 <div className="text-sm text-gray-600 dark:text-gray-400">
