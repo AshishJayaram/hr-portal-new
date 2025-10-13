@@ -167,7 +167,7 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Fallback: get organizationId from user object if not in localStorage
   if (!organizationId && typeof window !== "undefined") {
     const user = getCurrentUser();
-    organizationId = user?.organizationId || null;
+    organizationId = user?.organization_id ? String(user.organization_id) : null;
     
     // If still no organizationId, try to decode it from the JWT token
     if (!organizationId && token) {
@@ -229,7 +229,7 @@ async function uploadFile<T>(path: string, formData: FormData): Promise<T> {
   // Fallback: get organizationId from user object if not in localStorage
   if (!organizationId && typeof window !== "undefined") {
     const user = getCurrentUser();
-    organizationId = user?.organizationId || null;
+    organizationId = user?.organization_id ? String(user.organization_id) : null;
     
     // If still no organizationId, try to decode it from the JWT token
     if (!organizationId && token) {
@@ -297,8 +297,8 @@ export const getUsers = (params?: Record<string, string>) =>
       name: u.name ?? u.username ?? 'User',
       role: toCanonicalRole(u.role) as Role,
       department: u.department,
-      createdAt: u.created_at ?? u.createdAt ?? new Date().toISOString(),
-      updatedAt: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
+      created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
+      updated_at: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     }));
     return { data: mapped.length ? mapped : [] } as ApiResponse<User[]>;
   }).catch(() => ({ data: [] } as ApiResponse<User[]>));
@@ -315,8 +315,8 @@ export const getUser = (id: string) =>
       designation: u.designation,
       ctc: u.ctc,
       manager_id: u.manager_id,
-      createdAt: u.created_at ?? u.createdAt ?? new Date().toISOString(),
-      updatedAt: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
+      created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
+      updated_at: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     };
     return { data: mapped } as ApiResponse<User>;
   }).catch(() => ({ data: [][0] } as ApiResponse<User>));
@@ -463,7 +463,20 @@ export const deleteLeaveAllocation = (userId: string, allocationId: string) =>
 export const getLeaveBalance = (userId: string) =>
   fetcher<any>(`/api/leaves/balance/${userId}`).then((raw) => {
     const items = (raw?.data || raw || []) as any[];
-    const mapped = items.map((b: any) => ({
+    const mapped: LeaveBalance[] = items.map((b: any) => ({
+      id: String(b.id ?? ''),
+      userId: String(b.user_id ?? userId),
+      category_id: String(b.category_id ?? b.categoryId ?? ''),
+      categoryId: String(b.category_id ?? b.categoryId ?? ''),
+      category_name: b.category_name || b.categoryName || 'Leave',
+      categoryName: b.category_name || b.categoryName || 'Leave',
+      total_days: b.total_days ?? b.totalDays ?? 0,
+      totalDays: b.total_days ?? b.totalDays ?? 0,
+      used_days: b.used_days ?? b.usedDays ?? 0,
+      usedDays: b.used_days ?? b.usedDays ?? 0,
+      remaining_days: b.remaining_days ?? b.remainingDays ?? (b.total_days != null && b.used_days != null ? b.total_days - b.used_days : 0),
+      remainingDays: b.remaining_days ?? b.remainingDays ?? (b.total_days != null && b.used_days != null ? b.total_days - b.used_days : 0),
+      year: b.year ?? new Date().getFullYear(),
       type: b.category_name || b.categoryName || 'Leave',
       total: b.total_days ?? b.totalDays ?? 0,
       used: b.used_days ?? b.usedDays ?? 0,
@@ -503,7 +516,7 @@ export const getLeaves = (params?: Record<string, string>) =>
   }).catch(() => ({ data: [] } as ApiResponse<Leave[]>));
 
 export const getLeavesPaginated = (params?: Record<string, string>) =>
-  fetcher<any>(`/leaves?${new URLSearchParams({ ...params, paginated: 'true' } || {}).toString()}`).then((raw) => {
+  fetcher<any>(`/leaves?${new URLSearchParams({ ...(params || {}), paginated: 'true' }).toString()}`).then((raw) => {
     const items = (raw?.data || []) as any[];
     const mapped: Leave[] = items.map((l: any) => ({
       id: String(l.id),
@@ -910,10 +923,13 @@ export const getTeam = (params?: Record<string, string>) =>
       manager_id: u.manager_id,
       manager: u.manager ? {
         id: String(u.manager.id),
+        email: u.manager.email ?? '',
         name: u.manager.name,
         role: toCanonicalRole(u.manager.role) as Role,
         department: u.manager.department,
         designation: u.manager.designation,
+        created_at: u.manager.created_at ?? u.manager.createdAt ?? new Date().toISOString(),
+        updated_at: u.manager.updated_at ?? u.manager.updatedAt ?? new Date().toISOString(),
       } : undefined,
       ctc: u.ctc ? Number(u.ctc) : undefined,
       organization_id: u.organization_id,
@@ -1000,7 +1016,7 @@ export const getReimbursements = async (status?: string, view?: 'my' | 'team'): 
   if (status) params.append('status', status);
   if (view) params.append('view', view);
   const queryString = params.toString();
-  return await fetcher<ReimbursementRequest[]>(`/reimbursements${queryString ? `?${queryString}` : ''}`);
+  return await fetcher<ApiResponse<ReimbursementRequest[]>>(`/reimbursements${queryString ? `?${queryString}` : ''}`).then(raw => raw || { data: [] });
 };
 
 export const createReimbursement = async (data: {
@@ -1027,10 +1043,10 @@ export const createReimbursement = async (data: {
     formData.append('bills', file);
   });
 
-  return await fetcher<ReimbursementRequest>('/reimbursements', {
+  return await fetcher<ApiResponse<ReimbursementRequest>>('/reimbursements', {
     method: 'POST',
     body: formData,
-  });
+  }).then(raw => raw || { data: {} as ReimbursementRequest });
 };
 
 export const updateReimbursementStatus = async (
@@ -1050,10 +1066,10 @@ export const updateReimbursementStatus = async (
     ? JSON.stringify({ reason: message })
     : undefined;
   
-  return await fetcher<ReimbursementRequest>(endpoint, {
+  return await fetcher<ApiResponse<ReimbursementRequest>>(endpoint, {
     method: 'POST',
     body,
-  });
+  }).then(raw => raw || { data: {} as ReimbursementRequest });
 };
 
 export const updateReimbursement = async (id: string, data: {
@@ -1077,16 +1093,16 @@ export const updateReimbursement = async (id: string, data: {
     });
   }
 
-  return await fetcher<ReimbursementRequest>(`/reimbursements/${id}`, {
+  return await fetcher<ApiResponse<ReimbursementRequest>>(`/reimbursements/${id}`, {
     method: 'PATCH',
     body: formData,
-  });
+  }).then(raw => raw || { data: {} as ReimbursementRequest });
 };
 
 export const deleteReimbursement = async (id: string): Promise<ApiResponse<void>> => {
-  return await fetcher<void>(`/reimbursements/${id}`, {
+  return await fetcher<ApiResponse<void>>(`/reimbursements/${id}`, {
     method: 'DELETE',
-  });
+  }).then(() => ({ data: undefined }));
 };
 
 // -------------------- Employee Growth --------------------
@@ -1102,7 +1118,7 @@ export interface EmployeeGrowthRecord {
 }
 
 export const getEmployeeGrowth = async (userId: string): Promise<ApiResponse<EmployeeGrowthRecord[]>> => {
-  return await fetcher<EmployeeGrowthRecord[]>(`/employee-growth/${userId}`);
+  return await fetcher<ApiResponse<EmployeeGrowthRecord[]>>(`/employee-growth/${userId}`).then(raw => raw || { data: [] });
 };
 
 export const getGrowthStats = async (userId: string): Promise<ApiResponse<any>> => {
@@ -1116,10 +1132,10 @@ export const createGrowthRecord = async (data: {
   type: string;
   date: string;
 }): Promise<ApiResponse<EmployeeGrowthRecord>> => {
-  return await fetcher<EmployeeGrowthRecord>('/employee-growth', {
+  return await fetcher<ApiResponse<EmployeeGrowthRecord>>('/employee-growth', {
     method: 'POST',
     body: JSON.stringify(data),
-  });
+  }).then(raw => raw || { data: {} as EmployeeGrowthRecord });
 };
 
 export const updateGrowthRecord = async (id: string, data: {
@@ -1128,16 +1144,16 @@ export const updateGrowthRecord = async (id: string, data: {
   type: string;
   date: string;
 }): Promise<ApiResponse<EmployeeGrowthRecord>> => {
-  return await fetcher<EmployeeGrowthRecord>(`/employee-growth/record/${id}`, {
+  return await fetcher<ApiResponse<EmployeeGrowthRecord>>(`/employee-growth/record/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
-  });
+  }).then(raw => raw || { data: {} as EmployeeGrowthRecord });
 };
 
 export const deleteGrowthRecord = async (id: string): Promise<ApiResponse<void>> => {
-  return await fetcher<void>(`/employee-growth/record/${id}`, {
+  return await fetcher<ApiResponse<void>>(`/employee-growth/record/${id}`, {
     method: 'DELETE',
-  });
+  }).then(() => ({ data: undefined }));
 };
 
 // -------------------- Current User --------------------
@@ -1203,12 +1219,12 @@ export const isGod = () => hasRole(['God']);
 
 // God API functions
 export const getPlatformStats = async (): Promise<PlatformStats> => {
-  const response = await fetcher(`/god/stats`);
+  const response = await fetcher<ApiResponse<PlatformStats>>(`/god/stats`);
   return response.data;
 };
 
 export const getOrganizations = async (): Promise<Organization[]> => {
-  const response = await fetcher(`/god/organizations`);
+  const response = await fetcher<any>(`/god/organizations`);
   const orgs = response.organizations || response.data || [];
   
   // Map backend response to frontend interface
@@ -1235,7 +1251,7 @@ export const createOrganization = async (orgData: {
     name: string;
   };
 }): Promise<{ organization: Organization; admin_user: User; message: string }> => {
-  const response = await fetcher(`/god/organizations`, {
+  const response = await fetcher<{ organization: Organization; admin_user: User; message: string }>(`/god/organizations`, {
     method: "POST",
     body: JSON.stringify(orgData),
   });
@@ -1243,7 +1259,7 @@ export const createOrganization = async (orgData: {
 };
 
 export const getOrganizationDetails = async (id: number): Promise<{ organization: Organization; admin_user?: any }> => {
-  const response = await fetcher(`/god/organizations/${id}`);
+  const response = await fetcher<{ organization: Organization; admin_user?: any }>(`/god/organizations/${id}`);
   return response;
 };
 
@@ -1253,7 +1269,7 @@ export const updateOrganization = async (id: number, orgData: {
   description?: string;
   is_active?: boolean;
 }): Promise<{ data: Organization; message: string }> => {
-  const response = await fetcher(`/god/organizations/${id}`, {
+  const response = await fetcher<{ data: Organization; message: string }>(`/god/organizations/${id}`, {
     method: "PUT",
     body: JSON.stringify(orgData),
   });
@@ -1261,7 +1277,7 @@ export const updateOrganization = async (id: number, orgData: {
 };
 
 export const deleteOrganization = async (id: number): Promise<{ message: string }> => {
-  const response = await fetcher(`/god/organizations/${id}`, {
+  const response = await fetcher<{ message: string }>(`/god/organizations/${id}`, {
     method: "DELETE",
   });
   return response;

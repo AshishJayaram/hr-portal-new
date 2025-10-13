@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+export const dynamic = 'force-static';
+
+export async function generateStaticParams() {
+  return [];
+}
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
 

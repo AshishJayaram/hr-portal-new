@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getTeam, getCurrentUser } from "../../lib/api";
 import Loader from "../../components/Loader";
-import Card from "../../components/Card";
+import Card from "@/components/ui/Card";
 import { User } from "../../lib/api";
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Users, Crown, Shield, UserCheck, User as UserIcon, Building, RefreshCw } from "lucide-react";
@@ -24,11 +24,6 @@ export default function TeamPage() {
     queryKey: ["team"],
     queryFn: () => {
       return getTeam();
-    },
-    onSuccess: (data) => {
-    },
-    onError: (error) => {
-      // Error fetching team data
     },
     // Force fresh data so manager changes reflect immediately
     staleTime: 0,
@@ -276,7 +271,7 @@ export default function TeamPage() {
               <div className="space-y-4">
                 <div className="text-center">
                   <div className={`w-20 h-20 rounded-full flex items-center justify-center text-white font-bold text-2xl mx-auto mb-3 ${
-                    team.some(u => u.manager_id === selectedUser.id) 
+                    team.some(u => u.manager_id === Number(selectedUser.id)) 
                       ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
                       : 'bg-gradient-to-br from-indigo-500 to-purple-600'
                   }`}>
@@ -288,7 +283,7 @@ export default function TeamPage() {
                   <p className="text-gray-500 dark:text-gray-400">
                     {selectedUser.designation}
                   </p>
-                  {team.some(u => u.manager_id === selectedUser.id) && (
+                  {team.some(u => u.manager_id === Number(selectedUser.id)) && (
                     <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
                       Manager
                     </span>

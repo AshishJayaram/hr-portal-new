@@ -858,7 +858,7 @@ export default function SalarySlipsPage() {
                 </span>
                 <button
                   onClick={() => setCurrentPage(prev => prev + 1)}
-                  disabled={currentPage >= Math.ceil((data.total || data.data.length) / itemsPerPage)}
+                  disabled={currentPage >= Math.ceil(data.data.length / itemsPerPage)}
                   className="px-3 py-2 bg-white/10 border border-white/20 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/20"
                 >
                   Next
@@ -935,11 +935,12 @@ export default function SalarySlipsPage() {
                             // Failed to download salary slip
                             
                             // Provide specific error messages based on error type
-                            if (error.message?.includes('404')) {
+                            const errorMessage = error instanceof Error ? error.message : String(error);
+                            if (errorMessage.includes('404')) {
                               toast.error('Salary slip file not found. The record will be cleaned up automatically.');
-                            } else if (error.message?.includes('403')) {
+                            } else if (errorMessage.includes('403')) {
                               toast.error('You do not have permission to access this salary slip.');
-                            } else if (error.message?.includes('401')) {
+                            } else if (errorMessage.includes('401')) {
                               toast.error('Please log in again to access salary slips.');
                             } else {
                               toast.error('Failed to access salary slip. Please try again or contact support.');
@@ -985,7 +986,7 @@ export default function SalarySlipsPage() {
                 </span>
                 <button
                   onClick={() => setCurrentPage(prev => prev + 1)}
-                  disabled={currentPage >= Math.ceil((data.total || data.data.length) / itemsPerPage)}
+                  disabled={currentPage >= Math.ceil(data.data.length / itemsPerPage)}
                   className="px-3 py-2 bg-white/10 border border-white/20 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/20"
                 >
                   Next

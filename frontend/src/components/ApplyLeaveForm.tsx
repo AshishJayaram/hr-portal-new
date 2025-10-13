@@ -130,7 +130,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
     }
     
     mutation.mutate({
-      type,
+      type: type as any, // Type comes from dynamic leave categories
       reason,
       from: startDate,
       to: endDate || startDate,
@@ -203,7 +203,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
             >
               <option value="FULL">Full Day</option>
               <option value="AM">First Half</option>
-              <option value="PM" disabled={startDate && endDate && startDate === endDate}>Second Half</option>
+              <option value="PM" disabled={!!(startDate && endDate && startDate === endDate)}>Second Half</option>
             </select>
           </div>
 
@@ -223,7 +223,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
               className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
             >
               <option value="FULL">Full Day</option>
-              <option value="AM" disabled={startDate && endDate && startDate === endDate}>First Half</option>
+              <option value="AM" disabled={!!(startDate && endDate && startDate === endDate)}>First Half</option>
               <option value="PM">Second Half</option>
             </select>
           </div>
