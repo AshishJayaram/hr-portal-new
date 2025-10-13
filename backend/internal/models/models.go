@@ -113,6 +113,7 @@ type LeaveCategory struct {
 	OrganizationID   uint   `json:"organization_id" gorm:"not null;index"`
 	Name             string `json:"name" gorm:"not null"`
 	Description      string `json:"description"`
+	DefaultDays      int    `json:"default_days" gorm:"default:0"`
 	MaxDaysPerYear   int    `json:"max_days_per_year" gorm:"default:0"`
 	RequiresApproval bool   `json:"requires_approval" gorm:"default:true"`
 	IsActive         bool   `json:"is_active" gorm:"default:true"`
@@ -366,6 +367,7 @@ type Reimbursement struct {
 	UserID          uint       `json:"user_id" gorm:"not null;index"`
 	OrganizationID  uint       `json:"organization_id" gorm:"not null;index"`
 	Reason          string     `json:"reason" gorm:"not null"` // Reasoning for payment
+	Description     string     `json:"description"`            // Detailed description of the expense
 	Amount          float64    `json:"amount" gorm:"not null"` // Total amount
 	Date            time.Time  `json:"date" gorm:"not null"`   // Date of expense
 	Status          string     `json:"status" gorm:"not null;default:'pending';check:status IN ('pending','approved','rejected','returned')"`

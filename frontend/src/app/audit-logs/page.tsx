@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { getAuditLogs, hasRole, getCurrentUser } from "@/lib/api";
-import Card from "@/components/Card";
+import Card from "@/components/ui/Card";
 import Loader from "@/components/Loader";
 import RoleGuard from "@/components/RoleGuard";
 
@@ -62,7 +62,7 @@ export default function AuditLogsPage() {
       case "create":
         return "bg-green-500/20 text-green-300 border-green-500/30";
       case "update":
-        return "bg-blue-500/20 text-blue-300 borrder-blue-500/30";
+        return "bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300 border-blue-300 dark:border-blue-500/30";
       case "delete":
         return "bg-red-500/20 text-red-300 border-red-500/30";
       default:
@@ -243,7 +243,7 @@ export default function AuditLogsPage() {
                   }).filter(Boolean).map((page) => (
                     <button
                       key={page}
-                      onClick={() => handlePageChange(page)}
+                      onClick={() => handlePageChange(page!)}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         page === currentPage
                           ? 'bg-indigo-600 text-white'

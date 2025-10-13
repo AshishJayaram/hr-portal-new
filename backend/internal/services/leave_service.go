@@ -504,6 +504,7 @@ func (s *leaveCategoryService) CreateCategory(organizationID string, req CreateL
 		OrganizationID:   uint(orgID),
 		Name:             req.Name,
 		Description:      req.Description,
+		DefaultDays:      req.DefaultDays,
 		MaxDaysPerYear:   req.MaxDaysPerYear,
 		RequiresApproval: req.RequiresApproval,
 		IsActive:         true, // Default to active
@@ -538,6 +539,9 @@ func (s *leaveCategoryService) UpdateCategory(id string, req UpdateLeaveCategory
 	if req.Description != nil {
 		existing.Description = *req.Description
 	}
+	if req.DefaultDays != nil {
+		existing.DefaultDays = *req.DefaultDays
+	}
 	if req.MaxDaysPerYear != nil {
 		existing.MaxDaysPerYear = *req.MaxDaysPerYear
 	}
@@ -563,12 +567,14 @@ func (s *leaveCategoryService) DeleteCategory(id string) error {
 type leaveAllocationService struct {
 	allocationRepo repositories.LeaveAllocationRepository
 	categoryRepo   repositories.LeaveCategoryRepository
+	userRepo       repositories.UserRepository
 }
 
-func NewLeaveAllocationService(allocationRepo repositories.LeaveAllocationRepository, categoryRepo repositories.LeaveCategoryRepository) LeaveAllocationService {
+func NewLeaveAllocationService(allocationRepo repositories.LeaveAllocationRepository, categoryRepo repositories.LeaveCategoryRepository, userRepo repositories.UserRepository) LeaveAllocationService {
 	return &leaveAllocationService{
 		allocationRepo: allocationRepo,
 		categoryRepo:   categoryRepo,
+		userRepo:       userRepo,
 	}
 }
 
@@ -587,6 +593,45 @@ func (s *leaveAllocationService) CreateAllocation(req CreateLeaveAllocationReque
 	organizationID, err := strconv.ParseUint(req.OrganizationID, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Validate that the category exists and belongs to the organization
+	category, err := s.categoryRepo.GetByID(req.CategoryID)
+	if err != nil {
+		return nil, fmt.Errorf("leave category not found: %w", err)
+	}
+	if category.OrganizationID != uint(organizationID) {
+		return nil, fmt.Errorf("leave category does not belong to organization")
+	}
+	if !category.IsActive {
+		return nil, fmt.Errorf("leave category is not active")
+	}
+
+	// Validate that the user belongs to the organization
+	user, err := s.userRepo.GetByID(req.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+	if user.OrganizationID != uint(organizationID) {
+		return nil, fmt.Errorf("user does not belong to organization")
+	}
+
+	// Check if allocation already exists for this user, category, and year
+	existingAllocations, err := s.allocationRepo.GetByUserID(req.UserID, req.Year)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing allocations: %w", err)
+	}
+
+	// Check for duplicate category
+	for _, existing := range existingAllocations {
+		if existing.CategoryID == uint(categoryID) {
+			return nil, fmt.Errorf("leave allocation already exists for user %s, category %s, year %d", req.UserID, req.CategoryName, req.Year)
+		}
+	}
+
+	// Validate that total days doesn't exceed category maximum
+	if req.TotalDays > category.MaxDaysPerYear {
+		return nil, fmt.Errorf("total days (%d) exceeds the maximum allowed for this category (%d days)", req.TotalDays, category.MaxDaysPerYear)
 	}
 
 	// Create the allocation
@@ -618,8 +663,43 @@ func (s *leaveAllocationService) ListAllocations(organizationID string, filters 
 }
 
 func (s *leaveAllocationService) UpdateAllocation(id string, req UpdateLeaveAllocationRequest) (*models.LeaveAllocation, error) {
-	// TODO: Implement allocation update logic
-	return nil, fmt.Errorf("not implemented")
+	// Get existing allocation
+	allocation, err := s.allocationRepo.GetByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("allocation not found")
+	}
+
+	// Validate that the category still exists and is active
+	category, err := s.categoryRepo.GetByID(strconv.FormatUint(uint64(allocation.CategoryID), 10))
+	if err != nil {
+		return nil, fmt.Errorf("leave category not found: %w", err)
+	}
+	if !category.IsActive {
+		return nil, fmt.Errorf("leave category is not active")
+	}
+
+	// Update fields
+	if req.TotalDays != nil {
+		// Validate that total days doesn't exceed category maximum
+		if *req.TotalDays > category.MaxDaysPerYear {
+			return nil, fmt.Errorf("total days (%d) exceeds the maximum allowed for this category (%d days)", *req.TotalDays, category.MaxDaysPerYear)
+		}
+		allocation.TotalDays = *req.TotalDays
+	}
+	if req.UsedDays != nil {
+		allocation.UsedDays = *req.UsedDays
+	}
+
+	// Recalculate remaining days
+	allocation.RemainingDays = allocation.TotalDays - allocation.UsedDays
+
+	// Save updated allocation
+	err = s.allocationRepo.Update(allocation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update allocation: %v", err)
+	}
+
+	return allocation, nil
 }
 
 func (s *leaveAllocationService) DeleteAllocation(id string) error {

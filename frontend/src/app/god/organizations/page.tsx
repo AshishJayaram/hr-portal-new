@@ -57,7 +57,7 @@ export default function OrganizationsManagement() {
       setSelectedOrg(orgDetails);
       setShowViewModal(true);
     } catch (error) {
-      console.error("Failed to fetch organization details:", error);
+      // Failed to fetch organization details
     }
   };
 

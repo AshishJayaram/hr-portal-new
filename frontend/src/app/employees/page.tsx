@@ -32,7 +32,7 @@ export default function EmployeesPage() {
       setDeleteConfirm(null);
     },
     onError: (error) => {
-      console.error("Failed to delete user:", error);
+      // Failed to delete user
       alert("Failed to delete user. Please try again.");
     },
   });
@@ -171,7 +171,7 @@ export default function EmployeesPage() {
                   {u.department && <span className="text-xs">{u.department}</span>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Link href={`/employees/documentation/${u.id}`} className="text-blue-400 hover:underline">Docs</Link>
+                  <Link href={`/employees/documentation/${u.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">Docs</Link>
                   <Link href={`/employees/edit?id=${u.id}`} className="text-indigo-400 hover:underline">Edit</Link>
                   <button
                     onClick={() => setDeleteConfirm({ id: u.id, name: u.name })}

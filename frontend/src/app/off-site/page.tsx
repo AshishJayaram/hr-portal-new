@@ -65,8 +65,8 @@ export default function OffSitePage() {
   useEffect(() => {
     if (offSitesData?.data) {
       setOffSites(offSitesData.data);
-      setTotal(offSitesData.total || 0);
-      setTotalPages(offSitesData.total_pages || 1);
+      setTotal(offSitesData.data.length || 0);
+      setTotalPages(Math.ceil((offSitesData.data.length || 0) / 10) || 1);
     }
   }, [offSitesData]);
 
@@ -147,7 +147,7 @@ export default function OffSitePage() {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case "planned":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+        return "bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-500/20";
       case "in_progress":
         return "bg-orange-500/10 text-orange-400 border-orange-500/20";
       case "completed":
@@ -185,13 +185,13 @@ export default function OffSitePage() {
         <div className="flex gap-3">
           {/* View Toggle for HR/Admin */}
           {canManage && (
-            <div className="flex bg-gray-800/50 rounded-lg p-1">
+            <div className="flex bg-gray-100 dark:bg-gray-800/50 rounded-lg p-1">
               <button
                 onClick={() => setViewType("self")}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   viewType === "self"
                     ? "bg-indigo-600 text-white"
-                    : "text-gray-400 hover:text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10"
                 }`}
               >
                 My Off-sites
@@ -201,7 +201,7 @@ export default function OffSitePage() {
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   viewType === "team"
                     ? "bg-indigo-600 text-white"
-                    : "text-gray-400 hover:text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10"
                 }`}
               >
                 Team Off-sites
@@ -399,7 +399,7 @@ export default function OffSitePage() {
         <OffSiteModal
           offSite={editingOffSite}
           onClose={() => setEditingOffSite(null)}
-          onSave={(data) => {
+          onSave={(data: any) => {
             if (editingOffSite.id) {
               updateMutation.mutate({ id: editingOffSite.id, data });
             } else {

@@ -48,6 +48,7 @@ export default function LeavesPage() {
 
   // Check if user can approve leaves (HR, Admin, God)
   const canApprove = canApproveLeaves();
+  
 
   // Fetch leave requests - different scope based on view type
   const { data, isLoading } = useQuery({
@@ -187,11 +188,11 @@ export default function LeavesPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved':
-        return <CheckCircle className="h-4 w-4 text-green-400" />;
+        return <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />;
       case 'rejected':
-        return <XCircle className="h-4 w-4 text-red-400" />;
+        return <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />;
       case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-400" />;
+        return <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />;
       default:
         return <Clock className="h-4 w-4 text-gray-400" />;
     }
@@ -200,11 +201,11 @@ export default function LeavesPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
-        return 'bg-green-500';
+        return 'bg-emerald-500';
       case 'rejected':
-        return 'bg-red-500';
+        return 'bg-rose-500';
       case 'pending':
-        return 'bg-yellow-500';
+        return 'bg-amber-500';
       default:
         return 'bg-gray-500';
     }
@@ -226,27 +227,33 @@ export default function LeavesPage() {
         
         {/* View Toggle for HR/Admin */}
         {canApprove && (
-          <div className="flex gap-2">
-            <Button
-              variant={viewType === 'self' ? 'default' : 'outline'}
-              size="sm"
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-white/5 rounded-lg p-1">
+            <button
               onClick={() => {
                 setViewType('self');
                 setCurrentPage(1);
               }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === 'self'
+                  ? 'bg-indigo-500 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10'
+              }`}
             >
               My Leaves
-            </Button>
-            <Button
-              variant={viewType === 'team' ? 'default' : 'outline'}
-              size="sm"
+            </button>
+            <button
               onClick={() => {
                 setViewType('team');
                 setCurrentPage(1);
               }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewType === 'team'
+                  ? 'bg-indigo-500 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10'
+              }`}
             >
               Team Leaves
-            </Button>
+            </button>
           </div>
         )}
       </div>
@@ -275,7 +282,7 @@ export default function LeavesPage() {
           </div>
           {showApplyForm && (
             <div className="p-4">
-              <ApplyLeaveForm />
+              <ApplyLeaveForm showApplyForField={false} />
             </div>
           )}
         </Card>
@@ -296,7 +303,7 @@ export default function LeavesPage() {
                 ×
               </Button>
             </div>
-            <ApplyLeaveForm />
+            <ApplyLeaveForm showApplyForField={true} />
             <div className="mt-4 flex justify-end">
               <Button
                 variant="outline"
@@ -333,19 +340,23 @@ export default function LeavesPage() {
       />
 
       {/* Leaves List */}
-      <Card 
-        title={viewType === 'team' ? "Team Leave Requests" : "My Leave Requests"}
-        extra={viewType === 'team' && canApprove ? (
-          <Button
-            size="sm"
-            onClick={() => setShowApplyOnBehalfForm(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Apply on Behalf
-          </Button>
-        ) : undefined}
-      >
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {viewType === 'team' ? "Team Leave Requests" : "My Leave Requests"}
+          </h2>
+          {viewType === 'team' && canApprove && (
+            <Button
+              size="sm"
+              onClick={() => setShowApplyOnBehalfForm(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Apply on Behalf
+            </Button>
+          )}
+        </div>
+        <Card>
         <div className="space-y-4">
           {filteredLeaves.map((leave, idx) => (
             <motion.div
@@ -521,7 +532,8 @@ export default function LeavesPage() {
             </div>
           </div>
         )}
-      </Card>
+        </Card>
+      </div>
 
       {/* Edit Leave Modal */}
       {editingLeave && (

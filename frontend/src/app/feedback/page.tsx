@@ -21,7 +21,7 @@ import {
   XCircle,
   AlertTriangle
 } from "lucide-react";
-import { getCurrentUser } from "@/lib/api";
+import { getCurrentUser, createFeedback } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 
 interface Feedback {
@@ -102,9 +102,13 @@ export default function FeedbackPage() {
 
   const createFeedbackMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Mock API call
-      console.log("Creating feedback:", data);
-      return { success: true };
+      const formData = new FormData();
+      formData.append('title', data.title);
+      formData.append('description', data.description);
+      formData.append('type', data.type);
+      formData.append('priority', data.priority);
+      
+      return await createFeedback(formData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feedback"] });
@@ -140,7 +144,7 @@ export default function FeedbackPage() {
       case 'bug':
         return <Bug className="h-4 w-4 text-red-400" />;
       case 'feature':
-        return <Lightbulb className="h-4 w-4 text-blue-400" />;
+        return <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
       case 'improvement':
         return <MessageSquare className="h-4 w-4 text-green-400" />;
       default:
@@ -166,7 +170,7 @@ export default function FeedbackPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'open':
-        return <Clock className="h-4 w-4 text-blue-400" />;
+        return <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
       case 'in_progress':
         return <AlertTriangle className="h-4 w-4 text-yellow-400" />;
       case 'resolved':
@@ -181,7 +185,7 @@ export default function FeedbackPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open':
-        return 'text-blue-400 bg-blue-400/10';
+        return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-400/10';
       case 'in_progress':
         return 'text-yellow-400 bg-yellow-400/10';
       case 'resolved':
@@ -341,7 +345,7 @@ export default function FeedbackPage() {
 
       {/* Feedback List */}
       <div className="grid gap-4">
-        {feedback?.data?.map((item: Feedback) => (
+        {feedback?.data?.map((item: any) => (
           <Card key={item.id} className="p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">

@@ -100,6 +100,7 @@ export interface Holiday {
   id: string;
   name: string;
   date?: string; // yyyy-mm-dd - optional for notices
+  dateRange?: string; // yyyy-mm-dd to yyyy-mm-dd - for multi-day events
   type: 'holiday' | 'event' | 'notice';
   description?: string;
   isCalendarEvent: boolean;
@@ -246,7 +247,10 @@ async function uploadFile<T>(path: string, formData: FormData): Promise<T> {
     ...(organizationId ? { "X-Organization-ID": organizationId } : {}),
   };
 
-  const res = await fetch(`${API_URL}${path}`, {
+  // Add /api prefix if not already present
+  const fullPath = path.startsWith('/api/') ? path : `/api${path}`;
+  
+  const res = await fetch(`${API_URL}${fullPath}`, {
     method: "POST",
     headers,
     body: formData,
@@ -370,7 +374,7 @@ export const getLeaveCategories = () =>
       id: String(c.id),
       name: c.name,
       description: c.description,
-      defaultDays: Number(c.max_days_per_year || c.defaultDays || 0),
+      defaultDays: Number(c.default_days || c.defaultDays || 0),
       maxDaysPerYear: Number(c.max_days_per_year || c.maxDaysPerYear || 0),
       requiresApproval: Boolean(c.requires_approval ?? c.requiresApproval ?? true),
       isActive: Boolean(c.isActive ?? c.is_active ?? true),
@@ -387,7 +391,8 @@ export const createLeaveCategory = (body: Partial<LeaveCategory>) =>
     body: JSON.stringify({
       name: body.name,
       description: body.description,
-      max_days_per_year: body.defaultDays,
+      default_days: body.defaultDays,
+      max_days_per_year: body.maxDaysPerYear,
       requires_approval: true, // Default to true
     }),
   });
@@ -398,7 +403,8 @@ export const updateLeaveCategory = (id: string, body: Partial<LeaveCategory>) =>
     body: JSON.stringify({
       name: body.name,
       description: body.description,
-      max_days_per_year: body.defaultDays,
+      default_days: body.defaultDays,
+      max_days_per_year: body.maxDaysPerYear,
       requires_approval: true, // Default to true
     }),
   });
@@ -742,6 +748,7 @@ export const getHolidays = (params?: Record<string, string>) =>
       id: String(h.id),
       name: h.name,
       date: h.date,
+      dateRange: h.date_range,
       type: h.type || 'holiday',
       description: h.description,
       isCalendarEvent: h.isCalendarEvent ?? h.is_calendar_event ?? true,
@@ -921,10 +928,10 @@ import type { PayrollSettings } from "./payroll";
 
 const localSettingsKey = (companyId: string) => `payroll_settings:${companyId}`;
 
-export const getCompanySettings = async (companyId: string): Promise<ApiResponse<PayrollSettings>> => {
+export const getCompanySettings = async (companyId: string): Promise<ApiResponse<PayrollSettings & { currency?: string }>> => {
   try {
     const res = await fetcher<any>(`/company/settings`);
-    if (res?.data) return { data: res.data as PayrollSettings };
+    if (res?.data) return { data: res.data as PayrollSettings & { currency?: string } };
   } catch (_) {
     // ignore and fallback
   }
@@ -933,7 +940,7 @@ export const getCompanySettings = async (companyId: string): Promise<ApiResponse
     const saved = localStorage.getItem(localSettingsKey(companyId));
     if (saved) {
       try {
-        return { data: JSON.parse(saved) as PayrollSettings };
+        return { data: JSON.parse(saved) as PayrollSettings & { currency?: string } };
       } catch {}
     }
   }
@@ -963,6 +970,7 @@ export interface ReimbursementRequest {
   id?: string;
   user_id?: number;
   reason: string;
+  description?: string;
   amount: number;
   date: string;
   status?: 'pending' | 'approved' | 'rejected' | 'returned';
@@ -987,21 +995,33 @@ export interface ReimbursementRequest {
   created_at?: string;
 }
 
-export const getReimbursements = async (status?: string): Promise<ApiResponse<ReimbursementRequest[]>> => {
-  const params = status ? `?status=${status}` : '';
-  return await fetcher<ReimbursementRequest[]>(`/reimbursements${params}`);
+export const getReimbursements = async (status?: string, view?: 'my' | 'team'): Promise<ApiResponse<ReimbursementRequest[]>> => {
+  const params = new URLSearchParams();
+  if (status) params.append('status', status);
+  if (view) params.append('view', view);
+  const queryString = params.toString();
+  return await fetcher<ReimbursementRequest[]>(`/reimbursements${queryString ? `?${queryString}` : ''}`);
 };
 
 export const createReimbursement = async (data: {
   reason: string;
+  description?: string;
   amount: number;
   date: string;
   bills: File[];
+  applyForUserId?: string;
 }): Promise<ApiResponse<ReimbursementRequest>> => {
   const formData = new FormData();
   formData.append('reason', data.reason);
+  if (data.description) {
+    formData.append('description', data.description);
+  }
   formData.append('amount', data.amount.toString());
   formData.append('date', data.date);
+  
+  if (data.applyForUserId) {
+    formData.append('apply_for_user_id', data.applyForUserId);
+  }
   
   data.bills.forEach((file) => {
     formData.append('bills', file);
@@ -1033,6 +1053,33 @@ export const updateReimbursementStatus = async (
   return await fetcher<ReimbursementRequest>(endpoint, {
     method: 'POST',
     body,
+  });
+};
+
+export const updateReimbursement = async (id: string, data: {
+  reason: string;
+  description?: string;
+  amount: number;
+  date: string;
+  bills?: File[];
+}): Promise<ApiResponse<ReimbursementRequest>> => {
+  const formData = new FormData();
+  formData.append('reason', data.reason);
+  if (data.description) {
+    formData.append('description', data.description);
+  }
+  formData.append('amount', data.amount.toString());
+  formData.append('date', data.date);
+  
+  if (data.bills) {
+    data.bills.forEach((file) => {
+      formData.append('bills', file);
+    });
+  }
+
+  return await fetcher<ReimbursementRequest>(`/reimbursements/${id}`, {
+    method: 'PATCH',
+    body: formData,
   });
 };
 
@@ -1128,7 +1175,7 @@ export const getCurrentUser = (): User | null => {
     }
     return normalized;
   } catch (error) {
-    console.error("Failed to parse user from localStorage:", error);
+    // Failed to parse user from localStorage
     localStorage.removeItem("user"); // Clear invalid data
     return null;
   }
@@ -1344,3 +1391,6 @@ export const getFeedback = () =>
 export const getFeedbackStats = () =>
   fetcher<any>('/feedback/stats')
     .then((raw) => raw?.data || {});
+
+export const createFeedback = (data: FormData) =>
+  uploadFile<any>('/feedback', data);

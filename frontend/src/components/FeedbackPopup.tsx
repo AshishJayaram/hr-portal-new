@@ -8,6 +8,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { Bug, X, Send, Upload, Image, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { createFeedback } from "@/lib/api";
 
 interface FeedbackPopupProps {
   isOpen: boolean;
@@ -41,20 +42,7 @@ export default function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
         formData.append('images', image);
       });
 
-      const response = await fetch('/api/feedback', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'X-Organization-ID': localStorage.getItem('organizationId') || '',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit feedback');
-      }
-
-      return response.json();
+      return await createFeedback(formData);
     },
     onSuccess: () => {
       toast.success("Feedback submitted successfully!");

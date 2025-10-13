@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSalarySlips, addSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument, getDocuments, downloadPayslipPDF, uploadPrivateDocument, getPrivateDocumentsByUser, deletePrivateDocument } from "@/lib/api";
+import { getSalarySlips, getSalarySlip, addSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument, getDocuments, downloadPayslipPDF, uploadPrivateDocument, getPrivateDocumentsByUser, deletePrivateDocument } from "@/lib/api";
 import { computePayslipFromCTC, calculateLOPAmount } from "@/lib/payroll";
 import { openPDFViewer, isPDFFile, getFileIcon, getFileTypeText } from "@/lib/pdfUtils";
 import Input from "@/components/ui/Input";
@@ -50,12 +50,12 @@ export default function SalarySlipsPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [employeeYears, setEmployeeYears] = useState<Record<string, number>>({});
+  const [employeeYears, setEmployeeYears] = useState<Record<string, number | null>>({});
   const itemsPerPage = 10;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["salary-slips", currentPage, selectedYear],
-    queryFn: () => getSalarySlips(canManageSalarySlips() ? { page: currentPage, limit: itemsPerPage, year: selectedYear } : { userId: userId, page: currentPage, limit: itemsPerPage, year: selectedYear }),
+    queryFn: () => getSalarySlips(canManageSalarySlips() ? { page: currentPage.toString(), limit: itemsPerPage.toString(), year: selectedYear.toString() } : { userId: userId, page: currentPage.toString(), limit: itemsPerPage.toString(), year: selectedYear.toString() }),
   });
 
   const { data: usersData } = useQuery({
@@ -122,7 +122,7 @@ export default function SalarySlipsPage() {
       queryClient.invalidateQueries({ queryKey: ["private-docs", String(uid)] });
       toast.success("Private document uploaded successfully");
     } catch (err: any) {
-      console.error("Failed to upload private document:", err);
+      // Failed to upload private document
       toast.error("Failed to upload private document");
     }
   };
@@ -144,7 +144,7 @@ export default function SalarySlipsPage() {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       setShowUpload(false);
-      setUploadData({ userId: "", month: new Date().getMonth() + 1, year: new Date().getFullYear() });
+      setUploadData({ userId: "", month: new Date().getMonth() + 1, year: new Date().getFullYear(), lopDays: 0, lopAmount: 0 });
       setSelectedFile(null);
     },
   });
@@ -155,7 +155,7 @@ export default function SalarySlipsPage() {
         // Try normal deletion first
         return await deleteSalarySlip(slipId);
       } catch (error: any) {
-        console.warn("Normal deletion failed, attempting cleanup:", error);
+        // Normal deletion failed, attempting cleanup
         
         // If normal deletion fails, perform comprehensive cleanup
         await performSalarySlipCleanup(slipId);
@@ -188,7 +188,7 @@ export default function SalarySlipsPage() {
       setSelectedGenerateUserName("");
     },
     onError: (error: any) => {
-      console.error("Failed to generate payslip:", error);
+      // Failed to generate payslip
       toast.error("Failed to generate payslip PDF");
     },
   });
@@ -242,14 +242,12 @@ export default function SalarySlipsPage() {
   // Comprehensive salary slip cleanup function
   const performSalarySlipCleanup = async (slipId: string) => {
     try {
-      console.log(`Performing comprehensive cleanup for salary slip ${slipId}`);
       
       // Step 1: Get salary slip info before deletion
       const slipInfo = await getSalarySlip(slipId);
       const salarySlip = slipInfo?.data;
       
       if (salarySlip) {
-        console.log(`Cleaning up salary slip: ${salarySlip.fileName}`);
         
         // Step 2: Delete related audit logs
         try {
@@ -260,9 +258,8 @@ export default function SalarySlipsPage() {
               'X-Organization-ID': localStorage.getItem('organizationId') || '',
             },
           });
-          console.log('Audit logs cleaned up');
         } catch (auditError) {
-          console.warn('Failed to clean audit logs:', auditError);
+          // Failed to clean audit logs
         }
         
         // Step 3: Force delete from database (if normal deletion failed)
@@ -274,9 +271,8 @@ export default function SalarySlipsPage() {
               'X-Organization-ID': localStorage.getItem('organizationId') || '',
             },
           });
-          console.log('Salary slip deleted from database');
         } catch (dbError) {
-          console.warn('Failed to delete from database:', dbError);
+          // Failed to delete from database
         }
         
         // Step 4: Delete physical file (if it exists)
@@ -284,21 +280,16 @@ export default function SalarySlipsPage() {
           try {
             // Extract file path from fileUrl
             const filePath = salarySlip.fileUrl.replace(/.*\/api\/files\/salary-slips\/\d+/, '');
-            console.log(`Attempting to delete physical file: ${filePath}`);
-            
             // Note: Physical file deletion would need backend support
             // For now, we'll just log it
-            console.log('Physical file cleanup would happen here');
           } catch (fileError) {
-            console.warn('Failed to delete physical file:', fileError);
+            // Failed to delete physical file
           }
         }
       }
       
-      console.log(`Cleanup completed for salary slip ${slipId}`);
       
     } catch (error) {
-      console.error('Cleanup failed:', error);
       throw error;
     }
   };
@@ -453,7 +444,7 @@ export default function SalarySlipsPage() {
                     setShowUpload(false);
                     setShowGenerate(true);
                   }}
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
                 >
                   Generate Payslip PDF
                 </button>
@@ -653,8 +644,8 @@ export default function SalarySlipsPage() {
         {/* Pagination Info */}
         {data?.data && data.data.length > 0 && (
           <div className="mb-4 text-sm text-gray-400">
-            Showing page {currentPage} of {Math.ceil((data.total || data.data.length) / itemsPerPage)} 
-            ({(data.total || data.data.length)} total items)
+            Showing page {currentPage} of {Math.ceil(data.data.length / itemsPerPage)}
+            ({data.data.length} total items)
           </div>
         )}
         
@@ -744,7 +735,7 @@ export default function SalarySlipsPage() {
                                       if (!response.ok) {
                                         // If file not found, perform cleanup
                                         if (response.status === 404) {
-                                          console.warn(`Salary slip ${s.id} file not found, performing cleanup`);
+                                          // Salary slip file not found, performing cleanup
                                           await performSalarySlipCleanup(s.id);
                                           queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
                                           toast.success("Invalid salary slip record cleaned up");
@@ -762,14 +753,15 @@ export default function SalarySlipsPage() {
                                         }
                                       }
                                     } catch (error) {
-                                      console.error('Failed to download salary slip:', error);
+                                      // Failed to download salary slip
                                       
                                       // Provide specific error messages based on error type
-                                      if (error.message?.includes('404')) {
+                                      const errorMessage = error instanceof Error ? error.message : String(error);
+                                      if (errorMessage.includes('404')) {
                                         toast.error('Salary slip file not found. The record will be cleaned up automatically.');
-                                      } else if (error.message?.includes('403')) {
+                                      } else if (errorMessage.includes('403')) {
                                         toast.error('You do not have permission to access this salary slip.');
-                                      } else if (error.message?.includes('401')) {
+                                      } else if (errorMessage.includes('401')) {
                                         toast.error('Please log in again to access salary slips.');
                                       } else {
                                         toast.error('Failed to access salary slip. Please try again or contact support.');
@@ -800,11 +792,11 @@ export default function SalarySlipsPage() {
                                           toast.error('Failed to download payslip PDF');
                                         }
                                       } catch (error) {
-                                        console.error('Failed to download payslip PDF:', error);
+                                        // Failed to download payslip PDF
                                         toast.error('Failed to download payslip PDF');
                                       }
                                     }}
-                                    className="text-blue-400 hover:text-blue-300 underline"
+                                    className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 underline"
                                   >
                                     Download PDF
                                   </button>
@@ -862,7 +854,7 @@ export default function SalarySlipsPage() {
                   Previous
                 </button>
                 <span className="text-sm text-gray-400">
-                  Page {currentPage} of {Math.ceil((data.total || data.data.length) / itemsPerPage)}
+                  Page {currentPage} of {Math.ceil(data.data.length / itemsPerPage)}
                 </span>
                 <button
                   onClick={() => setCurrentPage(prev => prev + 1)}
@@ -922,7 +914,7 @@ export default function SalarySlipsPage() {
                             if (!response.ok) {
                               // If file not found, perform cleanup
                               if (response.status === 404) {
-                                console.warn(`Salary slip ${slip.id} file not found, performing cleanup`);
+                                // Salary slip file not found, performing cleanup
                                 await performSalarySlipCleanup(slip.id);
                                 queryClient.invalidateQueries({ queryKey: ["salary-slips"] });
                                 toast.success("Invalid salary slip record cleaned up");
@@ -940,7 +932,7 @@ export default function SalarySlipsPage() {
                               }
                             }
                           } catch (error) {
-                            console.error('Failed to download salary slip:', error);
+                            // Failed to download salary slip
                             
                             // Provide specific error messages based on error type
                             if (error.message?.includes('404')) {
@@ -989,7 +981,7 @@ export default function SalarySlipsPage() {
                   Previous
                 </button>
                 <span className="text-sm text-gray-400">
-                  Page {currentPage} of {Math.ceil((data.total || data.data.length) / itemsPerPage)}
+                  Page {currentPage} of {Math.ceil(data.data.length / itemsPerPage)}
                 </span>
                 <button
                   onClick={() => setCurrentPage(prev => prev + 1)}
@@ -1125,7 +1117,7 @@ function EmployeeDocsList({ userId }: { userId: string }) {
   
   if (isLoading) return <div className="text-sm text-gray-400">Loading documents...</div>;
   if (error) {
-    console.error('Error loading private documents for user', userId, error);
+    // Error loading private documents for user
     return <div className="text-sm text-red-400">Failed to load documents. Please try again.</div>;
   }
   
@@ -1140,7 +1132,7 @@ function EmployeeDocsList({ userId }: { userId: string }) {
         queryClient.invalidateQueries({ queryKey: ["private-docs", userId] });
         toast.success("Document deleted successfully");
       } catch (err: any) {
-        console.error("Failed to delete private document:", err);
+        // Failed to delete private document
         toast.error("Failed to delete document");
       } finally {
         setDeletingDocs(prev => {
@@ -1194,7 +1186,7 @@ function EmployeeDocsList({ userId }: { userId: string }) {
                     }
                   }
                 } catch (error) {
-                  console.error('Failed to view private document:', error);
+                  // Failed to view private document
                   toast.error('Failed to view document');
                 }
               }}

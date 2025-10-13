@@ -23,12 +23,13 @@ func NewReimbursementService(repo *repositories.ReimbursementRepository, userRep
 	}
 }
 
-func (s *ReimbursementService) CreateReimbursement(userID, organizationID uint, reason string, amount float64, date time.Time, bills []*multipart.FileHeader) (*models.Reimbursement, error) {
+func (s *ReimbursementService) CreateReimbursement(userID, organizationID uint, reason, description string, amount float64, date time.Time, bills []*multipart.FileHeader) (*models.Reimbursement, error) {
 	// Create reimbursement record
 	reimbursement := &models.Reimbursement{
 		UserID:         userID,
 		OrganizationID: organizationID,
 		Reason:         reason,
+		Description:    description,
 		Amount:         amount,
 		Date:           date,
 		Status:         "pending",
@@ -77,8 +78,59 @@ func (s *ReimbursementService) CreateReimbursement(userID, organizationID uint, 
 	return reimbursement, nil
 }
 
+func (s *ReimbursementService) UpdateReimbursement(reimbursement *models.Reimbursement, bills []*multipart.FileHeader) error {
+	// Start transaction
+	tx := s.repo.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Update reimbursement
+	if err := tx.Save(reimbursement).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// If new bills are provided, add them
+	if len(bills) > 0 {
+		for _, bill := range bills {
+			billPath, err := s.uploadBill(bill, reimbursement.ID)
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+
+			reimbursementBill := &models.ReimbursementBill{
+				ReimbursementID: reimbursement.ID,
+				FileName:        bill.Filename,
+				FilePath:        billPath,
+				FileSize:        bill.Size,
+				MimeType:        bill.Header.Get("Content-Type"),
+			}
+
+			if err := tx.Create(reimbursementBill).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *ReimbursementService) GetReimbursements(organizationID uint, userID *uint, status *string) ([]models.Reimbursement, error) {
 	return s.repo.GetReimbursements(organizationID, userID, status)
+}
+
+// GetTeamReimbursements returns all reimbursements in organization except the specified user's own
+func (s *ReimbursementService) GetTeamReimbursements(organizationID, excludeUserID uint, status *string) ([]models.Reimbursement, error) {
+	return s.repo.GetTeamReimbursements(organizationID, excludeUserID, status)
 }
 
 // GetReimbursementsForUser returns reimbursements for a user and their subordinates if they're a manager
@@ -166,4 +218,8 @@ func (s *ReimbursementService) GetReimbursementBills(reimbursementID uint) ([]mo
 
 func (s *ReimbursementService) DeleteReimbursement(id uint) error {
 	return s.repo.DeleteReimbursement(id)
+}
+
+func (s *ReimbursementService) GetReimbursementBillByID(billID string) (*models.ReimbursementBill, error) {
+	return s.repo.GetReimbursementBillByID(billID)
 }

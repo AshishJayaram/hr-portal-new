@@ -39,8 +39,8 @@ export default function CompanySettingsPage() {
     if (data?.data) {
       setSettings(data.data);
       // Extract currency from company settings if available
-      if (data.currency) {
-        setCurrency(data.currency);
+      if (data.data.currency) {
+        setCurrency(data.data.currency);
       }
     }
   }, [data]);
@@ -107,13 +107,13 @@ export default function CompanySettingsPage() {
       <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Company Settings</h1>
 
       {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-white/5 p-1 rounded-lg">
+      <div className="flex space-x-1 bg-gray-100 dark:bg-white/5 p-1 rounded-lg">
         <button
           onClick={() => setActiveTab('general')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'general'
-              ? 'bg-white/10 text-white'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-indigo-500 text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
           }`}
         >
           General Settings
@@ -122,8 +122,8 @@ export default function CompanySettingsPage() {
           onClick={() => setActiveTab('payroll')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'payroll'
-              ? 'bg-white/10 text-white'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-indigo-500 text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
           }`}
         >
           Payroll Settings
@@ -132,8 +132,8 @@ export default function CompanySettingsPage() {
           onClick={() => setActiveTab('leaves')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'leaves'
-              ? 'bg-white/10 text-white'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-indigo-500 text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
           }`}
         >
           Leave Categories
@@ -142,8 +142,8 @@ export default function CompanySettingsPage() {
           onClick={() => setActiveTab('categories')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'categories'
-              ? 'bg-white/10 text-white'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-indigo-500 text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
           }`}
         >
           Payroll Categories
@@ -385,8 +385,8 @@ export default function CompanySettingsPage() {
           </div>
         </div>
         <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-          <h3 className="text-sm font-medium text-blue-300 mb-2">LOP Calculation Preview</h3>
-          <div className="text-sm text-gray-300 space-y-1">
+          <h3 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">LOP Calculation Preview</h3>
+          <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
             <div>Method: {settings.lop.calculationMethod === 'NET_PAY_BY_DAYS' ? 'Net Pay ÷ Days' : 
                           settings.lop.calculationMethod === 'BASIC_BY_DAYS' ? 'Basic ÷ Days' : 'Fixed Amount'}</div>
             <div>Days in Month: {settings.lop.defaultDaysInMonth}</div>
@@ -446,13 +446,14 @@ function LeaveCategoriesManager({
     name: '',
     description: '',
     defaultDays: 1,
+    maxDaysPerYear: 20,
     isActive: true,
   });
 
   const handleCreate = () => {
     if (newCategory.name && newCategory.defaultDays > 0) {
       onCreate(newCategory);
-      setNewCategory({ name: '', description: '', defaultDays: 1, isActive: true });
+      setNewCategory({ name: '', description: '', defaultDays: 1, maxDaysPerYear: 20, isActive: true });
     }
   };
 
@@ -498,6 +499,18 @@ function LeaveCategoriesManager({
               setNewCategory({ ...newCategory, defaultDays: value });
             }}
             placeholder="24"
+            min="1"
+            disabled={isLoading}
+          />
+          <Input
+            type="number"
+            label="Max Days Per Year"
+            value={String(newCategory.maxDaysPerYear)}
+            onChange={(e) => {
+              const value = parseInt(e.target.value) || 20;
+              setNewCategory({ ...newCategory, maxDaysPerYear: value });
+            }}
+            placeholder="20"
             min="1"
             disabled={isLoading}
           />
@@ -560,6 +573,16 @@ function LeaveCategoriesManager({
                       }}
                       min="1"
                     />
+                    <Input
+                      type="number"
+                      label="Max Days Per Year"
+                      value={String(editingCategory.maxDaysPerYear)}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 20;
+                        setEditingCategory({ ...editingCategory, maxDaysPerYear: value });
+                      }}
+                      min="1"
+                    />
                     <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -586,7 +609,7 @@ function LeaveCategoriesManager({
                     <p className="text-sm text-secondary">{category.description}</p>
                     <div className="flex gap-4 mt-2 text-sm">
                       <span>Default Days: <strong>{category.defaultDays}</strong></span>
-                      <span className={`px-2 py-1 rounded text-xs ${category.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      <span className={`px-2 py-1 rounded text-xs ${category.isActive ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
                         {category.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -761,7 +784,7 @@ function PayrollCategoriesManager({
               </div>
               <Button
                 onClick={() => removeEarningCategory(category.key)}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-rose-600 hover:bg-rose-700"
               >
                 Remove
               </Button>
@@ -824,7 +847,7 @@ function PayrollCategoriesManager({
               </div>
               <Button
                 onClick={() => removeDeductionCategory(category.key)}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-rose-600 hover:bg-rose-700"
               >
                 Remove
               </Button>

@@ -19,20 +19,19 @@ export default function UsersManagement() {
     department: "",
     designation: "",
     role: "",
-    is_active: true,
   });
   const queryClient = useQueryClient();
 
   // Fetch users
   const { data: users, isLoading: usersLoading, error: usersError } = useQuery({
     queryKey: ["god-users"],
-    queryFn: getUsers,
+    queryFn: () => getUsers(),
   });
 
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, userData }: { id: number; userData: any }) => {
-      return await updateUser(id, userData);
+      return await updateUser(String(id), userData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["god-users"] });
@@ -44,7 +43,7 @@ export default function UsersManagement() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await deleteUser(id);
+      return await deleteUser(String(id));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["god-users"] });
@@ -56,10 +55,10 @@ export default function UsersManagement() {
   const handleViewUser = async (user: User) => {
     try {
       const userDetails = await getUser(user.id);
-      setSelectedUser(userDetails);
+      setSelectedUser(userDetails.data);
       setShowViewModal(true);
     } catch (error) {
-      console.error("Failed to fetch user details:", error);
+      // Failed to fetch user details
     }
   };
 
@@ -68,10 +67,9 @@ export default function UsersManagement() {
     setEditForm({
       name: user.name,
       email: user.email,
-      department: user.department,
+      department: user.department || "",
       designation: user.designation || "",
       role: user.role,
-      is_active: user.is_active,
     });
     setShowEditModal(true);
   };
@@ -79,13 +77,13 @@ export default function UsersManagement() {
   const handleUpdateUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedUser) {
-      updateUserMutation.mutate({ id: selectedUser.id, userData: editForm });
+      updateUserMutation.mutate({ id: Number(selectedUser.id), userData: editForm });
     }
   };
 
   const handleDeleteUser = () => {
     if (selectedUser && confirm(`Are you sure you want to delete "${selectedUser.name}"? This action cannot be undone.`)) {
-      deleteUserMutation.mutate(selectedUser.id);
+      deleteUserMutation.mutate(Number(selectedUser.id));
     }
   };
 
@@ -129,9 +127,9 @@ export default function UsersManagement() {
       )}
 
       {/* Users Grid */}
-      {users && users.length > 0 && (
+      {users?.data && users.data.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {users.map((user) => (
+          {users.data.map((user) => (
             <Card key={user.id} className="p-6 hover:shadow-lg transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -142,12 +140,8 @@ export default function UsersManagement() {
                     {user.email}
                   </p>
                 </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  user.is_active 
-                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                }`}>
-                  {user.is_active ? "Active" : "Inactive"}
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                  Active
                 </span>
               </div>
               
@@ -201,7 +195,7 @@ export default function UsersManagement() {
         </div>
       )}
 
-      {users?.length === 0 && (
+      {users?.data?.length === 0 && (
         <Card className="p-12 text-center">
           <div className="text-gray-500 dark:text-gray-400">
             <div className="text-6xl mb-4">👥</div>
@@ -250,18 +244,14 @@ export default function UsersManagement() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Username
                     </label>
-                    <p className="text-gray-900 dark:text-gray-100">{selectedUser.username}</p>
+                    <p className="text-gray-900 dark:text-gray-100">{selectedUser.name}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Status
                     </label>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      selectedUser.is_active 
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                    }`}>
-                      {selectedUser.is_active ? "Active" : "Inactive"}
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      Active
                     </span>
                   </div>
                   <div>
@@ -427,18 +417,6 @@ export default function UsersManagement() {
                 </select>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="is_active"
-                  checked={editForm.is_active}
-                  onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
-                  className="mr-2"
-                />
-                <label htmlFor="is_active" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Active User
-                </label>
-              </div>
 
               <div className="flex gap-3 pt-4">
                 <Button

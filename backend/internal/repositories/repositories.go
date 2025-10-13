@@ -85,6 +85,8 @@ type UserRepository interface {
 	CountByOrganization(organizationID string, count *int64) error
 	ListAll() ([]models.User, error)
 	GetAdminByOrganizationID(organizationID string) (*models.User, error)
+	// ReassignManagerAtomic updates a user's manager and optionally transfers their direct reports to the new manager in a single DB transaction
+	ReassignManagerAtomic(userID string, newManagerID *uint, transferReports bool) error
 }
 
 // OrganizationRepository interface for organization operations

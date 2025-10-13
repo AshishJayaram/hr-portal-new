@@ -48,11 +48,8 @@ export default function GodDashboard() {
   const { data: stats, isLoading: statsLoading, refetch: refetchStats, error: statsError } = useQuery({
     queryKey: ["god-stats"],
     queryFn: async () => {
-      console.log("Fetching platform stats...");
       const token = localStorage.getItem("token");
-      console.log("Token:", token);
       const result = await getPlatformStats();
-      console.log("Stats result:", result);
       return result;
     },
     staleTime: 0, // Always fetch fresh data
@@ -62,11 +59,8 @@ export default function GodDashboard() {
   const { data: organizations, isLoading: orgsLoading, refetch: refetchOrgs, error: orgsError } = useQuery({
     queryKey: ["god-organizations"],
     queryFn: async () => {
-      console.log("Fetching organizations...");
       const token = localStorage.getItem("token");
-      console.log("Token:", token);
       const result = await getOrganizations();
-      console.log("Organizations result:", result);
       return result;
     },
     staleTime: 0, // Always fetch fresh data
@@ -138,12 +132,12 @@ export default function GodDashboard() {
       setSelectedOrg(orgDetails);
       setShowViewModal(true);
     } catch (error) {
-      console.error("Failed to fetch organization details:", error);
+      // Failed to fetch organization details
     }
   };
 
   const handleEditOrg = (org: Organization) => {
-    setSelectedOrg(org);
+    setSelectedOrg({ organization: org });
     setEditForm({
       name: org.name,
       domain: org.domain,
@@ -223,47 +217,59 @@ export default function GodDashboard() {
       </Card>
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card 
-            className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800 cursor-pointer hover:shadow-lg transition-shadow"
+          <div 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => window.location.href = '/god/organizations'}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Organizations</p>
-                <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">{stats.total_organizations}</p>
-                <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">Click to manage</p>
+            <Card 
+              className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Organizations</p>
+                  <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">{stats.total_organizations}</p>
+                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">Click to manage</p>
+                </div>
+                <div className="text-4xl">🏢</div>
               </div>
-              <div className="text-4xl">🏢</div>
-            </div>
-          </Card>
+            </Card>
+          </div>
 
-          <Card 
-            className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800 cursor-pointer hover:shadow-lg transition-shadow"
+          <div 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => window.location.href = '/god/organizations'}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-600 dark:text-green-400">Active Organizations</p>
-                <p className="text-3xl font-bold text-green-900 dark:text-green-100">{stats.active_organizations}</p>
-                <p className="text-xs text-green-500 dark:text-green-400 mt-1">Click to manage</p>
+            <Card 
+              className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-600 dark:text-green-400">Active Organizations</p>
+                  <p className="text-3xl font-bold text-green-900 dark:text-green-100">{stats.active_organizations}</p>
+                  <p className="text-xs text-green-500 dark:text-green-400 mt-1">Click to manage</p>
+                </div>
+                <div className="text-4xl">✅</div>
               </div>
-              <div className="text-4xl">✅</div>
-            </div>
-          </Card>
+            </Card>
+          </div>
 
-          <Card 
-            className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800 cursor-pointer hover:shadow-lg transition-shadow"
+          <div 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => window.location.href = '/god/users'}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Total Users</p>
-                <p className="text-3xl font-bold text-purple-900 dark:text-purple-100">{stats.total_users}</p>
-                <p className="text-xs text-purple-500 dark:text-purple-400 mt-1">Click to manage</p>
+            <Card 
+              className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Total Users</p>
+                  <p className="text-3xl font-bold text-purple-900 dark:text-purple-100">{stats.total_users}</p>
+                  <p className="text-xs text-purple-500 dark:text-purple-400 mt-1">Click to manage</p>
+                </div>
+                <div className="text-4xl">👥</div>
               </div>
-              <div className="text-4xl">👥</div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         </div>
       )}
 
@@ -385,7 +391,8 @@ export default function GodDashboard() {
         <h2 className="text-2xl font-semibold mb-4">Organizations</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {organizations?.map((org) => (
-            <Card key={org.id} className="p-6 hover:shadow-lg transition-shadow">
+            <div key={org.id}>
+              <Card className="p-6 hover:shadow-lg transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -435,6 +442,7 @@ export default function GodDashboard() {
                 </Button>
               </div>
             </Card>
+          </div>
           ))}
         </div>
       </div>

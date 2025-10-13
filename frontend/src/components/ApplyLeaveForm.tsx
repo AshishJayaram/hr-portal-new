@@ -6,7 +6,7 @@ import { applyLeave, getLeaveBalance, getCurrentUser, getHolidays, getUsers, has
 import { calculateLeaveDays } from "../lib/leaveUtils";
 import { toast } from "sonner";
 
-export default function ApplyLeaveForm({ bankHolidays = [], forUserId }: { bankHolidays?: any[], forUserId?: string }) {
+export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApplyForField = false }: { bankHolidays?: any[], forUserId?: string, showApplyForField?: boolean }) {
   const [type, setType] = useState<string>("");
   const [reason, setReason] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -52,6 +52,19 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId }: { bankH
       setType(availableLeaveTypes[0]);
     }
   }, [availableLeaveTypes, type]);
+
+  // 🔧 Auto-adjust half-day selections when dates change
+  useEffect(() => {
+    if (startDate && endDate && startDate === endDate) {
+      // Same day: prevent invalid combinations
+      if (startHalf === "PM" && endHalf === "AM") {
+        // Invalid: Second half start + First half end on same day
+        // Auto-correct to Full Day + Full Day
+        setStartHalf("FULL");
+        setEndHalf("FULL");
+      }
+    }
+  }, [startDate, endDate, startHalf, endHalf]);
 
   // 🧮 Auto-calculate leave days whenever dates/halves change
   useEffect(() => {
@@ -128,8 +141,8 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId }: { bankH
   return (
     <div className="bg-white rounded-xl shadow-sm border border-card dark:bg-white/10 dark:border-white/10">
       <form onSubmit={handleSubmit} className="px-6 pt-6 pb-6 space-y-4">
-        {/* Employee Selection for HR/Admin */}
-        {canApplyForOthers && (
+        {/* Employee Selection for HR/Admin - Only show when explicitly requested */}
+        {canApplyForOthers && showApplyForField && (
           <div className="space-y-2">
             <label className="block text-sm mb-1 text-primary">Apply Leave For</label>
             <select
@@ -190,7 +203,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId }: { bankH
             >
               <option value="FULL">Full Day</option>
               <option value="AM">First Half</option>
-              <option value="PM">Second Half</option>
+              <option value="PM" disabled={startDate && endDate && startDate === endDate}>Second Half</option>
             </select>
           </div>
 
@@ -210,7 +223,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId }: { bankH
               className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
             >
               <option value="FULL">Full Day</option>
-              <option value="AM">First Half</option>
+              <option value="AM" disabled={startDate && endDate && startDate === endDate}>First Half</option>
               <option value="PM">Second Half</option>
             </select>
           </div>

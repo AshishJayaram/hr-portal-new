@@ -23,15 +23,12 @@ export default function TeamPage() {
   const { data: teamData, isLoading, refetch } = useQuery({
     queryKey: ["team"],
     queryFn: () => {
-      console.log("Fetching team data...");
       return getTeam();
     },
     onSuccess: (data) => {
-      console.log("Team data refreshed:", data);
-      console.log("Team data length:", data?.data?.length || 0);
     },
     onError: (error) => {
-      console.error("Error fetching team data:", error);
+      // Error fetching team data
     },
     // Force fresh data so manager changes reflect immediately
     staleTime: 0,
@@ -43,7 +40,6 @@ export default function TeamPage() {
 
   // Build hierarchical tree structure with managers on top
   const buildTeamTree = (users: User[]): TeamNode[] => {
-    console.log("Building team tree with users:", users.length);
     const userMap = new Map<string, TeamNode>();
     const rootNodes: TeamNode[] = [];
 
@@ -66,15 +62,13 @@ export default function TeamPage() {
           managerNode.children.push(node);
           node.level = managerNode.level + 1;
         } else {
-          console.warn("User", user.id, "has manager_id", user.manager_id, "but manager not found in user list");
+          // User has manager_id but manager not found in user list
         }
       } else {
         rootNodes.push(node);
       }
     });
 
-    console.log("Root nodes:", rootNodes.length);
-    console.log("Total nodes:", userMap.size);
 
     // Sort root nodes by role priority (God > Admin > HR > Employee)
     const rolePriority = { 'God': 0, 'Admin': 1, 'HR': 2, 'Employee': 3 };
@@ -109,7 +103,7 @@ export default function TeamPage() {
       case 'admin':
         return <Shield className="h-4 w-4 text-red-500" />;
       case 'hr':
-        return <UserCheck className="h-4 w-4 text-blue-500" />;
+        return <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-500" />;
       default:
         return <UserIcon className="h-4 w-4 text-gray-500" />;
     }
@@ -235,7 +229,7 @@ export default function TeamPage() {
           </div>
           <Button
             onClick={() => {
-              console.log("Manual refresh triggered");
+              // Manual refresh triggered
               refetch();
             }}
             disabled={isLoading}

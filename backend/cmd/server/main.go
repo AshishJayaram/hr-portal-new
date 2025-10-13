@@ -247,6 +247,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		{
 			files.GET("/documents/:id", handlers.Document.ServeDocumentFile)
 			files.GET("/salary-slips/:id", handlers.SalarySlip.ServeSalarySlipFile)
+			files.GET("/reimbursement-bills/:id", handlers.Reimbursement.ServeReimbursementBill)
 		}
 
 		// Static file serving for uploads
@@ -379,6 +380,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			reimbursements.GET("", handlers.Reimbursement.GetReimbursements)
 			reimbursements.POST("", handlers.Reimbursement.CreateReimbursement)
 			reimbursements.GET("/:id", handlers.Reimbursement.GetReimbursementByID)
+			reimbursements.PATCH("/:id", handlers.Reimbursement.UpdateReimbursement)
 			reimbursements.GET("/:id/bills", handlers.Reimbursement.GetReimbursementBills)
 			reimbursements.POST("/:id/approve", middleware.RoleRequired("HR", "Admin"), handlers.Reimbursement.ApproveReimbursement)
 			reimbursements.POST("/:id/reject", middleware.RoleRequired("HR", "Admin"), handlers.Reimbursement.RejectReimbursement)

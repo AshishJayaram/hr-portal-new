@@ -82,7 +82,7 @@ export default function ProfilePage() {
           </div>
           <div className="p-4 rounded-lg bg-white/5 border border-white/10">
             <div className="text-xs text-gray-400">Member Since</div>
-            <div className="font-medium">{user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</div>
+            <div className="font-medium">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</div>
           </div>
         </div>
       </Card>

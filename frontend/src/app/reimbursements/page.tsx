@@ -21,7 +21,7 @@ import {
   Eye,
   User
 } from "lucide-react";
-import { getReimbursements, createReimbursement, updateReimbursementStatus, deleteReimbursement, ReimbursementRequest } from "@/lib/api";
+import { getReimbursements, createReimbursement, updateReimbursement, updateReimbursementStatus, deleteReimbursement, ReimbursementRequest, getUsers } from "@/lib/api";
 import { toast } from "sonner";
 
 
@@ -29,28 +29,46 @@ export default function ReimbursementsPage() {
   const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [reason, setReason] = useState('');
+  const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [bills, setBills] = useState<File[]>([]);
+  const [applyForUserId, setApplyForUserId] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [activeTab, setActiveTab] = useState<'my' | 'team'>('my');
   const [viewingRequest, setViewingRequest] = useState<ReimbursementRequest | null>(null);
   const [editingRequest, setEditingRequest] = useState<ReimbursementRequest | null>(null);
   const [actionModal, setActionModal] = useState<{ type: 'approve' | 'reject' | 'return', request: ReimbursementRequest } | null>(null);
   const [actionMessage, setActionMessage] = useState('');
+  const [billsSearchTerm, setBillsSearchTerm] = useState('');
 
   const queryClient = useQueryClient();
 
+  const getCurrentUser = () => {
+    if (typeof window === "undefined") return null;
+    const userStr = localStorage.getItem("user");
+    return userStr ? JSON.parse(userStr) : null;
+  };
+
+  const isHRorAdmin = () => {
+    const user = getCurrentUser();
+    return user?.role === "HR" || user?.role === "Admin" || user?.role === "God";
+  };
+
+  // Get users for HR/Admin to apply on behalf of others
+  const { data: users } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => getUsers(),
+    enabled: isHRorAdmin(),
+  });
+
   const { data: reimbursements, isLoading, error } = useQuery({
-    queryKey: ["reimbursements", statusFilter],
-    queryFn: () => getReimbursements(statusFilter || undefined),
-    onError: (error) => {
-      console.error("Reimbursements fetch error:", error);
-      toast.error("Failed to load reimbursements");
-    },
+    queryKey: ["reimbursements", statusFilter, activeTab],
+    queryFn: () => getReimbursements(statusFilter || undefined, isHRorAdmin() ? activeTab : undefined),
   });
 
   const createReimbursementMutation = useMutation({
-    mutationFn: (data: { reason: string; amount: number; date: string; bills: File[] }) => 
+    mutationFn: (data: { reason: string; description?: string; amount: number; date: string; bills: File[]; applyForUserId?: string }) => 
       createReimbursement(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reimbursements"] });
@@ -60,6 +78,21 @@ export default function ReimbursementsPage() {
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to submit reimbursement request");
+    },
+  });
+
+  const updateReimbursementMutation = useMutation({
+    mutationFn: (data: { id: string; reason: string; description?: string; amount: number; date: string; bills: File[] }) => 
+      updateReimbursement(data.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reimbursements"] });
+      setShowForm(false);
+      resetForm();
+      setEditingRequest(null);
+      toast.success("Reimbursement request updated successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update reimbursement request");
     },
   });
 
@@ -91,9 +124,11 @@ export default function ReimbursementsPage() {
 
   const resetForm = () => {
     setReason('');
+    setDescription('');
     setAmount('');
     setDate('');
     setBills([]);
+    setApplyForUserId('');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,13 +142,18 @@ export default function ReimbursementsPage() {
 
   const handleViewRequest = (request: ReimbursementRequest) => {
     setViewingRequest(request);
+    setBillsSearchTerm(''); // Reset search when opening modal
   };
 
   const handleEditRequest = (request: ReimbursementRequest) => {
     setEditingRequest(request);
     setReason(request.reason);
+    setDescription(request.description || '');
     setAmount(request.amount.toString());
-    setDate(request.date);
+    // Format date for input field (YYYY-MM-DD)
+    const dateObj = new Date(request.date);
+    const formattedDate = dateObj.toISOString().split('T')[0];
+    setDate(formattedDate);
     setShowForm(true);
   };
 
@@ -157,20 +197,9 @@ export default function ReimbursementsPage() {
 
     statusUpdateMutation.mutate({
       id: idStr,
-      status: actionModal.type === 'return' ? 'returned' : actionModal.type,
+      status: actionModal.type === 'return' ? 'returned' : actionModal.type === 'approve' ? 'approved' : actionModal.type === 'reject' ? 'rejected' : actionModal.type,
       message: actionMessage || undefined,
     });
-  };
-
-  const getCurrentUser = () => {
-    if (typeof window === "undefined") return null;
-    const userStr = localStorage.getItem("user");
-    return userStr ? JSON.parse(userStr) : null;
-  };
-
-  const isHRorAdmin = () => {
-    const user = getCurrentUser();
-    return user?.role === "HR" || user?.role === "Admin" || user?.role === "God";
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -181,16 +210,24 @@ export default function ReimbursementsPage() {
     }
 
     if (editingRequest) {
-      // Handle edit - for now, we'll just show a message since we don't have an update API
-      toast.info("Edit functionality will be available soon");
-      handleCloseEdit();
+      // Handle edit
+      updateReimbursementMutation.mutate({
+        id: editingRequest.id!,
+        reason,
+        description,
+        amount: parseFloat(amount),
+        date,
+        bills
+      });
     } else {
       // Handle create
       createReimbursementMutation.mutate({
         reason,
+        description,
         amount: parseFloat(amount),
         date,
-        bills
+        bills,
+        applyForUserId: applyForUserId || undefined
       });
     }
   };
@@ -198,26 +235,26 @@ export default function ReimbursementsPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved':
-        return <CheckCircle className="h-4 w-4 text-green-400" />;
+        return <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />;
       case 'rejected':
-        return <XCircle className="h-4 w-4 text-red-400" />;
+        return <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />;
       case 'returned':
-        return <AlertTriangle className="h-4 w-4 text-yellow-400" />;
+        return <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />;
       default:
-        return <Clock className="h-4 w-4 text-blue-400" />;
+        return <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
-        return 'text-green-400 bg-green-400/10';
+        return 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-400/10';
       case 'rejected':
-        return 'text-red-400 bg-red-400/10';
+        return 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-400/10';
       case 'returned':
-        return 'text-yellow-400 bg-yellow-400/10';
+        return 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-400/10';
       default:
-        return 'text-blue-400 bg-blue-400/10';
+        return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-400/10';
     }
   };
 
@@ -249,9 +286,9 @@ export default function ReimbursementsPage() {
             Reimbursements
           </h1>
           {returnedCount > 0 && !isHRorAdmin() && (
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/30">
-              <AlertTriangle className="h-4 w-4 text-yellow-400" />
-              <span className="text-sm font-medium text-yellow-400">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
                 {returnedCount} {returnedCount === 1 ? 'request' : 'requests'} returned
               </span>
             </span>
@@ -268,10 +305,10 @@ export default function ReimbursementsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="p-6 max-w-md w-full mx-4">
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="h-6 w-6 text-yellow-400" />
+              <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               <h3 className="text-lg font-bold">Important Notice</h3>
             </div>
-            <div className="space-y-3 text-sm text-gray-300">
+            <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
               <p>Please note the following reimbursement guidelines:</p>
               <ul className="list-disc list-inside space-y-1 ml-4">
                 <li>Alcohol bills are not allowed for reimbursement</li>
@@ -306,6 +343,26 @@ export default function ReimbursementsPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Apply For User Selection - Only for HR/Admin */}
+              {isHRorAdmin() && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Apply Reimbursement For
+                  </label>
+                  <Select
+                    value={applyForUserId}
+                    onChange={(e) => setApplyForUserId(e.target.value)}
+                    options={[
+                      { value: '', label: 'Myself' },
+                      ...(users?.data?.map((user: any) => ({
+                        value: user.id,
+                        label: `${user.name} (${user.email})`
+                      })) || [])
+                    ]}
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -342,6 +399,19 @@ export default function ReimbursementsPage() {
                     required
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Enter detailed description of the expense..."
+                  rows={3}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
 
               <div>
@@ -384,7 +454,7 @@ export default function ReimbursementsPage() {
                         <button
                           type="button"
                           onClick={() => removeBill(index)}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-rose-600 dark:text-rose-400 hover:text-rose-500 dark:hover:text-rose-300"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -415,6 +485,34 @@ export default function ReimbursementsPage() {
             </form>
           </Card>
         </div>
+      )}
+
+      {/* Tabs for HR/Admin */}
+      {isHRorAdmin() && (
+        <Card className="p-4">
+          <div className="flex space-x-1 bg-gray-100 dark:bg-white/5 p-1 rounded-lg">
+            <button
+              onClick={() => setActiveTab('my')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'my'
+                  ? 'bg-indigo-500 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
+              }`}
+            >
+              My Requests
+            </button>
+            <button
+              onClick={() => setActiveTab('team')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'team'
+                  ? 'bg-indigo-500 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
+              }`}
+            >
+              Team Requests
+            </button>
+          </div>
+        </Card>
       )}
 
       {/* Filter */}
@@ -451,9 +549,9 @@ export default function ReimbursementsPage() {
                   </span>
                 </div>
                 {request.user && (
-                  <div className="flex items-center gap-2 mb-3 text-sm text-gray-400">
+                  <div className="flex items-center gap-2 mb-3 text-sm text-gray-600 dark:text-gray-400">
                     <User className="h-4 w-4" />
-                    <span>Raised by: <span className="text-gray-300 font-medium">{request.user.name}</span></span>
+                    <span>Raised by: <span className="text-gray-800 dark:text-gray-300 font-medium">{request.user.name}</span></span>
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-400">
@@ -465,9 +563,15 @@ export default function ReimbursementsPage() {
                     <Calendar className="h-4 w-4" />
                     {formatDate(request.date)}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div 
+                    className="flex items-center gap-2 cursor-pointer hover:text-white transition-colors"
+                    onClick={() => {
+                      setViewingRequest(request);
+                      setBillsSearchTerm(''); // Reset search when opening modal
+                    }}
+                  >
                     <FileText className="h-4 w-4" />
-                    {bills.length} bill{bills.length !== 1 ? 's' : ''}
+                    {(request.bills?.length || 0)} file{(request.bills?.length || 0) !== 1 ? 's' : ''}
                   </div>
                 </div>
               </div>
@@ -507,7 +611,7 @@ export default function ReimbursementsPage() {
                           deleteMutation.mutate(idStr);
                         }
                       }}
-                      className="text-red-400 hover:text-red-300 border-red-500/30"
+                      className="text-rose-600 dark:text-rose-400 hover:text-rose-500 dark:hover:text-rose-300 border-rose-500/30"
                     >
                       Delete
                     </Button>
@@ -518,23 +622,23 @@ export default function ReimbursementsPage() {
             
             {/* Rejection/Return Messages */}
             {request.status === 'rejected' && (request as any).rejection_reason && (
-              <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <div className="mt-3 p-3 bg-rose-100 dark:bg-rose-500/10 border border-rose-300 dark:border-rose-500/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <XCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                  <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-red-400">Rejected</p>
-                    <p className="text-sm text-gray-300 mt-1">{(request as any).rejection_reason}</p>
+                    <p className="text-sm font-medium text-rose-600 dark:text-rose-400">Rejected</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{(request as any).rejection_reason}</p>
                   </div>
                 </div>
               </div>
             )}
             {request.status === 'returned' && (request as any).return_reason && (
-              <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+              <div className="mt-3 p-3 bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-yellow-400">Returned for Revision</p>
-                    <p className="text-sm text-gray-300 mt-1">{(request as any).return_reason}</p>
+                    <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Returned for Revision</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{(request as any).return_reason}</p>
                   </div>
                 </div>
               </div>
@@ -547,7 +651,7 @@ export default function ReimbursementsPage() {
                   variant="outline" 
                   size="sm"
                   onClick={() => handleApprove(request)}
-                  className="flex-1 bg-green-500/10 hover:bg-green-500/20 border-green-500/30 text-green-400"
+                  className="flex-1 bg-emerald-100 dark:bg-emerald-500/10 hover:bg-emerald-200 dark:hover:bg-emerald-500/20 border-emerald-300 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
                 >
                   <CheckCircle className="h-4 w-4 mr-1" />
                   Approve
@@ -556,7 +660,7 @@ export default function ReimbursementsPage() {
                   variant="outline" 
                   size="sm"
                   onClick={() => handleReturn(request)}
-                  className="flex-1 bg-yellow-500/10 hover:bg-yellow-500/20 border-yellow-500/30 text-yellow-400"
+                  className="flex-1 bg-amber-100 dark:bg-amber-500/10 hover:bg-amber-200 dark:hover:bg-amber-500/20 border-amber-300 dark:border-amber-500/30 text-amber-600 dark:text-amber-400"
                 >
                   <AlertTriangle className="h-4 w-4 mr-1" />
                   Return
@@ -565,7 +669,7 @@ export default function ReimbursementsPage() {
                   variant="outline" 
                   size="sm"
                   onClick={() => handleReject(request)}
-                  className="flex-1 bg-red-500/10 hover:bg-red-500/20 border-red-500/30 text-red-400"
+                  className="flex-1 bg-rose-100 dark:bg-rose-500/10 hover:bg-rose-200 dark:hover:bg-rose-500/20 border-rose-300 dark:border-rose-500/30 text-rose-600 dark:text-rose-400"
                 >
                   <XCircle className="h-4 w-4 mr-1" />
                   Reject
@@ -582,7 +686,7 @@ export default function ReimbursementsPage() {
           <div className="text-4xl mb-2">📄</div>
           <p className="text-gray-400">No reimbursement requests found</p>
           {error && (
-            <p className="text-red-400 text-sm mt-2">Error: {error.message}</p>
+            <p className="text-rose-600 dark:text-rose-400 text-sm mt-2">Error: {error.message}</p>
           )}
         </Card>
       )}
@@ -626,8 +730,8 @@ export default function ReimbursementsPage() {
               )}
 
               {actionModal.type === 'approve' && (
-                <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                  <p className="text-sm text-gray-300">
+                <div className="p-3 bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/20 rounded-lg">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
                     Are you sure you want to approve this reimbursement request?
                   </p>
                 </div>
@@ -649,10 +753,10 @@ export default function ReimbursementsPage() {
                   disabled={statusUpdateMutation.isPending}
                   className={`flex-1 ${
                     actionModal.type === 'approve' 
-                      ? 'bg-green-600 hover:bg-green-700' 
+                      ? 'bg-emerald-600 hover:bg-emerald-700' 
                       : actionModal.type === 'reject'
-                      ? 'bg-red-600 hover:bg-red-700'
-                      : 'bg-yellow-600 hover:bg-yellow-700'
+                      ? 'bg-rose-600 hover:bg-rose-700'
+                      : 'bg-amber-600 hover:bg-amber-700'
                   }`}
                 >
                   {statusUpdateMutation.isPending ? 'Processing...' : `Confirm ${actionModal.type}`}
@@ -668,10 +772,10 @@ export default function ReimbursementsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Reimbursement Details</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Reimbursement Details</h2>
               <button
                 onClick={handleCloseView}
-                className="text-gray-400 hover:text-white"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
               >
                 <XCircle className="h-6 w-6" />
               </button>
@@ -681,19 +785,19 @@ export default function ReimbursementsPage() {
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Reason</label>
-                  <p className="text-white">{viewingRequest.reason}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason</label>
+                  <p className="text-gray-900 dark:text-white">{viewingRequest.reason}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Amount</label>
-                  <p className="text-white">{formatCurrency(viewingRequest.amount)}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+                  <p className="text-gray-900 dark:text-white">{formatCurrency(viewingRequest.amount)}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
-                  <p className="text-white">{formatDate(viewingRequest.date)}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                  <p className="text-gray-900 dark:text-white">{formatDate(viewingRequest.date)}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(viewingRequest.status || 'pending')}`}>
                     {getStatusIcon(viewingRequest.status || 'pending')}
                     <span className="ml-1 capitalize">{viewingRequest.status || 'pending'}</span>
@@ -701,26 +805,34 @@ export default function ReimbursementsPage() {
                 </div>
               </div>
 
+              {/* Description */}
+              {viewingRequest.description && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                  <p className="text-gray-900 dark:text-white">{viewingRequest.description}</p>
+                </div>
+              )}
+
               {/* Rejection/Return Messages in View Modal */}
               {viewingRequest.status === 'rejected' && (viewingRequest as any).rejection_reason && (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <div className="p-4 bg-rose-100 dark:bg-rose-500/10 border border-rose-300 dark:border-rose-500/20 rounded-lg">
                   <div className="flex items-start gap-3">
-                    <XCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-red-400 mb-1">Rejection Reason</p>
-                      <p className="text-sm text-gray-300">{(viewingRequest as any).rejection_reason}</p>
+                      <p className="text-sm font-medium text-rose-600 dark:text-rose-400 mb-1">Rejection Reason</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{(viewingRequest as any).rejection_reason}</p>
                     </div>
                   </div>
                 </div>
               )}
               {viewingRequest.status === 'returned' && (viewingRequest as any).return_reason && (
-                <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <div className="p-4 bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/20 rounded-lg">
                   <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-yellow-400 mb-1">Reason for Return</p>
-                      <p className="text-sm text-gray-300">{(viewingRequest as any).return_reason}</p>
-                      <p className="text-xs text-gray-400 mt-2">Please revise your request and resubmit.</p>
+                      <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">Reason for Return</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{(viewingRequest as any).return_reason}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">Please revise your request and resubmit.</p>
                     </div>
                   </div>
                 </div>
@@ -729,23 +841,53 @@ export default function ReimbursementsPage() {
               {/* Bills */}
               {viewingRequest.bills && viewingRequest.bills.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Attached Bills</label>
-                  <div className="space-y-2">
-                    {viewingRequest.bills.map((bill, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-300">{bill.file_name}</span>
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Attached Files ({viewingRequest.bills.length})</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search files..."
+                        value={billsSearchTerm}
+                        onChange={(e) => setBillsSearchTerm(e.target.value)}
+                        className="w-48 px-3 py-1.5 bg-gray-100 dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {viewingRequest.bills
+                      .filter(bill => 
+                        bill.file_name.toLowerCase().includes(billsSearchTerm.toLowerCase())
+                      )
+                      .map((bill, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-white/5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                            <span className="text-gray-900 dark:text-white font-medium truncate" title={bill.file_name}>
+                              {bill.file_name}
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // Open file in new tab for viewing
+                              const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${bill.file_url}`;
+                              window.open(fullUrl, '_blank');
+                            }}
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 border-blue-500/30 flex-shrink-0"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(bill.file_url, '_blank')}
-                        >
-                          Download
-                        </Button>
+                      ))}
+                    {viewingRequest.bills.filter(bill => 
+                      bill.file_name.toLowerCase().includes(billsSearchTerm.toLowerCase())
+                    ).length === 0 && (
+                      <div className="text-center py-4 text-gray-600 dark:text-gray-400">
+                         No files found matching &quot;{billsSearchTerm}&quot;
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}
@@ -753,12 +895,12 @@ export default function ReimbursementsPage() {
               {/* Timestamps */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Created</label>
-                  <p className="text-gray-400">{viewingRequest.created_at ? formatDate(viewingRequest.created_at) : 'N/A'}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Created</label>
+                  <p className="text-gray-600 dark:text-gray-400">{viewingRequest.created_at ? formatDate(viewingRequest.created_at) : 'N/A'}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Request ID</label>
-                  <p className="text-gray-400">{viewingRequest.id}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Request ID</label>
+                  <p className="text-gray-600 dark:text-gray-400">{viewingRequest.id}</p>
                 </div>
               </div>
             </div>

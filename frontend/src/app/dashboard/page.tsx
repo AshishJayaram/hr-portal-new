@@ -66,16 +66,33 @@ export default function DashboardPage() {
     
     // Add holidays
     events.push(...(dashboardData?.data?.upcoming_holidays || [])
-      .filter((h: any) => h.isCalendarEvent !== false && h.date)
-      .map((h: any) => ({
-        title: h.name || h.title,
-        start: new Date(h.date),
-        end: new Date(h.date),
-        color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#f59e0b" : "#10b981"),
-        extendedProps: {
-          type: h.type || 'holiday'
+      .filter((h: any) => h.isCalendarEvent !== false && (h.date || h.date_range))
+      .map((h: any) => {
+        if (h.date_range) {
+          // Multi-day event
+          const [start, end] = h.date_range.split(" to ");
+          return {
+            title: h.name || h.title,
+            start: new Date(start.trim()),
+            end: new Date(end.trim()),
+            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#f59e0b" : "#10b981"),
+            extendedProps: {
+              type: h.type || 'holiday'
+            }
+          };
+        } else {
+          // Single day event
+          return {
+            title: h.name || h.title,
+            start: new Date(h.date),
+            end: new Date(h.date),
+            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#f59e0b" : "#10b981"),
+            extendedProps: {
+              type: h.type || 'holiday'
+            }
+          };
         }
-      })));
+      }));
 
     // Add off-site entries
     events.push(...(dashboardData?.data?.recent_off_sites || [])
@@ -396,7 +413,7 @@ export default function DashboardPage() {
                         }
                       }
                     } catch (error) {
-                      console.error('Failed to download document:', error);
+                      // Failed to download document
                     }
                   }}
                   className="text-indigo-400 hover:text-indigo-300 text-sm font-medium ml-2 flex-shrink-0"
@@ -433,7 +450,7 @@ export default function DashboardPage() {
                         window.open(data.fileUrl, '_blank');
                       }
                     } catch (error) {
-                      console.error('Failed to download salary slip:', error);
+                      // Failed to download salary slip
                     }
                   }}
                   className="text-indigo-400 hover:underline"

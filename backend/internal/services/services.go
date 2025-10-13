@@ -48,7 +48,7 @@ func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb 
 		Auth:                    NewAuthService(repos.User, repos.Organization, cfg.JWT),
 		Leave:                   NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService, NewNotificationService()),
 		LeaveCategory:           NewLeaveCategoryService(repos.LeaveCategory),
-		LeaveAllocation:         NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory),
+		LeaveAllocation:         NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory, repos.User),
 		Document:                NewDocumentService(repos.Document, auditService, NewNotificationService()),
 		SalarySlip:              NewSalarySlipService(repos.SalarySlip, auditService, NewNotificationService()),
 		Holiday:                 NewHolidayService(repos.Holiday, auditService),
@@ -223,15 +223,16 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	Username    *string  `json:"username"`
-	Email       *string  `json:"email"`
-	Name        *string  `json:"name"`
-	Designation *string  `json:"designation"`
-	Department  *string  `json:"department"`
-	Role        *string  `json:"role"`
-	ManagerID   *string  `json:"manager_id"`
-	CTC         *float64 `json:"ctc"`
-	IsActive    *bool    `json:"is_active"`
+	Username        *string  `json:"username"`
+	Email           *string  `json:"email"`
+	Name            *string  `json:"name"`
+	Designation     *string  `json:"designation"`
+	Department      *string  `json:"department"`
+	Role            *string  `json:"role"`
+	ManagerID       *string  `json:"manager_id"`
+	TransferReports *bool    `json:"transfer_reports"`
+	CTC             *float64 `json:"ctc"`
+	IsActive        *bool    `json:"is_active"`
 }
 
 type LoginRequest struct {
@@ -292,6 +293,7 @@ type LeaveBalanceResponse struct {
 type CreateLeaveCategoryRequest struct {
 	Name             string `json:"name" validate:"required,min=2,max=50"`
 	Description      string `json:"description"`
+	DefaultDays      int    `json:"default_days"`
 	MaxDaysPerYear   int    `json:"max_days_per_year"`
 	RequiresApproval bool   `json:"requires_approval"`
 }
@@ -299,6 +301,7 @@ type CreateLeaveCategoryRequest struct {
 type UpdateLeaveCategoryRequest struct {
 	Name             *string `json:"name"`
 	Description      *string `json:"description"`
+	DefaultDays      *int    `json:"default_days"`
 	MaxDaysPerYear   *int    `json:"max_days_per_year"`
 	RequiresApproval *bool   `json:"requires_approval"`
 	IsActive         *bool   `json:"is_active"`

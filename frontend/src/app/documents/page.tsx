@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getDocuments, uploadDocument, deleteDocument, canManageDocuments, getCurrentUser, acknowledgeDocument, getAcknowledgedUsersForDocument } from "@/lib/api";
+import { getDocuments, getDocument, uploadDocument, deleteDocument, canManageDocuments, getCurrentUser, acknowledgeDocument, getAcknowledgedUsersForDocument } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -87,7 +87,7 @@ export default function DocumentsPage() {
         // Try normal deletion first
         return await deleteDocument(docId);
       } catch (error: any) {
-        console.warn("Normal deletion failed, attempting cleanup:", error);
+        // Normal deletion failed, attempting cleanup
         
         // If normal deletion fails, perform comprehensive cleanup
         await performDocumentCleanup(docId);
@@ -145,14 +145,12 @@ export default function DocumentsPage() {
   // Comprehensive document cleanup function
   const performDocumentCleanup = async (docId: string) => {
     try {
-      console.log(`Performing comprehensive cleanup for document ${docId}`);
       
       // Step 1: Get document info before deletion
       const docInfo = await getDocument(docId);
       const document = docInfo?.data;
       
       if (document) {
-        console.log(`Cleaning up document: ${document.title}`);
         
         // Step 2: Delete related audit logs
         try {
@@ -163,9 +161,8 @@ export default function DocumentsPage() {
               'X-Organization-ID': localStorage.getItem('organizationId') || '',
             },
           });
-          console.log('Audit logs cleaned up');
         } catch (auditError) {
-          console.warn('Failed to clean audit logs:', auditError);
+          // Failed to clean audit logs
         }
         
         // Step 3: Force delete from database (if normal deletion failed)
@@ -177,9 +174,8 @@ export default function DocumentsPage() {
               'X-Organization-ID': localStorage.getItem('organizationId') || '',
             },
           });
-          console.log('Document deleted from database');
         } catch (dbError) {
-          console.warn('Failed to delete from database:', dbError);
+          // Failed to delete from database
         }
         
         // Step 4: Delete physical file (if it exists)
@@ -187,21 +183,16 @@ export default function DocumentsPage() {
           try {
             // Extract file path from fileUrl
             const filePath = document.fileUrl.replace(/.*\/api\/files\/documents\/\d+/, '');
-            console.log(`Attempting to delete physical file: ${filePath}`);
-            
             // Note: Physical file deletion would need backend support
             // For now, we'll just log it
-            console.log('Physical file cleanup would happen here');
           } catch (fileError) {
-            console.warn('Failed to delete physical file:', fileError);
+            // Failed to delete physical file
           }
         }
       }
       
-      console.log(`Cleanup completed for document ${docId}`);
       
     } catch (error) {
-      console.error('Cleanup failed:', error);
       throw error;
     }
   };
@@ -453,7 +444,7 @@ export default function DocumentsPage() {
                       openPDFViewer(data.fileUrl, doc.title);
                     }
                   } catch (error) {
-                    console.error('Failed to download document:', error);
+                    // Failed to download document
                   }
                 }}
                 className="w-full flex items-center gap-2"
@@ -552,7 +543,7 @@ export default function DocumentsPage() {
                             openPDFViewer(data.fileUrl, doc.title);
                           }
                         } catch (error) {
-                          console.error('Failed to download document:', error);
+                          // Failed to download document
                         }
                       }}
                       className="w-full flex items-center gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10"

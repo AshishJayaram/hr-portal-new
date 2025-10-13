@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUser, updateUser, getUsers, toCanonicalRole, getCompanySettings, getLeaveCategories, getLeaveAllocations, updateLeaveAllocation, createLeaveAllocation, getLeaveBalance } from "@/lib/api";
+import { getUser, updateUser, getUsers, toCanonicalRole, getCompanySettings, getLeaveCategories, getLeaveAllocations, updateLeaveAllocation, createLeaveAllocation, deleteLeaveAllocation, getLeaveBalance } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import Card from "@/components/ui/Card";
@@ -35,11 +35,13 @@ function EditEmployeeForm({ id }: { id: string }) {
     username: "",
     email: "",
     designation: "",
-    role: "Employee" as "Employee" | "Manager" | "HR" | "Admin",
+    role: "Employee" as "Employee" | "Manager" | "HR" | "Admin" | "God",
     department: "",
     manager_id: "",
     ctc: "",
   });
+  const [transferReports, setTransferReports] = useState(false);
+  const [originalManagerId, setOriginalManagerId] = useState("");
   const [managerQuery, setManagerQuery] = useState("");
   const [selectedManagerName, setSelectedManagerName] = useState("");
   const [leaveAllocations, setLeaveAllocations] = useState<Record<string, number>>({});
@@ -98,6 +100,9 @@ function EditEmployeeForm({ id }: { id: string }) {
         ctc: user.data.ctc ? String(user.data.ctc) : "",
       });
       
+      // Store original manager ID for comparison
+      setOriginalManagerId(managerId);
+      
       // Set manager query to show current manager
       if (managerId && (user.data as any).manager?.name) {
         setManagerQuery(`${(user.data as any).manager.name} (ID: ${managerId})`);
@@ -149,21 +154,16 @@ function EditEmployeeForm({ id }: { id: string }) {
       router.push("/employees");
     },
     onError: (error: any) => {
-      console.error("Employee update failed:", error);
+      // Employee update failed
       toast.error(error.message || "Failed to update employee");
     },
   });
 
   const leaveAllocationMutation = useMutation({
     mutationFn: async () => {
-      console.log('Leave allocation mutation called');
-      console.log('currentAllocations:', currentAllocations);
-      console.log('leaveCategories:', leaveCategories);
-      console.log('leaveAllocations:', leaveAllocations);
-      console.log('leaveApplicable:', leaveApplicable);
       
       if (!leaveCategories?.data) {
-        console.log('Missing leave categories data, returning early');
+        // Missing leave categories data, returning early
         return;
       }
       
@@ -180,26 +180,26 @@ function EditEmployeeForm({ id }: { id: string }) {
           (a: LeaveAllocation) => a.categoryId === categoryId && a.year === currentYear
         );
         
-        console.log(`Processing category ${categoryId}: days=${days}, applicable=${isApplicable}, existing=${!!existingAllocation}`);
+        // Processing category
         
         if (existingAllocation) {
           if (isApplicable && Number(days) > 0) {
             // Update existing allocation
-            console.log(`Updating allocation ${existingAllocation.id} with ${days} days`);
+            // Update existing allocation
             promises.push(updateLeaveAllocation(id, existingAllocation.id, {
               totalDays: Number(days),
               usedDays: existingAllocation.usedDays, // Keep existing used days
             }));
           } else {
             // Delete allocation if not applicable or days is 0
-            console.log(`Deleting allocation ${existingAllocation.id}`);
+            // Delete allocation
             promises.push(deleteLeaveAllocation(id, existingAllocation.id));
           }
         } else if (isApplicable && Number(days) > 0) {
           // Create new allocation
           const category = leaveCategories.data.find((c: LeaveCategory) => c.id === categoryId);
           if (category) {
-            console.log(`Creating new allocation for category ${categoryId} with ${days} days`);
+            // Create new allocation
             promises.push(createLeaveAllocation(id, {
               categoryId,
               categoryName: category.name,
@@ -212,9 +212,7 @@ function EditEmployeeForm({ id }: { id: string }) {
         }
       });
       
-      console.log(`Executing ${promises.length} promises`);
       await Promise.all(promises);
-      console.log('All promises completed');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leave-allocations", id] });
@@ -245,9 +243,6 @@ function EditEmployeeForm({ id }: { id: string }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log('Employee details form submitted');
-    console.log('formData:', formData);
-    console.log('id:', id);
 
     // Prevent self-assignment as manager and circular references
     if (formData.manager_id && String(formData.manager_id) === String(id)) {
@@ -264,6 +259,7 @@ function EditEmployeeForm({ id }: { id: string }) {
       role: toCanonicalRole(formData.role),
       department: formData.department,
       manager_id: formData.manager_id ? String(formData.manager_id) : undefined, // Convert to string to match backend
+      transfer_reports: formData.manager_id !== originalManagerId ? transferReports : undefined, // Only include if manager changed
     };
 
     mutation.mutate(payload);
@@ -311,13 +307,13 @@ function EditEmployeeForm({ id }: { id: string }) {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-white/5 p-1 rounded-lg">
+      <div className="flex space-x-1 bg-gray-100 dark:bg-white/5 p-1 rounded-lg">
         <button
           onClick={() => setActiveTab('details')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'details'
-              ? 'bg-white/10 text-white'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-indigo-500 text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
           }`}
         >
           Employee Details
@@ -326,8 +322,8 @@ function EditEmployeeForm({ id }: { id: string }) {
           onClick={() => setActiveTab('leaves')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'leaves'
-              ? 'bg-white/10 text-white'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-indigo-500 text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
           }`}
         >
           Leave Allocations
@@ -336,8 +332,8 @@ function EditEmployeeForm({ id }: { id: string }) {
           onClick={() => setActiveTab('ctc')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'ctc'
-              ? 'bg-white/10 text-white'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-indigo-500 text-white'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
           }`}
         >
           CTC Management
@@ -393,7 +389,7 @@ function EditEmployeeForm({ id }: { id: string }) {
                           setManagerQuery("");
                           setSelectedManagerName("");
                         }}
-                        className="text-xs text-red-400 hover:text-red-300"
+                        className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-500 dark:hover:text-rose-300"
                       >
                         Clear Manager
                       </button>
@@ -410,12 +406,12 @@ function EditEmployeeForm({ id }: { id: string }) {
                     placeholder="Click to see all users or search by name..." 
                   />
                   {formData.manager_id && (
-                    <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded text-green-400 text-sm">
+                    <div className="mt-2 p-2 bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/20 rounded text-emerald-600 dark:text-emerald-400 text-sm">
                       ✓ Selected: {selectedManagerName || `Manager ID: ${formData.manager_id}`}
                     </div>
                   )}
                   {formData.manager_id && String(formData.manager_id) === String(id) && (
-                    <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-sm">
+                    <div className="mt-2 p-2 bg-rose-100 dark:bg-rose-500/10 border border-rose-300 dark:border-rose-500/20 rounded text-rose-600 dark:text-rose-400 text-sm">
                       ⚠️ An employee cannot be assigned as their own manager
                     </div>
                   )}
@@ -447,13 +443,37 @@ function EditEmployeeForm({ id }: { id: string }) {
                     </div>
                   )}
                 </div>
+                
+                {/* Transfer Reports Option */}
+                {formData.manager_id !== originalManagerId && formData.manager_id && (
+                  <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <input
+                        type="checkbox"
+                        id="transfer-reports"
+                        checked={transferReports}
+                        onChange={(e) => setTransferReports(e.target.checked)}
+                        className="mt-1 rounded"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="transfer-reports" className="block text-sm font-medium text-blue-600 dark:text-blue-400">
+                          Transfer Reports to New Manager
+                        </label>
+                        <p className="text-xs text-blue-500 dark:text-blue-300 mt-1">
+                          If this employee has direct reports, they will be transferred to the new manager. 
+                          This ensures continuity in the reporting structure.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3">
                 <Button
                   type="submit"
                   loading={mutation.isPending}
-                  disabled={formData.manager_id && String(formData.manager_id) === String(id)}
+                  disabled={!!(formData.manager_id && String(formData.manager_id) === String(id))}
                 >
                   Update Employee
                 </Button>
@@ -558,7 +578,7 @@ function LeaveAllocationManager({
                       {category.name}
                     </h4>
                     {!isApplicable && (
-                      <span className="text-xs text-red-400 ml-2">Not Applicable</span>
+                      <span className="text-xs text-rose-600 dark:text-rose-400 ml-2">Not Applicable</span>
                     )}
                   </div>
                   <p className="text-sm text-secondary">{category.description}</p>
@@ -583,13 +603,6 @@ function LeaveAllocationManager({
                     onChange={(e) => {
                       const value = Number(e.target.value) || 0;
                       onAllocationChange({ ...allocations, [category.id]: value });
-                      // If setting to 0, uncheck applicable
-                      if (value === 0) {
-                        onApplicableChange({ ...applicable, [category.id]: false });
-                      } else {
-                        // If setting to > 0, check applicable
-                        onApplicableChange({ ...applicable, [category.id]: true });
-                      }
                     }}
                     placeholder={String(category.defaultDays)}
                     disabled={!isApplicable}
@@ -608,9 +621,17 @@ function LeaveAllocationManager({
                 </div>
               </div>
               
+              {totalDays > category.maxDaysPerYear && (
+                <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-sm text-red-400">
+                    ⚠️ Allocation ({totalDays} days) exceeds the maximum allowed for this category ({category.maxDaysPerYear} days).
+                  </p>
+                </div>
+              )}
+              
               {usedDays > 0 && (
                 <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                  <p className="text-sm text-yellow-400">
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400">
                     ⚠️ This employee has already used {usedDays} days. 
                     Reducing total allocation may affect their remaining balance.
                   </p>
@@ -628,7 +649,15 @@ function LeaveAllocationManager({
       </div>
       
       <div className="mt-6 flex gap-3">
-        <Button onClick={onSave} loading={isLoading}>
+        <Button 
+          onClick={onSave} 
+          loading={isLoading}
+          disabled={categories.some(category => 
+            category.isActive && 
+            applicable[category.id] && 
+            allocations[category.id] > category.maxDaysPerYear
+          )}
+        >
           Save Leave Allocations
         </Button>
         <Button variant="outline" onClick={() => window.location.reload()}>
@@ -660,11 +689,11 @@ function LeaveBalanceManager({ leaveBalance }: { leaveBalance: any[] }) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Used:</span>
-                  <span className="font-medium text-yellow-400">{balance.used} days</span>
+                  <span className="font-medium text-yellow-600 dark:text-yellow-400">{balance.used} days</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Remaining:</span>
-                  <span className="font-medium text-green-400">{balance.remaining} days</span>
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">{balance.remaining} days</span>
                 </div>
               </div>
             </div>
@@ -765,12 +794,12 @@ function CTCManager({
                   Monthly CTC: {formatCurrency(breakdown.monthlyCTC, getDefaultCurrency())}
                 </div>
                 {ctcData.lopDays > 0 && (
-                  <div className="text-sm text-yellow-400">
+                  <div className="text-sm text-yellow-600 dark:text-yellow-400">
                     LOP Days: {ctcData.lopDays}
                   </div>
                 )}
                 {ctcData.tdsOverride > 0 && (
-                  <div className="text-sm text-blue-400">
+                  <div className="text-sm text-blue-600 dark:text-blue-400">
                     TDS Override (Yearly): {formatCurrency(ctcData.tdsOverride, getDefaultCurrency())}
                   </div>
                 )}
@@ -823,7 +852,7 @@ function CTCManager({
         
         {!companySettings && (
           <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-            <p className="text-sm text-yellow-400">
+            <p className="text-sm text-yellow-600 dark:text-yellow-400">
               ⚠️ Company settings are not available. CTC breakdown cannot be calculated.
             </p>
           </div>

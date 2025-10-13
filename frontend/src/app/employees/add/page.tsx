@@ -148,15 +148,15 @@ export default function AddEmployeePage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-white/5 p-1 rounded-lg">
+      <div className="flex space-x-1 bg-gray-100 dark:bg-white/5 p-1 rounded-lg">
         <button 
           onClick={() => goToTab('details')} 
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'details'
-              ? 'bg-white/10 text-white'
+              ? 'bg-indigo-500 text-white'
               : stepIndex('details') <= maxStep 
-                ? 'text-gray-200 hover:text-white' 
-                : 'text-gray-500 cursor-not-allowed'
+                ? 'text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10' 
+                : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
           }`}
         >
           Employee Details
@@ -165,10 +165,10 @@ export default function AddEmployeePage() {
           onClick={() => goToTab('leaves')} 
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'leaves'
-              ? 'bg-white/10 text-white'
+              ? 'bg-indigo-500 text-white'
               : stepIndex('leaves') <= maxStep 
-                ? 'text-gray-200 hover:text-white' 
-                : 'text-gray-500 cursor-not-allowed'
+                ? 'text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10' 
+                : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
           }`}
         >
           Leave Allocations
@@ -177,10 +177,10 @@ export default function AddEmployeePage() {
           onClick={() => goToTab('ctc')} 
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === 'ctc'
-              ? 'bg-white/10 text-white'
+              ? 'bg-indigo-500 text-white'
               : stepIndex('ctc') <= maxStep 
-                ? 'text-gray-200 hover:text-white' 
-                : 'text-gray-500 cursor-not-allowed'
+                ? 'text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10' 
+                : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
           }`}
         >
           CTC Management
@@ -315,7 +315,7 @@ function LeaveAllocationAddManager({
                       {category.name}
                     </h4>
                     {!isApplicable && (
-                      <span className="text-xs text-red-400 ml-2">Not Applicable</span>
+                      <span className="text-xs text-rose-600 dark:text-rose-400 ml-2">Not Applicable</span>
                     )}
                   </div>
                   <p className="text-sm text-secondary">{category.description}</p>
@@ -339,13 +339,6 @@ function LeaveAllocationAddManager({
                     onChange={(e) => {
                       const value = Number(e.target.value) || 0;
                       onAllocationChange({ ...allocations, [category.id]: value });
-                      // If setting to 0, uncheck applicable
-                      if (value === 0) {
-                        onApplicableChange({ ...applicable, [category.id]: false });
-                      } else {
-                        // If setting to > 0, check applicable
-                        onApplicableChange({ ...applicable, [category.id]: true });
-                      }
                     }}
                     placeholder={String(category.defaultDays)}
                     disabled={!isApplicable}
@@ -365,8 +358,8 @@ function LeaveAllocationAddManager({
               </div>
               
               {totalDays > category.maxDaysPerYear && (
-                <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                  <p className="text-sm text-red-400">
+                <div className="mt-3 p-3 bg-rose-100 dark:bg-rose-500/10 border border-rose-300 dark:border-rose-500/20 rounded-lg">
+                  <p className="text-sm text-rose-600 dark:text-rose-400">
                     ⚠️ Allocation ({totalDays} days) exceeds the maximum allowed for this category ({category.maxDaysPerYear} days).
                   </p>
                 </div>
@@ -386,7 +379,14 @@ function LeaveAllocationAddManager({
         <Button variant="outline" onClick={onBack}>
           Back
         </Button>
-        <Button onClick={onNext}>
+        <Button 
+          onClick={onNext}
+          disabled={categories.some(category => 
+            category.isActive && 
+            applicable[category.id] && 
+            allocations[category.id] > category.maxDaysPerYear
+          )}
+        >
           Next
         </Button>
       </div>
@@ -484,12 +484,12 @@ function CTCAddManager({
                   Monthly CTC: {formatCurrency(breakdown.monthlyCTC, getDefaultCurrency())}
                 </div>
                 {ctcData.lopDays > 0 && (
-                  <div className="text-sm text-yellow-400">
+                  <div className="text-sm text-yellow-600 dark:text-yellow-400">
                     LOP Days: {ctcData.lopDays}
                   </div>
                 )}
                 {ctcData.tdsOverride > 0 && (
-                  <div className="text-sm text-blue-400">
+                  <div className="text-sm text-blue-600 dark:text-blue-400">
                     TDS Override (Yearly): {formatCurrency(ctcData.tdsOverride, getDefaultCurrency())}
                   </div>
                 )}
@@ -523,7 +523,7 @@ function CTCAddManager({
                 </div>
                 <div className="flex justify-between font-semibold text-primary border-t border-card pt-2">
                   <span>Net Pay</span>
-                  <span className="text-green-600 dark:text-green-400">₹{breakdown.totals.netPay.toLocaleString('en-IN')}</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">₹{breakdown.totals.netPay.toLocaleString('en-IN')}</span>
                 </div>
               </div>
             </div>

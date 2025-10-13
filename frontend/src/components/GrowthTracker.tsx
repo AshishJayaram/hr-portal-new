@@ -43,7 +43,7 @@ export default function GrowthTracker({ userId, userName, maxItems = 3 }: Growth
       case "CREATE":
         return "text-green-400";
       case "UPDATE":
-        return "text-blue-400";
+        return "text-blue-600 dark:text-blue-400";
       case "DELETE":
         return "text-red-400";
       default:

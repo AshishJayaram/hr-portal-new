@@ -31,7 +31,7 @@ func (r *userRepository) Create(user *models.User) error {
 
 	// Invalidate cache
 	r.invalidateCache("users:*")
-	r.invalidateCache(fmt.Sprintf("user:%s", user.ID))
+	r.invalidateCache(fmt.Sprintf("user:%d", user.ID))
 
 	return nil
 }
@@ -138,7 +138,7 @@ func (r *userRepository) Update(user *models.User) error {
 
 	// Invalidate cache
 	r.invalidateCache("users:*")
-	r.invalidateCache(fmt.Sprintf("user:%s", user.ID))
+	r.invalidateCache(fmt.Sprintf("user:%d", user.ID))
 
 	return nil
 }
@@ -226,4 +226,50 @@ func (r *userRepository) GetAdminByOrganizationID(organizationID string) (*model
 		return nil, fmt.Errorf("failed to get admin user: %w", err)
 	}
 	return &user, nil
+}
+
+// ReassignManagerAtomic updates a user's manager and optionally transfers their direct reports to the new manager in a single DB transaction
+func (r *userRepository) ReassignManagerAtomic(userID string, newManagerID *uint, transferReports bool) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var user models.User
+		if err := tx.Clauses().Where("id = ?", userID).First(&user).Error; err != nil {
+			return fmt.Errorf("failed to load user: %w", err)
+		}
+
+		orgID := user.OrganizationID
+
+		// Validate new manager belongs to same org and is not the user itself
+		if newManagerID != nil {
+			if *newManagerID == user.ID {
+				return fmt.Errorf("an employee cannot be assigned as their own manager")
+			}
+			var manager models.User
+			if err := tx.Where("id = ? AND organization_id = ?", *newManagerID, orgID).First(&manager).Error; err != nil {
+				return fmt.Errorf("new manager not found in same organization: %w", err)
+			}
+		}
+
+		// Set user's new manager
+		user.ManagerID = newManagerID
+		if err := tx.Save(&user).Error; err != nil {
+			return fmt.Errorf("failed to update user's manager: %w", err)
+		}
+
+		// Optionally transfer all direct reports to the new manager
+		if transferReports {
+			// Get direct subordinates (by string id to reuse helper)
+			var subs []models.User
+			if err := tx.Where("organization_id = ? AND manager_id = ?", orgID, user.ID).Find(&subs).Error; err != nil {
+				return fmt.Errorf("failed to fetch subordinates: %w", err)
+			}
+			for i := range subs {
+				subs[i].ManagerID = newManagerID
+				if err := tx.Save(&subs[i]).Error; err != nil {
+					return fmt.Errorf("failed to transfer subordinate %d: %w", subs[i].ID, err)
+				}
+			}
+		}
+
+		return nil
+	})
 }

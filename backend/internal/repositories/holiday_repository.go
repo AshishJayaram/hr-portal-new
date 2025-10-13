@@ -104,13 +104,14 @@ func (r *holidayRepository) buildQuery(query *gorm.DB, filters map[string]interf
 		switch key {
 		case "year":
 			if yearStr, ok := value.(string); ok {
-				// Filter by year using SQLite strftime
+				// Filter by year using SQLite strftime - check both date and date_range fields
 				if len(yearStr) == 4 {
-					query = query.Where("strftime('%Y', date) = ?", yearStr)
+					query = query.Where("strftime('%Y', date) = ? OR date_range LIKE ?", yearStr, fmt.Sprintf("%%%s%%", yearStr))
 				}
 			} else if year, ok := value.(int); ok {
 				if year > 0 {
-					query = query.Where("strftime('%Y', date) = ?", fmt.Sprintf("%d", year))
+					yearStr := fmt.Sprintf("%d", year)
+					query = query.Where("strftime('%Y', date) = ? OR date_range LIKE ?", yearStr, fmt.Sprintf("%%%s%%", yearStr))
 				}
 			}
 		case "type":

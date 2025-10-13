@@ -142,6 +142,8 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 
 	// Store old user for audit logging
 	oldUser := *user
+	// Track previous manager for audit-only purposes; handled inside atomic reassignment
+	// oldManagerID := user.ManagerID
 
 	// Update fields if provided
 	if req.Username != nil {
@@ -178,9 +180,13 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 		user.Role = *req.Role
 	}
 
+	// Track manager reassignment; perform atomically later
+	var managerReassignRequested bool
+	var newManagerIDPtr *uint
 	if req.ManagerID != nil {
+		managerReassignRequested = true
 		if *req.ManagerID == "" {
-			user.ManagerID = nil
+			newManagerIDPtr = nil
 		} else {
 			// Prevent self-assignment as manager
 			if *req.ManagerID == id {
@@ -192,13 +198,13 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 				return nil, fmt.Errorf("invalid manager ID: %w", err)
 			}
 
-			// Check for circular dependency
+			// Check for circular dependency (manager cannot be in user's subordinate chain)
 			if err := s.checkCircularDependency(id, uint(managerIDUint)); err != nil {
 				return nil, err
 			}
 
-			managerIDUintPtr := uint(managerIDUint)
-			user.ManagerID = &managerIDUintPtr
+			managerID := uint(managerIDUint)
+			newManagerIDPtr = &managerID
 		}
 	}
 
@@ -210,10 +216,23 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 		user.IsActive = *req.IsActive
 	}
 
-	// Update user
+	// Update non-manager fields first
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
+
+	// Perform atomic manager reassignment and optional subordinate transfer
+	if managerReassignRequested {
+		transferReports := false
+		if req.TransferReports != nil {
+			transferReports = *req.TransferReports && newManagerIDPtr != nil // only meaningful if assigning a new manager
+		}
+		if err := s.userRepo.ReassignManagerAtomic(id, newManagerIDPtr, transferReports); err != nil {
+			return nil, fmt.Errorf("failed to reassign manager: %w", err)
+		}
+	}
+
+	// Note: subordinate transfer (if requested) is handled atomically above
 
 	// Refetch user with updated relationships
 	updatedUser, err := s.userRepo.GetByID(id)
@@ -223,7 +242,7 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 	user = updatedUser
 
 	// Log audit entry for user update
-	if req.CTC != nil || req.Name != nil || req.Role != nil || req.Department != nil || req.Designation != nil {
+	if req.CTC != nil || req.Name != nil || req.Role != nil || req.Department != nil || req.Designation != nil || req.ManagerID != nil {
 		orgID := strconv.FormatUint(uint64(user.OrganizationID), 10)
 
 		// Get current user from request context (from middleware)
@@ -402,5 +421,65 @@ func (s *userService) checkSubordinateChain(subordinates []models.User, managerI
 		}
 	}
 
+	return nil
+}
+
+// handleManagerChangeWithReportTransfer handles transferring reports when a manager changes
+func (s *userService) handleManagerChangeWithReportTransfer(userID string, oldManagerID, newManagerID *uint, httpReq *http.Request) error {
+
+	// Get the user to access organization ID
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+	organizationID := strconv.FormatUint(uint64(user.OrganizationID), 10)
+
+	// Get current subordinates of the user
+	subordinates, err := s.userRepo.GetSubordinates(organizationID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get subordinates: %w", err)
+	}
+
+	if len(subordinates) == 0 {
+		// No subordinates to transfer
+		return nil
+	}
+
+	// Transfer all subordinates to the new manager
+	for _, subordinate := range subordinates {
+		// Update the subordinate's manager
+		subordinate.ManagerID = newManagerID
+		if err := s.userRepo.Update(&subordinate); err != nil {
+			fmt.Printf("Warning: Failed to transfer subordinate %s: %v\n", subordinate.Username, err)
+			continue
+		}
+
+		// Log audit entry for subordinate transfer
+		subordinateOrgID := strconv.FormatUint(uint64(subordinate.OrganizationID), 10)
+		subordinateID := strconv.FormatUint(uint64(subordinate.ID), 10)
+
+		// Get current user from request context
+		changedBy := "19" // Default fallback
+		if httpReq != nil {
+			if userID := httpReq.Header.Get("X-User-ID"); userID != "" {
+				changedBy = userID
+			}
+		}
+
+		// Create old subordinate for audit logging
+		oldSubordinate := subordinate
+		if oldManagerID != nil {
+			oldSubordinate.ManagerID = oldManagerID
+		} else {
+			oldSubordinate.ManagerID = nil
+		}
+
+		// Log the subordinate transfer
+		if err := s.auditService.LogUserChange(subordinateOrgID, subordinateID, changedBy, "UPDATE", &oldSubordinate, &subordinate, httpReq); err != nil {
+			fmt.Printf("Failed to log audit for subordinate transfer: %v\n", err)
+		}
+	}
+
+	fmt.Printf("Successfully transferred %d subordinates from user %s\n", len(subordinates), userID)
 	return nil
 }

@@ -59,12 +59,12 @@ export default function HolidaysPage() {
       queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
       setShowForm(false);
       setEditingHoliday(null);
-      setFormData({ name: "", date: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444" });
+      setFormData({ name: "", startDate: "", endDate: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444", isMultiDay: false });
       // Show success message
       alert("Holiday/Event created successfully!");
     },
     onError: (error: any) => {
-      console.error("Failed to create holiday:", error);
+      // Failed to create holiday
     },
   });
 
@@ -80,12 +80,12 @@ export default function HolidaysPage() {
       queryClient.invalidateQueries({ queryKey: ["holidays", "dashboard"] });
       setShowForm(false);
       setEditingHoliday(null);
-      setFormData({ name: "", date: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444" });
+      setFormData({ name: "", startDate: "", endDate: "", type: "holiday", description: "", isCalendarEvent: true, color: "#ef4444", isMultiDay: false });
       // Show success message
       alert("Holiday/Event updated successfully!");
     },
     onError: (error: any) => {
-      console.error("Failed to update holiday:", error);
+      // Failed to update holiday
     },
   });
 
@@ -103,7 +103,7 @@ export default function HolidaysPage() {
       alert("Holiday/Event deleted successfully!");
     },
     onError: (error: any) => {
-      console.error("Failed to delete holiday:", error);
+      // Failed to delete holiday
     },
   });
 
@@ -111,17 +111,13 @@ export default function HolidaysPage() {
     e.preventDefault();
     
     // Prepare the data for submission
+    const { startDate, endDate, isMultiDay, ...baseData } = formData;
     const submitData = {
-      ...formData,
-      date: formData.isMultiDay 
-        ? `${formData.startDate} to ${formData.endDate}`
-        : formData.startDate,
+      ...baseData,
+      date: isMultiDay 
+        ? `${startDate} to ${endDate}`
+        : startDate,
     };
-    
-    // Remove the multi-day specific fields
-    delete submitData.startDate;
-    delete submitData.endDate;
-    delete submitData.isMultiDay;
     
     if (editingHoliday) {
       updateHolidayMutation.mutate({ id: editingHoliday.id, data: submitData });
@@ -138,18 +134,17 @@ export default function HolidaysPage() {
     let endDate = "";
     let isMultiDay = false;
     
-    if (holiday.date) {
-      // Check if the date contains a range (e.g., "2024-01-01 to 2024-01-03")
-      if (holiday.date.includes(" to ")) {
-        const [start, end] = holiday.date.split(" to ");
-        startDate = start.trim();
-        endDate = end.trim();
-        isMultiDay = true;
-      } else {
-        startDate = holiday.date;
-        endDate = holiday.date;
-        isMultiDay = false;
-      }
+    if (holiday.dateRange) {
+      // Multi-day event using dateRange field
+      const [start, end] = holiday.dateRange.split(" to ");
+      startDate = start.trim();
+      endDate = end.trim();
+      isMultiDay = true;
+    } else if (holiday.date) {
+      // Single day event
+      startDate = holiday.date;
+      endDate = holiday.date;
+      isMultiDay = false;
     }
     
     setFormData({
@@ -175,29 +170,29 @@ export default function HolidaysPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Holidays & Events</h1>
+        <h1 className="text-2xl font-bold">Holidays, Events & Notices</h1>
         <RoleGuard allowedRoles={["HR", "Admin"]}>
           <button
             onClick={() => setShowForm(true)}
             className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700"
           >
-            Add Event/Notice
+            Add Holiday/Event/Notice
           </button>
         </RoleGuard>
       </div>
 
       {/* Year Selector for Financial Year */}
-      <div className="bg-gray-800/50 rounded-lg p-4">
+      <div className="bg-gray-100 dark:bg-gray-800/50 rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <label htmlFor="year-select" className="text-sm font-medium text-gray-300">
+            <label htmlFor="year-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Financial Year:
             </label>
             <Select
               id="year-select"
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="bg-gray-700 text-white border-gray-600"
+              className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
               options={availableYears.length > 0 ? availableYears.map((year) => {
                 const financialYearLabel = `${year} (Apr ${year.toString().slice(-2)} - Mar ${(year + 1).toString().slice(-2)})`;
                 return {
@@ -213,7 +208,7 @@ export default function HolidaysPage() {
               })}
             />
           </div>
-          <div className="text-sm text-gray-400">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
             Showing holidays and events for FY {selectedYear}
           </div>
         </div>
@@ -232,7 +227,7 @@ export default function HolidaysPage() {
         {showForm && (
           <Card>
             <h2 className="text-xl font-semibold mb-4">
-              {editingHoliday ? "Edit Event/Notice" : "Add Event/Notice"}
+              {editingHoliday ? "Edit Holiday/Event/Notice" : "Add Holiday/Event/Notice"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
@@ -366,10 +361,12 @@ export default function HolidaysPage() {
         {holidays
           .sort((a, b) => {
             // Notices without dates go to the end
-            if (!a.date && !b.date) return 0;
-            if (!a.date) return 1;
-            if (!b.date) return -1;
-            return new Date(a.date).getTime() - new Date(b.date).getTime();
+            const aDate = a.date || a.dateRange?.split(' to ')[0];
+            const bDate = b.date || b.dateRange?.split(' to ')[0];
+            if (!aDate && !bDate) return 0;
+            if (!aDate) return 1;
+            if (!bDate) return -1;
+            return new Date(aDate).getTime() - new Date(bDate).getTime();
           })
           .map((holiday) => (
           <Card key={holiday.id}>
@@ -381,10 +378,11 @@ export default function HolidaysPage() {
                     if (type === 'event') return "📅";
                     if (type === 'notice') return "📢";
                     
-                    if (!holiday.date) return "📢"; // Default for notices without dates
+                    const displayDate = holiday.date || holiday.dateRange?.split(' to ')[0];
+                    if (!displayDate) return "📢"; // Default for notices without dates
                     
-                    const month = new Date(holiday.date).getMonth();
-                    const day = new Date(holiday.date).getDate();
+                    const month = new Date(displayDate).getMonth();
+                    const day = new Date(displayDate).getDate();
                     
                     // Holiday icons based on month and common holidays
                     if (month === 0 && day === 1) return "🎊"; // New Year
@@ -416,12 +414,12 @@ export default function HolidaysPage() {
                       {holiday.type || 'holiday'}
                     </span>
                   </div>
-                  {holiday.date && (
+                  {(holiday.date || holiday.dateRange) && (
                     <p className="text-sm text-secondary mb-1">
-                      {holiday.date.includes(" to ") ? (
+                      {holiday.dateRange ? (
                         // Multi-day range
                         (() => {
-                          const [start, end] = holiday.date.split(" to ");
+                          const [start, end] = holiday.dateRange.split(" to ");
                           const startDate = new Date(start.trim());
                           const endDate = new Date(end.trim());
                           return `${startDate.toLocaleDateString('en-US', { 
@@ -437,7 +435,7 @@ export default function HolidaysPage() {
                         })()
                       ) : (
                         // Single day
-                        new Date(holiday.date).toLocaleDateString('en-US', { 
+                        new Date(holiday.date!).toLocaleDateString('en-US', { 
                           weekday: 'long',
                           year: 'numeric', 
                           month: 'long', 
@@ -446,7 +444,7 @@ export default function HolidaysPage() {
                       )}
                     </p>
                   )}
-                  {!holiday.date && holiday.type === 'notice' && (
+                  {!holiday.date && !holiday.dateRange && holiday.type === 'notice' && (
                     <p className="text-sm text-secondary mb-1">📢 Ongoing Notice</p>
                   )}
                   {holiday.description && (

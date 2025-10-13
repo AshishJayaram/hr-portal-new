@@ -37,18 +37,12 @@ export default function EmployeeDocumentationPage() {
     queryKey: ["user-audit-logs", userId],
     queryFn: () => getUserAuditLogs(userId),
     enabled: !!userId,
-    onError: (error) => {
-      console.error("Audit logs fetch error:", error);
-    },
   });
 
   const { data: growthData, isLoading: growthLoading, error: growthError } = useQuery({
     queryKey: ["employee-growth", userId],
     queryFn: () => getEmployeeGrowth(userId),
     enabled: !!userId,
-    onError: (error) => {
-      console.error("Growth data fetch error:", error);
-    },
   });
 
   const { data: statsData, isLoading: statsLoading } = useQuery({
@@ -61,9 +55,6 @@ export default function EmployeeDocumentationPage() {
     queryKey: ["user", userId],
     queryFn: () => getUser(userId),
     enabled: !!userId,
-    onError: (error) => {
-      console.error("User data fetch error:", error);
-    },
   });
 
   const queryClient = useQueryClient();
@@ -133,7 +124,7 @@ export default function EmployeeDocumentationPage() {
       case "CREATE":
         return "text-green-400";
       case "UPDATE":
-        return "text-blue-400";
+        return "text-blue-600 dark:text-blue-400";
       case "DELETE":
         return "text-red-400";
       default:
@@ -155,7 +146,7 @@ export default function EmployeeDocumentationPage() {
       case 'promotion':
         return <Award className="h-5 w-5 text-yellow-400" />;
       case 'skill_development':
-        return <GraduationCap className="h-5 w-5 text-blue-400" />;
+        return <GraduationCap className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
       case 'certification':
         return <FileText className="h-5 w-5 text-green-400" />;
       case 'project_completion':
@@ -491,7 +482,7 @@ export default function EmployeeDocumentationPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Start Date:</span>
-                      <span className="text-gray-900 dark:text-white font-medium">{formatDateForDisplay(user.createdAt)}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{formatDateForDisplay(user.created_at)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Employment Type:</span>
@@ -503,7 +494,7 @@ export default function EmployeeDocumentationPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Tenure:</span>
-                      <span className="text-gray-900 dark:text-white font-medium">{calculateTenure(user.createdAt)}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{calculateTenure(user.created_at)}</span>
                     </div>
                     {user.ctc && (
                       <div className="flex justify-between">
