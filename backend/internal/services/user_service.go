@@ -179,9 +179,7 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 	}
 
 	if req.ManagerID != nil {
-		fmt.Printf("DEBUG: ManagerID update requested for user %s - old: %v, new: %s\n", id, user.ManagerID, *req.ManagerID)
 		if *req.ManagerID == "" {
-			fmt.Println("DEBUG: Clearing manager_id")
 			user.ManagerID = nil
 		} else {
 			// Prevent self-assignment as manager
@@ -192,12 +190,10 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 			// Allow any non-self manager (temporarily relax circular guard for flexibility)
 			managerIDUint, err := strconv.ParseUint(*req.ManagerID, 10, 32)
 			if err != nil {
-				fmt.Printf("DEBUG: Error parsing manager ID '%s': %v\n", *req.ManagerID, err)
 				return nil, fmt.Errorf("invalid manager ID: %w", err)
 			}
 
 			managerIDUintPtr := uint(managerIDUint)
-			fmt.Printf("DEBUG: Setting manager_id to: %d for user %s\n", managerIDUintPtr, id)
 			user.ManagerID = &managerIDUintPtr
 		}
 	}
@@ -211,11 +207,16 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 	}
 
 	// Update user
-	fmt.Printf("DEBUG: About to update user %s with manager_id: %v\n", id, user.ManagerID)
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
-	fmt.Printf("DEBUG: User updated successfully\n")
+
+	// Refetch user with updated relationships
+	updatedUser, err := s.userRepo.GetByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to refetch updated user: %w", err)
+	}
+	user = updatedUser
 
 	// Log audit entry for user update
 	if req.CTC != nil || req.Name != nil || req.Role != nil || req.Department != nil || req.Designation != nil {

@@ -266,9 +266,6 @@ function EditEmployeeForm({ id }: { id: string }) {
       manager_id: formData.manager_id ? String(formData.manager_id) : undefined, // Convert to string to match backend
     };
 
-    console.log('Current formData:', formData);
-    console.log('Payload to be sent:', payload);
-    console.log('About to call mutation.mutate with payload');
     mutation.mutate(payload);
   };
 
@@ -432,11 +429,7 @@ function EditEmployeeForm({ id }: { id: string }) {
                           key={u.id}
                           className={`w-full text-left px-3 py-2 hover:bg-white/10 transition-colors ${String(formData.manager_id) === String(u.id) ? 'bg-indigo-500/20 border-l-2 border-indigo-500' : ''}`}
                           onClick={() => { 
-                            console.log(`Selected manager: ${u.name} (ID: ${u.id})`);
-                            console.log(`Setting manager_id to: ${String(u.id)}`);
-                            const newFormData = { ...formData, manager_id: String(u.id) };
-                            console.log(`New form data:`, newFormData);
-                            setFormData(newFormData); 
+                            setFormData({ ...formData, manager_id: String(u.id) }); 
                             setManagerQuery(`${u.name} (ID: ${u.id})`); 
                             setSelectedManagerName(u.name); 
                           }}
