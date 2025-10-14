@@ -66,7 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="flex h-screen overflow-hidden app-bg text-gray-900 dark:text-gray-100">
+      <body className="app-bg text-gray-900 dark:text-gray-100">
         {/* Theme detection script - runs before React hydration */}
         <script
           dangerouslySetInnerHTML={{

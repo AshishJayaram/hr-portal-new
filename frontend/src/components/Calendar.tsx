@@ -12,6 +12,7 @@ type CalendarEvent = {
   color?: string;
   extendedProps?: {
     type?: string;
+    description?: string;
     employees?: Array<{
       name: string;
       type: string;

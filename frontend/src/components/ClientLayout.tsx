@@ -8,17 +8,20 @@ import { usePathname } from "next/navigation";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAuthPage = pathname === "/signin";
+  const normalized = (pathname || "").replace(/\/$/, "");
+  const isAuthPage = normalized === "/signin" || normalized === "/login";
+
+  // Debug logging removed for production stability
 
   return (
     <Providers>
       {isAuthPage ? (
-        // Auth pages → no sidebar/topbar
-        <main className="flex-1 flex items-center justify-center w-full h-full">{children}</main>
+        // Auth pages → no sidebar/topbar - let the page layout handle it
+        <>{children}</>
       ) : (
         // App pages → with sidebar/topbar and auth guard
         <AuthGuard>
-          <>
+          <div className="flex h-screen">
             <Sidebar />
             <div className="flex-1 flex flex-col">
               <Topbar />
@@ -26,7 +29,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 <div className="mx-auto w-full max-w-7xl">{children}</div>
               </main>
             </div>
-          </>
+          </div>
         </AuthGuard>
       )}
     </Providers>
