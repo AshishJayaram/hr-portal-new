@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSalarySlips, getSalarySlip, addSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUsers, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument, getDocuments, downloadPayslipPDF, uploadPrivateDocument, getPrivateDocumentsByUser, deletePrivateDocument } from "@/lib/api";
+import { getSalarySlips, getSalarySlip, addSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument, getDocuments, downloadPayslipPDF, uploadPrivateDocument, getPrivateDocumentsByUser, deletePrivateDocument } from "@/lib/api";
+import { useFilteredUsers, useUserName } from "@/hooks/useUsersCache";
 import { computePayslipFromCTC, calculateLOPAmount } from "@/lib/payroll";
 import { openPDFViewer, isPDFFile, getFileIcon, getFileTypeText } from "@/lib/pdfUtils";
 import Input from "@/components/ui/Input";
@@ -58,35 +59,24 @@ export default function SalarySlipsPage() {
     queryFn: () => getSalarySlips(canManageSalarySlips() ? { page: currentPage.toString(), limit: itemsPerPage.toString(), year: selectedYear.toString() } : { userId: userId, page: currentPage.toString(), limit: itemsPerPage.toString(), year: selectedYear.toString() }),
   });
 
-  const { data: usersData } = useQuery({
-    queryKey: ["users", userQuery],
-    queryFn: () => getUsers(userQuery ? { search: userQuery } : {}),
-    enabled: canManageSalarySlips(),
-  });
-
-  const { data: privateDocUsersData } = useQuery({
-    queryKey: ["users", privateDocUserQuery],
-    queryFn: () => getUsers(privateDocUserQuery ? { search: privateDocUserQuery } : {}),
-    enabled: canManageSalarySlips() && showPrivateDocUpload,
-  });
-
-  const { data: generateUsersData } = useQuery({
-    queryKey: ["users", generateUserQuery],
-    queryFn: () => getUsers(generateUserQuery ? { search: generateUserQuery } : {}),
-    enabled: canManageSalarySlips() && showGenerate,
-  });
+  // Use global users cache
+  const { users: allUsers } = useFilteredUsers();
 
   const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
   const { data: companySettings } = useQuery({
     queryKey: ["company-settings", companyId],
     queryFn: () => getCompanySettings(companyId),
     enabled: canManageSalarySlips(),
+    staleTime: 300000, // Cache for 5 minutes
   });
 
-  const getUserName = (id: string) => {
-    const list = (usersData?.data || []) as any[];
-    const found = list.find((u) => String(u.id) === String(id));
-    return found?.name || `Employee`;
+  // Helper functions for user selection using global cache
+  const getFilteredUsers = (query: string) => {
+    if (!query) return allUsers;
+    return allUsers.filter((u: any) => 
+      u.name?.toLowerCase().includes(query.toLowerCase()) ||
+      u.email?.toLowerCase().includes(query.toLowerCase())
+    );
   };
 
   const collapseAllEmployees = () => {
@@ -100,7 +90,7 @@ export default function SalarySlipsPage() {
     if (!companySettings?.data || lopDays <= 0) return 0;
     
     // Get user's CTC for calculation
-    const selectedUser = (usersData?.data || []).find((u: any) => String(u.id) === uploadData.userId);
+    const selectedUser = allUsers.find((u: any) => String(u.id) === uploadData.userId);
     if (!selectedUser?.ctc) return 0;
     
     const breakdown = computePayslipFromCTC(parseFloat(selectedUser.ctc), companySettings.data);
@@ -340,7 +330,7 @@ export default function SalarySlipsPage() {
                   className="w-full p-2 rounded bg-white/10 border border-white/20 mb-2"
                 />
                 <div className="max-h-40 overflow-y-auto border border-white/10 rounded">
-                  {(usersData?.data || []).map((u: any) => (
+                  {allUsers.map((u: any) => (
                     <button
                       type="button"
                       key={u.id}
@@ -350,7 +340,7 @@ export default function SalarySlipsPage() {
                       {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
                     </button>
                   ))}
-                  {(usersData?.data || []).length === 0 && (
+                  {allUsers.length === 0 && (
                     <div className="px-3 py-2 text-sm text-gray-400">No users</div>
                   )}
                 </div>
@@ -476,7 +466,7 @@ export default function SalarySlipsPage() {
                   className="w-full p-2 rounded bg-white/10 border border-white/20 mb-2"
                 />
                 <div className="max-h-40 overflow-y-auto border border-white/10 rounded">
-                  {(generateUsersData?.data || []).map((u: any) => (
+                  {getFilteredUsers(generateUserQuery).map((u: any) => (
                     <button
                       type="button"
                       key={u.id}
@@ -490,7 +480,7 @@ export default function SalarySlipsPage() {
                       {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
                     </button>
                   ))}
-                  {(generateUsersData?.data || []).length === 0 && (
+                  {getFilteredUsers(generateUserQuery).length === 0 && (
                     <div className="px-3 py-2 text-sm text-gray-400">No users</div>
                   )}
                 </div>
@@ -564,7 +554,7 @@ export default function SalarySlipsPage() {
                   className="w-full p-2 rounded bg-white/10 border border-white/20 mb-2"
                 />
                 <div className="max-h-40 overflow-y-auto border border-white/10 rounded">
-                  {(privateDocUsersData?.data || []).map((u: any) => (
+                  {getFilteredUsers(privateDocUserQuery).map((u: any) => (
                     <button
                       type="button"
                       key={u.id}
@@ -578,7 +568,7 @@ export default function SalarySlipsPage() {
                       {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
                     </button>
                   ))}
-                  {(privateDocUsersData?.data || []).length === 0 && (
+                  {getFilteredUsers(privateDocUserQuery).length === 0 && (
                     <div className="px-3 py-2 text-sm text-gray-400">No users</div>
                   )}
                 </div>
@@ -661,7 +651,7 @@ export default function SalarySlipsPage() {
                 <summary 
                   className="list-none p-4 cursor-pointer flex items-center justify-between"
                 >
-                  <span className="font-semibold">{getUserName(String(uid))} (ID: {uid})</span>
+                   <span className="font-semibold">{allUsers.find((u: any) => String(u.id) === String(uid))?.name || `Employee`} (ID: {uid})</span>
                   <span className="text-xs text-gray-400">
                     Click to expand/collapse
                   </span>
@@ -747,7 +737,7 @@ export default function SalarySlipsPage() {
                                       const data = await response.json();
                                       if (data.fileUrl) {
                                         if (isPDFFile(data.fileUrl)) {
-                                          openPDFViewer(data.fileUrl, `Salary Slip - ${getUserName(String(uid))} - ${new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' })} ${s.year}`);
+                                           openPDFViewer(data.fileUrl, `Salary Slip - ${allUsers.find((u: any) => String(u.id) === String(uid))?.name || 'Employee'} - ${new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' })} ${s.year}`);
                                         } else {
                                           window.open(data.fileUrl, '_blank');
                                         }
@@ -801,12 +791,12 @@ export default function SalarySlipsPage() {
                                     Download PDF
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteSlip(
-                                      s.id,
-                                      getUserName(String(uid)),
-                                      new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' }),
-                                      s.year
-                                    )}
+                                     onClick={() => handleDeleteSlip(
+                                       s.id,
+                                       allUsers.find((u: any) => String(u.id) === String(uid))?.name || 'Employee',
+                                       new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' }),
+                                       s.year
+                                     )}
                                     disabled={deleteMutation.isPending}
                                     className="text-red-400 hover:text-red-300 underline disabled:opacity-50"
                                   >

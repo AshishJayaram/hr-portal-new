@@ -1,9 +1,10 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUser, updateUser, getUsers, toCanonicalRole, getCompanySettings, getLeaveCategories, getLeaveAllocations, updateLeaveAllocation, createLeaveAllocation, deleteLeaveAllocation, getLeaveBalance } from "@/lib/api";
+import { getUser, updateUser, toCanonicalRole, getCompanySettings, getLeaveCategories, getLeaveAllocations, updateLeaveAllocation, createLeaveAllocation, deleteLeaveAllocation, getLeaveBalance } from "@/lib/api";
+import { useFilteredUsers } from "@/hooks/useUsersCache";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -58,33 +59,43 @@ function EditEmployeeForm({ id }: { id: string }) {
     queryFn: () => getUser(id),
   });
 
-  const { data: managers } = useQuery({
-    queryKey: ["users", managerQuery],
-    queryFn: () => getUsers(managerQuery ? { search: managerQuery } : {}),
-    enabled: managerQuery.length > 0 || true, // Always enable to show all users when clicked
-  });
+  // Use global users cache and filter managers
+  const { users: allUsers } = useFilteredUsers();
+  
+  const managers = useMemo(() => {
+    const filtered = allUsers.filter((u: any) => 
+      !managerQuery || 
+      u.name?.toLowerCase().includes(managerQuery.toLowerCase()) ||
+      u.email?.toLowerCase().includes(managerQuery.toLowerCase())
+    );
+    return { data: filtered };
+  }, [allUsers, managerQuery]);
 
   const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
   const { data: companySettings } = useQuery({
     queryKey: ["company-settings", companyId],
     queryFn: () => getCompanySettings(companyId),
+    staleTime: 300000, // Cache for 5 minutes
   });
 
   const { data: leaveCategories } = useQuery({
     queryKey: ["leave-categories"],
     queryFn: () => getLeaveCategories(),
+    staleTime: 300000, // Cache for 5 minutes
   });
 
   const { data: currentAllocations } = useQuery({
     queryKey: ["leave-allocations", id],
     queryFn: () => getLeaveAllocations(id),
     enabled: !!id,
+    staleTime: 60000, // Cache for 1 minute
   });
 
   const { data: leaveBalance } = useQuery({
     queryKey: ["leave-balance", id],
     queryFn: () => getLeaveBalance(id),
     enabled: !!id,
+    staleTime: 60000, // Cache for 1 minute
   });
 
   useEffect(() => {

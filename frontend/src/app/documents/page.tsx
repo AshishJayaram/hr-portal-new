@@ -36,9 +36,14 @@ export default function DocumentsPage() {
   const ackPerPage = 10;
   const queryClient = useQueryClient();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage] = useState(20); // Increased page size for better performance
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["documents"],
-    queryFn: () => getDocuments(),
+    queryKey: ["documents", currentPage, perPage],
+    queryFn: () => getDocuments({ page: currentPage.toString(), per_page: perPage.toString() }),
+    staleTime: 60000, // Cache for 1 minute
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {

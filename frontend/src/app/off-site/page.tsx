@@ -63,8 +63,8 @@ export default function OffSitePage() {
 
       return getOffSites(params.toString());
     },
-    refetchOnWindowFocus: true,
-    staleTime: 30000,
+    refetchOnWindowFocus: false, // Reduce unnecessary refetches
+    staleTime: 60000, // Cache for 1 minute
   });
 
   // Update local state when data changes

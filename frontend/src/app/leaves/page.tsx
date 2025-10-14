@@ -7,7 +7,6 @@ import {
   getLeavesPaginated,
   getLeaveBalance,
   getTeamLeaveBalances,
-  getUsers,
   updateLeave,
   applyLeave,
   approveLeave,
@@ -15,6 +14,7 @@ import {
   getCurrentUser,
   canApproveLeaves,
 } from "@/lib/api";
+import { useFilteredUsers } from "@/hooks/useUsersCache";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -67,6 +67,7 @@ export default function LeavesPage() {
       const params: Record<string, string> = {
         page: currentPage.toString(),
         per_page: perPage.toString(),
+        paginated: "true",
       };
       
       if (activeTab === 'team-leaves' && canViewTeamBalances) {
@@ -77,6 +78,9 @@ export default function LeavesPage() {
         return getLeavesPaginated(params);
       }
     },
+    enabled: true, // Always enable the query
+    refetchOnWindowFocus: false, // Reduce unnecessary refetches
+    staleTime: 30000, // Cache for 30 seconds
   });
 
   // Fetch leave balance
@@ -85,20 +89,16 @@ export default function LeavesPage() {
     queryFn: () => getLeaveBalance(userId),
   });
 
-  // Fetch team leave balances (for managers and HR)
+  // Fetch team leave balances (for managers and HR) - only when on team-leaves tab
   const { data: teamBalances, isLoading: loadingTeamBalances, error: teamBalancesError } = useQuery({
     queryKey: ["team-leave-balances", userId],
     queryFn: () => getTeamLeaveBalances(),
-    enabled: canViewTeamBalances, // Fetch for HR/Admin/God users and Employee managers
+    enabled: canViewTeamBalances && activeTab === 'team-leaves', // Only fetch when needed
+    staleTime: 60000, // Cache for 1 minute
   });
 
-
-  // Fetch users for displaying names in team leave balances
-  const { data: usersData } = useQuery({
-    queryKey: ["users"],
-    queryFn: () => getUsers({}),
-    enabled: canViewTeamBalances && teamBalances?.data && Object.keys(teamBalances.data).length > 0,
-  });
+  // Use global users cache for displaying names in team leave balances
+  const { users: usersData } = useFilteredUsers();
 
   useEffect(() => {
     if (data?.data) {
@@ -238,7 +238,7 @@ export default function LeavesPage() {
 
   // Helper function to get user name by ID
   const getUserName = (userId: string) => {
-    const users = usersData?.data || [];
+    const users = usersData || [];
     const user = users.find((u: any) => String(u.id) === String(userId));
     return user ? `${user.name} (${user.designation || 'Employee'})` : `Employee ID: ${userId}`;
   };
