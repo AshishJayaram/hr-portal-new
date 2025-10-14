@@ -6,6 +6,8 @@ import {
   getLeaves,
   getLeavesPaginated,
   getLeaveBalance,
+  getTeamLeaveBalances,
+  getUsers,
   updateLeave,
   applyLeave,
   approveLeave,
@@ -26,6 +28,7 @@ import { formatDate, capitalize } from "@/lib/utils";
 import ApplyLeaveForm from "@/components/ApplyLeaveForm";
 import EditLeaveForm from "@/components/EditLeaveForm";
 import LeaveBalanceCard from "@/components/LeaveBalanceCard";
+import Tabs from "@/components/ui/Tabs";
 import { motion } from "framer-motion";
 
 export default function LeavesPage() {
@@ -34,7 +37,7 @@ export default function LeavesPage() {
   const [leaves, setLeaves] = useState<any[]>([]);
   const [filteredLeaves, setFilteredLeaves] = useState<any[]>([]);
   const [editingLeave, setEditingLeave] = useState<any>(null);
-  const [viewType, setViewType] = useState<'self' | 'team'>('self');
+  const [activeTab, setActiveTab] = useState<'my-leaves' | 'team-leaves'>('my-leaves');
   const [loadingLeaves, setLoadingLeaves] = useState<Set<string>>(new Set());
   const [approvingLeaves, setApprovingLeaves] = useState<Set<string>>(new Set());
   const [rejectingLeaves, setRejectingLeaves] = useState<Set<string>>(new Set());
@@ -44,22 +47,29 @@ export default function LeavesPage() {
   const [total, setTotal] = useState(0);
   const [showApplyForm, setShowApplyForm] = useState(false);
   const [showApplyOnBehalfForm, setShowApplyOnBehalfForm] = useState(false);
+  const [selectedTeamMember, setSelectedTeamMember] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  // Get user role from existing user object
+  const userRole = user?.role || "Employee";
+  
   // Check if user can approve leaves (HR, Admin, God)
   const canApprove = canApproveLeaves();
   
+  // Check if user can view team leave balances (HR, Admin, God, or Employee with reports)
+  const canViewTeamBalances = canApprove || userRole === "Employee";
+  
 
-  // Fetch leave requests - different scope based on view type
+  // Fetch leave requests - different scope based on active tab
   const { data, isLoading } = useQuery({
-    queryKey: ["leaves", viewType, userId, currentPage, perPage],
+    queryKey: ["leaves", activeTab, userId, currentPage, perPage],
     queryFn: () => {
       const params: Record<string, string> = {
         page: currentPage.toString(),
         per_page: perPage.toString(),
       };
       
-      if (viewType === 'team' && canApprove) {
+      if (activeTab === 'team-leaves' && canViewTeamBalances) {
         params.view = 'team';
         return getLeavesPaginated(params);
       } else {
@@ -73,6 +83,21 @@ export default function LeavesPage() {
   const { data: balance, isLoading: loadingBalance } = useQuery({
     queryKey: ["leave-balance", userId],
     queryFn: () => getLeaveBalance(userId),
+  });
+
+  // Fetch team leave balances (for managers and HR)
+  const { data: teamBalances, isLoading: loadingTeamBalances, error: teamBalancesError } = useQuery({
+    queryKey: ["team-leave-balances", userId],
+    queryFn: () => getTeamLeaveBalances(),
+    enabled: canViewTeamBalances, // Fetch for HR/Admin/God users and Employee managers
+  });
+
+
+  // Fetch users for displaying names in team leave balances
+  const { data: usersData } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => getUsers({}),
+    enabled: canViewTeamBalances && teamBalances?.data && Object.keys(teamBalances.data).length > 0,
   });
 
   useEffect(() => {
@@ -211,11 +236,40 @@ export default function LeavesPage() {
     }
   };
 
+  // Helper function to get user name by ID
+  const getUserName = (userId: string) => {
+    const users = usersData?.data || [];
+    const user = users.find((u: any) => String(u.id) === String(userId));
+    return user ? `${user.name} (${user.designation || 'Employee'})` : `Employee ID: ${userId}`;
+  };
+
+  // Handle team member selection for details panel
+  const handleTeamMemberSelect = (userId: string) => {
+    setSelectedTeamMember(selectedTeamMember === userId ? null : userId);
+  };
+
   if (isLoading || loadingBalance) return <Loader />;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Tab Navigation for Managers */}
+      {canViewTeamBalances && (
+        <Card>
+          <Tabs
+            tabs={[
+              { id: 'my-leaves', label: 'My Leaves' },
+              { id: 'team-leaves', label: 'Team Leaves' }
+            ]}
+            activeTab={activeTab}
+            onTabChange={(tabId) => setActiveTab(tabId as 'my-leaves' | 'team-leaves')}
+          />
+        </Card>
+      )}
+
+      {/* My Leaves Tab Content */}
+      {(!canViewTeamBalances || activeTab === 'my-leaves') && (
+        <>
+          <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-primary">
             Leave Management
@@ -230,11 +284,11 @@ export default function LeavesPage() {
           <div className="flex items-center gap-1 bg-gray-100 dark:bg-white/5 rounded-lg p-1">
             <button
               onClick={() => {
-                setViewType('self');
+                setActiveTab('my-leaves');
                 setCurrentPage(1);
               }}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewType === 'self'
+                activeTab === 'my-leaves'
                   ? 'bg-indigo-500 text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10'
               }`}
@@ -243,11 +297,11 @@ export default function LeavesPage() {
             </button>
             <button
               onClick={() => {
-                setViewType('team');
+                setActiveTab('team-leaves');
                 setCurrentPage(1);
               }}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewType === 'team'
+                activeTab === 'team-leaves'
                   ? 'bg-indigo-500 text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10'
               }`}
@@ -260,6 +314,7 @@ export default function LeavesPage() {
 
       {/* Leave Balance */}
       <LeaveBalanceCard balance={balance?.data || []} />
+
 
       {/* Apply Leave Form - Employees only */}
       <RoleGuard allowedRoles={["Employee", "HR"]}>
@@ -298,20 +353,12 @@ export default function LeavesPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowApplyOnBehalfForm(false)}
-                className="h-8 w-8 p-0"
+                className="h-10 w-10 p-0 text-lg hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 ×
               </Button>
             </div>
             <ApplyLeaveForm showApplyForField={true} />
-            <div className="mt-4 flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setShowApplyOnBehalfForm(false)}
-              >
-                Close
-              </Button>
-            </div>
           </Card>
         </div>
       )}
@@ -343,9 +390,9 @@ export default function LeavesPage() {
       <div>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {viewType === 'team' ? "Team Leave Requests" : "My Leave Requests"}
+            {activeTab === 'team-leaves' ? "Team Leave Requests" : "My Leave Requests"}
           </h2>
-          {viewType === 'team' && canApprove && (
+          {activeTab === 'team-leaves' && canApprove && (
             <Button
               size="sm"
               onClick={() => setShowApplyOnBehalfForm(true)}
@@ -379,7 +426,7 @@ export default function LeavesPage() {
                       </span>
                     </div>
                     
-                    {viewType === 'team' && leave.user && (
+                    {activeTab === 'team-leaves' && leave.user && (
                       <div className="flex items-center gap-2 mb-2">
                         <User className="h-4 w-4 text-gray-400" />
                         <span className="text-sm text-gray-400">
@@ -433,7 +480,7 @@ export default function LeavesPage() {
                         </>
                       )}
                       {/* HR/Admin can approve/reject team leaves */}
-                      {viewType === 'team' && canApprove && (
+                      {activeTab === 'team-leaves' && canApprove && (
                         <>
                           <Button
                             size="sm"
@@ -534,6 +581,178 @@ export default function LeavesPage() {
         )}
         </Card>
       </div>
+        </>
+      )}
+
+      {/* Team Leaves Tab Content */}
+      {canViewTeamBalances && activeTab === 'team-leaves' && (
+        <>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-primary">
+                Team Leaves
+              </h1>
+              <p className="text-secondary mt-1">
+                Manage your team's leave requests and view leave balances
+              </p>
+            </div>
+          </div>
+
+          {/* Team Leave Balances */}
+          <Card>
+            <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Team Leave Balances
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                View leave balances for all your team members
+              </p>
+            </div>
+
+            {loadingTeamBalances && (
+              <div className="text-sm text-gray-500 mb-4">Loading team balances...</div>
+            )}
+            
+            {teamBalances?.data && Object.keys(teamBalances.data).length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
+                {/* Team Members List */}
+                <div className="lg:col-span-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {Object.entries(teamBalances.data).map(([userId, userBalances]) => (
+                      <div 
+                        key={userId} 
+                        className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
+                          selectedTeamMember === userId
+                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm'
+                        }`}
+                        onClick={() => handleTeamMemberSelect(userId)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                            {getUserName(userId).charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {getUserName(userId).split(' (')[0]}
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {getUserName(userId).split(' (')[1]?.replace(')', '') || 'Employee'}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {userBalances.length} leave categories
+                            </p>
+                          </div>
+                          <div className={`transform transition-transform duration-200 ${
+                            selectedTeamMember === userId ? 'rotate-90' : ''
+                          }`}>
+                            <ChevronDown className="h-5 w-5 text-gray-400" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Details Panel - Fixed Height */}
+                <div className="lg:col-span-1">
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 h-full">
+                    {selectedTeamMember && teamBalances?.data?.[selectedTeamMember] ? (
+                      <div className="h-full flex flex-col">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Leave Details
+                          </h3>
+                          <button
+                            onClick={() => setSelectedTeamMember(null)}
+                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                            title="Close details"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto space-y-4">
+                          {teamBalances.data[selectedTeamMember].map((balance: any) => (
+                            <div key={balance.id} className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                              <div className="flex justify-between items-center mb-3">
+                                <h4 className="font-medium text-gray-900 dark:text-white text-base">
+                                  {balance.categoryName}
+                                </h4>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  {balance.year}
+                                </span>
+                              </div>
+                              
+                              {/* Remaining days - main focus */}
+                              <div className="text-center mb-4">
+                                <div className={`text-3xl font-bold ${
+                                  balance.remainingDays > 0 
+                                    ? 'text-green-600 dark:text-green-400' 
+                                    : 'text-red-600 dark:text-red-400'
+                                }`}>
+                                  {balance.remainingDays}
+                                </div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                  remaining days
+                                </div>
+                              </div>
+
+                              {/* Usage fraction and progress bar */}
+                              <div className="space-y-3">
+                                <div className="text-center">
+                                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                                    {balance.usedDays}/{balance.totalDays} used
+                                  </span>
+                                </div>
+                                
+                                {/* Progress bar */}
+                                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                  <div 
+                                    className={`h-2 rounded-full transition-all duration-300 ${
+                                      balance.remainingDays > 0 
+                                        ? 'bg-green-500' 
+                                        : 'bg-red-500'
+                                    }`}
+                                    style={{ 
+                                      width: `${Math.min(100, (balance.usedDays / balance.totalDays) * 100)}%` 
+                                    }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="text-center">
+                          <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-gray-300 mb-2">Select a team member</h3>
+                          <p className="text-gray-400 text-sm">
+                            Click on a team member from the list to view their leave balance details.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-300 mb-2">No team members found</h3>
+                <p className="text-gray-400">
+                  You don't have any direct reports or team members to view leave balances for.
+                </p>
+              </div>
+            )}
+          </Card>
+
+        </>
+      )}
 
       {/* Edit Leave Modal */}
       {editingLeave && (

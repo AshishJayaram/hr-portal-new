@@ -19,6 +19,7 @@ type Repositories struct {
 	Leave                   LeaveRepository
 	LeaveCategory           LeaveCategoryRepository
 	LeaveAllocation         LeaveAllocationRepository
+	LOPTracking             LOPTrackingRepository
 	Document                DocumentRepository
 	SalarySlip              SalarySlipRepository
 	Holiday                 HolidayRepository
@@ -40,6 +41,7 @@ func New(db *gorm.DB, rdb *redis.Client) *Repositories {
 		Leave:                   &leaveRepository{BaseRepository: NewBaseRepository(db, rdb)},
 		LeaveCategory:           &leaveCategoryRepository{BaseRepository: NewBaseRepository(db, rdb)},
 		LeaveAllocation:         &leaveAllocationRepository{BaseRepository: NewBaseRepository(db, rdb)},
+		LOPTracking:             &lopTrackingRepository{BaseRepository: NewBaseRepository(db, rdb)},
 		Document:                &documentRepository{BaseRepository: NewBaseRepository(db, rdb)},
 		SalarySlip:              &salarySlipRepository{BaseRepository: NewBaseRepository(db, rdb)},
 		Holiday:                 &holidayRepository{BaseRepository: NewBaseRepository(db, rdb)},
@@ -145,6 +147,16 @@ type LeaveAllocationRepository interface {
 	Update(allocation *models.LeaveAllocation) error
 	Delete(id string) error
 	UpdateUsedDays(userID, categoryID string, year int, days int) error
+}
+
+// LOPTrackingRepository interface for LOP tracking operations
+type LOPTrackingRepository interface {
+	Create(tracking *models.LOPTracking) error
+	GetByID(id string) (*models.LOPTracking, error)
+	GetByUserAndYear(userID, organizationID string, year int) (*models.LOPTracking, error)
+	Update(tracking *models.LOPTracking) error
+	UpdateLOPDays(userID, organizationID string, year int, lopDays int) error
+	List(organizationID string, filters map[string]interface{}) ([]models.LOPTracking, error)
 }
 
 // DocumentRepository interface for document operations

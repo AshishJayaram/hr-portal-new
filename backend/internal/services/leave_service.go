@@ -125,6 +125,15 @@ func (s *leaveService) ApplyLeave(req ApplyLeaveRequest, httpReq *http.Request) 
 		StartHalf:      startHalf,
 		EndHalf:        endHalf,
 		Status:         "pending",
+		// LOP fields initialized to 0 - will be calculated when approved
+		LOPDays:             0,
+		SpilloverCategoryID: nil,
+		SpilloverDays:       0,
+	}
+
+	// For LOP leaves, set the LOP days to the total days requested
+	if req.Type == "LOP" {
+		leave.LOPDays = int(days)
 	}
 
 	err = s.leaveRepo.Create(leave)
@@ -445,9 +454,9 @@ func (s *leaveService) GetPendingApprovals(managerID string) ([]models.Leave, er
 	return s.leaveRepo.GetPendingApprovals(managerID)
 }
 
-func (s *leaveService) GetTeamLeaveBalances(managerID string) (map[string][]LeaveBalanceResponse, error) {
+func (s *leaveService) GetTeamLeaveBalances(managerID, organizationID string) (map[string][]LeaveBalanceResponse, error) {
 	// Get all subordinate user IDs recursively
-	subordinateIDs, err := s.getAllSubordinateIDs(managerID)
+	subordinateIDs, err := s.getAllSubordinateIDs(managerID, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get subordinate IDs: %w", err)
 	}
@@ -468,11 +477,11 @@ func (s *leaveService) GetTeamLeaveBalances(managerID string) (map[string][]Leav
 }
 
 // getAllSubordinateIDs recursively gets all subordinate user IDs for a given manager
-func (s *leaveService) getAllSubordinateIDs(managerID string) ([]uint, error) {
+func (s *leaveService) getAllSubordinateIDs(managerID, organizationID string) ([]uint, error) {
 	var subordinateIDs []uint
 
 	// Get direct reports
-	directReports, err := s.userRepo.GetSubordinates("", managerID) // organizationID not needed for this query
+	directReports, err := s.userRepo.GetSubordinates(organizationID, managerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get direct reports: %w", err)
 	}
@@ -482,7 +491,7 @@ func (s *leaveService) getAllSubordinateIDs(managerID string) ([]uint, error) {
 		subordinateIDs = append(subordinateIDs, user.ID)
 
 		// Recursively get sub-reports
-		subReports, err := s.getAllSubordinateIDs(strconv.FormatUint(uint64(user.ID), 10))
+		subReports, err := s.getAllSubordinateIDs(strconv.FormatUint(uint64(user.ID), 10), organizationID)
 		if err != nil {
 			return nil, err
 		}

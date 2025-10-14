@@ -484,12 +484,30 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		return nil, fmt.Errorf("failed to get holidays: %w", err)
 	}
 
-	// Filter upcoming holidays (all future holidays)
+	// Filter upcoming holidays (all future holidays and holidays without specific dates)
 	upcomingHolidays := []models.Holiday{}
 	now := time.Now()
 
 	for _, holiday := range holidays {
+		// Include holidays that are:
+		// 1. In the future (have a date and it's after now)
+		// 2. Have a date range (multi-day events)
+		// 3. Have no specific date (ongoing notices or general holidays)
+		shouldInclude := false
+
 		if holiday.Date != nil && holiday.Date.After(now) {
+			// Future single-day holiday
+			shouldInclude = true
+		} else if holiday.DateRange != nil && *holiday.DateRange != "" {
+			// Multi-day holiday - check if any part is in the future
+			// For now, include all date range holidays
+			shouldInclude = true
+		} else if holiday.Date == nil && holiday.DateRange == nil {
+			// Holiday without specific date (like "Christmas Vacation")
+			shouldInclude = true
+		}
+
+		if shouldInclude {
 			upcomingHolidays = append(upcomingHolidays, holiday)
 		}
 	}

@@ -492,6 +492,41 @@ export const updateLeaveBalance = (userId: string, body: Partial<LeaveBalance>) 
     body: JSON.stringify(body),
   });
 
+export const getTeamLeaveBalances = () =>
+  fetcher<any>("/leaves/team-balances").then((raw) => {
+    const teamBalances = raw?.data || {};
+    const mapped: Record<string, LeaveBalance[]> = {};
+    
+    // Transform the team balances data
+    Object.entries(teamBalances).forEach(([userId, balances]: [string, any]) => {
+      const userBalances = (balances || []) as any[];
+      mapped[userId] = userBalances.map((b: any) => ({
+        id: String(b.id ?? ''),
+        userId: String(b.user_id ?? userId),
+        category_id: String(b.category_id ?? b.categoryId ?? ''),
+        categoryId: String(b.category_id ?? b.categoryId ?? ''),
+        category_name: b.category_name || b.categoryName || 'Leave',
+        categoryName: b.category_name || b.categoryName || 'Leave',
+        total_days: b.total_days ?? b.totalDays ?? 0,
+        totalDays: b.total_days ?? b.totalDays ?? 0,
+        used_days: b.used_days ?? b.usedDays ?? 0,
+        usedDays: b.used_days ?? b.usedDays ?? 0,
+        remaining_days: b.remaining_days ?? b.remainingDays ?? (b.total_days != null && b.used_days != null ? b.total_days - b.used_days : 0),
+        remainingDays: b.remaining_days ?? b.remainingDays ?? (b.total_days != null && b.used_days != null ? b.total_days - b.used_days : 0),
+        year: b.year ?? new Date().getFullYear(),
+        type: b.category_name || b.categoryName || 'Leave',
+        total: b.total_days ?? b.totalDays ?? 0,
+        used: b.used_days ?? b.usedDays ?? 0,
+        remaining: b.remaining_days ?? b.remainingDays ?? (b.total_days != null && b.used_days != null ? b.total_days - b.used_days : 0),
+      }));
+    });
+    
+    return { data: mapped } as ApiResponse<Record<string, LeaveBalance[]>>;
+  }).catch((error) => {
+    console.error("Error fetching team leave balances:", error);
+    return { data: {} } as ApiResponse<Record<string, LeaveBalance[]>>;
+  });
+
 // -------------------- Leaves --------------------
 export const getLeaves = (params?: Record<string, string>) =>
   fetcher<any>(`/leaves?${new URLSearchParams(params || {}).toString()}`).then((raw) => {

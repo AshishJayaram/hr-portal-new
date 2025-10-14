@@ -68,7 +68,7 @@ export default function DashboardPage() {
     
     // Add holidays
     events.push(...(dashboardData?.data?.upcoming_holidays || [])
-      .filter((h: any) => h.isCalendarEvent !== false && (h.date || h.date_range))
+      .filter((h: any) => h.isCalendarEvent !== false)
       .map((h: any) => {
         if (h.date_range) {
           // Multi-day event
@@ -83,7 +83,7 @@ export default function DashboardPage() {
               description: h.description
             }
           };
-        } else {
+        } else if (h.date) {
           // Single day event
           return {
             title: h.name || h.title,
@@ -93,6 +93,21 @@ export default function DashboardPage() {
             extendedProps: {
               type: h.type || 'holiday',
               description: h.description
+            }
+          };
+        } else {
+          // Holiday without specific date (like "Christmas Vacation")
+          // Show it on today's date as a special event
+          const today = new Date();
+          return {
+            title: h.name || h.title,
+            start: today,
+            end: today,
+            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
+            extendedProps: {
+              type: h.type || 'holiday',
+              description: h.description,
+              noSpecificDate: true
             }
           };
         }

@@ -143,6 +143,19 @@ type LeaveAllocation struct {
 	Organization Organization  `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
 }
 
+// LOPTracking represents annual LOP tracking for a user
+type LOPTracking struct {
+	BaseModel
+	UserID         uint `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint `json:"organization_id" gorm:"not null;index"`
+	Year           int  `json:"year" gorm:"not null;index"`
+	TotalLOPDays   int  `json:"total_lop_days" gorm:"default:0"`
+
+	// Relationships
+	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+}
+
 // Leave represents a leave request
 type Leave struct {
 	BaseModel
@@ -163,12 +176,18 @@ type Leave struct {
 	RejectedAt      *time.Time `json:"rejected_at"`
 	RejectionReason *string    `json:"rejection_reason"`
 
+	// LOP (Loss of Pay) tracking fields
+	LOPDays             int   `json:"lop_days" gorm:"default:0"`
+	SpilloverCategoryID *uint `json:"spillover_category_id" gorm:"index"`
+	SpilloverDays       int   `json:"spillover_days" gorm:"default:0"`
+
 	// Relationships
-	User         User          `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	Category     LeaveCategory `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
-	Organization Organization  `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
-	Approver     *User         `json:"approver,omitempty" gorm:"foreignKey:ApprovedBy"`
-	Rejecter     *User         `json:"rejecter,omitempty" gorm:"foreignKey:RejectedBy"`
+	User              User           `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Category          LeaveCategory  `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
+	SpilloverCategory *LeaveCategory `json:"spillover_category,omitempty" gorm:"foreignKey:SpilloverCategoryID"`
+	Organization      Organization   `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+	Approver          *User          `json:"approver,omitempty" gorm:"foreignKey:ApprovedBy"`
+	Rejecter          *User          `json:"rejecter,omitempty" gorm:"foreignKey:RejectedBy"`
 }
 
 // Document represents uploaded documents

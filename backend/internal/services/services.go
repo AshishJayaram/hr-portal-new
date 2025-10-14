@@ -21,6 +21,7 @@ type Services struct {
 	Leave                   LeaveService
 	LeaveCategory           LeaveCategoryService
 	LeaveAllocation         LeaveAllocationService
+	LOP                     LOPService
 	Document                DocumentService
 	SalarySlip              SalarySlipService
 	Holiday                 HolidayService
@@ -49,6 +50,7 @@ func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb 
 		Leave:                   NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService, NewNotificationService()),
 		LeaveCategory:           NewLeaveCategoryService(repos.LeaveCategory),
 		LeaveAllocation:         NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory, repos.User),
+		LOP:                     NewLOPService(repos),
 		Document:                NewDocumentService(repos.Document, auditService, NewNotificationService()),
 		SalarySlip:              NewSalarySlipService(repos.SalarySlip, auditService, NewNotificationService()),
 		Holiday:                 NewHolidayService(repos.Holiday, auditService),
@@ -129,7 +131,7 @@ type LeaveService interface {
 	RejectLeave(id, rejecterID, reason string) (*models.Leave, error)
 	EditLeave(req EditLeaveRequest, userID, organizationID string, httpReq *http.Request) (*models.Leave, error)
 	GetLeaveBalance(userID string) ([]LeaveBalanceResponse, error)
-	GetTeamLeaveBalances(managerID string) (map[string][]LeaveBalanceResponse, error)
+	GetTeamLeaveBalances(managerID, organizationID string) (map[string][]LeaveBalanceResponse, error)
 	CancelLeave(id, userID string) (*models.Leave, error)
 }
 

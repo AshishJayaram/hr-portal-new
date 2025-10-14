@@ -17,12 +17,14 @@ import (
 // LeaveHandler handles leave-related HTTP requests
 type LeaveHandler struct {
 	service      services.LeaveService
+	lopService   services.LOPService
 	auditService services.AuditService
 }
 
-func NewLeaveHandler(service services.LeaveService, auditService services.AuditService) *LeaveHandler {
+func NewLeaveHandler(service services.LeaveService, lopService services.LOPService, auditService services.AuditService) *LeaveHandler {
 	return &LeaveHandler{
 		service:      service,
+		lopService:   lopService,
 		auditService: auditService,
 	}
 }
@@ -169,6 +171,7 @@ func (h *LeaveHandler) ApplyLeave(c *gin.Context) {
 		"Sick Leave":         "5",
 		"Professional Leave": "6",
 		"Test Category":      "1",
+		"LOP":                "0", // LOP doesn't need a specific category
 	}
 
 	if categoryID, exists := categoryIDMap[req.Type]; exists {
@@ -204,6 +207,41 @@ func (h *LeaveHandler) GetLeave(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": leave})
 }
 
+// CalculateSpillover handles POST /api/leaves/calculate-spillover
+func (h *LeaveHandler) CalculateSpillover(c *gin.Context) {
+	// Get user ID and organization ID from context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	orgID, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Organization ID not found"})
+		return
+	}
+
+	var req struct {
+		CategoryID string  `json:"category_id" binding:"required"`
+		Days       float64 `json:"days" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Calculate spillover using LOP service
+	spillover, err := h.lopService.CalculateSpillover(userID.(string), orgID.(string), req.CategoryID, req.Days)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": spillover})
+}
+
 // GetTeamLeaveBalances handles GET /api/leaves/team-balances
 func (h *LeaveHandler) GetTeamLeaveBalances(c *gin.Context) {
 	// Get current user ID from context
@@ -213,8 +251,15 @@ func (h *LeaveHandler) GetTeamLeaveBalances(c *gin.Context) {
 		return
 	}
 
+	// Get organization ID from context
+	organizationID, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Organization not found"})
+		return
+	}
+
 	// Get team leave balances
-	teamBalances, err := h.service.GetTeamLeaveBalances(currentUserID.(string))
+	teamBalances, err := h.service.GetTeamLeaveBalances(currentUserID.(string), organizationID.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

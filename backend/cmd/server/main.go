@@ -221,6 +221,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		{
 			leaves.GET("", handlers.Leave.ListLeaves)
 			leaves.POST("", handlers.Leave.ApplyLeave)
+			leaves.POST("/calculate-spillover", handlers.Leave.CalculateSpillover)
 			leaves.GET("/team-balances", handlers.Leave.GetTeamLeaveBalances)
 			leaves.GET("/:id", handlers.Leave.GetLeave)
 			leaves.PATCH("/:id", handlers.Leave.UpdateLeave)

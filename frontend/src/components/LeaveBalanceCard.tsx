@@ -38,13 +38,17 @@ export default function LeaveBalanceCard({ balance }: { balance: LeaveBalance[] 
           >
             <Card className="text-center hover:shadow-xl hover:-translate-y-0.5 transition-all">
               <h3 className="font-semibold text-primary capitalize">{type}</h3>
-              <p className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-purple-400">
+              <p className={`text-3xl font-extrabold ${
+                remaining > 0 
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-purple-400'
+                  : 'text-red-500 dark:text-red-400'
+              }`}>
                 {remaining}
               </p>
               <p className="text-sm text-secondary">
                 {used} used of {total}
               </p>
-              {year && (
+              {year && year > 0 && (
                 <p className="text-xs text-muted mt-1">
                   Year: {year}
                 </p>

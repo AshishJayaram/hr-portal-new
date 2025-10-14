@@ -103,10 +103,19 @@ func (r *offSiteRepository) ListByManager(managerID string, organizationID strin
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
 	}
 
-	// Build query to get off-sites for all subordinates of the manager
+	// Get all subordinate user IDs recursively
+	subordinateIDs, err := r.getAllSubordinateIDs(uint(managerIDUint), uint(orgIDUint))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subordinate IDs: %w", err)
+	}
+
+	if len(subordinateIDs) == 0 {
+		return offSites, nil // No subordinates
+	}
+
+	// Build query to get off-sites for all subordinates
 	query := r.db.Preload("User").Preload("Organization").
-		Joins("JOIN users ON off_sites.user_id = users.id").
-		Where("users.manager_id = ? AND off_sites.organization_id = ?", uint(managerIDUint), uint(orgIDUint))
+		Where("user_id IN ? AND organization_id = ?", subordinateIDs, uint(orgIDUint))
 
 	// Apply additional filters
 	query = r.buildQuery(query, filters)
@@ -116,6 +125,31 @@ func (r *offSiteRepository) ListByManager(managerID string, organizationID strin
 		return nil, fmt.Errorf("failed to get manager off-sites: %w", err)
 	}
 	return offSites, nil
+}
+
+// getAllSubordinateIDs recursively gets all subordinate user IDs for a given manager
+func (r *offSiteRepository) getAllSubordinateIDs(managerID, organizationID uint) ([]uint, error) {
+	var subordinateIDs []uint
+
+	// Get direct reports
+	var directReports []models.User
+	if err := r.db.Where("manager_id = ? AND organization_id = ?", managerID, organizationID).Find(&directReports).Error; err != nil {
+		return nil, fmt.Errorf("failed to get direct reports: %w", err)
+	}
+
+	// Add direct reports to the list
+	for _, user := range directReports {
+		subordinateIDs = append(subordinateIDs, user.ID)
+
+		// Recursively get sub-reports
+		subReports, err := r.getAllSubordinateIDs(user.ID, organizationID)
+		if err != nil {
+			return nil, err
+		}
+		subordinateIDs = append(subordinateIDs, subReports...)
+	}
+
+	return subordinateIDs, nil
 }
 
 func (r *offSiteRepository) Update(offSite *models.OffSite) error {

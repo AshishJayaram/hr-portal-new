@@ -33,34 +33,31 @@ func (h *OffSiteHandler) ListOffSites(c *gin.Context) {
 	// Create filter map based on access control
 	filters := make(map[string]interface{})
 
-	// Role-based access control:
+	// Handle team view - let service layer determine if user has team members
+	if viewType == "team" {
+		// Team view: Get off-sites for all team members (including sub-reports)
+		offSites, err := h.offSiteService.ListManagerOffSites(userID, organizationID, filters)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to list team off-sites",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": offSites})
+		return
+	}
+
+	// Role-based access control for self view:
 	// - HR/Admin/God can see off-sites for any user in their organization
-	// - Managers can see off-sites for their team members
-	// - Employees can only see their own off-sites
+	// - Others can only see their own off-sites
 	if userRole == "HR" || userRole == "Admin" || userRole == "God" {
 		// HR/Admin/God can access off-sites for any user
 		if requestedUserID != "" {
 			filters["user_id"] = requestedUserID
 		}
 		// If no requestedUserID specified, show all off-sites in organization
-	} else if userRole == "Manager" {
-		if viewType == "team" {
-			// Manager view: Get off-sites for all team members
-			offSites, err := h.offSiteService.ListManagerOffSites(userID, organizationID, filters)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": "Failed to list team off-sites",
-				})
-				return
-			}
-			c.JSON(http.StatusOK, gin.H{"data": offSites})
-			return
-		} else {
-			// Manager's own off-sites
-			filters["user_id"] = userID
-		}
 	} else {
-		// Regular employees can only see their own off-sites
+		// Regular employees and managers can only see their own off-sites
 		filters["user_id"] = userID
 	}
 
