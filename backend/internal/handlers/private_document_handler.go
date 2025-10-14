@@ -17,20 +17,25 @@ func NewPrivateDocumentHandler(svc services.EmployeePrivateDocumentService) *Pri
 
 func (h *PrivateDocumentHandler) Upload(c *gin.Context) {
 	orgID := c.GetString("organization_id")
-	// HR/Admin can pass userId; employees upload only for self
 	userRole := c.GetString("user_role")
 	authenticatedUserID := c.GetString("user_id")
+
+	// Only HR/Admin/God can upload private documents
+	if userRole != "HR" && userRole != "Admin" && userRole != "God" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only HR, Admin, and God users can upload private documents"})
+		return
+	}
 
 	// Get userId from form data
 	formUserID := c.PostForm("userId")
 
 	// Determine which user ID to use
 	var userID string
-	if formUserID != "" && (userRole == "HR" || userRole == "Admin" || userRole == "God") {
+	if formUserID != "" {
 		// HR/Admin/God can upload for other users
 		userID = formUserID
 	} else {
-		// Employees can only upload for themselves
+		// Default to authenticated user if no userId provided
 		userID = authenticatedUserID
 	}
 

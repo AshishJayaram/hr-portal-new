@@ -52,3 +52,7 @@ func (s *organizationService) CountActive(count *int64) error {
 func (s *organizationService) ListAll() ([]models.Organization, error) {
 	return s.orgRepo.ListAll()
 }
+
+func (s *organizationService) ListAllWithUserCount() ([]map[string]interface{}, error) {
+	return s.orgRepo.ListAllWithUserCount()
+}

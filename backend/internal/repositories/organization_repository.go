@@ -79,3 +79,33 @@ func (r *organizationRepository) ListAll() ([]models.Organization, error) {
 	err := r.db.Find(&orgs).Error
 	return orgs, err
 }
+
+// ListAllWithUserCount returns all organizations with user counts (for God users)
+func (r *organizationRepository) ListAllWithUserCount() ([]map[string]interface{}, error) {
+	var orgs []models.Organization
+	if err := r.db.Find(&orgs).Error; err != nil {
+		return nil, err
+	}
+
+	var result []map[string]interface{}
+	for _, org := range orgs {
+		var userCount int64
+		if err := r.db.Model(&models.User{}).Where("organization_id = ?", org.ID).Count(&userCount).Error; err != nil {
+			userCount = 0
+		}
+
+		orgData := map[string]interface{}{
+			"id":          org.ID,
+			"name":        org.Name,
+			"domain":      org.Domain,
+			"description": "", // Organization model doesn't have description field
+			"is_active":   org.IsActive,
+			"user_count":  userCount,
+			"created_at":  org.CreatedAt,
+			"updated_at":  org.UpdatedAt,
+		}
+		result = append(result, orgData)
+	}
+
+	return result, nil
+}

@@ -223,7 +223,7 @@ func (r *leaveRepository) GetUserLeaves(userID string, year int) ([]models.Leave
 	return leaves, nil
 }
 
-// GetTeamLeaves returns all leave requests for users who report to the given manager
+// GetTeamLeaves returns all leave requests for users who report to the given manager (direct reports only)
 func (r *leaveRepository) GetTeamLeaves(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error) {
 	var leaves []models.Leave
 
@@ -254,7 +254,7 @@ func (r *leaveRepository) GetTeamLeaves(managerID string, organizationID string,
 	return leaves, nil
 }
 
-// GetTeamLeavesPaginated returns paginated leave requests for users who report to the given manager
+// GetTeamLeavesPaginated returns paginated leave requests for users who report to the given manager (direct reports only)
 func (r *leaveRepository) GetTeamLeavesPaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) ([]models.Leave, int64, error) {
 	var leaves []models.Leave
 	var total int64
@@ -301,6 +301,128 @@ func (r *leaveRepository) GetTeamLeavesPaginated(managerID string, organizationI
 	}
 
 	return leaves, total, nil
+}
+
+// GetTeamLeavesRecursive returns all leave requests for users who report to the given manager (including sub-reports)
+func (r *leaveRepository) GetTeamLeavesRecursive(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error) {
+	var leaves []models.Leave
+
+	// Convert string managerID to uint
+	managerIDUint, err := strconv.ParseUint(managerID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid manager ID: %w", err)
+	}
+
+	// Convert string organizationID to uint
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Get all subordinate user IDs recursively
+	subordinateIDs, err := r.getAllSubordinateIDs(uint(managerIDUint), uint(orgIDUint))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subordinate IDs: %w", err)
+	}
+
+	if len(subordinateIDs) == 0 {
+		return leaves, nil // No subordinates
+	}
+
+	// Build query to get leaves for all subordinates
+	query := r.db.Preload("User").Preload("Category").
+		Where("user_id IN ? AND organization_id = ?", subordinateIDs, uint(orgIDUint))
+
+	// Apply additional filters
+	query = r.buildQuery(query, filters)
+	query = query.Order("created_at DESC")
+
+	if err := query.Find(&leaves).Error; err != nil {
+		return nil, fmt.Errorf("failed to get team leaves: %w", err)
+	}
+	return leaves, nil
+}
+
+// GetTeamLeavesRecursivePaginated returns paginated leave requests for users who report to the given manager (including sub-reports)
+func (r *leaveRepository) GetTeamLeavesRecursivePaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) ([]models.Leave, int64, error) {
+	var leaves []models.Leave
+	var total int64
+
+	// Convert string managerID to uint
+	managerIDUint, err := strconv.ParseUint(managerID, 10, 32)
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid manager ID: %w", err)
+	}
+
+	// Convert string organizationID to uint
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Get all subordinate user IDs recursively
+	subordinateIDs, err := r.getAllSubordinateIDs(uint(managerIDUint), uint(orgIDUint))
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get subordinate IDs: %w", err)
+	}
+
+	if len(subordinateIDs) == 0 {
+		return leaves, 0, nil // No subordinates
+	}
+
+	// Build base query for counting
+	baseQuery := r.db.Model(&models.Leave{}).
+		Where("user_id IN ? AND organization_id = ?", subordinateIDs, uint(orgIDUint))
+
+	// Apply additional filters to base query
+	baseQuery = r.buildQuery(baseQuery, filters)
+
+	// Count total records
+	if err := baseQuery.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count team leaves: %w", err)
+	}
+
+	// Calculate offset
+	offset := (page - 1) * perPage
+
+	// Build paginated query with preloads
+	query := r.db.Preload("User").Preload("Category").
+		Where("user_id IN ? AND organization_id = ?", subordinateIDs, uint(orgIDUint))
+
+	// Apply additional filters
+	query = r.buildQuery(query, filters)
+	query = query.Offset(offset).Limit(perPage).Order("created_at DESC")
+
+	if err := query.Find(&leaves).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to get paginated team leaves: %w", err)
+	}
+
+	return leaves, total, nil
+}
+
+// getAllSubordinateIDs recursively gets all subordinate user IDs for a given manager
+func (r *leaveRepository) getAllSubordinateIDs(managerID, organizationID uint) ([]uint, error) {
+	var subordinateIDs []uint
+
+	// Get direct reports
+	var directReports []models.User
+	if err := r.db.Where("manager_id = ? AND organization_id = ?", managerID, organizationID).Find(&directReports).Error; err != nil {
+		return nil, fmt.Errorf("failed to get direct reports: %w", err)
+	}
+
+	// Add direct reports to the list
+	for _, user := range directReports {
+		subordinateIDs = append(subordinateIDs, user.ID)
+
+		// Recursively get sub-reports
+		subReports, err := r.getAllSubordinateIDs(user.ID, organizationID)
+		if err != nil {
+			return nil, err
+		}
+		subordinateIDs = append(subordinateIDs, subReports...)
+	}
+
+	return subordinateIDs, nil
 }
 
 func (r *leaveRepository) buildQuery(query *gorm.DB, filters map[string]interface{}) *gorm.DB {

@@ -69,7 +69,7 @@ func (h *LeaveHandler) ListLeaves(c *gin.Context) {
 		var err error
 
 		if viewType == "team" {
-			// Manager view: Get leaves for all team members
+			// Manager view: Get leaves for all team members (including sub-reports)
 			filters := make(map[string]interface{})
 
 			// Add status filter if provided
@@ -77,7 +77,7 @@ func (h *LeaveHandler) ListLeaves(c *gin.Context) {
 				filters["status"] = status
 			}
 
-			result, err = h.service.GetTeamLeavesPaginated(currentUserID.(string), orgID.(string), filters, page, perPage)
+			result, err = h.service.GetTeamLeavesRecursivePaginated(currentUserID.(string), orgID.(string), filters, page, perPage)
 		} else {
 			// Self view: Get leaves for specific user
 			if userID == "" {
@@ -104,7 +104,7 @@ func (h *LeaveHandler) ListLeaves(c *gin.Context) {
 		var err error
 
 		if viewType == "team" {
-			// Manager view: Get leaves for all team members
+			// Manager view: Get leaves for all team members (including sub-reports)
 			filters := make(map[string]interface{})
 
 			// Add status filter if provided
@@ -112,7 +112,7 @@ func (h *LeaveHandler) ListLeaves(c *gin.Context) {
 				filters["status"] = status
 			}
 
-			leaves, err = h.service.GetTeamLeaves(currentUserID.(string), orgID.(string), filters)
+			leaves, err = h.service.GetTeamLeavesRecursive(currentUserID.(string), orgID.(string), filters)
 		} else {
 			// Self view: Get leaves for specific user
 			if userID == "" {
@@ -189,8 +189,38 @@ func (h *LeaveHandler) ApplyLeave(c *gin.Context) {
 
 // GetLeave handles GET /api/leaves/:id
 func (h *LeaveHandler) GetLeave(c *gin.Context) {
-	// TODO: Implement get leave logic
-	c.JSON(http.StatusOK, gin.H{"message": "Get leave - coming soon"})
+	leaveID := c.Param("id")
+	if leaveID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "leave_id parameter is required"})
+		return
+	}
+
+	leave, err := h.service.GetLeave(leaveID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": leave})
+}
+
+// GetTeamLeaveBalances handles GET /api/leaves/team-balances
+func (h *LeaveHandler) GetTeamLeaveBalances(c *gin.Context) {
+	// Get current user ID from context
+	currentUserID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Get team leave balances
+	teamBalances, err := h.service.GetTeamLeaveBalances(currentUserID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": teamBalances})
 }
 
 // UpdateLeave handles PATCH /api/leaves/:id

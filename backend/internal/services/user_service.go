@@ -82,8 +82,17 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 		Department:     req.Department,
 		Role:           req.Role,
 		ManagerID:      managerID,
-		CTC:            req.CTC,
+		CTC:            "", // Will be set after encryption
 		IsActive:       true,
+	}
+
+	// Encrypt CTC if provided
+	if req.CTC > 0 {
+		encryptedCTC, err := utils.EncryptFloat64(req.CTC)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt CTC: %w", err)
+		}
+		user.CTC = encryptedCTC
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
@@ -122,6 +131,18 @@ func (s *userService) GetUser(id string) (*models.User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
+
+	// Decrypt CTC for display
+	if user.CTC != "" {
+		decryptedCTC, err := utils.DecryptFloat64(user.CTC)
+		if err != nil {
+			// If decryption fails, set CTC to 0 (might be old unencrypted data)
+			user.CTC = "0"
+		} else {
+			user.CTC = fmt.Sprintf("%.2f", decryptedCTC)
+		}
+	}
+
 	return user, nil
 }
 
@@ -130,6 +151,20 @@ func (s *userService) ListUsers(organizationID string, filters map[string]interf
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
+
+	// Decrypt CTC for all users
+	for i := range users {
+		if users[i].CTC != "" {
+			decryptedCTC, err := utils.DecryptFloat64(users[i].CTC)
+			if err != nil {
+				// If decryption fails, set CTC to 0 (might be old unencrypted data)
+				users[i].CTC = "0"
+			} else {
+				users[i].CTC = fmt.Sprintf("%.2f", decryptedCTC)
+			}
+		}
+	}
+
 	return users, nil
 }
 
@@ -209,7 +244,15 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 	}
 
 	if req.CTC != nil {
-		user.CTC = *req.CTC
+		if *req.CTC > 0 {
+			encryptedCTC, err := utils.EncryptFloat64(*req.CTC)
+			if err != nil {
+				return nil, fmt.Errorf("failed to encrypt CTC: %w", err)
+			}
+			user.CTC = encryptedCTC
+		} else {
+			user.CTC = ""
+		}
 	}
 
 	if req.IsActive != nil {
@@ -256,6 +299,17 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 		// Log the user change (ignore any errors for now)
 		if err := s.auditService.LogUserChange(orgID, id, changedBy, "UPDATE", &oldUser, user, httpReq); err != nil {
 			fmt.Printf("Failed to log audit: %v\n", err)
+		}
+	}
+
+	// Decrypt CTC for display
+	if user.CTC != "" {
+		decryptedCTC, err := utils.DecryptFloat64(user.CTC)
+		if err != nil {
+			// If decryption fails, set CTC to 0 (might be old unencrypted data)
+			user.CTC = "0"
+		} else {
+			user.CTC = fmt.Sprintf("%.2f", decryptedCTC)
 		}
 	}
 

@@ -87,7 +87,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 'time': 'All Day', // Default time for notices
                 'location': 'Office', // Default location for notices
                 'description': holiday['description'] ?? '',
-                'color': holiday['color'] ?? 'purple',
+                'color': holiday['color'] ?? AppTheme.noticePurple.value.toRadixString(16),
                 'icon': Icons.notifications,
                 'isNotice': true,
               });

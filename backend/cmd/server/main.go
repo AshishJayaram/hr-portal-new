@@ -221,6 +221,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		{
 			leaves.GET("", handlers.Leave.ListLeaves)
 			leaves.POST("", handlers.Leave.ApplyLeave)
+			leaves.GET("/team-balances", handlers.Leave.GetTeamLeaveBalances)
 			leaves.GET("/:id", handlers.Leave.GetLeave)
 			leaves.PATCH("/:id", handlers.Leave.UpdateLeave)
 			leaves.POST("/:id/approve", middleware.RoleRequired("HR", "Admin", "God"), handlers.Leave.ApproveLeave)
@@ -248,6 +249,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			files.GET("/documents/:id", handlers.Document.ServeDocumentFile)
 			files.GET("/salary-slips/:id", handlers.SalarySlip.ServeSalarySlipFile)
 			files.GET("/reimbursement-bills/:id", handlers.Reimbursement.ServeReimbursementBill)
+			files.GET("/logos/:filename", handlers.God.ServeLogoFile)
 		}
 
 		// Static file serving for uploads
@@ -338,6 +340,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			god.GET("/organizations/:id", handlers.God.GetOrganization)
 			god.POST("/organizations", handlers.God.CreateOrganization)
 			god.PATCH("/organizations/:id", handlers.God.UpdateOrganization)
+			god.POST("/organizations/:id/logo", handlers.God.UploadOrganizationLogo)
 			god.DELETE("/organizations/:id", handlers.God.DeleteOrganization)
 
 			// User management for God users (platform-wide)

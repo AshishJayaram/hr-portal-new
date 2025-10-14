@@ -344,7 +344,7 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
                     });
                   },
                 ),
-                const Text('Multi-day Event'),
+            const Text('Multi-day Event'),
               ],
             ),
             const SizedBox(height: 16),

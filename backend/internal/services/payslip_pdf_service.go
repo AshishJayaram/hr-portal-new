@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"hr-portal-backend/internal/models"
+	"hr-portal-backend/internal/utils"
 
 	"github.com/jung-kurt/gofpdf/v2"
 )
@@ -44,8 +45,14 @@ func (s *payslipPDFService) GeneratePayslipPDF(salarySlip *models.SalarySlip, us
 	s.addEmployeeInfo(pdf, user, salarySlip)
 
 	// Use CTC from user if available, otherwise use a default value
-	ctc := user.CTC
-	if ctc == 0 {
+	var ctc float64
+	if user.CTC != "" {
+		var err error
+		ctc, err = utils.DecryptFloat64(user.CTC)
+		if err != nil {
+			ctc = 600000 // Default CTC if decryption fails
+		}
+	} else {
 		ctc = 600000 // Default CTC if not set
 	}
 

@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:file_picker/file_picker.dart';
 
 class ApiService {
   // Use localhost for web, LAN IP for mobile devices
@@ -588,6 +590,153 @@ class ApiService {
       return response.data['data'];
     } catch (e) {
       print('Upload document error: $e');
+      rethrow;
+    }
+  }
+
+  // -------------------- Reimbursements --------------------
+  Future<List<Map<String, dynamic>>> getReimbursements({String? status, String? view}) async {
+    try {
+      String url = '/reimbursements';
+      final params = <String, String>{};
+      if (status != null && status.isNotEmpty) params['status'] = status;
+      if (view != null && view.isNotEmpty) params['view'] = view;
+      if (params.isNotEmpty) {
+        url += '?'
+            + params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&');
+      }
+      final response = await _dio.get(url);
+      final data = response.data;
+      final list = data['data'] ?? data['reimbursements'] ?? data;
+      return List<Map<String, dynamic>>.from(list ?? []);
+    } catch (e) {
+      print('Get reimbursements error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> createReimbursement({
+    required String reason,
+    String? description,
+    required double amount,
+    required String date, // YYYY-MM-DD
+    required List<PlatformFile> bills,
+    String? applyForUserId,
+  }) async {
+    try {
+      final formData = FormData();
+      formData.fields
+        ..add(MapEntry('reason', reason))
+        ..add(MapEntry('amount', amount.toString()))
+        ..add(MapEntry('date', date));
+      if (description != null && description.isNotEmpty) {
+        formData.fields.add(MapEntry('description', description));
+      }
+      if (applyForUserId != null && applyForUserId.isNotEmpty) {
+        formData.fields.add(MapEntry('applyForUserId', applyForUserId));
+      }
+
+      for (final file in bills) {
+        if (file.bytes != null) {
+          formData.files.add(MapEntry(
+            'bills',
+            MultipartFile.fromBytes(
+              file.bytes as Uint8List,
+              filename: file.name,
+            ),
+          ));
+        } else if (file.path != null) {
+          formData.files.add(MapEntry(
+            'bills',
+            await MultipartFile.fromFile(file.path!, filename: file.name),
+          ));
+        }
+      }
+
+      final response = await _dio.post('/reimbursements', data: formData);
+      return response.data['data'];
+    } catch (e) {
+      print('Create reimbursement error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateReimbursement(String id, {
+    String? reason,
+    String? description,
+    double? amount,
+    String? date,
+    List<PlatformFile>? newBills,
+  }) async {
+    try {
+      final formData = FormData();
+      if (reason != null) formData.fields.add(MapEntry('reason', reason));
+      if (description != null) formData.fields.add(MapEntry('description', description));
+      if (amount != null) formData.fields.add(MapEntry('amount', amount.toString()));
+      if (date != null) formData.fields.add(MapEntry('date', date));
+      if (newBills != null) {
+        for (final file in newBills) {
+          if (file.bytes != null) {
+            formData.files.add(MapEntry(
+              'bills',
+              MultipartFile.fromBytes(
+                file.bytes as Uint8List,
+                filename: file.name,
+              ),
+            ));
+          } else if (file.path != null) {
+            formData.files.add(MapEntry(
+              'bills',
+              await MultipartFile.fromFile(file.path!, filename: file.name),
+            ));
+          }
+        }
+      }
+
+      final response = await _dio.patch('/reimbursements/$id', data: formData);
+      return response.data['data'];
+    } catch (e) {
+      print('Update reimbursement error: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteReimbursement(String id) async {
+    try {
+      await _dio.delete('/reimbursements/$id');
+      return true;
+    } catch (e) {
+      print('Delete reimbursement error: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> updateReimbursementStatus(String id, {
+    required String status, // approved | rejected | returned
+    String? message,
+  }) async {
+    try {
+      String endpoint;
+      switch (status) {
+        case 'approved':
+          endpoint = '/reimbursements/$id/approve';
+          break;
+        case 'rejected':
+          endpoint = '/reimbursements/$id/reject';
+          break;
+        case 'returned':
+          endpoint = '/reimbursements/$id/return';
+          break;
+        default:
+          throw Exception('Invalid status: $status');
+      }
+      final data = (status == 'rejected' || status == 'returned') && message != null
+          ? {'reason': message}
+          : null;
+      final response = await _dio.post(endpoint, data: data);
+      return response.data['data'];
+    } catch (e) {
+      print('Update reimbursement status error: $e');
       rethrow;
     }
   }

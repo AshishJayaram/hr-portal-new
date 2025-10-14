@@ -7,6 +7,7 @@ export interface Organization {
   id: number;
   name: string;
   domain: string;
+  logo?: string;
   description: string;
   is_active: boolean;
   user_count: number;
@@ -29,7 +30,7 @@ export interface User {
   department?: string;
   manager_id?: number;
   manager?: User;
-  ctc?: number;
+  ctc?: string;
   organization_id?: number;
   organization?: Organization;
   created_at: string;
@@ -313,7 +314,7 @@ export const getUser = (id: string) =>
       role: toCanonicalRole(u.role) as Role,
       department: u.department,
       designation: u.designation,
-      ctc: u.ctc,
+      ctc: u.ctc ? String(u.ctc) : undefined,
       manager_id: u.manager_id,
       created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updated_at: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
@@ -931,7 +932,7 @@ export const getTeam = (params?: Record<string, string>) =>
         created_at: u.manager.created_at ?? u.manager.createdAt ?? new Date().toISOString(),
         updated_at: u.manager.updated_at ?? u.manager.updatedAt ?? new Date().toISOString(),
       } : undefined,
-      ctc: u.ctc ? Number(u.ctc) : undefined,
+      ctc: u.ctc ? String(u.ctc) : undefined,
       organization_id: u.organization_id,
       created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updated_at: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
@@ -1232,12 +1233,35 @@ export const getOrganizations = async (): Promise<Organization[]> => {
     id: org.id,
     name: org.name,
     domain: org.domain,
+    logo: org.logo || '',
     description: org.description || '',
     is_active: org.is_active,
     user_count: org.user_count || 0, // Default to 0 if not provided
     created_at: org.created_at,
     updated_at: org.updated_at,
   }));
+};
+
+export const uploadOrganizationLogo = async (organizationId: string, file: File): Promise<{ logo_url: string }> => {
+  const formData = new FormData();
+  formData.append('logo', file);
+
+  const token = localStorage.getItem("token");
+
+  const response = await fetch(`${API_URL}/api/god/organizations/${organizationId}/logo`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to upload logo');
+  }
+
+  return response.json();
 };
 
 export const createOrganization = async (orgData: {

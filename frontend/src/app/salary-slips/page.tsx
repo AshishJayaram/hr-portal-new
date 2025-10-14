@@ -103,7 +103,7 @@ export default function SalarySlipsPage() {
     const selectedUser = (usersData?.data || []).find((u: any) => String(u.id) === uploadData.userId);
     if (!selectedUser?.ctc) return 0;
     
-    const breakdown = computePayslipFromCTC(selectedUser.ctc, companySettings.data);
+    const breakdown = computePayslipFromCTC(parseFloat(selectedUser.ctc), companySettings.data);
     return calculateLOPAmount(lopDays, breakdown.totals.netPay, breakdown.earnings.basic, companySettings.data);
   };
 
@@ -1045,7 +1045,7 @@ function EmployeeSalaryBreakdown({ userId, companySettings, isCurrentUser = fals
   }
 
   const userCTC = userData.data.ctc || 0;
-  const payslip = computePayslipFromCTC(userCTC, companySettings);
+  const payslip = computePayslipFromCTC(parseFloat(userCTC.toString()), companySettings);
 
   return (
     <div className="bg-white/5 rounded-lg p-4 border border-white/10">

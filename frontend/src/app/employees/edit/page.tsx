@@ -97,7 +97,7 @@ function EditEmployeeForm({ id }: { id: string }) {
         role: user.data.role,
         department: user.data.department || "",
         manager_id: managerId,
-        ctc: user.data.ctc ? String(user.data.ctc) : "",
+        ctc: user.data.ctc || "",
       });
       
       // Store original manager ID for comparison
@@ -112,7 +112,7 @@ function EditEmployeeForm({ id }: { id: string }) {
       // Initialize CTC data
       if (user.data.ctc) {
         setCtcData({
-          annualCTC: user.data.ctc,
+          annualCTC: parseFloat(user.data.ctc) || 0,
           lopDays: 0,
           tdsOverride: 0,
         });
@@ -226,7 +226,7 @@ function EditEmployeeForm({ id }: { id: string }) {
   });
 
   const ctcMutation = useMutation({
-    mutationFn: (ctcValue: number) => updateUser(id, { ctc: ctcValue }),
+    mutationFn: (ctcValue: number) => updateUser(id, { ctc: ctcValue.toString() }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", id] });
       queryClient.invalidateQueries({ queryKey: ["users"] });

@@ -214,6 +214,27 @@ func (s *leaveService) GetTeamLeavesPaginated(managerID string, organizationID s
 	}, nil
 }
 
+func (s *leaveService) GetTeamLeavesRecursive(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error) {
+	return s.leaveRepo.GetTeamLeavesRecursive(managerID, organizationID, filters)
+}
+
+func (s *leaveService) GetTeamLeavesRecursivePaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) (*PaginatedResponse, error) {
+	leaves, total, err := s.leaveRepo.GetTeamLeavesRecursivePaginated(managerID, organizationID, filters, page, perPage)
+	if err != nil {
+		return nil, err
+	}
+
+	totalPages := int((total + int64(perPage) - 1) / int64(perPage))
+
+	return &PaginatedResponse{
+		Data:       leaves,
+		Total:      total,
+		Page:       page,
+		PerPage:    perPage,
+		TotalPages: totalPages,
+	}, nil
+}
+
 func (s *leaveService) UpdateLeave(id string, req UpdateLeaveRequest) (*models.Leave, error) {
 	// Get existing leave
 	leave, err := s.leaveRepo.GetByID(id)
@@ -422,6 +443,53 @@ func (s *leaveService) GetUserLeaves(userID string, filters map[string]interface
 
 func (s *leaveService) GetPendingApprovals(managerID string) ([]models.Leave, error) {
 	return s.leaveRepo.GetPendingApprovals(managerID)
+}
+
+func (s *leaveService) GetTeamLeaveBalances(managerID string) (map[string][]LeaveBalanceResponse, error) {
+	// Get all subordinate user IDs recursively
+	subordinateIDs, err := s.getAllSubordinateIDs(managerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subordinate IDs: %w", err)
+	}
+
+	teamBalances := make(map[string][]LeaveBalanceResponse)
+
+	for _, userID := range subordinateIDs {
+		balances, err := s.GetLeaveBalance(strconv.FormatUint(uint64(userID), 10))
+		if err != nil {
+			// Log error but continue with other users
+			fmt.Printf("Failed to get leave balance for user %d: %v\n", userID, err)
+			continue
+		}
+		teamBalances[strconv.FormatUint(uint64(userID), 10)] = balances
+	}
+
+	return teamBalances, nil
+}
+
+// getAllSubordinateIDs recursively gets all subordinate user IDs for a given manager
+func (s *leaveService) getAllSubordinateIDs(managerID string) ([]uint, error) {
+	var subordinateIDs []uint
+
+	// Get direct reports
+	directReports, err := s.userRepo.GetSubordinates("", managerID) // organizationID not needed for this query
+	if err != nil {
+		return nil, fmt.Errorf("failed to get direct reports: %w", err)
+	}
+
+	// Add direct reports to the list
+	for _, user := range directReports {
+		subordinateIDs = append(subordinateIDs, user.ID)
+
+		// Recursively get sub-reports
+		subReports, err := s.getAllSubordinateIDs(strconv.FormatUint(uint64(user.ID), 10))
+		if err != nil {
+			return nil, err
+		}
+		subordinateIDs = append(subordinateIDs, subReports...)
+	}
+
+	return subordinateIDs, nil
 }
 
 func (s *leaveService) GetLeaveBalance(userID string) ([]LeaveBalanceResponse, error) {

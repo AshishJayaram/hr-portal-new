@@ -102,6 +102,7 @@ type OrganizationService interface {
 	Count(count *int64) error
 	CountActive(count *int64) error
 	ListAll() ([]models.Organization, error)
+	ListAllWithUserCount() ([]map[string]interface{}, error)
 }
 
 // PaginatedResponse represents a paginated response
@@ -121,11 +122,14 @@ type LeaveService interface {
 	ListLeavesPaginated(organizationID string, filters map[string]interface{}, page, perPage int) (*PaginatedResponse, error)
 	GetTeamLeaves(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error)
 	GetTeamLeavesPaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) (*PaginatedResponse, error)
+	GetTeamLeavesRecursive(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error)
+	GetTeamLeavesRecursivePaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) (*PaginatedResponse, error)
 	UpdateLeave(id string, req UpdateLeaveRequest) (*models.Leave, error)
 	ApproveLeave(id, approverID string) (*models.Leave, error)
 	RejectLeave(id, rejecterID, reason string) (*models.Leave, error)
 	EditLeave(req EditLeaveRequest, userID, organizationID string, httpReq *http.Request) (*models.Leave, error)
 	GetLeaveBalance(userID string) ([]LeaveBalanceResponse, error)
+	GetTeamLeaveBalances(managerID string) (map[string][]LeaveBalanceResponse, error)
 	CancelLeave(id, userID string) (*models.Leave, error)
 }
 

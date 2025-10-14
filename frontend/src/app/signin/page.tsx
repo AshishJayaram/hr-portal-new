@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toCanonicalRole } from "@/lib/api";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
 export default function SignInPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -38,14 +40,16 @@ export default function SignInPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Login failed");
+      if (!res.ok) {
+        throw new Error(data.error || "Login failed");
+      }
 
       // Backend returns: { user: user, token: token, message: "Login successful" }
       const token = data?.token;
@@ -71,7 +75,14 @@ export default function SignInPage() {
 
       router.push("/");
     } catch (err: any) {
-      setError(err.message);
+      console.error("Login error:", err);
+      if (err.message) {
+        setError(err.message);
+      } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError("Unable to connect to server. Please check if the backend is running.");
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +106,7 @@ export default function SignInPage() {
           Sign in to HR Portal
         </h1>
         <input
-          type="string"
+          type="text"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}

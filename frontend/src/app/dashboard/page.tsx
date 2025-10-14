@@ -17,6 +17,14 @@ export default function DashboardPage() {
   const userId = user?.id || "u1";
   const userRole = user?.role || "Employee";
 
+  // Debug logging
+  console.log("Dashboard Debug:", {
+    user,
+    userId,
+    userRole,
+    localStorageUser: typeof window !== "undefined" ? localStorage.getItem("user") : "N/A"
+  });
+
   // Single API call for all dashboard data
   const { data: dashboardData, isLoading, error } = useQuery({
     queryKey: ["dashboard-data"],
@@ -63,6 +71,13 @@ export default function DashboardPage() {
   // Create calendar events with grouping for Admin/HR users
   const createCalendarEvents = () => {
     const events: any[] = [];
+    
+    // Debug dashboard data
+    console.log("Dashboard data debug:", {
+      recentLeaves: dashboardData?.data?.recent_leaves,
+      userId,
+      userRole
+    });
     
     // Add holidays
     events.push(...(dashboardData?.data?.upcoming_holidays || [])
@@ -118,12 +133,12 @@ export default function DashboardPage() {
       
       Object.entries(groupedLeaves).forEach(([date, dayLeaves]) => {
         // Check if current user is in this group
-        const currentUserInGroup = dayLeaves.some((leave: any) => leave.user_id === userId);
+        const currentUserInGroup = dayLeaves.some((leave: any) => String(leave.user_id) === String(userId));
         
         if (dayLeaves.length === 1) {
           // Single leave - show normally
           const leave = dayLeaves[0];
-          const isCurrentUser = leave.user_id === userId;
+          const isCurrentUser = String(leave.user_id) === String(userId);
           events.push({
             title: `${leave.user?.name || 'Employee'} - ${leave.type}`,
             start: new Date(date),
@@ -165,7 +180,20 @@ export default function DashboardPage() {
       });
     } else {
       // Regular employees - show only their own approved leaves
-      const myLeaves = leaves.filter((l: any) => l.user_id === userId);
+      console.log("Employee leave filtering debug:", {
+        userId,
+        userIdType: typeof userId,
+        leaves: leaves.map((l: any) => ({ 
+          id: l.id, 
+          user_id: l.user_id, 
+          user_id_type: typeof l.user_id,
+          type: l.type, 
+          status: l.status 
+        })),
+        filteredLeaves: leaves.filter((l: any) => String(l.user_id) === String(userId))
+      });
+      
+      const myLeaves = leaves.filter((l: any) => String(l.user_id) === String(userId));
       
       events.push(...myLeaves.map((l: any) => ({
           title: l.type,

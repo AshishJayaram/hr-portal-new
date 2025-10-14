@@ -499,7 +499,7 @@ export default function EmployeeDocumentationPage() {
                     {user.ctc && (
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">CTC:</span>
-                        <span className="text-gray-900 dark:text-white font-medium">₹{user.ctc.toLocaleString()}</span>
+                        <span className="text-gray-900 dark:text-white font-medium">₹{parseFloat(user.ctc).toLocaleString()}</span>
                       </div>
                     )}
                   </div>

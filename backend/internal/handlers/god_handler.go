@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
@@ -45,7 +49,7 @@ func (h *GodHandler) GetPlatformStats(c *gin.Context) {
 
 // ListOrganizations returns all organizations
 func (h *GodHandler) ListOrganizations(c *gin.Context) {
-	organizations, err := h.services.Organization.ListAll()
+	organizations, err := h.services.Organization.ListAllWithUserCount()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch organizations"})
 		return
@@ -267,11 +271,14 @@ func (h *GodHandler) UpdateUser(c *gin.Context) {
 	if req.Department != "" {
 		user.Department = req.Department
 	}
-	if req.CTC > 0 {
-		user.CTC = req.CTC
-	}
 	if req.IsActive != nil {
 		user.IsActive = *req.IsActive
+	}
+
+	// Handle CTC separately since it needs encryption
+	var ctcPtr *float64
+	if req.CTC > 0 {
+		ctcPtr = &req.CTC
 	}
 
 	updatedUser, err := h.services.User.UpdateUser(userID, services.UpdateUserRequest{
@@ -281,7 +288,7 @@ func (h *GodHandler) UpdateUser(c *gin.Context) {
 		Role:        &user.Role,
 		Designation: &user.Designation,
 		Department:  &user.Department,
-		CTC:         &user.CTC,
+		CTC:         ctcPtr,
 		IsActive:    &user.IsActive,
 	}, c.Request)
 	if err != nil {
@@ -302,4 +309,103 @@ func (h *GodHandler) DeleteUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+}
+
+// UploadOrganizationLogo handles POST /api/god/organizations/:id/logo
+func (h *GodHandler) UploadOrganizationLogo(c *gin.Context) {
+	organizationID := c.Param("id")
+	if organizationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Organization ID is required"})
+		return
+	}
+
+	// Get organization
+	org, err := h.repos.Organization.GetByID(organizationID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Organization not found"})
+		return
+	}
+
+	// Get uploaded file
+	file, err := c.FormFile("logo")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
+		return
+	}
+
+	// Validate file type
+	allowedTypes := []string{".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"}
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	isValidType := false
+	for _, allowedType := range allowedTypes {
+		if ext == allowedType {
+			isValidType = true
+			break
+		}
+	}
+
+	if !isValidType {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file type. Allowed types: jpg, jpeg, png, gif, svg, webp"})
+		return
+	}
+
+	// Validate file size (max 5MB)
+	if file.Size > 5*1024*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File size too large. Maximum size is 5MB"})
+		return
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("org_%s_logo%s", organizationID, ext)
+	uploadPath := filepath.Join("uploads", "logos", filename)
+
+	// Create directory if it doesn't exist
+	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return
+	}
+
+	// Update organization with logo URL
+	logoURL := fmt.Sprintf("/api/files/logos/%s", filename)
+	org.Logo = logoURL
+
+	if err := h.repos.Organization.Update(org); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update organization"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Logo uploaded successfully",
+		"logo_url": logoURL,
+	})
+}
+
+// ServeLogoFile serves organization logo files
+func (h *GodHandler) ServeLogoFile(c *gin.Context) {
+	filename := c.Param("filename")
+	if filename == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Filename is required"})
+		return
+	}
+
+	// Security check - ensure filename doesn't contain path traversal
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid filename"})
+		return
+	}
+
+	filePath := filepath.Join("uploads", "logos", filename)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Logo file not found"})
+		return
+	}
+
+	// Set appropriate headers
+	c.Header("Content-Type", "image/*")
+	c.Header("Cache-Control", "public, max-age=31536000") // Cache for 1 year
+
+	// Serve the file
+	c.File(filePath)
 }

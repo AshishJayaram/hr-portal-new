@@ -100,6 +100,7 @@ type OrganizationRepository interface {
 	Count(count *int64) error
 	CountActive(count *int64) error
 	ListAll() ([]models.Organization, error)
+	ListAllWithUserCount() ([]map[string]interface{}, error)
 }
 
 // LeaveRepository interface for leave operations
@@ -114,6 +115,8 @@ type LeaveRepository interface {
 	GetUserLeaves(userID string, year int) ([]models.Leave, error)
 	GetTeamLeaves(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error)
 	GetTeamLeavesPaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) ([]models.Leave, int64, error)
+	GetTeamLeavesRecursive(managerID string, organizationID string, filters map[string]interface{}) ([]models.Leave, error)
+	GetTeamLeavesRecursivePaginated(managerID string, organizationID string, filters map[string]interface{}, page, perPage int) ([]models.Leave, int64, error)
 	GetPendingApprovals(managerID string) ([]models.Leave, error)
 	Approve(id, approverID string) error
 	Reject(id, rejecterID, reason string) error

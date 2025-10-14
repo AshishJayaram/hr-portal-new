@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import '../../core/providers/providers.dart';
+import '../../core/services/api_service.dart';
 
 class ReimbursementsScreen extends ConsumerStatefulWidget {
   const ReimbursementsScreen({super.key});
@@ -17,11 +19,14 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
   DateTime? _selectedDate;
   List<PlatformFile> _selectedFiles = [];
   String _statusFilter = '';
+  bool _loading = false;
+  List<Map<String, dynamic>> _items = [];
 
   @override
   void initState() {
     super.initState();
     _showDisclaimerDialog();
+    _load();
   }
 
   void _showDisclaimerDialog() {
@@ -56,6 +61,33 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+    });
+    try {
+      final api = ref.read(apiServiceProvider);
+      final view = await _canApprove() ? 'team' : 'my';
+      final list = await api.getReimbursements(
+        status: _statusFilter.isEmpty ? null : _statusFilter,
+        view: view,
+      );
+      setState(() {
+        _items = list;
+      });
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  Future<bool> _canApprove() async {
+    final user = ref.read(authProvider).user;
+    final role = (user?.role ?? '').toLowerCase();
+    return role == 'hr' || role == 'admin' || role == 'god';
   }
 
   Future<void> _selectDate() async {
@@ -138,7 +170,7 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Amount *',
                           border: OutlineInputBorder(),
-                          prefixText: '\$',
+                          prefixText: '₹',
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {
@@ -233,23 +265,24 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {
-                          if (_formKey.currentState!.validate() &&
-                              _selectedDate != null &&
-                              _selectedFiles.isNotEmpty) {
-                            // TODO: Submit reimbursement request
+                        onPressed: () async {
+                          if (!(_formKey.currentState!.validate() && _selectedDate != null && _selectedFiles.isNotEmpty)) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all required fields')));
+                            return;
+                          }
+                          try {
+                            final api = ref.read(apiServiceProvider);
+                            await api.createReimbursement(
+                              reason: _reasonController.text.trim(),
+                              amount: double.parse(_amountController.text.trim()),
+                              date: DateFormat('yyyy-MM-dd').format(_selectedDate!),
+                              bills: _selectedFiles,
+                            );
                             Navigator.of(context).pop();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Reimbursement request submitted'),
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please fill all required fields'),
-                              ),
-                            );
+                            await _load();
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reimbursement request submitted')));
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
                           }
                         },
                         child: const Text('Submit'),
@@ -295,83 +328,86 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
                 DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
                 DropdownMenuItem(value: 'returned', child: Text('Returned')),
               ],
-              onChanged: (value) {
+              onChanged: (value) async {
                 setState(() {
                   _statusFilter = value ?? '';
                 });
+                await _load();
               },
             ),
           ),
           // Reimbursements List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _getMockReimbursements().length,
-              itemBuilder: (context, index) {
-                final reimbursement = _getMockReimbursements()[index];
-                return Card(
-                  child: Padding(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                reimbursement['reason'],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                    itemCount: _items.length,
+                    itemBuilder: (context, index) {
+                      final reimbursement = _items[index];
+                      return Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      reimbursement['reason'] ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  _buildStatusChip(reimbursement['status'] ?? 'pending'),
+                                ],
                               ),
-                            ),
-                            _buildStatusChip(reimbursement['status']),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(Icons.attach_money, size: 16),
-                            const SizedBox(width: 4),
-                            Text('\$${reimbursement['amount']}'),
-                            const SizedBox(width: 16),
-                            const Icon(Icons.calendar_today, size: 16),
-                            const SizedBox(width: 4),
-                            Text(reimbursement['date']),
-                            const SizedBox(width: 16),
-                            const Icon(Icons.attach_file, size: 16),
-                            const SizedBox(width: 4),
-                            Text('${reimbursement['bills']} bill${reimbursement['bills'] > 1 ? 's' : ''}'),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: () {
-                                // TODO: View reimbursement details
-                              },
-                              child: const Text('View'),
-                            ),
-                            if (reimbursement['status'] == 'pending') ...[
-                              TextButton(
-                                onPressed: () {
-                                  // TODO: Edit reimbursement
-                                },
-                                child: const Text('Edit'),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.attach_money, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text('₹${reimbursement['amount']}'),
+                                  const SizedBox(width: 16),
+                                  const Icon(Icons.calendar_today, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(reimbursement['date'] ?? ''),
+                                  const SizedBox(width: 16),
+                                  const Icon(Icons.attach_file, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text('${(reimbursement['bills'] as List? ?? []).length} bill(s)'),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: () {
+                                      // TODO: View reimbursement details
+                                    },
+                                    child: const Text('View'),
+                                  ),
+                                  if ((reimbursement['status'] ?? 'pending') == 'pending') ...[
+                                    TextButton(
+                                      onPressed: () {
+                                        // TODO: Edit reimbursement
+                                      },
+                                      child: const Text('Edit'),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ],
-                          ],
+                          ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -385,7 +421,7 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
   Widget _buildStatusChip(String status) {
     Color color;
     IconData icon;
-    
+
     switch (status) {
       case 'approved':
         color = Colors.green;
@@ -410,32 +446,6 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
       labelStyle: TextStyle(color: color),
       avatar: Icon(icon, size: 16, color: color),
     );
-  }
-
-  List<Map<String, dynamic>> _getMockReimbursements() {
-    return [
-      {
-        'reason': 'Client meeting expenses',
-        'amount': '250.00',
-        'date': '2024-01-15',
-        'status': 'pending',
-        'bills': 2,
-      },
-      {
-        'reason': 'Conference registration',
-        'amount': '500.00',
-        'date': '2024-01-10',
-        'status': 'approved',
-        'bills': 1,
-      },
-      {
-        'reason': 'Travel expenses',
-        'amount': '150.00',
-        'date': '2024-01-05',
-        'status': 'rejected',
-        'bills': 3,
-      },
-    ];
   }
 
   @override

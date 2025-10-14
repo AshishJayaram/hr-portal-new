@@ -266,15 +266,15 @@ class _HolidaysOnlyScreenState extends ConsumerState<HolidaysOnlyScreen> {
     
     switch (type.toLowerCase()) {
       case 'holiday':
-        color = Colors.red;
+        color = AppTheme.holidayRed;
         label = 'Holiday';
         break;
       case 'event':
-        color = Colors.blue;
+        color = AppTheme.eventPink;
         label = 'Event';
         break;
       case 'notice':
-        color = Colors.green;
+        color = AppTheme.noticePurple;
         label = 'Notice';
         break;
       default:

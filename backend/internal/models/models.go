@@ -61,6 +61,7 @@ type Organization struct {
 	BaseModel
 	Name     string `json:"name" gorm:"not null"`
 	Domain   string `json:"domain" gorm:"unique"`
+	Logo     string `json:"logo" gorm:"default:''"`     // URL to uploaded logo file
 	Settings string `json:"settings" gorm:"type:jsonb"` // JSON string for company settings
 	IsActive bool   `json:"is_active" gorm:"default:true"`
 
@@ -88,8 +89,8 @@ type User struct {
 	Department     string     `json:"department" gorm:"not null"`
 	Role           string     `json:"role" gorm:"not null;check:role IN ('Employee','HR','Admin','God')"`
 	ManagerID      *uint      `json:"manager_id" gorm:"index"`
-	CTC            float64    `json:"ctc" gorm:"default:0"`
-	Phone          string     `json:"phone" gorm:"size:20"` // For WhatsApp notifications
+	CTC            string     `json:"ctc" gorm:"default:''"` // Encrypted CTC value
+	Phone          string     `json:"phone" gorm:"size:20"`  // For WhatsApp notifications
 	IsActive       bool       `json:"is_active" gorm:"default:true"`
 	LastLoginAt    *time.Time `json:"last_login_at"`
 
@@ -256,9 +257,9 @@ type Holiday struct {
 	Description     string     `json:"description"`
 	IsCalendarEvent bool       `json:"is_calendar_event" gorm:"default:true"`
 	Color           string     `json:"color" gorm:"default:'#ef4444'"`
-	MediaUrl        *string    `json:"media_url"`        // URL to uploaded media file
-	MediaType       *string    `json:"media_type"`       // Type of media: 'image' or 'video'
-	MediaFileName   *string    `json:"media_file_name"`  // Original filename
+	MediaUrl        *string    `json:"media_url"`       // URL to uploaded media file
+	MediaType       *string    `json:"media_type"`      // Type of media: 'image' or 'video'
+	MediaFileName   *string    `json:"media_file_name"` // Original filename
 
 	// Relationships
 	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`

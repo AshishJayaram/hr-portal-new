@@ -10,6 +10,10 @@ class AppTheme {
   static const Color accentColor = Color(0xFF7C3AED); // Darker purple
   static const Color lightPurple = Color(0xFFA78BFA); // Light purple
   static const Color lightOrange = Color(0xFFFBBF24); // Light orange
+  // Frontend parity colors
+  static const Color eventPink = Color(0xFFEC4899); // Events (pink)
+  static const Color noticePurple = Color(0xFF8B5CF6); // Notices (purple)
+  static const Color holidayRed = Color(0xFFEF4444); // Holidays (red)
 
   static ThemeData get lightTheme {
     return ThemeData(

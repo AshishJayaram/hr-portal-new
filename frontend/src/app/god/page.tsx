@@ -6,7 +6,7 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
-import { Organization, PlatformStats, getPlatformStats, getOrganizations, getOrganizationDetails, updateOrganization, deleteOrganization } from "@/lib/api";
+import { Organization, PlatformStats, getPlatformStats, getOrganizations, getOrganizationDetails, updateOrganization, deleteOrganization, uploadOrganizationLogo } from "@/lib/api";
 
 interface CreateOrgRequest {
   name: string;
@@ -42,6 +42,7 @@ export default function GodDashboard() {
     description: "",
     is_active: true,
   });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch platform statistics
@@ -118,6 +119,15 @@ export default function GodDashboard() {
       queryClient.invalidateQueries({ queryKey: ["god-stats"] });
       setShowViewModal(false);
       setSelectedOrg(null);
+    },
+  });
+
+  // Upload logo mutation
+  const uploadLogoMutation = useMutation({
+    mutationFn: ({ orgId, file }: { orgId: string; file: File }) => uploadOrganizationLogo(orgId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["god-organizations"] });
+      setLogoFile(null);
     },
   });
 
@@ -201,22 +211,9 @@ export default function GodDashboard() {
         </div>
       </div>
 
-      {/* Debug Information */}
-      <Card className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-        <h3 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Debug Information</h3>
-        <div className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
-          <div>Stats Loading: {statsLoading ? "Yes" : "No"}</div>
-          <div>Organizations Loading: {orgsLoading ? "Yes" : "No"}</div>
-          <div>Stats Error: {statsError ? JSON.stringify(statsError) : "None"}</div>
-          <div>Organizations Error: {orgsError ? JSON.stringify(orgsError) : "None"}</div>
-          <div>Stats Data: {stats ? JSON.stringify(stats) : "No data"}</div>
-          <div>Organizations Count: {organizations?.length || 0}</div>
-          <div>Organizations Data: {organizations ? JSON.stringify(organizations.map(o => ({ name: o.name, user_count: o.user_count }))) : "No data"}</div>
-          <div>Token: {typeof window !== "undefined" ? localStorage.getItem("token") : "N/A"}</div>
-        </div>
-      </Card>
+      {/* Platform Statistics */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div 
             className="cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => window.location.href = '/god/organizations'}
@@ -246,7 +243,7 @@ export default function GodDashboard() {
                 <div>
                   <p className="text-sm font-medium text-green-600 dark:text-green-400">Active Organizations</p>
                   <p className="text-3xl font-bold text-green-900 dark:text-green-100">{stats.active_organizations}</p>
-                  <p className="text-xs text-green-500 dark:text-green-400 mt-1">Click to manage</p>
+                  <p className="text-xs text-green-500 dark:text-green-400 mt-1">Currently active</p>
                 </div>
                 <div className="text-4xl">✅</div>
               </div>
@@ -264,12 +261,74 @@ export default function GodDashboard() {
                 <div>
                   <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Total Users</p>
                   <p className="text-3xl font-bold text-purple-900 dark:text-purple-100">{stats.total_users}</p>
-                  <p className="text-xs text-purple-500 dark:text-purple-400 mt-1">Click to manage</p>
+                  <p className="text-xs text-purple-500 dark:text-purple-400 mt-1">Across all orgs</p>
                 </div>
                 <div className="text-4xl">👥</div>
               </div>
             </Card>
           </div>
+
+          <div 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => window.location.href = '/god/organizations'}
+          >
+            <Card 
+              className="p-6 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200 dark:border-orange-800"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Inactive Organizations</p>
+                  <p className="text-3xl font-bold text-orange-900 dark:text-orange-100">{stats.total_organizations - stats.active_organizations}</p>
+                  <p className="text-xs text-orange-500 dark:text-orange-400 mt-1">Need attention</p>
+                </div>
+                <div className="text-4xl">⚠️</div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Additional Platform Insights */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-indigo-200 dark:border-indigo-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Average Users per Org</p>
+                <p className="text-2xl font-bold text-indigo-900 dark:text-indigo-100">
+                  {stats.total_organizations > 0 ? Math.round(stats.total_users / stats.total_organizations) : 0}
+                </p>
+                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">Platform efficiency</p>
+              </div>
+              <div className="text-3xl">📊</div>
+            </div>
+          </Card>
+
+          <Card className="p-6 bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 border-teal-200 dark:border-teal-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-teal-600 dark:text-teal-400">Platform Health</p>
+                <p className="text-2xl font-bold text-teal-900 dark:text-teal-100">
+                  {stats.total_organizations > 0 ? Math.round((stats.active_organizations / stats.total_organizations) * 100) : 0}%
+                </p>
+                <p className="text-xs text-teal-500 dark:text-teal-400 mt-1">Active rate</p>
+              </div>
+              <div className="text-3xl">💚</div>
+            </div>
+          </Card>
+
+          <Card className="p-6 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-200 dark:border-amber-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Platform Growth</p>
+                <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+                  {stats.total_users > 0 ? 'Growing' : 'New'}
+                </p>
+                <p className="text-xs text-amber-500 dark:text-amber-400 mt-1">User adoption</p>
+              </div>
+              <div className="text-3xl">🚀</div>
+            </div>
+          </Card>
         </div>
       )}
 
@@ -394,13 +453,26 @@ export default function GodDashboard() {
             <div key={org.id}>
               <Card className="p-6 hover:shadow-lg transition-shadow">
               <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                    {org.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {org.domain}
-                  </p>
+                <div className="flex items-center gap-3">
+                  {org.logo ? (
+                    <img 
+                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${org.logo}`} 
+                      alt={`${org.name} logo`}
+                      className="w-12 h-12 rounded-lg object-cover border border-gray-200 dark:border-gray-700"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                      <span className="text-gray-400 text-lg">🏢</span>
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                      {org.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {org.domain}
+                    </p>
+                  </div>
                 </div>
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                   org.is_active 
@@ -440,6 +512,26 @@ export default function GodDashboard() {
                 >
                   Edit
                 </Button>
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        uploadLogoMutation.mutate({ orgId: org.id.toString(), file });
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={uploadLogoMutation.isPending}
+                  >
+                    {uploadLogoMutation.isPending ? "Uploading..." : "Upload Logo"}
+                  </Button>
+                </label>
               </div>
             </Card>
           </div>
