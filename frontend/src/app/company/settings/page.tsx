@@ -280,9 +280,8 @@ export default function CompanySettingsPage() {
                 <div className="text-sm text-gray-400">Configure all earnings components</div>
               </div>
               
-              {/* Standard Earnings */}
+              {/* Earnings Components */}
               <div className="mb-6">
-                <h4 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Standard Earnings</h4>
                 <div className="space-y-3">
                   {(
                     [
@@ -413,9 +412,8 @@ export default function CompanySettingsPage() {
                 <div className="text-sm text-gray-400">Configure all deduction components</div>
               </div>
               
-              {/* Standard Deductions */}
+              {/* Deductions Components */}
               <div className="mb-6">
-                <h4 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Standard Deductions</h4>
                 <div className="space-y-3">
                   {/* Employee PF */}
                   <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/10 space-y-2">
