@@ -279,37 +279,6 @@ export default function LeavesPage() {
           </p>
         </div>
         
-        {/* View Toggle for HR/Admin */}
-        {canApprove && (
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-white/5 rounded-lg p-1">
-            <button
-              onClick={() => {
-                setActiveTab('my-leaves');
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'my-leaves'
-                  ? 'bg-indigo-500 text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10'
-              }`}
-            >
-              My Leaves
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('team-leaves');
-                setCurrentPage(1);
-              }}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'team-leaves'
-                  ? 'bg-indigo-500 text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10'
-              }`}
-            >
-              Team Leaves
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Leave Balance */}
