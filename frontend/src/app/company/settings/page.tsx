@@ -33,7 +33,7 @@ export default function CompanySettingsPage() {
   const [annualCTC, setAnnualCTC] = useState<number>(1000000);
   const [lop, setLop] = useState<number>(0);
   const [tds, setTds] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'payroll' | 'leaves' | 'general' | 'categories'>('payroll');
+  const [activeTab, setActiveTab] = useState<'payroll' | 'leaves' | 'general'>('payroll');
 
   useEffect(() => {
     if (data?.data) {
@@ -126,7 +126,7 @@ export default function CompanySettingsPage() {
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
           }`}
         >
-          Payroll Settings
+          CTC Rules & Breakdown
         </button>
         <button
           onClick={() => setActiveTab('leaves')}
@@ -137,16 +137,6 @@ export default function CompanySettingsPage() {
           }`}
         >
           Leave Categories
-        </button>
-        <button
-          onClick={() => setActiveTab('categories')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'categories'
-              ? 'bg-indigo-500 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
-          }`}
-        >
-          Payroll Categories
         </button>
       </div>
 
@@ -195,7 +185,8 @@ export default function CompanySettingsPage() {
 
       {activeTab === 'payroll' && (
         <>
-          <h2 className="text-2xl font-bold text-primary">Payroll Settings</h2>
+          <h2 className="text-2xl font-bold text-primary">CTC Rules & Breakdown</h2>
+          <p className="text-gray-400 mb-6">Configure how CTC is broken down into earnings and deductions, and manage custom categories.</p>
 
       <Card>
         <h2 className="text-xl font-semibold mb-4">Earnings</h2>
@@ -396,6 +387,54 @@ export default function CompanySettingsPage() {
           </div>
         </div>
       </Card>
+
+      {/* Custom Categories Section */}
+      <PayrollCategoriesManager 
+        settings={settings}
+        onUpdate={setSettings}
+        onSave={() => saveMutation.mutate()}
+        isLoading={saveMutation.isPending}
+      />
+
+      <div className="flex gap-3">
+        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>Save Settings</Button>
+        <Button variant="outline" onClick={restoreDefaults}>Restore Defaults</Button>
+      </div>
+
+      <Card>
+        <h2 className="text-xl font-semibold mb-4">Live Preview</h2>
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="space-y-3">
+            <Input type="number" label="Annual CTC" value={String(annualCTC)} onChange={(e) => setAnnualCTC(Number(e.target.value))} />
+            <div className="text-sm text-gray-400">Monthly CTC: ₹{breakdown.monthlyCTC.toLocaleString('en-IN')}</div>
+            <Input type="number" label="LOP Days" value={String(lop)} onChange={(e) => setLop(Number(e.target.value))} />
+            <Input type="number" label="TDS (override)" value={String(tds)} onChange={(e) => setTds(Number(e.target.value))} />
+          </div>
+          <div className="space-y-2">
+            <div className="font-semibold">Earnings</div>
+            {Object.entries(breakdown.earnings).map(([k, v]) => (
+              <div key={k} className="flex justify-between text-sm"><span className="capitalize">{k}</span><span>₹{v.toLocaleString('en-IN')}</span></div>
+            ))}
+            <div className="flex justify-between text-sm border-t border-white/10 pt-2"><span>Total</span><span>₹{breakdown.totals.totalEarnings.toLocaleString('en-IN')}</span></div>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <div className="font-semibold mb-1">Deductions</div>
+              <div className="flex justify-between text-sm"><span>Employee PF</span><span>₹{breakdown.deductions.empPF.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-sm"><span>Professional Tax</span><span>₹{breakdown.deductions.professionalTax.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-sm"><span>ESI</span><span>₹{breakdown.deductions.esi.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-sm border-t border-white/10 pt-2"><span>Total</span><span>₹{breakdown.totals.totalDeductions.toLocaleString('en-IN')}</span></div>
+            </div>
+            <div>
+              <div className="font-semibold mb-1">Employer PF</div>
+              <div className="flex justify-between text-sm"><span>Total PF</span><span>₹{breakdown.employer.totalPF.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-sm"><span>EPS</span><span>₹{breakdown.employer.eps.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-sm"><span>EPF</span><span>₹{breakdown.employer.epf.toLocaleString('en-IN')}</span></div>
+            </div>
+            <div className="flex justify-between font-semibold"><span>Net Pay</span><span>₹{breakdown.totals.netPay.toLocaleString('en-IN')}</span></div>
+          </div>
+        </div>
+      </Card>
         </>
       )}
 
@@ -408,18 +447,6 @@ export default function CompanySettingsPage() {
             onUpdate={updateCategoryMutation.mutate}
             onDelete={deleteCategoryMutation.mutate}
             isLoading={createCategoryMutation.isPending || updateCategoryMutation.isPending || deleteCategoryMutation.isPending}
-          />
-        </>
-      )}
-
-      {activeTab === 'categories' && (
-        <>
-          <h2 className="text-2xl font-bold text-primary">Payroll Categories</h2>
-          <PayrollCategoriesManager 
-            settings={settings}
-            onUpdate={setSettings}
-            onSave={() => saveMutation.mutate()}
-            isLoading={saveMutation.isPending}
           />
         </>
       )}
@@ -732,30 +759,36 @@ function PayrollCategoriesManager({
     <div className="space-y-6">
       {/* Earnings Categories */}
       <Card>
-        <h3 className="text-xl font-semibold mb-4">Earnings Categories</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold">Custom Earnings Categories</h3>
+          <div className="text-sm text-gray-400">Add custom allowances and benefits</div>
+        </div>
         
         {/* Add New Earning Category */}
-        <div className="p-4 rounded-lg bg-white/5 border border-white/10 mb-4">
-          <h4 className="font-medium mb-3">Add New Earning Category</h4>
+        <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 mb-4">
+          <h4 className="font-medium mb-3 text-green-600 dark:text-green-400">Add New Earning Category</h4>
           <div className="grid md:grid-cols-4 gap-3">
             <Input
               placeholder="Key (e.g., bonus)"
               value={newEarningKey}
               onChange={(e) => setNewEarningKey(e.target.value)}
+              label="Category Key"
             />
             <Input
               placeholder="Label (e.g., Performance Bonus)"
               value={newEarningLabel}
               onChange={(e) => setNewEarningLabel(e.target.value)}
+              label="Display Name"
             />
             <Select
               value={newEarningMode}
               onChange={(e) => setNewEarningMode(e.target.value as PayrollMode)}
               options={[
-                { value: 'FIXED', label: 'Fixed' },
+                { value: 'FIXED', label: 'Fixed Amount' },
                 { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
                 { value: 'PERCENT_OF_CTC', label: '% of CTC' },
               ]}
+              label="Calculation Mode"
             />
             <div className="flex gap-2">
               <Input
@@ -764,8 +797,10 @@ function PayrollCategoriesManager({
                 value={String(newEarningValue)}
                 onChange={(e) => setNewEarningValue(Number(e.target.value))}
                 disabled={newEarningMode === 'REMAINDER'}
+                label="Value"
+                className="flex-1"
               />
-              <Button onClick={addEarningCategory} disabled={!newEarningKey || !newEarningLabel}>
+              <Button onClick={addEarningCategory} disabled={!newEarningKey || !newEarningLabel} className="mt-6">
                 Add
               </Button>
             </div>
@@ -775,50 +810,64 @@ function PayrollCategoriesManager({
         {/* Existing Custom Earnings */}
         <div className="space-y-2">
           {(settings.customEarnings || []).map((category) => (
-            <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+            <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/10">
               <div>
-                <div className="font-medium">{category.label}</div>
+                <div className="font-medium text-green-600 dark:text-green-400">{category.label}</div>
                 <div className="text-sm text-gray-400">
-                  {category.mode} {category.value ? `(${category.value})` : ''}
+                  {category.mode === 'FIXED' ? 'Fixed Amount' : 
+                   category.mode === 'PERCENT_OF_BASIC' ? '% of Basic Salary' : 
+                   '% of CTC'} {category.value ? `(${category.value}${category.mode.includes('PERCENT') ? '%' : ''})` : ''}
                 </div>
               </div>
               <Button
                 onClick={() => removeEarningCategory(category.key)}
-                className="bg-rose-600 hover:bg-rose-700"
+                className="bg-red-600 hover:bg-red-700"
+                size="sm"
               >
                 Remove
               </Button>
             </div>
           ))}
+          {(settings.customEarnings || []).length === 0 && (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              No custom earning categories added yet. Add categories like Performance Bonus, Overtime, etc.
+            </div>
+          )}
         </div>
       </Card>
 
       {/* Deductions Categories */}
       <Card>
-        <h3 className="text-xl font-semibold mb-4">Deductions Categories</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold">Custom Deductions Categories</h3>
+          <div className="text-sm text-gray-400">Add custom deductions and advances</div>
+        </div>
         
         {/* Add New Deduction Category */}
-        <div className="p-4 rounded-lg bg-white/5 border border-white/10 mb-4">
-          <h4 className="font-medium mb-3">Add New Deduction Category</h4>
+        <div className="p-4 rounded-lg bg-gradient-to-r from-red-500/10 to-rose-500/10 border border-red-500/20 mb-4">
+          <h4 className="font-medium mb-3 text-red-600 dark:text-red-400">Add New Deduction Category</h4>
           <div className="grid md:grid-cols-4 gap-3">
             <Input
               placeholder="Key (e.g., advance)"
               value={newDeductionKey}
               onChange={(e) => setNewDeductionKey(e.target.value)}
+              label="Category Key"
             />
             <Input
               placeholder="Label (e.g., Salary Advance)"
               value={newDeductionLabel}
               onChange={(e) => setNewDeductionLabel(e.target.value)}
+              label="Display Name"
             />
             <Select
               value={newDeductionMode}
               onChange={(e) => setNewDeductionMode(e.target.value as PayrollMode)}
               options={[
-                { value: 'FIXED', label: 'Fixed' },
+                { value: 'FIXED', label: 'Fixed Amount' },
                 { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
                 { value: 'PERCENT_OF_CTC', label: '% of CTC' },
               ]}
+              label="Calculation Mode"
             />
             <div className="flex gap-2">
               <Input
@@ -827,8 +876,10 @@ function PayrollCategoriesManager({
                 value={String(newDeductionValue)}
                 onChange={(e) => setNewDeductionValue(Number(e.target.value))}
                 disabled={newDeductionMode === 'REMAINDER'}
+                label="Value"
+                className="flex-1"
               />
-              <Button onClick={addDeductionCategory} disabled={!newDeductionKey || !newDeductionLabel}>
+              <Button onClick={addDeductionCategory} disabled={!newDeductionKey || !newDeductionLabel} className="mt-6">
                 Add
               </Button>
             </div>
@@ -838,33 +889,31 @@ function PayrollCategoriesManager({
         {/* Existing Custom Deductions */}
         <div className="space-y-2">
           {(settings.customDeductions || []).map((category) => (
-            <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+            <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10">
               <div>
-                <div className="font-medium">{category.label}</div>
+                <div className="font-medium text-red-600 dark:text-red-400">{category.label}</div>
                 <div className="text-sm text-gray-400">
-                  {category.mode} {category.value ? `(${category.value})` : ''}
+                  {category.mode === 'FIXED' ? 'Fixed Amount' : 
+                   category.mode === 'PERCENT_OF_BASIC' ? '% of Basic Salary' : 
+                   '% of CTC'} {category.value ? `(${category.value}${category.mode.includes('PERCENT') ? '%' : ''})` : ''}
                 </div>
               </div>
               <Button
                 onClick={() => removeDeductionCategory(category.key)}
-                className="bg-rose-600 hover:bg-rose-700"
+                className="bg-red-600 hover:bg-red-700"
+                size="sm"
               >
                 Remove
               </Button>
             </div>
           ))}
+          {(settings.customDeductions || []).length === 0 && (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              No custom deduction categories added yet. Add categories like Salary Advance, Loan Deduction, etc.
+            </div>
+          )}
         </div>
       </Card>
-
-      <div className="flex justify-end">
-        <Button
-          onClick={onSave}
-          disabled={isLoading}
-          className="bg-indigo-600 hover:bg-indigo-700"
-        >
-          {isLoading ? "Saving..." : "Save Changes"}
-        </Button>
-      </div>
     </div>
   );
 }
