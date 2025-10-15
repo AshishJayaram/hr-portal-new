@@ -108,7 +108,7 @@ func (r *documentRepository) buildQuery(query *gorm.DB, filters map[string]inter
 			// For employees: show documents assigned to them OR public documents
 			if userIDStr, ok := value.(string); ok {
 				if userIDUint, err := strconv.ParseUint(userIDStr, 10, 32); err == nil {
-					query = query.Where("user_id = ? OR document_scope = 'public'", uint(userIDUint))
+					query = query.Where("user_id = ? OR is_public = true", uint(userIDUint))
 				}
 			}
 		case "hr_scope_all":
