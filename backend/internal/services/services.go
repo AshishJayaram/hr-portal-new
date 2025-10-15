@@ -375,56 +375,56 @@ type UpdateCompanySettingsRequest struct {
 
 // KRA Settings Types
 type KRASettings struct {
-	DefaultFields        []KRAField        `json:"default_fields"`
-	MeasurementUnits     []string          `json:"measurement_units"`
-	RatingScale          KRARatingScale    `json:"rating_scale"`
-	WeightDistribution   KRAWeightConfig   `json:"weight_distribution"`
-	EvaluationCriteria   []KRACriteria      `json:"evaluation_criteria"`
-	NotificationSettings KRANotifications  `json:"notification_settings"`
+	DefaultFields        []KRAField       `json:"default_fields"`
+	MeasurementUnits     []string         `json:"measurement_units"`
+	RatingScale          KRARatingScale   `json:"rating_scale"`
+	WeightDistribution   KRAWeightConfig  `json:"weight_distribution"`
+	EvaluationCriteria   []KRACriteria    `json:"evaluation_criteria"`
+	NotificationSettings KRANotifications `json:"notification_settings"`
 }
 
 type KRAField struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Type        string `json:"type"` // text, number, percentage, select, textarea
-	Required    bool   `json:"required"`
-	Default     string `json:"default"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Type        string   `json:"type"` // text, number, percentage, select, textarea
+	Required    bool     `json:"required"`
+	Default     string   `json:"default"`
 	Options     []string `json:"options,omitempty"` // For select type
-	Placeholder string `json:"placeholder"`
-	HelpText    string `json:"help_text"`
-	Order       int    `json:"order"`
+	Placeholder string   `json:"placeholder"`
+	HelpText    string   `json:"help_text"`
+	Order       int      `json:"order"`
 }
 
 type KRARatingScale struct {
-	Min         float64 `json:"min"`
-	Max         float64 `json:"max"`
-	Step        float64 `json:"step"`
+	Min         float64           `json:"min"`
+	Max         float64           `json:"max"`
+	Step        float64           `json:"step"`
 	Labels      map[string]string `json:"labels"` // e.g., {"1": "Poor", "5": "Excellent"}
-	Description string  `json:"description"`
+	Description string            `json:"description"`
 }
 
 type KRAWeightConfig struct {
-	MaxTotalWeight float64 `json:"max_total_weight"`
+	MaxTotalWeight      float64 `json:"max_total_weight"`
 	MinIndividualWeight float64 `json:"min_individual_weight"`
 	MaxIndividualWeight float64 `json:"max_individual_weight"`
-	AllowOverflow bool    `json:"allow_overflow"`
-	AutoDistribute bool   `json:"auto_distribute"`
+	AllowOverflow       bool    `json:"allow_overflow"`
+	AutoDistribute      bool    `json:"auto_distribute"`
 }
 
 type KRACriteria struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
 	Weight      float64 `json:"weight"`
-	Required    bool   `json:"required"`
-	Type        string `json:"type"` // performance, behavior, skill, goal
+	Required    bool    `json:"required"`
+	Type        string  `json:"type"` // performance, behavior, skill, goal
 }
 
 type KRANotifications struct {
-	ReminderDaysBeforeDue []int  `json:"reminder_days_before_due"`
-	NotifyOnCreation      bool   `json:"notify_on_creation"`
-	NotifyOnEvaluation    bool   `json:"notify_on_evaluation"`
-	NotifyOnCompletion    bool   `json:"notify_on_completion"`
+	ReminderDaysBeforeDue []int             `json:"reminder_days_before_due"`
+	NotifyOnCreation      bool              `json:"notify_on_creation"`
+	NotifyOnEvaluation    bool              `json:"notify_on_evaluation"`
+	NotifyOnCompletion    bool              `json:"notify_on_completion"`
 	EmailTemplates        map[string]string `json:"email_templates"`
 }
 

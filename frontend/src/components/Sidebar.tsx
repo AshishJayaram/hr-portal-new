@@ -12,6 +12,7 @@ const baseLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
   { href: "/leaves", label: "Leaves", icon: "🌴" },
   { href: "/reimbursements", label: "Reimbursements", icon: "💳" },
+  { href: "/kra", label: "KRAs & Goals", icon: "🎯" },
 ];
 
 const hrAdminLinks = [
@@ -103,6 +104,7 @@ export default function Sidebar() {
           ))}
         </nav>
 
+
         {/* User dropdown at bottom */}
         <div className="mt-6 pt-6 border-t border-white/10 relative" ref={userMenuRef}>
           <button
@@ -186,6 +188,7 @@ export default function Sidebar() {
               ))}
             </nav>
 
+
             {/* Mobile user tile */}
             <div className="mt-6 pt-6 border-t border-white/10">
               <button
@@ -232,6 +235,7 @@ export default function Sidebar() {
         isOpen={showFeedbackPopup} 
         onClose={() => setShowFeedbackPopup(false)} 
       />
+      
     </>
   );
 }

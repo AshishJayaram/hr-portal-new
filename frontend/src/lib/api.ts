@@ -31,6 +31,7 @@ export interface User {
   manager_id?: number;
   manager?: User;
   ctc?: string;
+  joining_date?: string;
   organization_id?: number;
   organization?: Organization;
   created_at: string;

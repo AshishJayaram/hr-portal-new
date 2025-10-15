@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/api";
 import { 
   getUserKRAs, 
   getTeamKRAs, 
@@ -73,7 +73,7 @@ export default function KRAPage() {
   const { data: teamKRAs, isLoading: loadingTeamKRAs } = useQuery({
     queryKey: ["team-kras", selectedYear],
     queryFn: () => getTeamKRAs(selectedYear),
-    enabled: activeTab === 'team-kras' && canViewTeamKRAs,
+    enabled: Boolean(activeTab === 'team-kras' && canViewTeamKRAs),
     staleTime: 60000,
   });
 

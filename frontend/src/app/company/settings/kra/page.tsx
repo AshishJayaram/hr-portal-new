@@ -9,7 +9,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import RoleGuard from "@/components/RoleGuard";
-import { Plus, Trash2, Save, Settings, Target, Star, Weight, Bell, Eye } from "lucide-react";
+import { Plus, Trash2, Save, Settings, Target, Star, Weight, Bell, Eye, BookOpen } from "lucide-react";
 
 export default function KRASettingsPage() {
   const queryClient = useQueryClient();
@@ -641,6 +641,106 @@ export default function KRASettingsPage() {
                 <span className="text-sm">Notify on Completion</span>
               </label>
             </div>
+          </div>
+        </Card>
+
+        {/* Sample KRA Formats */}
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <BookOpen className="h-5 w-5 text-green-600" />
+            <h2 className="text-xl font-semibold">Sample KRA Formats</h2>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            These sample formats will be shown to users when they first create KRAs. You can customize these examples to match your organization's needs.
+          </p>
+          
+          <div className="space-y-4">
+            {[
+              {
+                title: "Increase Customer Satisfaction Score",
+                description: "Improve customer satisfaction ratings through better service delivery and response times",
+                weight: 30,
+                target_value: "4.5",
+                measurement_unit: "rating",
+                department: "Customer Service"
+              },
+              {
+                title: "Complete Project Deliverables",
+                description: "Successfully deliver all assigned projects within timeline and budget constraints",
+                weight: 25,
+                target_value: "100%",
+                measurement_unit: "%",
+                department: "Project Management"
+              },
+              {
+                title: "Reduce System Downtime",
+                description: "Minimize system downtime through proactive monitoring and maintenance",
+                weight: 20,
+                target_value: "2",
+                measurement_unit: "hours",
+                department: "IT Operations"
+              },
+              {
+                title: "Team Development",
+                description: "Mentor and develop team members through training and knowledge sharing",
+                weight: 15,
+                target_value: "5",
+                measurement_unit: "count",
+                department: "Management"
+              },
+              {
+                title: "Process Improvement",
+                description: "Identify and implement process improvements to increase efficiency",
+                weight: 10,
+                target_value: "3",
+                measurement_unit: "count",
+                department: "Operations"
+              }
+            ].map((sample, index) => (
+              <div key={index} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-lg text-gray-900 dark:text-white">
+                      {sample.title}
+                    </h4>
+                    <span className="inline-block px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full mt-1">
+                      {sample.department}
+                    </span>
+                  </div>
+                  <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm font-medium rounded-full">
+                    {sample.weight}% Weight
+                  </span>
+                </div>
+                
+                <p className="text-gray-600 dark:text-gray-400 mb-3">
+                  {sample.description}
+                </p>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Target Value:</span>
+                    <span className="ml-2 font-medium text-gray-900 dark:text-white">
+                      {sample.target_value} {sample.measurement_unit}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Measurement Unit:</span>
+                    <span className="ml-2 font-medium text-gray-900 dark:text-white">
+                      {sample.measurement_unit}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+              💡 Note
+            </h3>
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              These sample formats are displayed to users when they first access the KRA system. They help users understand how to structure their own KRAs effectively. The samples are automatically shown in the "Sample Format" tab of the KRA creation modal.
+            </p>
           </div>
         </Card>
       </div>
