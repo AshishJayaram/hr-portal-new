@@ -91,6 +91,7 @@ type User struct {
 	ManagerID      *uint      `json:"manager_id" gorm:"index"`
 	CTC            string     `json:"ctc" gorm:"default:''"` // Encrypted CTC value
 	Phone          string     `json:"phone" gorm:"size:20"`  // For WhatsApp notifications
+	JoiningDate    *time.Time `json:"joining_date"`          // Employee joining date for KRA calculations
 	IsActive       bool       `json:"is_active" gorm:"default:true"`
 	LastLoginAt    *time.Time `json:"last_login_at"`
 
@@ -106,6 +107,7 @@ type User struct {
 	Feedback         []Feedback        `json:"feedback,omitempty" gorm:"foreignKey:UserID"`
 	EmployeeGrowth   []EmployeeGrowth  `json:"employee_growth,omitempty" gorm:"foreignKey:UserID"`
 	OffSites         []OffSite         `json:"off_sites,omitempty" gorm:"foreignKey:UserID"`
+	KRAs             []KRA             `json:"kras,omitempty" gorm:"foreignKey:UserID"`
 }
 
 // LeaveCategory represents different types of leaves
@@ -289,6 +291,7 @@ type CompanySettings struct {
 	BaseModel
 	OrganizationID uint   `json:"organization_id" gorm:"not null;uniqueIndex"`
 	Settings       string `json:"settings" gorm:"type:jsonb;not null"` // JSON string for payroll settings
+	KRASettings    string `json:"kra_settings" gorm:"type:jsonb"`       // JSON string for KRA settings
 	Currency       string `json:"currency" gorm:"default:'INR'"`       // Currency code (INR, USD, EUR, etc.)
 
 	// Relationships
@@ -370,6 +373,10 @@ func (EmployeeGrowth) TableName() string {
 	return "employee_growth"
 }
 
+func (KRA) TableName() string {
+	return "kras"
+}
+
 // ReimbursementBill represents individual bills within a reimbursement request
 type ReimbursementBill struct {
 	BaseModel
@@ -449,6 +456,36 @@ type EmployeeGrowth struct {
 	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
 	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
 	AddedByUser  User         `json:"added_by_user,omitempty" gorm:"foreignKey:AddedBy"`
+}
+
+// KRA represents Key Result Areas for employee performance evaluation
+type KRA struct {
+	BaseModel
+	UserID         uint      `json:"user_id" gorm:"not null;index"`
+	OrganizationID uint      `json:"organization_id" gorm:"not null;index"`
+	Year           int       `json:"year" gorm:"not null;index"`
+	Title          string    `json:"title" gorm:"not null"`
+	Description    string    `json:"description"`
+	Weight         float64   `json:"weight" gorm:"not null;default:0"` // Weight percentage (0-100)
+	TargetValue    string    `json:"target_value"`                     // Target value or description
+	MeasurementUnit string   `json:"measurement_unit"`                 // Unit of measurement (e.g., %, count, rating)
+	Status         string    `json:"status" gorm:"not null;default:'draft';check:status IN ('draft','active','completed','cancelled')"`
+	SetBy          uint      `json:"set_by" gorm:"not null;index"`     // User who set this KRA (manager/HR)
+	SetAt          time.Time `json:"set_at" gorm:"not null"`
+	
+	// Evaluation fields (filled at year end)
+	ActualValue    *string   `json:"actual_value"`                     // Actual achieved value
+	Rating         *float64  `json:"rating"`                           // Rating (1-5 scale)
+	Comments       *string   `json:"comments"`                         // Manager's evaluation comments
+	EvaluatedBy    *uint     `json:"evaluated_by" gorm:"index"`        // User who evaluated (manager/HR)
+	EvaluatedAt    *time.Time `json:"evaluated_at"`                    // When evaluation was completed
+	EmployeeComments *string  `json:"employee_comments"`               // Employee's self-assessment comments
+	
+	// Relationships
+	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+	SetByUser    User         `json:"set_by_user,omitempty" gorm:"foreignKey:SetBy"`
+	Evaluator    *User        `json:"evaluator,omitempty" gorm:"foreignKey:EvaluatedBy"`
 }
 
 // AuditLog represents audit trail logs for tracking changes

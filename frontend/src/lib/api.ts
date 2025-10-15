@@ -1469,3 +1469,197 @@ export const getFeedbackStats = () =>
 
 export const createFeedback = (data: FormData) =>
   uploadFile<any>('/feedback', data);
+
+// -------------------- KRA (Key Result Areas) --------------------
+export interface KRA {
+  id: string;
+  user_id: number;
+  organization_id: number;
+  year: number;
+  title: string;
+  description?: string;
+  weight: number;
+  target_value: string;
+  measurement_unit: string;
+  status: 'draft' | 'active' | 'completed' | 'cancelled';
+  set_by: number;
+  set_at: string;
+  actual_value?: string;
+  rating?: number;
+  comments?: string;
+  evaluated_by?: number;
+  evaluated_at?: string;
+  employee_comments?: string;
+  user?: User;
+  set_by_user?: User;
+  evaluator?: User;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateKRARequest {
+  user_id: string;
+  year: number;
+  title: string;
+  description?: string;
+  weight: number;
+  target_value: string;
+  measurement_unit: string;
+}
+
+export interface UpdateKRARequest {
+  title?: string;
+  description?: string;
+  weight?: number;
+  target_value?: string;
+  measurement_unit?: string;
+  status?: string;
+}
+
+export interface EvaluateKRARequest {
+  actual_value: string;
+  rating: number;
+  comments?: string;
+  employee_comments?: string;
+}
+
+export interface KRASummary {
+  user_id: string;
+  user_name: string;
+  year: number;
+  total_kras: number;
+  completed_kras: number;
+  average_rating: number;
+  total_weight: number;
+  weighted_score: number;
+  overall_rating: string;
+  kras: KRA[];
+}
+
+// KRA API functions
+export const getKRAs = (params?: Record<string, string>) => {
+  const queryString = params ? `?${new URLSearchParams(params).toString()}` : '';
+  return fetcher<any>(`/kras${queryString}`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<KRA[]>;
+    });
+};
+
+export const getKRA = (id: string) =>
+  fetcher<any>(`/kras/${id}`)
+    .then((raw) => raw?.data as KRA);
+
+export const createKRA = (data: CreateKRARequest) =>
+  fetcher<any>('/kras', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const updateKRA = (id: string, data: UpdateKRARequest) =>
+  fetcher<any>(`/kras/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
+export const deleteKRA = (id: string) =>
+  fetcher<any>(`/kras/${id}`, {
+    method: 'DELETE',
+  });
+
+export const evaluateKRA = (id: string, data: EvaluateKRARequest) =>
+  fetcher<any>(`/kras/${id}/evaluate`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const getUserKRAs = (userId: string, year: number) =>
+  fetcher<any>(`/kras/user/${userId}?year=${year}`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<KRA[]>;
+    });
+
+export const getAllUserKRAs = (userId: string) =>
+  fetcher<any>(`/kras/user/${userId}/all`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<KRA[]>;
+    });
+
+export const getTeamKRAs = (year: number) =>
+  fetcher<any>(`/kras/team?year=${year}`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<KRA[]>;
+    });
+
+export const getKRASummary = (userId: string, year: number) =>
+  fetcher<any>(`/kras/user/${userId}/summary?year=${year}`)
+    .then((raw) => raw?.data as KRASummary);
+
+// -------------------- KRA Settings --------------------
+export interface KRASettings {
+  default_fields: KRAField[];
+  measurement_units: string[];
+  rating_scale: KRARatingScale;
+  weight_distribution: KRAWeightConfig;
+  evaluation_criteria: KRACriteria[];
+  notification_settings: KRANotifications;
+}
+
+export interface KRAField {
+  id: string;
+  name: string;
+  type: 'text' | 'number' | 'percentage' | 'select' | 'textarea';
+  required: boolean;
+  default: string;
+  options?: string[];
+  placeholder: string;
+  help_text: string;
+  order: number;
+}
+
+export interface KRARatingScale {
+  min: number;
+  max: number;
+  step: number;
+  labels: Record<string, string>;
+  description: string;
+}
+
+export interface KRAWeightConfig {
+  max_total_weight: number;
+  min_individual_weight: number;
+  max_individual_weight: number;
+  allow_overflow: boolean;
+  auto_distribute: boolean;
+}
+
+export interface KRACriteria {
+  id: string;
+  name: string;
+  description: string;
+  weight: number;
+  required: boolean;
+  type: 'performance' | 'behavior' | 'skill' | 'goal';
+}
+
+export interface KRANotifications {
+  reminder_days_before_due: number[];
+  notify_on_creation: boolean;
+  notify_on_evaluation: boolean;
+  notify_on_completion: boolean;
+  email_templates: Record<string, string>;
+}
+
+// KRA Settings API functions
+export const getKRASettings = () =>
+  fetcher<any>('/settings/kra')
+    .then((raw) => raw?.data as KRASettings);
+
+export const updateKRASettings = (settings: KRASettings) =>
+  fetcher<any>('/settings/kra', {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
+  });

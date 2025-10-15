@@ -71,3 +71,63 @@ func (h *CompanyHandler) UpdateSettings(c *gin.Context) {
 
 	c.JSON(http.StatusOK, updatedSettings)
 }
+
+// GetKRASettings handles getting KRA settings
+func (h *CompanyHandler) GetKRASettings(c *gin.Context) {
+	organizationID := c.GetString("organization_id")
+
+	kraSettings, err := h.companySettingsService.GetKRASettings(organizationID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get KRA settings",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": kraSettings,
+	})
+}
+
+// UpdateKRASettings handles updating KRA settings
+func (h *CompanyHandler) UpdateKRASettings(c *gin.Context) {
+	organizationID := c.GetString("organization_id")
+
+	var kraSettings map[string]interface{}
+	if err := c.ShouldBindJSON(&kraSettings); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request format",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Convert map to JSON string
+	kraSettingsJSON, err := json.Marshal(kraSettings)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid KRA settings format",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	req := services.UpdateKRASettingsRequest{
+		KRASettings: string(kraSettingsJSON),
+	}
+
+	updatedSettings, err := h.companySettingsService.UpdateKRASettings(organizationID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update KRA settings",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "KRA settings updated successfully",
+		"data": updatedSettings,
+	})
+}

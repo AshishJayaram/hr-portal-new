@@ -40,6 +40,7 @@ function EditEmployeeForm({ id }: { id: string }) {
     department: "",
     manager_id: "",
     ctc: "",
+    joining_date: "",
   });
   const [transferReports, setTransferReports] = useState(false);
   const [originalManagerId, setOriginalManagerId] = useState("");
@@ -109,6 +110,7 @@ function EditEmployeeForm({ id }: { id: string }) {
         department: user.data.department || "",
         manager_id: managerId,
         ctc: user.data.ctc || "",
+        joining_date: user.data.joining_date ? new Date(user.data.joining_date).toISOString().split('T')[0] : "",
       });
       
       // Store original manager ID for comparison
@@ -270,6 +272,7 @@ function EditEmployeeForm({ id }: { id: string }) {
       role: toCanonicalRole(formData.role),
       department: formData.department,
       manager_id: formData.manager_id ? String(formData.manager_id) : undefined, // Convert to string to match backend
+      joining_date: formData.joining_date || undefined,
       transfer_reports: formData.manager_id !== originalManagerId ? transferReports : undefined, // Only include if manager changed
     };
 
@@ -388,6 +391,12 @@ function EditEmployeeForm({ id }: { id: string }) {
               label="Department"
               value={formData.department}
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+            />
+            <Input
+              label="Joining Date"
+              type="date"
+              value={formData.joining_date}
+              onChange={(e) => setFormData({ ...formData, joining_date: e.target.value })}
             />
                 <div>
                   <div className="flex items-center justify-between mb-2">

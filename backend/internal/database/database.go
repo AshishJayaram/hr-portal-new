@@ -72,6 +72,7 @@ func migrate(db *gorm.DB) error {
 		&models.AuditLog{},
 		&models.EmployeePrivateDocument{},
 		&models.DocumentAcknowledgment{},
+		&models.KRA{},
 	)
 
 	if err != nil {

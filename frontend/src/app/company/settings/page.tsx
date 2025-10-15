@@ -280,49 +280,18 @@ export default function CompanySettingsPage() {
                 <div className="text-sm text-gray-400">Configure all earnings components</div>
               </div>
               
-              {/* Earnings Components */}
+              {/* Standard Earnings */}
               <div className="mb-6">
-                <div className="space-y-3">
-                  {(
-                    [
-                      { key: 'basic', label: 'Basic Salary' },
-                      { key: 'hra', label: 'House Rent Allowance (HRA)' },
-                      { key: 'medical', label: 'Medical Allowance' },
-                      { key: 'conveyance', label: 'Conveyance Allowance' },
-                      { key: 'lta', label: 'Leave Travel Allowance (LTA)' },
-                      { key: 'specialAllowance', label: 'Special Allowance' },
-                    ] as const
-                  ).map(({ key, label }) => (
-                    <div key={key} className="p-3 rounded-lg bg-green-500/5 border border-green-500/10 space-y-2">
-                      <div className="text-sm font-medium text-green-600 dark:text-green-400">{label}</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Select
-                          value={(settings.earnings as any)[key].mode}
-                          onChange={(e) => setComponent((s) => (s.earnings as any)[key], 'mode', e.target.value as PayrollMode)}
-                          options={[
-                            { value: 'PERCENT_OF_CTC', label: 'Percent of CTC' },
-                            { value: 'PERCENT_OF_BASIC', label: 'Percent of Basic' },
-                            { value: 'FIXED', label: 'Fixed Amount' },
-                            { value: 'REMAINDER', label: 'Remainder' },
-                          ]}
-                        />
-                        <Input
-                          type="number"
-                          value={String((settings.earnings as any)[key].value ?? '')}
-                          onChange={(e) => setComponent((s) => (s.earnings as any)[key], 'value', Number(e.target.value))}
-                          disabled={(settings.earnings as any)[key].mode === 'REMAINDER'}
-                          placeholder="Value"
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <h4 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Standard Earnings</h4>
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  No predefined earnings components. Add your own earnings categories below.
                 </div>
               </div>
 
               {/* Custom Earnings */}
               <div className="border-t border-green-500/20 pt-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-medium text-green-600 dark:text-green-400">Custom Earnings Categories</h4>
+                  <h4 className="font-medium text-green-600 dark:text-green-400">Earnings Categories</h4>
                   <Button
                     variant="outline"
                     size="sm"
@@ -397,8 +366,9 @@ export default function CompanySettingsPage() {
                     </div>
                   ))}
                   {(settings.customEarnings || []).length === 0 && (
-                    <div className="text-center py-3 text-gray-400 text-sm">
-                      No custom earning categories added yet
+                    <div className="text-center py-6 text-gray-400 text-sm">
+                      <div className="mb-2">No earnings categories configured yet</div>
+                      <div className="text-xs">Add categories like Basic Salary, HRA, Medical Allowance, etc.</div>
                     </div>
                   )}
                 </div>
@@ -412,90 +382,18 @@ export default function CompanySettingsPage() {
                 <div className="text-sm text-gray-400">Configure all deduction components</div>
               </div>
               
-              {/* Deductions Components */}
+              {/* Standard Deductions */}
               <div className="mb-6">
-                <div className="space-y-3">
-                  {/* Employee PF */}
-                  <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/10 space-y-2">
-                    <div className="text-sm font-medium text-red-600 dark:text-red-400">Employee Provident Fund (PF)</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Select
-                        value={settings.deductions.employeePF.mode}
-                        onChange={(e) => setSettings({ ...settings, deductions: { ...settings.deductions, employeePF: { ...settings.deductions.employeePF, mode: e.target.value as PayrollMode } } })}
-                        options={[
-                          { value: 'PERCENT_OF_BASIC', label: 'Percent of Basic' },
-                          { value: 'PERCENT_OF_CTC', label: 'Percent of CTC' },
-                          { value: 'FIXED', label: 'Fixed Amount' },
-                        ]}
-                      />
-                      <Input
-                        type="number"
-                        value={String(settings.deductions.employeePF.value ?? '')}
-                        onChange={(e) => setSettings({ ...settings, deductions: { ...settings.deductions, employeePF: { ...settings.deductions.employeePF, value: Number(e.target.value) } } })}
-                        placeholder="Value"
-                      />
-                    </div>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={!!settings.deductions.employeePF.capAt1800} onChange={(e) => setSettings({ ...settings, deductions: { ...settings.deductions, employeePF: { ...settings.deductions.employeePF, capAt1800: e.target.checked } } })} />
-                      Cap at ₹1,800
-                    </label>
-                  </div>
-
-                  {/* Professional Tax */}
-                  <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/10 space-y-2">
-                    <div className="text-sm font-medium text-red-600 dark:text-red-400">Professional Tax</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Select
-                        value={settings.deductions.professionalTax.mode}
-                        onChange={(e) => setSettings({ ...settings, deductions: { ...settings.deductions, professionalTax: { ...settings.deductions.professionalTax, mode: e.target.value as PayrollMode } } })}
-                        options={[
-                          { value: 'FIXED', label: 'Fixed Amount' },
-                          { value: 'PERCENT_OF_BASIC', label: 'Percent of Basic' },
-                          { value: 'PERCENT_OF_CTC', label: 'Percent of CTC' },
-                        ]}
-                      />
-                      <Input
-                        type="number"
-                        value={String(settings.deductions.professionalTax.value ?? '')}
-                        onChange={(e) => setSettings({ ...settings, deductions: { ...settings.deductions, professionalTax: { ...settings.deductions.professionalTax, value: Number(e.target.value) } } })}
-                        placeholder="Value"
-                      />
-                    </div>
-                  </div>
-
-                  {/* ESI */}
-                  <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/10 space-y-2">
-                    <div className="text-sm font-medium text-red-600 dark:text-red-400">Employee State Insurance (ESI)</div>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={settings.deductions.esiEnabled} onChange={(e) => setSettings({ ...settings, deductions: { ...settings.deductions, esiEnabled: e.target.checked } })} />
-                      Enabled
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Select
-                        value={settings.deductions.esi.mode}
-                        onChange={(e) => setSettings({ ...settings, deductions: { ...settings.deductions, esi: { ...settings.deductions.esi, mode: e.target.value as PayrollMode } } })}
-                        options={[
-                          { value: 'FIXED', label: 'Fixed Amount' },
-                          { value: 'PERCENT_OF_BASIC', label: 'Percent of Basic' },
-                          { value: 'PERCENT_OF_CTC', label: 'Percent of CTC' },
-                        ]}
-                      />
-                      <Input
-                        type="number"
-                        value={String(settings.deductions.esi.value ?? '')}
-                        onChange={(e) => setSettings({ ...settings, deductions: { ...settings.deductions, esi: { ...settings.deductions.esi, value: Number(e.target.value) } } })}
-                        placeholder="Value"
-                        disabled={!settings.deductions.esiEnabled}
-                      />
-                    </div>
-                  </div>
+                <h4 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Standard Deductions</h4>
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  No predefined deduction components. Add your own deduction categories below.
                 </div>
               </div>
 
               {/* Custom Deductions */}
               <div className="border-t border-red-500/20 pt-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-medium text-red-600 dark:text-red-400">Custom Deductions Categories</h4>
+                  <h4 className="font-medium text-red-600 dark:text-red-400">Deductions Categories</h4>
                   <Button
                     variant="outline"
                     size="sm"
@@ -570,8 +468,9 @@ export default function CompanySettingsPage() {
                     </div>
                   ))}
                   {(settings.customDeductions || []).length === 0 && (
-                    <div className="text-center py-3 text-gray-400 text-sm">
-                      No custom deduction categories added yet
+                    <div className="text-center py-6 text-gray-400 text-sm">
+                      <div className="mb-2">No deduction categories configured yet</div>
+                      <div className="text-xs">Add categories like Employee PF, Professional Tax, ESI, etc.</div>
                     </div>
                   )}
                 </div>

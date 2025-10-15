@@ -436,6 +436,250 @@ func (s *companySettingsService) CreateSettings(organizationID string, req Updat
 	return nil, fmt.Errorf("not implemented")
 }
 
+// GetKRASettings retrieves KRA settings for an organization
+func (s *companySettingsService) GetKRASettings(organizationID string) (*KRASettings, error) {
+	settings, err := s.repo.GetByOrganizationID(organizationID)
+	if err != nil {
+		// Return default KRA settings if none exist
+		return s.getDefaultKRASettings(), nil
+	}
+
+	if settings.KRASettings == "" {
+		return s.getDefaultKRASettings(), nil
+	}
+
+	var kraSettings KRASettings
+	if err := json.Unmarshal([]byte(settings.KRASettings), &kraSettings); err != nil {
+		return nil, fmt.Errorf("failed to parse KRA settings: %w", err)
+	}
+
+	return &kraSettings, nil
+}
+
+// UpdateKRASettings updates KRA settings for an organization
+func (s *companySettingsService) UpdateKRASettings(organizationID string, req UpdateKRASettingsRequest) (*models.CompanySettings, error) {
+	// Validate the KRA settings JSON
+	var kraSettings KRASettings
+	if err := json.Unmarshal([]byte(req.KRASettings), &kraSettings); err != nil {
+		return nil, fmt.Errorf("invalid KRA settings JSON: %w", err)
+	}
+
+	// Validate KRA settings
+	if err := s.validateKRASettings(&kraSettings); err != nil {
+		return nil, fmt.Errorf("invalid KRA settings: %w", err)
+	}
+
+	// Get existing settings or create new ones
+	settings, err := s.repo.GetByOrganizationID(organizationID)
+	if err != nil {
+		// Create new settings
+		orgID, parseErr := strconv.ParseUint(organizationID, 10, 32)
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid organization ID: %w", parseErr)
+		}
+
+		settings = &models.CompanySettings{
+			OrganizationID: uint(orgID),
+			Settings:       `{"earnings":{"basic":{"mode":"PERCENT_OF_CTC","value":40},"hra":{"mode":"PERCENT_OF_BASIC","value":50},"medical":{"mode":"FIXED","value":1250},"conveyance":{"mode":"FIXED","value":1600},"lta":{"mode":"FIXED","value":8000},"specialAllowance":{"mode":"REMAINDER"}},"deductions":{"empPF":{"mode":"PERCENT_OF_BASIC","value":12},"professionalTax":{"mode":"FIXED","value":200},"esi":{"mode":"PERCENT_OF_CTC","value":0.75}},"employerPF":{"mode":"PERCENT_OF_BASIC","value":12},"lop":{"calculationMethod":"NET_PAY_BY_DAYS","defaultDaysInMonth":30}}`,
+			KRASettings:    req.KRASettings,
+			Currency:       "INR",
+		}
+
+		if err := s.repo.Create(settings); err != nil {
+			return nil, fmt.Errorf("failed to create settings: %w", err)
+		}
+	} else {
+		// Update existing settings
+		settings.KRASettings = req.KRASettings
+		if err := s.repo.Update(settings); err != nil {
+			return nil, fmt.Errorf("failed to update settings: %w", err)
+		}
+	}
+
+	return settings, nil
+}
+
+// getDefaultKRASettings returns default KRA settings
+func (s *companySettingsService) getDefaultKRASettings() *KRASettings {
+	return &KRASettings{
+		DefaultFields: []KRAField{
+			{
+				ID:          "title",
+				Name:        "KRA Title",
+				Type:        "text",
+				Required:    true,
+				Default:     "",
+				Placeholder: "Enter KRA title",
+				HelpText:    "A clear, concise title for the Key Result Area",
+				Order:       1,
+			},
+			{
+				ID:          "description",
+				Name:        "Description",
+				Type:        "textarea",
+				Required:    false,
+				Default:     "",
+				Placeholder: "Describe the KRA in detail",
+				HelpText:    "Detailed description of what this KRA entails",
+				Order:       2,
+			},
+			{
+				ID:          "weight",
+				Name:        "Weight (%)",
+				Type:        "percentage",
+				Required:    true,
+				Default:     "0",
+				Placeholder: "0",
+				HelpText:    "Percentage weight of this KRA in overall evaluation",
+				Order:       3,
+			},
+			{
+				ID:          "target_value",
+				Name:        "Target Value",
+				Type:        "text",
+				Required:    true,
+				Default:     "",
+				Placeholder: "Enter target value",
+				HelpText:    "The target value to be achieved",
+				Order:       4,
+			},
+			{
+				ID:          "measurement_unit",
+				Name:        "Measurement Unit",
+				Type:        "select",
+				Required:    true,
+				Default:     "%",
+				Options:     []string{"%", "count", "rating", "hours", "days", "currency", "other"},
+				Placeholder: "Select unit",
+				HelpText:    "Unit of measurement for this KRA",
+				Order:       5,
+			},
+		},
+		MeasurementUnits: []string{"%", "count", "rating", "hours", "days", "currency", "other"},
+		RatingScale: KRARatingScale{
+			Min:    1,
+			Max:     5,
+			Step:    0.1,
+			Labels: map[string]string{
+				"1": "Poor",
+				"2": "Below Average",
+				"3": "Average",
+				"4": "Good",
+				"5": "Excellent",
+			},
+			Description: "5-point rating scale for KRA evaluation",
+		},
+		WeightDistribution: KRAWeightConfig{
+			MaxTotalWeight:       100,
+			MinIndividualWeight:  1,
+			MaxIndividualWeight:  50,
+			AllowOverflow:        false,
+			AutoDistribute:       false,
+		},
+		EvaluationCriteria: []KRACriteria{
+			{
+				ID:          "performance",
+				Name:        "Performance",
+				Description: "How well the employee performed against the KRA",
+				Weight:      70,
+				Required:    true,
+				Type:        "performance",
+			},
+			{
+				ID:          "behavior",
+				Name:        "Behavior",
+				Description: "Employee behavior and attitude while working on the KRA",
+				Weight:      20,
+				Required:    false,
+				Type:        "behavior",
+			},
+			{
+				ID:          "skill",
+				Name:        "Skill Development",
+				Description: "Skills demonstrated or developed while working on the KRA",
+				Weight:      10,
+				Required:    false,
+				Type:        "skill",
+			},
+		},
+		NotificationSettings: KRANotifications{
+			ReminderDaysBeforeDue: []int{30, 15, 7, 1},
+			NotifyOnCreation:      true,
+			NotifyOnEvaluation:    true,
+			NotifyOnCompletion:    true,
+			EmailTemplates: map[string]string{
+				"creation":    "A new KRA has been assigned to you",
+				"evaluation":  "Your KRA has been evaluated",
+				"completion":  "Your KRA has been completed",
+				"reminder":    "Reminder: Your KRA evaluation is due soon",
+			},
+		},
+	}
+}
+
+// validateKRASettings validates KRA settings
+func (s *companySettingsService) validateKRASettings(settings *KRASettings) error {
+	// Validate default fields
+	if len(settings.DefaultFields) == 0 {
+		return fmt.Errorf("at least one default field is required")
+	}
+
+	// Check for required fields
+	hasTitle := false
+	hasWeight := false
+	hasTarget := false
+	hasUnit := false
+
+	for _, field := range settings.DefaultFields {
+		if field.ID == "title" {
+			hasTitle = true
+		}
+		if field.ID == "weight" {
+			hasWeight = true
+		}
+		if field.ID == "target_value" {
+			hasTarget = true
+		}
+		if field.ID == "measurement_unit" {
+			hasUnit = true
+		}
+	}
+
+	if !hasTitle {
+		return fmt.Errorf("title field is required")
+	}
+	if !hasWeight {
+		return fmt.Errorf("weight field is required")
+	}
+	if !hasTarget {
+		return fmt.Errorf("target_value field is required")
+	}
+	if !hasUnit {
+		return fmt.Errorf("measurement_unit field is required")
+	}
+
+	// Validate rating scale
+	if settings.RatingScale.Min >= settings.RatingScale.Max {
+		return fmt.Errorf("rating scale min must be less than max")
+	}
+	if settings.RatingScale.Step <= 0 {
+		return fmt.Errorf("rating scale step must be positive")
+	}
+
+	// Validate weight distribution
+	if settings.WeightDistribution.MaxTotalWeight <= 0 {
+		return fmt.Errorf("max total weight must be positive")
+	}
+	if settings.WeightDistribution.MinIndividualWeight < 0 {
+		return fmt.Errorf("min individual weight cannot be negative")
+	}
+	if settings.WeightDistribution.MaxIndividualWeight <= settings.WeightDistribution.MinIndividualWeight {
+		return fmt.Errorf("max individual weight must be greater than min individual weight")
+	}
+
+	return nil
+}
+
 // dashboardService implements DashboardService interface
 type dashboardService struct {
 	repos *repositories.Repositories

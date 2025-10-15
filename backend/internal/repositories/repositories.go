@@ -31,6 +31,7 @@ type Repositories struct {
 	EmployeeGrowth          *EmployeeGrowthRepository
 	DocumentAcknowledgment  DocumentAcknowledgmentRepository
 	EmployeePrivateDocument EmployeePrivateDocumentRepository
+	KRA                     KRARepository
 }
 
 // New creates a new instance of Repositories
@@ -53,6 +54,7 @@ func New(db *gorm.DB, rdb *redis.Client) *Repositories {
 		EmployeeGrowth:          NewEmployeeGrowthRepository(db),
 		DocumentAcknowledgment:  NewDocumentAcknowledgmentRepository(db),
 		EmployeePrivateDocument: NewEmployeePrivateDocumentRepository(db, rdb),
+		KRA:                     NewKRARepository(db, rdb),
 	}
 }
 

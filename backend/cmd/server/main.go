@@ -280,6 +280,8 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			{
 				settings.GET("", handlers.Company.GetSettings)
 				settings.PATCH("", handlers.Company.UpdateSettings)
+				settings.GET("/kra", handlers.Company.GetKRASettings)
+				settings.PATCH("/kra", handlers.Company.UpdateKRASettings)
 			}
 		}
 
@@ -427,6 +429,23 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			documentAcknowledgment.GET("/document/:id", handlers.DocumentAcknowledgment.GetDocumentAcknowledgments)
 			documentAcknowledgment.GET("/user", handlers.DocumentAcknowledgment.GetUserAcknowledgments)
 			documentAcknowledgment.GET("/document/:id/users", handlers.DocumentAcknowledgment.GetAcknowledgedUsersForDocument)
+		}
+
+		// KRA routes
+		kras := api.Group("/kras")
+		kras.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		kras.Use(middleware.OrganizationRequired())
+		{
+			kras.GET("", handlers.KRA.ListKRAs)
+			kras.POST("", handlers.KRA.CreateKRA)
+			kras.GET("/:id", handlers.KRA.GetKRA)
+			kras.PUT("/:id", handlers.KRA.UpdateKRA)
+			kras.DELETE("/:id", handlers.KRA.DeleteKRA)
+			kras.POST("/:id/evaluate", handlers.KRA.EvaluateKRA)
+			kras.GET("/user/:user_id", handlers.KRA.GetUserKRAs)
+			kras.GET("/user/:user_id/all", handlers.KRA.GetAllUserKRAs)
+			kras.GET("/user/:user_id/summary", handlers.KRA.GetKRASummary)
+			kras.GET("/team", handlers.KRA.GetTeamKRAs)
 		}
 
 		// Private document routes (for salary slips page)
