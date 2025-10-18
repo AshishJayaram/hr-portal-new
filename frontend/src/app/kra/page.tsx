@@ -43,7 +43,7 @@ export default function KRAPage() {
   const [showEvaluateModal, setShowEvaluateModal] = useState(false);
   const [selectedKRA, setSelectedKRA] = useState<KRA | null>(null);
   const [selectedUser, setSelectedUser] = useState<string>(userId);
-  const [kraPeriod, setKraPeriod] = useState<'yearly' | 'quarterly'>('yearly');
+  const [kraPeriod, setKraPeriod] = useState<'yearly' | 'quarterly' | 'half-yearly'>('yearly');
   const [currentStep, setCurrentStep] = useState<'tracker' | 'sample' | 'create'>('tracker');
 
   // Check if user can view team KRAs (managers, HR, Admin, God)
@@ -198,37 +198,6 @@ export default function KRAPage() {
     }
   };
 
-  // If no KRAs and user hasn't started, show tracker
-  if (!hasKRAs && activeTab === 'my-kras' && currentStep === 'tracker') {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">KRAs & Goals</h1>
-        </div>
-
-        <Card className="p-8 text-center">
-          <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mb-4">
-            <Target className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            Welcome to KRAs & Goals!
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-            Key Result Areas (KRAs) help you set clear goals and track your performance throughout the year. 
-            Let's get started by exploring some sample formats.
-          </p>
-          <Button
-            onClick={() => setCurrentStep('sample')}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg shadow-lg"
-          >
-            <BookOpen className="w-5 h-5 mr-2" />
-            View Sample Formats
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -238,17 +207,34 @@ export default function KRAPage() {
             value={selectedYear.toString()}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
             className="w-32"
-            options={Array.from({ length: 5 }, (_, i) => {
-              const year = new Date().getFullYear() - 2 + i;
-              return { value: year.toString(), label: year.toString() };
-            })}
+            options={(() => {
+              // Get years from KRAs data, or default to current year if no KRAs
+              const years = new Set<number>();
+              if (userKRAs?.data) {
+                userKRAs.data.forEach(kra => years.add(kra.year));
+              }
+              if (teamKRAs?.data) {
+                teamKRAs.data.forEach(kra => years.add(kra.year));
+              }
+              
+              // If no KRAs exist, show current year
+              if (years.size === 0) {
+                years.add(new Date().getFullYear());
+              }
+              
+              return Array.from(years).sort((a, b) => b - a).map(year => ({
+                value: year.toString(),
+                label: year.toString()
+              }));
+            })()}
           />
           <Select
             value={kraPeriod}
-            onChange={(e) => setKraPeriod(e.target.value as 'yearly' | 'quarterly')}
+            onChange={(e) => setKraPeriod(e.target.value as 'yearly' | 'quarterly' | 'half-yearly')}
             className="w-32"
             options={[
               { value: 'yearly', label: 'Yearly' },
+              { value: 'half-yearly', label: 'Half-yearly' },
               { value: 'quarterly', label: 'Quarterly' }
             ]}
           />
@@ -400,8 +386,8 @@ export default function KRAPage() {
               onClick={() => setShowSampleSheet(true)}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
             >
-              <BookOpen className="w-4 h-4 mr-2" />
-              Sample Format
+              <Plus className="w-4 h-4 mr-2" />
+              Create KRA
             </Button>
           </div>
 
@@ -432,14 +418,14 @@ export default function KRAPage() {
                 No KRAs Found
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-4">
-                You haven't created any KRAs yet. Start by exploring sample formats.
+                You haven't created any KRAs yet. Start by creating your first KRA.
               </p>
               <Button
                 onClick={() => setShowSampleSheet(true)}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
               >
-                <BookOpen className="w-4 h-4 mr-2" />
-                View Sample Formats
+                <Plus className="w-4 h-4 mr-2" />
+                Create KRA
               </Button>
             </Card>
           )}
@@ -597,14 +583,14 @@ function SampleKRASheetModal({
   onClose: () => void;
   onStartCreating: () => void;
   kraSettings?: KRASettings;
-  kraPeriod: 'yearly' | 'quarterly';
-  onKraPeriodChange: (period: 'yearly' | 'quarterly') => void;
+  kraPeriod: 'yearly' | 'quarterly' | 'half-yearly';
+  onKraPeriodChange: (period: 'yearly' | 'quarterly' | 'half-yearly') => void;
   onCreateKRA: (data: CreateKRARequest) => void;
   selectedUser: string;
   usersData?: any[];
   canViewTeamKRAs: boolean;
 }) {
-  const [activeTab, setActiveTab] = useState<'samples' | 'create'>('samples');
+  const [activeTab, setActiveTab] = useState<'samples' | 'create'>('create');
   const [formData, setFormData] = useState<CreateKRARequest>({
     title: '',
     description: '',
@@ -790,9 +776,10 @@ function SampleKRASheetModal({
                     </label>
                     <Select
                       value={kraPeriod}
-                      onChange={(e) => onKraPeriodChange(e.target.value as 'yearly' | 'quarterly')}
+                      onChange={(e) => onKraPeriodChange(e.target.value as 'yearly' | 'quarterly' | 'half-yearly')}
                       options={[
                         { value: 'yearly', label: 'Yearly' },
+                        { value: 'half-yearly', label: 'Half-yearly' },
                         { value: 'quarterly', label: 'Quarterly' }
                       ]}
                     />
@@ -847,7 +834,11 @@ function SampleKRASheetModal({
                         min="0"
                         max="100"
                         value={formData.weight}
-                        onChange={(e) => handleInputChange('weight', parseInt(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          const clampedValue = Math.min(100, Math.max(0, value));
+                          handleInputChange('weight', clampedValue);
+                        }}
                         placeholder="Enter weight percentage"
                         required
                       />
@@ -857,7 +848,7 @@ function SampleKRASheetModal({
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
                           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${formData.weight}%` }}
+                          style={{ width: `${Math.min(100, formData.weight)}%` }}
                         ></div>
                       </div>
                     </div>
@@ -920,8 +911,8 @@ function CreateKRAModal({
   onClose: () => void;
   onSubmit: (data: CreateKRARequest) => void;
   kraSettings?: KRASettings;
-  kraPeriod: 'yearly' | 'quarterly';
-  onKraPeriodChange: (period: 'yearly' | 'quarterly') => void;
+  kraPeriod: 'yearly' | 'quarterly' | 'half-yearly';
+  onKraPeriodChange: (period: 'yearly' | 'quarterly' | 'half-yearly') => void;
   selectedUser: string;
   usersData?: any[];
   canViewTeamKRAs: boolean;
@@ -986,9 +977,10 @@ function CreateKRAModal({
               </label>
               <Select
                 value={kraPeriod}
-                onChange={(e) => onKraPeriodChange(e.target.value as 'yearly' | 'quarterly')}
+                onChange={(e) => onKraPeriodChange(e.target.value as 'yearly' | 'quarterly' | 'half-yearly')}
                 options={[
                   { value: 'yearly', label: 'Yearly' },
+                  { value: 'half-yearly', label: 'Half-yearly' },
                   { value: 'quarterly', label: 'Quarterly' }
                 ]}
               />
@@ -1038,15 +1030,19 @@ function CreateKRAModal({
                 Weightage (%) *
               </label>
               <div className="space-y-2">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.weight}
-                  onChange={(e) => handleInputChange('weight', parseFloat(e.target.value) || 0)}
-                  placeholder="Enter weight percentage"
-                  required
-                />
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={formData.weight}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          const clampedValue = Math.min(100, Math.max(0, value));
+                          handleInputChange('weight', clampedValue);
+                        }}
+                        placeholder="Enter weight percentage"
+                        required
+                      />
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   Remaining weight: {calculateRemainingWeight()}%
                 </div>
@@ -1207,7 +1203,11 @@ function EditKRAModal({
                 min="0"
                 max="100"
                 value={formData.weight}
-                onChange={(e) => handleInputChange('weight', parseInt(e.target.value) || 0)}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0;
+                  const clampedValue = Math.min(100, Math.max(0, value));
+                  handleInputChange('weight', clampedValue);
+                }}
                 placeholder="Enter weight percentage"
                 required
               />
@@ -1390,8 +1390,8 @@ function TeamKRASection({
   onDeleteKRA: (id: string) => void;
   userRole: string;
   kraSettings?: KRASettings;
-  kraPeriod: 'yearly' | 'quarterly';
-  onKraPeriodChange: (period: 'yearly' | 'quarterly') => void;
+  kraPeriod: 'yearly' | 'quarterly' | 'half-yearly';
+  onKraPeriodChange: (period: 'yearly' | 'quarterly' | 'half-yearly') => void;
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -1509,10 +1509,11 @@ function TeamKRASection({
             <div className="flex items-center space-x-2">
               <Select
                 value={kraPeriod}
-                onChange={(e) => onKraPeriodChange(e.target.value as 'yearly' | 'quarterly')}
+                onChange={(e) => onKraPeriodChange(e.target.value as 'yearly' | 'quarterly' | 'half-yearly')}
                 className="w-32"
                 options={[
                   { value: 'yearly', label: 'Yearly' },
+                  { value: 'half-yearly', label: 'Half-yearly' },
                   { value: 'quarterly', label: 'Quarterly' }
                 ]}
               />
