@@ -98,9 +98,9 @@ export default function KRAPage() {
   const createKRAMutation = useMutation({
     mutationFn: createKRA,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-kras'] });
-      queryClient.invalidateQueries({ queryKey: ['team-kras'] });
-      queryClient.invalidateQueries({ queryKey: ['kra-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['user-kras', userId, selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['team-kras', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['kra-summary', userId, selectedYear] });
       setShowCreateModal(false);
       setShowSampleSheet(false);
       setCurrentStep('tracker');
@@ -115,9 +115,9 @@ export default function KRAPage() {
   const updateKRAMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateKRARequest }) => updateKRA(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-kras'] });
-      queryClient.invalidateQueries({ queryKey: ['team-kras'] });
-      queryClient.invalidateQueries({ queryKey: ['kra-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['user-kras', userId, selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['team-kras', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['kra-summary', userId, selectedYear] });
       setShowEditModal(false);
       setSelectedKRA(null);
       toast.success("KRA updated successfully!");
@@ -131,12 +131,13 @@ export default function KRAPage() {
   const deleteKRAMutation = useMutation({
     mutationFn: (id: string) => deleteKRA(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-kras'] });
-      queryClient.invalidateQueries({ queryKey: ['team-kras'] });
-      queryClient.invalidateQueries({ queryKey: ['kra-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['user-kras', userId, selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['team-kras', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['kra-summary', userId, selectedYear] });
       toast.success("KRA deleted successfully!");
     },
     onError: (error: any) => {
+      console.error("Delete KRA error:", error);
       toast.error(error.response?.data?.message || "Failed to delete KRA");
     },
   });
@@ -145,9 +146,9 @@ export default function KRAPage() {
   const evaluateKRAMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: EvaluateKRARequest }) => evaluateKRA(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-kras'] });
-      queryClient.invalidateQueries({ queryKey: ['team-kras'] });
-      queryClient.invalidateQueries({ queryKey: ['kra-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['user-kras', userId, selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['team-kras', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['kra-summary', userId, selectedYear] });
       setShowEvaluateModal(false);
       setSelectedKRA(null);
       toast.success("KRA evaluated successfully!");
