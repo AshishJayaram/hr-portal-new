@@ -442,7 +442,6 @@ export default function KRAPage() {
                 No KRAs Found
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                You haven't created any KRAs yet. Start by exploring sample formats or creating your first KRA.
               </p>You haven't created any KRAs yet. Start by exploring sample formats or creating your first KRA.
 
 

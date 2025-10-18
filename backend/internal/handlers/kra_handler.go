@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -21,10 +22,21 @@ func NewKRAHandler(kraService services.KRAService) *KRAHandler {
 	}
 }
 
+// CreateKRARequestBody represents the request body for creating a KRA
+type CreateKRARequestBody struct {
+	UserID          string  `json:"user_id" binding:"required"`
+	Year            int     `json:"year" binding:"required"`
+	Title           string  `json:"title" binding:"required"`
+	Description     string  `json:"description"`
+	Weight          float64 `json:"weight" binding:"required,min=0,max=100"`
+	TargetValue     string  `json:"target_value" binding:"required"`
+	MeasurementUnit string  `json:"measurement_unit" binding:"required"`
+}
+
 // CreateKRA handles POST /api/kras
 func (h *KRAHandler) CreateKRA(c *gin.Context) {
-	var req services.CreateKRARequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var reqBody CreateKRARequestBody
+	if err := c.ShouldBindJSON(&reqBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request body",
 			"details": err.Error(),
@@ -32,11 +44,33 @@ func (h *KRAHandler) CreateKRA(c *gin.Context) {
 		return
 	}
 
-	// Set organization ID from context
-	req.OrganizationID = c.GetString("organization_id")
+	// Create the service request with context values
+	req := services.CreateKRARequest{
+		UserID:          reqBody.UserID,
+		OrganizationID:  c.GetString("current_organization_id"),
+		Year:            reqBody.Year,
+		Title:           reqBody.Title,
+		Description:     reqBody.Description,
+		Weight:          reqBody.Weight,
+		TargetValue:     reqBody.TargetValue,
+		MeasurementUnit: reqBody.MeasurementUnit,
+		SetBy:           c.GetString("user_id"),
+	}
+
+	// Validate required context values
+	if req.OrganizationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Organization ID is required",
+		})
+		return
+	}
 	
-	// Set set_by from authenticated user
-	req.SetBy = c.GetString("user_id")
+	if req.SetBy == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "User ID is required",
+		})
+		return
+	}
 
 	kra, err := h.kraService.CreateKRA(req)
 	if err != nil {

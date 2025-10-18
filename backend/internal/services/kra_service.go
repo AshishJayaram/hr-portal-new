@@ -33,14 +33,14 @@ type kraService struct {
 // CreateKRARequest represents a request to create a new KRA
 type CreateKRARequest struct {
 	UserID          string  `json:"user_id" binding:"required"`
-	OrganizationID  string  `json:"organization_id" binding:"required"`
+	OrganizationID  string  `json:"organization_id"` // Set from context
 	Year            int     `json:"year" binding:"required"`
 	Title           string  `json:"title" binding:"required"`
 	Description     string  `json:"description"`
 	Weight          float64 `json:"weight" binding:"required,min=0,max=100"`
 	TargetValue     string  `json:"target_value" binding:"required"`
 	MeasurementUnit string  `json:"measurement_unit" binding:"required"`
-	SetBy           string  `json:"set_by" binding:"required"`
+	SetBy           string  `json:"set_by"` // Set from context
 }
 
 // UpdateKRARequest represents a request to update a KRA
