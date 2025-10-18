@@ -70,6 +70,7 @@ export default function Tabs({
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={getTabClasses(tab)}
+            data-tab={tab.id}
           >
             <div className="flex items-center space-x-2">
               {tab.icon && (

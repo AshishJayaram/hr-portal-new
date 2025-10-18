@@ -382,13 +382,37 @@ export default function KRAPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">My KRAs</h2>
-            <Button
-              onClick={() => setShowSampleSheet(true)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create KRA
-            </Button>
+            <div className="flex items-center space-x-3">
+              <Button
+                onClick={() => {
+                  setShowSampleSheet(true);
+                  // Set the modal to open to samples tab
+                  setTimeout(() => {
+                    const sampleTab = document.querySelector('[data-tab="samples"]') as HTMLElement;
+                    if (sampleTab) sampleTab.click();
+                  }, 100);
+                }}
+                variant="outline"
+                className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900"
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
+                View Sample Format
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowSampleSheet(true);
+                  // Set the modal to open to create tab
+                  setTimeout(() => {
+                    const createTab = document.querySelector('[data-tab="create"]') as HTMLElement;
+                    if (createTab) createTab.click();
+                  }, 100);
+                }}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create KRA
+              </Button>
+            </div>
           </div>
 
           {loadingUserKRAs ? (
@@ -417,16 +441,40 @@ export default function KRAPage() {
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                 No KRAs Found
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                You haven't created any KRAs yet. Start by creating your first KRA.
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                You haven't created any KRAs yet. Start by exploring sample formats or creating your first KRA.
               </p>
-              <Button
-                onClick={() => setShowSampleSheet(true)}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create KRA
-              </Button>
+              <div className="flex items-center justify-center space-x-3">
+                <Button
+                  onClick={() => {
+                    setShowSampleSheet(true);
+                    // Set the modal to open to samples tab
+                    setTimeout(() => {
+                      const sampleTab = document.querySelector('[data-tab="samples"]') as HTMLElement;
+                      if (sampleTab) sampleTab.click();
+                    }, 100);
+                  }}
+                  variant="outline"
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900"
+                >
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  View Sample Format
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowSampleSheet(true);
+                    // Set the modal to open to create tab
+                    setTimeout(() => {
+                      const createTab = document.querySelector('[data-tab="create"]') as HTMLElement;
+                      if (createTab) createTab.click();
+                    }, 100);
+                  }}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create KRA
+                </Button>
+              </div>
             </Card>
           )}
         </div>
@@ -590,7 +638,7 @@ function SampleKRASheetModal({
   usersData?: any[];
   canViewTeamKRAs: boolean;
 }) {
-  const [activeTab, setActiveTab] = useState<'samples' | 'create'>('create');
+  const [activeTab, setActiveTab] = useState<'samples' | 'create'>('samples');
   const [formData, setFormData] = useState<CreateKRARequest>({
     title: '',
     description: '',
