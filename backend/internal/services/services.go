@@ -67,7 +67,7 @@ func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb 
 		DocumentAcknowledgment:  NewDocumentAcknowledgmentService(repos.DocumentAcknowledgment),
 		EmployeePrivateDocument: NewEmployeePrivateDocumentService(repos.EmployeePrivateDocument),
 		PayslipPDF:              NewPayslipPDFService("./uploads"),
-		KRA:                     NewKRAService(repos.KRA, repos.User, auditService),
+		KRA:                     NewKRAService(repos.KRA, repos.User, auditService, NewNotificationService()),
 	}
 }
 

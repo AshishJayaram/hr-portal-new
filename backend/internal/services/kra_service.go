@@ -24,9 +24,10 @@ type KRAService interface {
 }
 
 type kraService struct {
-	kraRepo repositories.KRARepository
-	userRepo repositories.UserRepository
+	kraRepo     repositories.KRARepository
+	userRepo    repositories.UserRepository
 	auditService AuditService
+	notificationService NotificationService
 }
 
 // CreateKRARequest represents a request to create a new KRA
@@ -75,11 +76,12 @@ type KRASummary struct {
 	KRAs             []models.KRA `json:"kras"`
 }
 
-func NewKRAService(kraRepo repositories.KRARepository, userRepo repositories.UserRepository, auditService AuditService) KRAService {
+func NewKRAService(kraRepo repositories.KRARepository, userRepo repositories.UserRepository, auditService AuditService, notificationService NotificationService) KRAService {
 	return &kraService{
 		kraRepo:      kraRepo,
 		userRepo:     userRepo,
 		auditService: auditService,
+		notificationService: notificationService,
 	}
 }
 
@@ -163,6 +165,11 @@ func (s *kraService) CreateKRA(req CreateKRARequest) (*models.KRA, error) {
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
 		// Log error but don't fail the operation
 		fmt.Printf("Failed to log audit entry: %v\n", err)
+	}
+
+	// Send notification to the user
+	if err := s.notificationService.SendKRANotification(kra, user, "created"); err != nil {
+		fmt.Printf("Failed to send KRA notification: %v\n", err)
 	}
 
 	return kra, nil
