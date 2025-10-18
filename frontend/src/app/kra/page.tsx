@@ -160,6 +160,9 @@ export default function KRAPage() {
   // Check if user has any KRAs
   const hasKRAs = userKRAs?.data && userKRAs.data.length > 0;
 
+  // Check if total weightage has reached 100%
+  const isWeightageFull = Boolean(kraSummary?.total_weight && kraSummary.total_weight >= 100);
+
   // Handle create KRA
   const handleCreateKRA = (data: CreateKRARequest) => {
     createKRAMutation.mutate(data);
@@ -328,6 +331,7 @@ export default function KRAPage() {
           selectedUser={selectedUser}
           usersData={usersData?.data}
           canViewTeamKRAs={Boolean(canViewTeamKRAs)}
+          isWeightageFull={isWeightageFull}
         />
       )}
 
@@ -346,6 +350,7 @@ export default function KRAPage() {
           selectedUser={selectedUser}
           usersData={usersData?.data}
           canViewTeamKRAs={Boolean(canViewTeamKRAs)}
+          isWeightageFull={isWeightageFull}
         />
       )}
 
@@ -407,7 +412,13 @@ export default function KRAPage() {
                     if (createTab) createTab.click();
                   }, 100);
                 }}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                disabled={isWeightageFull}
+                className={`shadow-lg ${
+                  isWeightageFull 
+                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+                }`}
+                title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create KRA
@@ -442,9 +453,45 @@ export default function KRAPage() {
                 No KRAs Found
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-              </p>You haven't created any KRAs yet. Start by exploring sample formats or creating your first KRA.
-
-
+                You haven't created any KRAs yet. Start by exploring sample formats or creating your first KRA.
+              </p>
+              <div className="flex items-center justify-center space-x-3">
+                <Button
+                  onClick={() => {
+                    setShowSampleSheet(true);
+                    // Set the modal to open to samples tab
+                    setTimeout(() => {
+                      const sampleTab = document.querySelector('[data-tab="samples"]') as HTMLElement;
+                      if (sampleTab) sampleTab.click();
+                    }, 100);
+                  }}
+                  variant="outline"
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900"
+                >
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  View Sample Format
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowSampleSheet(true);
+                    // Set the modal to open to create tab
+                    setTimeout(() => {
+                      const createTab = document.querySelector('[data-tab="create"]') as HTMLElement;
+                      if (createTab) createTab.click();
+                    }, 100);
+                  }}
+                  disabled={isWeightageFull}
+                  className={`shadow-lg ${
+                    isWeightageFull 
+                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+                  }`}
+                  title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create KRA
+                </Button>
+              </div>
             </Card>
           )}
         </div>
@@ -467,6 +514,7 @@ export default function KRAPage() {
           kraSettings={kraSettings}
           kraPeriod={kraPeriod}
           onKraPeriodChange={setKraPeriod}
+          isWeightageFull={isWeightageFull}
         />
       )}
     </div>
@@ -595,7 +643,8 @@ function SampleKRASheetModal({
   onCreateKRA,
   selectedUser,
   usersData,
-  canViewTeamKRAs
+  canViewTeamKRAs,
+  isWeightageFull
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -607,6 +656,7 @@ function SampleKRASheetModal({
   selectedUser: string;
   usersData?: any[];
   canViewTeamKRAs: boolean;
+  isWeightageFull: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<'samples' | 'create'>('samples');
   const [formData, setFormData] = useState<CreateKRARequest>({
@@ -899,7 +949,13 @@ function SampleKRASheetModal({
                   </Button>
                   <Button
                     type="submit"
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                    disabled={isWeightageFull}
+                    className={`shadow-lg ${
+                      isWeightageFull 
+                        ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+                    }`}
+                    title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
                   >
                     Create KRA
                   </Button>
@@ -923,7 +979,8 @@ function CreateKRAModal({
   onKraPeriodChange,
   selectedUser,
   usersData,
-  canViewTeamKRAs
+  canViewTeamKRAs,
+  isWeightageFull
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -934,6 +991,7 @@ function CreateKRAModal({
   selectedUser: string;
   usersData?: any[];
   canViewTeamKRAs: boolean;
+  isWeightageFull: boolean;
 }) {
   const [formData, setFormData] = useState<CreateKRARequest>({
     title: '',
@@ -1100,7 +1158,13 @@ function CreateKRAModal({
             </Button>
             <Button
               type="submit"
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+              disabled={isWeightageFull}
+              className={`shadow-lg ${
+                isWeightageFull 
+                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+              }`}
+              title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
             >
               Create KRA
             </Button>
@@ -1394,7 +1458,8 @@ function TeamKRASection({
   userRole,
   kraSettings,
   kraPeriod,
-  onKraPeriodChange
+  onKraPeriodChange,
+  isWeightageFull
 }: {
   selectedYear: number;
   selectedUser: string;
@@ -1410,6 +1475,7 @@ function TeamKRASection({
   kraSettings?: KRASettings;
   kraPeriod: 'yearly' | 'quarterly' | 'half-yearly';
   onKraPeriodChange: (period: 'yearly' | 'quarterly' | 'half-yearly') => void;
+  isWeightageFull: boolean;
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -1436,7 +1502,13 @@ function TeamKRASection({
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Team KRAs</h2>
         <Button
           onClick={onShowCreateModal}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+          disabled={isWeightageFull}
+          className={`shadow-lg ${
+            isWeightageFull 
+              ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+              : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+          }`}
+          title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
         >
           <Plus className="w-4 h-4 mr-2" />
           Create KRA for Team Member
@@ -1569,7 +1641,13 @@ function TeamKRASection({
               </p>
               <Button
                 onClick={onShowCreateModal}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                disabled={isWeightageFull}
+                className={`shadow-lg ${
+                  isWeightageFull 
+                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+                }`}
+                title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create KRA
