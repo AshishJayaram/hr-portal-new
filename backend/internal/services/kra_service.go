@@ -16,17 +16,19 @@ type KRAService interface {
 	GetUserKRAs(userID, organizationID string, year int) ([]models.KRA, error)
 	GetAllUserKRAs(userID, organizationID string) ([]models.KRA, error)
 	GetTeamKRAs(managerID, organizationID string, year int) ([]models.KRA, error)
+	GetReporteesKRAs(managerID, organizationID string, year int) ([]models.KRA, error)
 	UpdateKRA(id string, req UpdateKRARequest) (*models.KRA, error)
 	EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA, error)
+	SelfAssessKRA(id string, req SelfAssessKRARequest) (*models.KRA, error)
 	DeleteKRA(id string) error
 	ListKRAs(organizationID string, filters map[string]interface{}) ([]models.KRA, error)
 	GetKRASummary(userID, organizationID string, year int) (*KRASummary, error)
 }
 
 type kraService struct {
-	kraRepo     repositories.KRARepository
-	userRepo    repositories.UserRepository
-	auditService AuditService
+	kraRepo             repositories.KRARepository
+	userRepo            repositories.UserRepository
+	auditService        AuditService
 	notificationService NotificationService
 }
 
@@ -37,7 +39,7 @@ type CreateKRARequest struct {
 	Year            int     `json:"year" binding:"required"`
 	Title           string  `json:"title" binding:"required"`
 	Description     string  `json:"description"`
-	Weight          float64 `json:"weight" binding:"required,min=0,max=100"`
+	Weight          float64 `json:"weight" binding:"required,min=1,max=100"`
 	TargetValue     string  `json:"target_value" binding:"required"`
 	MeasurementUnit string  `json:"measurement_unit" binding:"required"`
 	SetBy           string  `json:"set_by"` // Set from context
@@ -53,34 +55,42 @@ type UpdateKRARequest struct {
 	Status          *string  `json:"status"`
 }
 
-// EvaluateKRARequest represents a request to evaluate a KRA
+// EvaluateKRARequest represents a request to evaluate a KRA (manager evaluation)
 type EvaluateKRARequest struct {
-	ActualValue       string  `json:"actual_value" binding:"required"`
-	Rating            float64 `json:"rating" binding:"required,min=1,max=5"`
-	Comments          string  `json:"comments"`
-	EmployeeComments  string  `json:"employee_comments"`
-	EvaluatedBy       string  `json:"evaluated_by" binding:"required"`
+	ActualValue            string  `json:"actual_value" binding:"required"`
+	Rating                 float64 `json:"rating" binding:"required,min=1,max=5"`
+	Comments               string  `json:"comments"`
+	EvaluatedBy            string  `json:"evaluated_by"`
+	ManagerFeedbackVisible *bool   `json:"manager_feedback_visible"`
+}
+
+// SelfAssessKRARequest represents a request for employee self-assessment
+type SelfAssessKRARequest struct {
+	ActualValue      string  `json:"actual_value" binding:"required"`
+	EmployeeRating   float64 `json:"employee_rating" binding:"required,min=1,max=5"`
+	EmployeeComments string  `json:"employee_comments"`
+	EmployeeRatedBy  string  `json:"employee_rated_by"`
 }
 
 // KRASummary represents a summary of KRA performance for a user
 type KRASummary struct {
-	UserID           string  `json:"user_id"`
-	UserName         string  `json:"user_name"`
-	Year             int     `json:"year"`
-	TotalKRAs        int     `json:"total_kras"`
-	CompletedKRAs    int     `json:"completed_kras"`
-	AverageRating    float64 `json:"average_rating"`
-	TotalWeight      float64 `json:"total_weight"`
-	WeightedScore    float64 `json:"weighted_score"`
-	OverallRating    string  `json:"overall_rating"`
-	KRAs             []models.KRA `json:"kras"`
+	UserID        string       `json:"user_id"`
+	UserName      string       `json:"user_name"`
+	Year          int          `json:"year"`
+	TotalKRAs     int          `json:"total_kras"`
+	CompletedKRAs int          `json:"completed_kras"`
+	AverageRating float64      `json:"average_rating"`
+	TotalWeight   float64      `json:"total_weight"`
+	WeightedScore float64      `json:"weighted_score"`
+	OverallRating string       `json:"overall_rating"`
+	KRAs          []models.KRA `json:"kras"`
 }
 
 func NewKRAService(kraRepo repositories.KRARepository, userRepo repositories.UserRepository, auditService AuditService, notificationService NotificationService) KRAService {
 	return &kraService{
-		kraRepo:      kraRepo,
-		userRepo:     userRepo,
-		auditService: auditService,
+		kraRepo:             kraRepo,
+		userRepo:            userRepo,
+		auditService:        auditService,
 		notificationService: notificationService,
 	}
 }
@@ -140,7 +150,7 @@ func (s *kraService) CreateKRA(req CreateKRARequest) (*models.KRA, error) {
 		Weight:          req.Weight,
 		TargetValue:     req.TargetValue,
 		MeasurementUnit: req.MeasurementUnit,
-		Status:          "draft",
+		Status:          "active",
 		SetBy:           uint(setByUint),
 		SetAt:           time.Now(),
 	}
@@ -151,7 +161,7 @@ func (s *kraService) CreateKRA(req CreateKRARequest) (*models.KRA, error) {
 
 	// Log audit entry
 	kraIDStr := strconv.FormatUint(uint64(kra.ID), 10)
-	
+
 	auditReq := AuditActionRequest{
 		OrganizationID: strconv.FormatUint(uint64(kra.OrganizationID), 10),
 		Action:         "CREATE",
@@ -228,7 +238,7 @@ func (s *kraService) UpdateKRA(id string, req UpdateKRARequest) (*models.KRA, er
 
 	// Log audit entry
 	kraIDStr := strconv.FormatUint(uint64(kra.ID), 10)
-	
+
 	auditReq := AuditActionRequest{
 		OrganizationID: strconv.FormatUint(uint64(kra.OrganizationID), 10),
 		Action:         "UPDATE",
@@ -265,16 +275,20 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 		return nil, fmt.Errorf("invalid evaluator ID: %w", err)
 	}
 
-	// Update evaluation fields
-	kra.ActualValue = &req.ActualValue
+    // Update evaluation fields
+    kra.ManagerActualValue = &req.ActualValue
 	kra.Rating = &req.Rating
 	kra.Comments = &req.Comments
-	kra.EmployeeComments = &req.EmployeeComments
 	evaluatedByUint32 := uint(evaluatedByUint)
 	kra.EvaluatedBy = &evaluatedByUint32
 	now := time.Now()
 	kra.EvaluatedAt = &now
 	kra.Status = "completed"
+
+	// Update visibility control
+	if req.ManagerFeedbackVisible != nil {
+		kra.ManagerFeedbackVisible = req.ManagerFeedbackVisible
+	}
 
 	if err := s.kraRepo.Update(kra); err != nil {
 		return nil, fmt.Errorf("failed to evaluate KRA: %w", err)
@@ -282,7 +296,7 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 
 	// Log audit entry
 	kraIDStr := strconv.FormatUint(uint64(kra.ID), 10)
-	
+
 	auditReq := AuditActionRequest{
 		OrganizationID: strconv.FormatUint(uint64(kra.OrganizationID), 10),
 		Action:         "UPDATE",
@@ -290,7 +304,7 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 		EntityID:       kraIDStr,
 		ChangedBy:      req.EvaluatedBy,
 		ChangeSummary:  fmt.Sprintf("Evaluated KRA '%s' with rating %.1f", kra.Title, req.Rating),
-		NewValues:      fmt.Sprintf(`{"actual_value":"%s","rating":%.1f,"status":"completed"}`, req.ActualValue, req.Rating),
+    NewValues:      fmt.Sprintf(`{"manager_actual_value":"%s","rating":%.1f,"status":"completed"}`, req.ActualValue, req.Rating),
 	}
 
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
@@ -298,6 +312,63 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 	}
 
 	return kra, nil
+}
+
+// SelfAssessKRA handles employee self-assessment
+func (s *kraService) SelfAssessKRA(id string, req SelfAssessKRARequest) (*models.KRA, error) {
+	kra, err := s.kraRepo.GetByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("KRA not found: %w", err)
+	}
+
+	// Validate employee exists
+	_, err = s.userRepo.GetByID(req.EmployeeRatedBy)
+	if err != nil {
+		return nil, fmt.Errorf("employee not found: %w", err)
+	}
+
+	// Convert string ID to uint
+	employeeRatedByUint, err := strconv.ParseUint(req.EmployeeRatedBy, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid employee ID: %w", err)
+	}
+
+    // Update self-assessment fields
+    kra.EmployeeActualValue = &req.ActualValue
+	kra.EmployeeRating = &req.EmployeeRating
+	kra.EmployeeComments = &req.EmployeeComments
+	employeeRatedByUint32 := uint(employeeRatedByUint)
+	kra.EmployeeRatedBy = &employeeRatedByUint32
+	now := time.Now()
+	kra.EmployeeRatedAt = &now
+
+	if err := s.kraRepo.Update(kra); err != nil {
+		return nil, fmt.Errorf("failed to self-assess KRA: %w", err)
+	}
+
+	// Log audit entry
+	kraIDStr := strconv.FormatUint(uint64(kra.ID), 10)
+
+	auditReq := AuditActionRequest{
+		OrganizationID: strconv.FormatUint(uint64(kra.OrganizationID), 10),
+		Action:         "UPDATE",
+		EntityType:     "KRA",
+		EntityID:       kraIDStr,
+		ChangedBy:      req.EmployeeRatedBy,
+		ChangeSummary:  fmt.Sprintf("Self-assessed KRA '%s' with rating %.1f", kra.Title, req.EmployeeRating),
+    NewValues:      fmt.Sprintf(`{"employee_actual_value":"%s","employee_rating":%.1f}`, req.ActualValue, req.EmployeeRating),
+	}
+
+	if err := s.auditService.LogAction(auditReq, nil); err != nil {
+		fmt.Printf("Failed to log audit entry: %v\n", err)
+	}
+
+	return kra, nil
+}
+
+// GetReporteesKRAs retrieves KRAs for all reportees of a manager
+func (s *kraService) GetReporteesKRAs(managerID, organizationID string, year int) ([]models.KRA, error) {
+	return s.kraRepo.GetReporteesKRAs(managerID, organizationID, year)
 }
 
 // DeleteKRA deletes a KRA
@@ -313,7 +384,7 @@ func (s *kraService) DeleteKRA(id string) error {
 
 	// Log audit entry
 	kraIDStr := strconv.FormatUint(uint64(kra.ID), 10)
-	
+
 	auditReq := AuditActionRequest{
 		OrganizationID: strconv.FormatUint(uint64(kra.OrganizationID), 10),
 		Action:         "DELETE",
@@ -373,11 +444,11 @@ func (s *kraService) GetKRASummary(userID, organizationID string, year int) (*KR
 
 	for _, kra := range kras {
 		totalWeight += kra.Weight
-		
+
 		if kra.Status == "completed" {
 			completedKRAs++
 		}
-		
+
 		if kra.Rating != nil {
 			totalRating += *kra.Rating
 			ratedCount++

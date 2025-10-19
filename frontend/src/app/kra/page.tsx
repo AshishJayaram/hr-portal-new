@@ -11,6 +11,8 @@ import {
   updateKRA, 
   deleteKRA, 
   evaluateKRA,
+  selfAssessKRA,
+  getReporteesKRAs,
   getKRASummary,
   getUsers,
   getKRASettings,
@@ -18,8 +20,10 @@ import {
   type CreateKRARequest,
   type UpdateKRARequest,
   type EvaluateKRARequest,
+  type SelfAssessKRARequest,
   type KRASummary,
-  type KRASettings
+  type KRASettings,
+  type User
 } from "@/lib/api";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
@@ -27,7 +31,7 @@ import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Tabs from "@/components/ui/Tabs";
 import RoleGuard from "@/components/RoleGuard";
-import { Plus, Edit, Trash2, CheckCircle, Clock, Target, TrendingUp, Users, BookOpen, Star } from "lucide-react";
+import { Plus, Edit, Trash2, CheckCircle, Clock, Target, TrendingUp, Users, BookOpen, Star, BarChart3 } from "lucide-react";
 
 export default function KRAPage() {
   const user = getCurrentUser();
@@ -35,20 +39,20 @@ export default function KRAPage() {
   const userRole = user?.role || "Employee";
   const queryClient = useQueryClient();
   
-  const [activeTab, setActiveTab] = useState<'my-kras' | 'team-kras'>('my-kras');
+  const [activeTab, setActiveTab] = useState<'my-kras' | 'team-kras' | 'reportees-kras'>('my-kras');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showSampleSheet, setShowSampleSheet] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEvaluateModal, setShowEvaluateModal] = useState(false);
+  const [showSelfAssessModal, setShowSelfAssessModal] = useState(false);
   const [selectedKRA, setSelectedKRA] = useState<KRA | null>(null);
   const [selectedUser, setSelectedUser] = useState<string>(userId);
   const [kraPeriod, setKraPeriod] = useState<'yearly' | 'quarterly' | 'half-yearly'>('yearly');
   const [currentStep, setCurrentStep] = useState<'tracker' | 'sample' | 'create'>('tracker');
 
-  // Check if user can view team KRAs (managers, HR, Admin, God)
-  const canViewTeamKRAs = userRole === "HR" || userRole === "Admin" || userRole === "God" || 
-    (userRole === "Employee" && user?.manager_id); // Employees with managers can view their team
+  // Check if user can view team KRAs (HR, Admin, God only)
+  const canViewTeamKRAs = userRole === "HR" || userRole === "Admin" || userRole === "God";
 
   // Fetch users for manager selection
   const { data: usersData } = useQuery({
@@ -83,6 +87,15 @@ export default function KRAPage() {
     enabled: Boolean(activeTab === 'team-kras' && canViewTeamKRAs),
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchOnWindowFocus: false,
+  });
+
+  // Fetch reportees KRAs
+  const { data: reporteesKRAs, isLoading: loadingReporteesKRAs } = useQuery({
+    queryKey: ['reportees-kras', selectedYear],
+    queryFn: () => getReporteesKRAs(selectedYear),
+    enabled: Boolean(activeTab === 'reportees-kras' && canViewTeamKRAs),
+    staleTime: 0, // Force fresh data
+    refetchOnWindowFocus: true,
   });
 
   // Fetch KRA summary
@@ -148,6 +161,7 @@ export default function KRAPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-kras', userId, selectedYear] });
       queryClient.invalidateQueries({ queryKey: ['team-kras', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['reportees-kras', selectedYear] });
       queryClient.invalidateQueries({ queryKey: ['kra-summary', userId, selectedYear] });
       setShowEvaluateModal(false);
       setSelectedKRA(null);
@@ -155,6 +169,23 @@ export default function KRAPage() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to evaluate KRA");
+    },
+  });
+
+  // Self-assess KRA mutation
+  const selfAssessKRAMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: SelfAssessKRARequest }) => selfAssessKRA(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-kras', userId, selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['team-kras', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['reportees-kras', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['kra-summary', userId, selectedYear] });
+      setShowSelfAssessModal(false);
+      setSelectedKRA(null);
+      toast.success("Assessment submitted successfully!");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to submit assessment");
     },
   });
 
@@ -188,6 +219,12 @@ export default function KRAPage() {
     setShowEvaluateModal(true);
   };
 
+  // Handle self-assess KRA
+  const handleSelfAssessKRA = (kra: KRA) => {
+    setSelectedKRA(kra);
+    setShowSelfAssessModal(true);
+  };
+
   // Handle update KRA
   const handleUpdateKRA = (data: UpdateKRARequest) => {
     if (selectedKRA) {
@@ -199,6 +236,13 @@ export default function KRAPage() {
   const handleEvaluateKRASubmit = (data: EvaluateKRARequest) => {
     if (selectedKRA) {
       evaluateKRAMutation.mutate({ id: String(selectedKRA.id), data });
+    }
+  };
+
+  // Handle self-assess KRA submit
+  const handleSelfAssessKRASubmit = (data: SelfAssessKRARequest) => {
+    if (selectedKRA) {
+      selfAssessKRAMutation.mutate({ id: String(selectedKRA.id), data });
     }
   };
 
@@ -247,7 +291,7 @@ export default function KRAPage() {
 
       {/* KRA Summary */}
       {kraSummary && activeTab === 'my-kras' && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card className="p-4">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
@@ -300,6 +344,19 @@ export default function KRAPage() {
               </div>
             </div>
           </Card>
+          <Card className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                <BarChart3 className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Weight</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {kraSummary.total_weight?.toFixed(1) || '0'}%
+                </p>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
 
@@ -307,10 +364,13 @@ export default function KRAPage() {
       <Tabs
         tabs={[
           { id: 'my-kras', label: 'My KRAs', icon: '🎯' },
-          ...(canViewTeamKRAs ? [{ id: 'team-kras', label: 'Team KRAs', icon: '👥' }] : []),
+          ...(canViewTeamKRAs ? [
+            { id: 'team-kras', label: 'Team KRAs', icon: '👥' },
+            { id: 'reportees-kras', label: 'Reportees KRAs', icon: '📊' }
+          ] : []),
         ]}
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab as 'my-kras' | 'team-kras')}
+        onTabChange={(tab) => setActiveTab(tab as 'my-kras' | 'team-kras' | 'reportees-kras')}
       />
 
       {/* Sample Sheet Modal */}
@@ -333,6 +393,7 @@ export default function KRAPage() {
           usersData={usersData?.data}
           canViewTeamKRAs={Boolean(canViewTeamKRAs)}
           isWeightageFull={isWeightageFull}
+          kraSummary={kraSummary}
         />
       )}
 
@@ -352,6 +413,7 @@ export default function KRAPage() {
           usersData={usersData?.data}
           canViewTeamKRAs={Boolean(canViewTeamKRAs)}
           isWeightageFull={isWeightageFull}
+          kraSummary={kraSummary}
         />
       )}
 
@@ -378,6 +440,20 @@ export default function KRAPage() {
             setSelectedKRA(null);
           }}
           onSubmit={handleEvaluateKRASubmit}
+          kra={selectedKRA}
+          kraSettings={kraSettings}
+        />
+      )}
+
+      {/* Self-Assess KRA Modal */}
+      {showSelfAssessModal && selectedKRA && (
+        <SelfAssessKRAModal
+          isOpen={showSelfAssessModal}
+          onClose={() => {
+            setShowSelfAssessModal(false);
+            setSelectedKRA(null);
+          }}
+          onSubmit={handleSelfAssessKRASubmit}
           kra={selectedKRA}
           kraSettings={kraSettings}
         />
@@ -433,7 +509,7 @@ export default function KRAPage() {
               <p className="mt-2 text-gray-600 dark:text-gray-400">Loading KRAs...</p>
             </div>
           ) : userKRAs?.data && userKRAs.data.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {userKRAs.data.map((kra) => (
                 <KRACard
                   key={kra.id}
@@ -441,7 +517,11 @@ export default function KRAPage() {
                   onEdit={() => handleEditKRA(kra)}
                   onDelete={() => handleDeleteKRA(String(kra.id))}
                   onEvaluate={() => handleEvaluateKRA(kra)}
+                  onSelfAssess={() => handleSelfAssessKRA(kra)}
                   userRole={userRole}
+                  currentUserId={userId}
+                  currentUserManagerId={user?.manager_id}
+                  isDirectReportee={false} // In "My KRAs", user is evaluating their own KRAs
                 />
               ))}
             </div>
@@ -510,12 +590,30 @@ export default function KRAPage() {
           onShowCreateModal={() => setShowCreateModal(true)}
           onShowEditModal={handleEditKRA}
           onShowEvaluateModal={handleEvaluateKRA}
+          onShowSelfAssessModal={handleSelfAssessKRA}
           onDeleteKRA={handleDeleteKRA}
           userRole={userRole}
           kraSettings={kraSettings}
           kraPeriod={kraPeriod}
           onKraPeriodChange={setKraPeriod}
           isWeightageFull={isWeightageFull}
+          userId={userId}
+          user={user}
+        />
+      )}
+
+      {activeTab === 'reportees-kras' && canViewTeamKRAs && (
+        <ReporteesKRASection
+          selectedYear={selectedYear}
+          reporteesKRAs={reporteesKRAs?.data}
+          loadingReporteesKRAs={loadingReporteesKRAs}
+          onShowEditModal={handleEditKRA}
+          onShowEvaluateModal={handleEvaluateKRA}
+          onShowSelfAssessModal={handleSelfAssessKRA}
+          onDeleteKRA={handleDeleteKRA}
+          userRole={userRole}
+          userId={userId}
+          user={user}
         />
       )}
     </div>
@@ -528,13 +626,21 @@ function KRACard({
   onEdit, 
   onDelete, 
   onEvaluate, 
-  userRole 
+  onSelfAssess,
+  userRole,
+  currentUserId,
+  currentUserManagerId,
+  isDirectReportee
 }: { 
   kra: KRA; 
   onEdit: () => void; 
   onDelete: () => void; 
   onEvaluate: () => void; 
-  userRole: string; 
+  onSelfAssess: () => void;
+  userRole: string;
+  currentUserId: string;
+  currentUserManagerId?: number;
+  isDirectReportee?: boolean;
 }) {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -553,13 +659,13 @@ function KRACard({
   };
 
   return (
-    <Card className="p-4 hover:shadow-lg transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{kra.title}</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{kra.description}</p>
+    <Card className="p-6 hover:shadow-lg transition-shadow min-w-0">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 min-w-0 pr-3">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-1 truncate">{kra.title}</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">{kra.description}</p>
         </div>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(kra.status)}`}>
+        <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusColor(kra.status)}`}>
           {kra.status.replace('_', ' ')}
         </span>
       </div>
@@ -575,20 +681,59 @@ function KRACard({
           <span className="text-gray-600 dark:text-gray-400">Weight:</span>
           <span className="font-medium text-gray-900 dark:text-white">{kra.weight}%</span>
         </div>
-        {kra.actual_value && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Current:</span>
-            <span className="font-medium text-gray-900 dark:text-white">
-              {kra.actual_value} {kra.measurement_unit}
-            </span>
+        {(kra.employee_actual_value || kra.manager_actual_value) && (
+          <div className="grid grid-cols-1 gap-1 text-sm">
+            {kra.employee_actual_value && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Employee Actual:</span>
+                <span className="font-medium text-gray-900 dark:text-white">{kra.employee_actual_value} {kra.measurement_unit}</span>
+              </div>
+            )}
+            {kra.manager_actual_value && (
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Manager Actual:</span>
+                <span className="font-medium text-gray-900 dark:text-white">{kra.manager_actual_value} {kra.measurement_unit}</span>
+              </div>
+            )}
           </div>
         )}
-        {kra.rating && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Rating:</span>
-            <span className={`font-medium ${getRatingColor(kra.rating)}`}>
-              {kra.rating}/5
-            </span>
+        {/* Final score + contributors */}
+        {(() => {
+          const canSeeManager = (userRole === 'HR' || userRole === 'Admin' || userRole === 'God' || (isDirectReportee && kra.manager_feedback_visible));
+          const employeeScore = kra.employee_rating ?? null;
+          const managerScore = canSeeManager && kra.rating ? kra.rating : null;
+          const finalScore = managerScore ?? employeeScore ?? null;
+          const contributors: string[] = [];
+          if (managerScore != null) contributors.push('Manager');
+          if (employeeScore != null) contributors.push('Employee');
+          return finalScore != null ? (
+            <div className="text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Score:</span>
+                <span className={`font-medium ${getRatingColor(finalScore)}`}>{finalScore}/5</span>
+              </div>
+              {contributors.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {contributors.map((c, i) => (
+                    <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null;
+        })()}
+        {kra.employee_comments && (
+          <div className="text-sm">
+            <span className="text-gray-600 dark:text-gray-400">Employee Assessment:</span>
+            <p className="text-gray-900 dark:text-white mt-1">{kra.employee_comments}</p>
+          </div>
+        )}
+        {kra.comments && (userRole === 'HR' || userRole === 'Admin' || userRole === 'God' || (isDirectReportee && kra.manager_feedback_visible)) && (
+          <div className="text-sm">
+            <span className="text-gray-600 dark:text-gray-400">Manager Comments:</span>
+            <p className="text-gray-900 dark:text-white mt-1">{kra.comments}</p>
           </div>
         )}
       </div>
@@ -597,32 +742,45 @@ function KRACard({
         <div className="text-xs text-gray-500 dark:text-gray-400">
           Created: {new Date(kra.created_at).toLocaleDateString()}
         </div>
-        <div className="flex space-x-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onEdit}
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            <Edit className="w-3 h-3 mr-1" />
-            Edit
-          </Button>
-          {(userRole === 'HR' || userRole === 'Admin' || userRole === 'God') && (
+        <div className="flex flex-wrap gap-1">
+          {Number(kra.user_id) !== Number(currentUserId) && (userRole === 'Admin' || userRole === 'God' || userRole === 'HR' || isDirectReportee) && (
             <Button
               size="sm"
               variant="outline"
               onClick={onEvaluate}
-              className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+              title="Evaluate this KRA"
+              className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 whitespace-nowrap text-xs px-2 py-1 order-first"
             >
               <Star className="w-3 h-3 mr-1" />
-              Evaluate
+              Assess
+            </Button>
+          )}
+          {!kra.employee_rating && Number(kra.user_id) === Number(currentUserId) && !isDirectReportee && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onSelfAssess}
+              title="Self assess your KRA"
+              className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 whitespace-nowrap text-xs px-2 py-1"
+            >
+              <Star className="w-3 h-3 mr-1" />
+              Assess
             </Button>
           )}
           <Button
             size="sm"
             variant="outline"
+            onClick={onEdit}
+            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap text-xs px-2 py-1"
+          >
+            <Edit className="w-3 h-3 mr-1" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={onDelete}
-            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 whitespace-nowrap text-xs px-2 py-1"
           >
             <Trash2 className="w-3 h-3 mr-1" />
             Delete
@@ -645,7 +803,8 @@ function SampleKRASheetModal({
   selectedUser,
   usersData,
   canViewTeamKRAs,
-  isWeightageFull
+  isWeightageFull,
+  kraSummary
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -658,14 +817,22 @@ function SampleKRASheetModal({
   usersData?: any[];
   canViewTeamKRAs: boolean;
   isWeightageFull: boolean;
+  kraSummary?: KRASummary;
 }) {
   const [activeTab, setActiveTab] = useState<'samples' | 'create'>('samples');
+  
+  // Switch to samples tab if weightage is full and user is on create tab
+  useEffect(() => {
+    if (isWeightageFull && activeTab === 'create') {
+      setActiveTab('samples');
+    }
+  }, [isWeightageFull, activeTab]);
   const [formData, setFormData] = useState<CreateKRARequest>({
     title: '',
     description: '',
     target_value: '0',
     measurement_unit: '',
-    weight: 0,
+    weight: 1,
     year: new Date().getFullYear(),
     user_id: selectedUser,
   });
@@ -723,7 +890,9 @@ function SampleKRASheetModal({
   };
 
   const calculateRemainingWeight = () => {
-    return Math.max(0, 100 - formData.weight);
+    // Get existing KRAs total weight for the current user and year
+    const existingWeight = kraSummary?.total_weight || 0;
+    return Math.max(0, 100 - existingWeight - formData.weight);
   };
 
   if (!isOpen) return null;
@@ -749,7 +918,7 @@ function SampleKRASheetModal({
           <Tabs
             tabs={[
               { id: 'samples', label: 'Sample Formats', icon: '📋' },
-              { id: 'create', label: 'Create KRA', icon: '➕' },
+              ...(isWeightageFull ? [] : [{ id: 'create', label: 'Create KRA', icon: '➕' }]),
             ]}
             activeTab={activeTab}
             onTabChange={(tab) => setActiveTab(tab as 'samples' | 'create')}
@@ -900,12 +1069,14 @@ function SampleKRASheetModal({
                     <div className="space-y-2">
                       <Input
                         type="number"
-                        min="0"
+                        min="1"
                         max="100"
                         value={formData.weight}
                         onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          const clampedValue = Math.min(100, Math.max(0, value));
+                          const value = parseFloat(e.target.value) || 0;
+                          const existingWeight = kraSummary?.total_weight || 0;
+                          const maxAllowed = Math.min(100, 100 - existingWeight);
+                          const clampedValue = Math.min(maxAllowed, Math.max(1, value));
                           handleInputChange('weight', clampedValue);
                         }}
                         placeholder="Enter weight percentage"
@@ -981,7 +1152,8 @@ function CreateKRAModal({
   selectedUser,
   usersData,
   canViewTeamKRAs,
-  isWeightageFull
+  isWeightageFull,
+  kraSummary
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -993,13 +1165,14 @@ function CreateKRAModal({
   usersData?: any[];
   canViewTeamKRAs: boolean;
   isWeightageFull: boolean;
+  kraSummary?: KRASummary;
 }) {
   const [formData, setFormData] = useState<CreateKRARequest>({
     title: '',
     description: '',
     target_value: '0',
     measurement_unit: '',
-    weight: 0,
+    weight: 1,
     year: new Date().getFullYear(),
     user_id: selectedUser,
   });
@@ -1014,7 +1187,9 @@ function CreateKRAModal({
   };
 
   const calculateRemainingWeight = () => {
-    return Math.max(0, 100 - formData.weight);
+    // Get existing KRAs total weight for the current user and year
+    const existingWeight = kraSummary?.total_weight || 0;
+    return Math.max(0, 100 - existingWeight - formData.weight);
   };
 
   if (!isOpen) return null;
@@ -1109,12 +1284,14 @@ function CreateKRAModal({
               <div className="space-y-2">
                       <Input
                         type="number"
-                        min="0"
+                        min="1"
                         max="100"
                         value={formData.weight}
                         onChange={(e) => {
                           const value = parseFloat(e.target.value) || 0;
-                          const clampedValue = Math.min(100, Math.max(0, value));
+                          const existingWeight = kraSummary?.total_weight || 0;
+                          const maxAllowed = Math.min(100, 100 - existingWeight);
+                          const clampedValue = Math.min(maxAllowed, Math.max(1, value));
                           handleInputChange('weight', clampedValue);
                         }}
                         placeholder="Enter weight percentage"
@@ -1283,12 +1460,12 @@ function EditKRAModal({
               </label>
               <Input
                 type="number"
-                min="0"
+                min="1"
                 max="100"
                 value={formData.weight}
                 onChange={(e) => {
-                  const value = parseInt(e.target.value) || 0;
-                  const clampedValue = Math.min(100, Math.max(0, value));
+                  const value = parseFloat(e.target.value) || 0;
+                  const clampedValue = Math.min(100, Math.max(1, value));
                   handleInputChange('weight', clampedValue);
                 }}
                 placeholder="Enter weight percentage"
@@ -1333,19 +1510,25 @@ function EvaluateKRAModal({
   kra: KRA;
   kraSettings?: KRASettings;
 }) {
-  const [formData, setFormData] = useState<EvaluateKRARequest>({
+  const [employeeSide, setEmployeeSide] = useState({
+    actual_value: kra.employee_actual_value || '',
+    rating: kra.employee_rating || 0,
+    comments: kra.employee_comments || '',
+  });
+  const [managerSide, setManagerSide] = useState<EvaluateKRARequest>({
     rating: kra.rating || 0,
     comments: kra.comments || '',
-    actual_value: kra.actual_value || '',
+    actual_value: kra.manager_actual_value || '',
+    manager_feedback_visible: kra.manager_feedback_visible || false,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit(managerSide);
   };
 
-  const handleInputChange = (field: keyof EvaluateKRARequest, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleManagerChange = (field: keyof EvaluateKRARequest, value: any) => {
+    setManagerSide(prev => ({ ...prev, [field]: value }));
   };
 
   if (!isOpen) return null;
@@ -1354,7 +1537,7 @@ function EvaluateKRAModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Evaluate KRA</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Assess KRA</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -1378,49 +1561,61 @@ function EvaluateKRAModal({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Actual Value *
-              </label>
-              <Input
-                type="text"
-                value={formData.actual_value}
-                onChange={(e) => handleInputChange('actual_value', e.target.value)}
-                placeholder="Enter actual achieved value"
-                required
-              />
+            {/* Employee side (read-only for manager) */}
+            <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-3">Employee</h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Actual Value</label>
+                  <Input type="text" value={employeeSide.actual_value} disabled />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Employee Rating</label>
+                  <Input type="text" value={employeeSide.rating || ''} disabled />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Employee Comments</label>
+                  <textarea value={employeeSide.comments} disabled className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-800" rows={4} />
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Rating (1-5) *
-              </label>
-              <Select
-                value={formData.rating}
-                onChange={(e) => handleInputChange('rating', parseInt(e.target.value))}
-                options={[
-                  { value: '0', label: 'Select Rating' },
-                  { value: '1', label: '1 - Poor' },
-                  { value: '2', label: '2 - Below Average' },
-                  { value: '3', label: '3 - Average' },
-                  { value: '4', label: '4 - Good' },
-                  { value: '5', label: '5 - Excellent' }
-                ]}
-              />
+            {/* Manager side (editable for manager) */}
+            <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-3">Manager</h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Actual Value *</label>
+                  <Input type="text" value={managerSide.actual_value} onChange={(e) => handleManagerChange('actual_value', e.target.value)} required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Manager Rating (1-5) *</label>
+                  <Select value={managerSide.rating} onChange={(e) => handleManagerChange('rating', parseInt(e.target.value))} options={[{ value: '0', label: 'Select Rating' }, { value: '1', label: '1 - Poor' }, { value: '2', label: '2 - Below Average' }, { value: '3', label: '3 - Average' }, { value: '4', label: '4 - Good' }, { value: '5', label: '5 - Excellent' }]} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Manager Comments</label>
+                  <textarea value={managerSide.comments} onChange={(e) => handleManagerChange('comments', e.target.value)} placeholder="Provide detailed feedback on performance" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white" rows={4} />
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Evaluation Comments
-              </label>
-              <textarea
-                value={formData.comments}
-                onChange={(e) => handleInputChange('comments', e.target.value)}
-                placeholder="Provide detailed feedback on performance"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                rows={4}
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="manager_feedback_visible"
+                checked={managerSide.manager_feedback_visible || false}
+                onChange={(e) => handleManagerChange('manager_feedback_visible', e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
+              <label htmlFor="manager_feedback_visible" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Make manager feedback visible to employee
+              </label>
             </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-7">
+              When checked, the employee will be able to see your rating and comments
+            </p>
           </div>
 
           <div className="flex justify-end space-x-3">
@@ -1435,10 +1630,132 @@ function EvaluateKRAModal({
               type="submit"
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white shadow-lg"
             >
-              Submit Evaluation
+              Submit Assessment
             </Button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// Self-Assess KRA Modal Component
+function SelfAssessKRAModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  kra,
+  kraSettings
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: SelfAssessKRARequest) => void;
+  kra: KRA;
+  kraSettings?: KRASettings;
+}) {
+  const [formData, setFormData] = useState<SelfAssessKRARequest>({
+    actual_value: kra.actual_value || '',
+    employee_rating: kra.employee_rating || 1,
+    employee_comments: kra.employee_comments || '',
+  });
+
+  const handleInputChange = (field: keyof SelfAssessKRARequest, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Assess KRA: {kra.title}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Actual Value */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Actual Value Achieved *
+                </label>
+                <Input
+                  type="text"
+                  value={formData.actual_value}
+                  onChange={(e) => handleInputChange('actual_value', e.target.value)}
+                  placeholder={`Enter actual value in ${kra.measurement_unit}`}
+                  className="w-full"
+                  required
+                />
+              </div>
+
+              {/* Employee Rating */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Employee Rating (1-5) *
+                </label>
+                <Select
+                  value={formData.employee_rating.toString()}
+                  onChange={(e) => handleInputChange('employee_rating', parseFloat(e.target.value))}
+                  className="w-full"
+                  options={[
+                    { value: '1', label: '1 - Needs Improvement' },
+                    { value: '2', label: '2 - Below Expectations' },
+                    { value: '3', label: '3 - Meets Expectations' },
+                    { value: '4', label: '4 - Exceeds Expectations' },
+                    { value: '5', label: '5 - Outstanding' },
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* Assessment Comments */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Assessment Comments
+              </label>
+              <textarea
+                value={formData.employee_comments}
+                onChange={(e) => handleInputChange('employee_comments', e.target.value)}
+                placeholder="Describe your achievements, challenges faced, and areas for improvement"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg"
+              >
+                Submit Assessment
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -1455,12 +1772,15 @@ function TeamKRASection({
   onShowCreateModal,
   onShowEditModal,
   onShowEvaluateModal,
+  onShowSelfAssessModal,
   onDeleteKRA,
   userRole,
   kraSettings,
   kraPeriod,
   onKraPeriodChange,
-  isWeightageFull
+  isWeightageFull,
+  userId,
+  user
 }: {
   selectedYear: number;
   selectedUser: string;
@@ -1471,12 +1791,15 @@ function TeamKRASection({
   onShowCreateModal: () => void;
   onShowEditModal: (kra: KRA) => void;
   onShowEvaluateModal: (kra: KRA) => void;
+  onShowSelfAssessModal: (kra: KRA) => void;
   onDeleteKRA: (id: string) => void;
   userRole: string;
   kraSettings?: KRASettings;
   kraPeriod: 'yearly' | 'quarterly' | 'half-yearly';
   onKraPeriodChange: (period: 'yearly' | 'quarterly' | 'half-yearly') => void;
   isWeightageFull: boolean;
+  userId: string;
+  user?: any;
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -1497,19 +1820,24 @@ function TeamKRASection({
 
   const selectedUserData = usersData?.find(user => String(user.id) === selectedUser);
 
+  // Calculate selected user's weightage for button state
+  const selectedUserKRAs = teamKRAs?.filter(kra => kra.user_id === Number(selectedUser)) || [];
+  const totalWeightage = selectedUserKRAs.reduce((sum, kra) => sum + kra.weight, 0);
+  const isSelectedUserWeightageFull = selectedUser ? totalWeightage >= 100 : false;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Team KRAs</h2>
         <Button
           onClick={onShowCreateModal}
-          disabled={isWeightageFull}
+          disabled={!selectedUser || isSelectedUserWeightageFull}
           className={`shadow-lg ${
-            isWeightageFull 
+            !selectedUser || isSelectedUserWeightageFull
               ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
               : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
           }`}
-          title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
+          title={!selectedUser ? "Please select a team member first" : isSelectedUserWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
         >
           <Plus className="w-4 h-4 mr-2" />
           Create KRA for Team Member
@@ -1536,21 +1864,35 @@ function TeamKRASection({
 
           {paginatedUsers.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {paginatedUsers.map((user) => (
-                <button
-                  key={user.id}
-                  onClick={() => setSelectedUser(String(user.id))}
-                  className={`p-3 rounded-lg border text-left transition-colors ${
-                    selectedUser === String(user.id)
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <div className="font-medium text-gray-900 dark:text-white">{user.name}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">{user.email}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-500 capitalize">{user.role}</div>
-                </button>
-              ))}
+              {paginatedUsers.map((user) => {
+                // Calculate total weightage for this user
+                const userKRAs = teamKRAs?.filter(kra => kra.user_id === Number(user.id)) || [];
+                const totalWeightage = userKRAs.reduce((sum, kra) => sum + kra.weight, 0);
+                
+                return (
+                  <button
+                    key={user.id}
+                    onClick={() => setSelectedUser(String(user.id))}
+                    className={`p-3 rounded-lg border text-left transition-colors ${
+                      selectedUser === String(user.id)
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="font-medium text-gray-900 dark:text-white">{user.name}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{user.email}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500 capitalize">{user.role}</div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-xs text-gray-500 dark:text-gray-500">
+                        {userKRAs.length} KRA{userKRAs.length !== 1 ? 's' : ''}
+                      </span>
+                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                        {userKRAs.length > 0 ? `${totalWeightage.toFixed(1)}% weight` : 'No KRAs'}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-4 text-gray-500 dark:text-gray-400">
@@ -1616,21 +1958,55 @@ function TeamKRASection({
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-2 text-gray-600 dark:text-gray-400">Loading KRAs...</p>
             </div>
-          ) : teamKRAs && teamKRAs.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {teamKRAs.map((kra) => (
-                <KRACard
-                  key={kra.id}
-                  kra={kra}
-                  onEdit={() => onShowEditModal(kra)}
-                  onDelete={() => onDeleteKRA(String(kra.id))}
-                  onEvaluate={() => onShowEvaluateModal(kra)}
-                  userRole={userRole}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
+          ) : (() => {
+            return selectedUserKRAs.length > 0 ? (
+              <div className="space-y-4">
+                {/* Summary for selected user */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                      <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total KRAs</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {selectedUserKRAs.length}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                      <BarChart3 className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Weight</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {totalWeightage.toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* KRAs Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {selectedUserKRAs.map((kra) => (
+                    <KRACard
+                      key={kra.id}
+                      kra={kra}
+                      onEdit={() => onShowEditModal(kra)}
+                      onDelete={() => onDeleteKRA(String(kra.id))}
+                      onEvaluate={() => onShowEvaluateModal(kra)}
+                      onSelfAssess={() => onShowSelfAssessModal(kra)}
+                      userRole={userRole}
+                      currentUserId={userId}
+                      currentUserManagerId={user?.manager_id}
+                      isDirectReportee={kra.user?.manager_id === Number(userId)} // Check if this user's manager is the current user
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
               <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
                 <Target className="w-8 h-8 text-gray-400" />
               </div>
@@ -1638,24 +2014,149 @@ function TeamKRASection({
                 No KRAs Found
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-4">
-                This team member doesn't have any KRAs yet.
+                {selectedUserData.name} doesn't have any KRAs for {selectedYear}.
               </p>
               <Button
                 onClick={onShowCreateModal}
-                disabled={isWeightageFull}
+                disabled={isSelectedUserWeightageFull}
                 className={`shadow-lg ${
-                  isWeightageFull 
+                  isSelectedUserWeightageFull 
                     ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
                     : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
                 }`}
-                title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
+                title={isSelectedUserWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create KRA
               </Button>
             </div>
-          )}
+            );
+          })()}
         </Card>
+      )}
+    </div>
+  );
+}
+
+// Reportees KRAs Section Component
+function ReporteesKRASection({
+  selectedYear,
+  reporteesKRAs,
+  loadingReporteesKRAs,
+  onShowEditModal,
+  onShowEvaluateModal,
+  onShowSelfAssessModal,
+  onDeleteKRA,
+  userRole,
+  userId,
+  user
+}: {
+  selectedYear: number;
+  reporteesKRAs?: KRA[];
+  loadingReporteesKRAs: boolean;
+  onShowEditModal: (kra: KRA) => void;
+  onShowEvaluateModal: (kra: KRA) => void;
+  onShowSelfAssessModal: (kra: KRA) => void;
+  onDeleteKRA: (id: string) => void;
+  userRole: string;
+  userId: string;
+  user?: any;
+}) {
+  // Filter to only direct reportees and exclude current user's own KRAs (frontend safeguard)
+  const directReporteesKRAs = (reporteesKRAs || []).filter((kra) => {
+    const managerIdOfOwner = kra.user?.manager_id;
+    return Number(managerIdOfOwner) === Number(userId) && Number(kra.user_id) !== Number(userId);
+  });
+
+  // Group KRAs by user
+  const krasByUser = directReporteesKRAs.reduce((acc, kra) => {
+    const userId = kra.user_id;
+    if (!acc[userId]) {
+      acc[userId] = {
+        user: kra.user,
+        kras: []
+      };
+    }
+    acc[userId].kras.push(kra);
+    return acc;
+  }, {} as Record<number, { user: any; kras: KRA[] }>);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            All Reportees KRAs - {selectedYear}
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            View and manage KRAs for all your direct reportees
+          </p>
+        </div>
+      </div>
+
+      {loadingReporteesKRAs ? (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">Loading reportees KRAs...</p>
+        </div>
+      ) : Object.keys(krasByUser).length > 0 ? (
+        <div className="space-y-6">
+          {Object.entries(krasByUser).map(([userId, { user, kras }]) => {
+            const totalWeightage = kras.reduce((sum, kra) => sum + kra.weight, 0);
+            
+            return (
+              <Card key={userId} className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      {user?.name || 'Unknown User'}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {user?.email || 'No email'} • {user?.role || 'No role'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      {kras.length} KRA{kras.length !== 1 ? 's' : ''}
+                    </div>
+                    <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                      {kras.length > 0 ? `${totalWeightage.toFixed(1)}% total weight` : 'No KRAs'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {kras.map((kra) => (
+                    <KRACard
+                      key={kra.id}
+                      kra={kra}
+                      onEdit={() => onShowEditModal(kra)}
+                      onDelete={() => onDeleteKRA(String(kra.id))}
+                      onEvaluate={() => onShowEvaluateModal(kra)}
+                      onSelfAssess={() => onShowSelfAssessModal(kra)}
+                      userRole={userRole}
+                      currentUserId={userId}
+                      currentUserManagerId={user?.manager_id}
+                      isDirectReportee={Number(kra.user?.manager_id) === Number(userId)}
+                    />
+                  ))}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+            <Users className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            No Reportees Found
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            You don't have any direct reportees with KRAs for {selectedYear}.
+          </p>
+        </div>
       )}
     </div>
   );

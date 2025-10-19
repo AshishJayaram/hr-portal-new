@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"hr-portal-backend/internal/services"
 
@@ -27,7 +28,7 @@ type CreateKRARequestBody struct {
 	Year            int     `json:"year" binding:"required"`
 	Title           string  `json:"title" binding:"required"`
 	Description     string  `json:"description"`
-	Weight          float64 `json:"weight" binding:"required,min=0,max=100"`
+	Weight          float64 `json:"weight" binding:"required,min=1,max=100"`
 	TargetValue     string  `json:"target_value" binding:"required"`
 	MeasurementUnit string  `json:"measurement_unit" binding:"required"`
 }
@@ -37,7 +38,7 @@ func (h *KRAHandler) CreateKRA(c *gin.Context) {
 	var reqBody CreateKRARequestBody
 	if err := c.ShouldBindJSON(&reqBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request body",
+			"error":   "Invalid request body",
 			"details": err.Error(),
 		})
 		return
@@ -63,7 +64,7 @@ func (h *KRAHandler) CreateKRA(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	if req.SetBy == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "User ID is required",
@@ -74,7 +75,7 @@ func (h *KRAHandler) CreateKRA(c *gin.Context) {
 	kra, err := h.kraService.CreateKRA(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create KRA",
+			"error":   "Failed to create KRA",
 			"details": err.Error(),
 		})
 		return
@@ -93,7 +94,7 @@ func (h *KRAHandler) GetKRA(c *gin.Context) {
 	kra, err := h.kraService.GetKRA(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"error": "KRA not found",
+			"error":   "KRA not found",
 			"details": err.Error(),
 		})
 		return
@@ -108,7 +109,7 @@ func (h *KRAHandler) GetKRA(c *gin.Context) {
 func (h *KRAHandler) GetUserKRAs(c *gin.Context) {
 	userID := c.Param("user_id")
 	organizationID := c.GetString("organization_id")
-	
+
 	yearStr := c.Query("year")
 	if yearStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -128,7 +129,7 @@ func (h *KRAHandler) GetUserKRAs(c *gin.Context) {
 	kras, err := h.kraService.GetUserKRAs(userID, organizationID, year)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get user KRAs",
+			"error":   "Failed to get user KRAs",
 			"details": err.Error(),
 		})
 		return
@@ -147,7 +148,7 @@ func (h *KRAHandler) GetAllUserKRAs(c *gin.Context) {
 	kras, err := h.kraService.GetAllUserKRAs(userID, organizationID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get user KRAs",
+			"error":   "Failed to get user KRAs",
 			"details": err.Error(),
 		})
 		return
@@ -162,7 +163,7 @@ func (h *KRAHandler) GetAllUserKRAs(c *gin.Context) {
 func (h *KRAHandler) GetTeamKRAs(c *gin.Context) {
 	managerID := c.GetString("user_id")
 	organizationID := c.GetString("organization_id")
-	
+
 	yearStr := c.Query("year")
 	if yearStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -182,7 +183,7 @@ func (h *KRAHandler) GetTeamKRAs(c *gin.Context) {
 	kras, err := h.kraService.GetTeamKRAs(managerID, organizationID, year)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get team KRAs",
+			"error":   "Failed to get team KRAs",
 			"details": err.Error(),
 		})
 		return
@@ -200,7 +201,7 @@ func (h *KRAHandler) UpdateKRA(c *gin.Context) {
 	var req services.UpdateKRARequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request body",
+			"error":   "Invalid request body",
 			"details": err.Error(),
 		})
 		return
@@ -209,7 +210,7 @@ func (h *KRAHandler) UpdateKRA(c *gin.Context) {
 	kra, err := h.kraService.UpdateKRA(id, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to update KRA",
+			"error":   "Failed to update KRA",
 			"details": err.Error(),
 		})
 		return
@@ -228,7 +229,7 @@ func (h *KRAHandler) EvaluateKRA(c *gin.Context) {
 	var req services.EvaluateKRARequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request body",
+			"error":   "Invalid request body",
 			"details": err.Error(),
 		})
 		return
@@ -240,7 +241,7 @@ func (h *KRAHandler) EvaluateKRA(c *gin.Context) {
 	kra, err := h.kraService.EvaluateKRA(id, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to evaluate KRA",
+			"error":   "Failed to evaluate KRA",
 			"details": err.Error(),
 		})
 		return
@@ -252,6 +253,77 @@ func (h *KRAHandler) EvaluateKRA(c *gin.Context) {
 	})
 }
 
+// SelfAssessKRA handles POST /api/kras/:id/self-assess
+func (h *KRAHandler) SelfAssessKRA(c *gin.Context) {
+	id := c.Param("id")
+
+	// Bind only the fields provided by the client; set RatedBy from auth context
+	type SelfAssessKRARequestBody struct {
+		ActualValue      string  `json:"actual_value" binding:"required"`
+		EmployeeRating   float64 `json:"employee_rating" binding:"required,min=1,max=5"`
+		EmployeeComments string  `json:"employee_comments"`
+	}
+
+	var body SelfAssessKRARequestBody
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid assessment body",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Set employee_rated_by from authenticated user
+	req := services.SelfAssessKRARequest{
+		ActualValue:      body.ActualValue,
+		EmployeeRating:   body.EmployeeRating,
+		EmployeeComments: body.EmployeeComments,
+		EmployeeRatedBy:  c.GetString("user_id"),
+	}
+
+	kra, err := h.kraService.SelfAssessKRA(id, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to self-assess KRA",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "KRA self-assessment submitted successfully",
+		"data":    kra,
+	})
+}
+
+// GetReporteesKRAs handles GET /api/kras/reportees
+func (h *KRAHandler) GetReporteesKRAs(c *gin.Context) {
+	managerID := c.GetString("user_id")
+	organizationID := c.GetString("current_organization_id")
+	yearStr := c.Query("year")
+
+	year := time.Now().Year()
+	if yearStr != "" {
+		if parsedYear, err := strconv.Atoi(yearStr); err == nil {
+			year = parsedYear
+		}
+	}
+
+	kras, err := h.kraService.GetReporteesKRAs(managerID, organizationID, year)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to get reportees KRAs",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Reportees KRAs retrieved successfully",
+		"data":    kras,
+	})
+}
+
 // DeleteKRA handles DELETE /api/kras/:id
 func (h *KRAHandler) DeleteKRA(c *gin.Context) {
 	id := c.Param("id")
@@ -259,7 +331,7 @@ func (h *KRAHandler) DeleteKRA(c *gin.Context) {
 	err := h.kraService.DeleteKRA(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to delete KRA",
+			"error":   "Failed to delete KRA",
 			"details": err.Error(),
 		})
 		return
@@ -276,31 +348,31 @@ func (h *KRAHandler) ListKRAs(c *gin.Context) {
 
 	// Build filters from query parameters
 	filters := make(map[string]interface{})
-	
+
 	if userID := c.Query("user_id"); userID != "" {
 		filters["user_id"] = userID
 	}
-	
+
 	if yearStr := c.Query("year"); yearStr != "" {
 		if year, err := strconv.Atoi(yearStr); err == nil {
 			filters["year"] = year
 		}
 	}
-	
+
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
-	
+
 	if setBy := c.Query("set_by"); setBy != "" {
 		filters["set_by"] = setBy
 	}
-	
+
 	if evaluatedStr := c.Query("evaluated"); evaluatedStr != "" {
 		if evaluated, err := strconv.ParseBool(evaluatedStr); err == nil {
 			filters["evaluated"] = evaluated
 		}
 	}
-	
+
 	if search := c.Query("search"); search != "" {
 		filters["search"] = search
 	}
@@ -308,7 +380,7 @@ func (h *KRAHandler) ListKRAs(c *gin.Context) {
 	kras, err := h.kraService.ListKRAs(organizationID, filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to list KRAs",
+			"error":   "Failed to list KRAs",
 			"details": err.Error(),
 		})
 		return
@@ -323,7 +395,7 @@ func (h *KRAHandler) ListKRAs(c *gin.Context) {
 func (h *KRAHandler) GetKRASummary(c *gin.Context) {
 	userID := c.Param("user_id")
 	organizationID := c.GetString("organization_id")
-	
+
 	yearStr := c.Query("year")
 	if yearStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -343,7 +415,7 @@ func (h *KRAHandler) GetKRASummary(c *gin.Context) {
 	summary, err := h.kraService.GetKRASummary(userID, organizationID, year)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get KRA summary",
+			"error":   "Failed to get KRA summary",
 			"details": err.Error(),
 		})
 		return

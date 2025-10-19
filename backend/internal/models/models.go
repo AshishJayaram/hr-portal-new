@@ -291,7 +291,7 @@ type CompanySettings struct {
 	BaseModel
 	OrganizationID uint   `json:"organization_id" gorm:"not null;uniqueIndex"`
 	Settings       string `json:"settings" gorm:"type:jsonb;not null"` // JSON string for payroll settings
-	KRASettings    string `json:"kra_settings" gorm:"type:jsonb"`       // JSON string for KRA settings
+	KRASettings    string `json:"kra_settings" gorm:"type:jsonb"`      // JSON string for KRA settings
 	Currency       string `json:"currency" gorm:"default:'INR'"`       // Currency code (INR, USD, EUR, etc.)
 
 	// Relationships
@@ -461,31 +461,40 @@ type EmployeeGrowth struct {
 // KRA represents Key Result Areas for employee performance evaluation
 type KRA struct {
 	BaseModel
-	UserID         uint      `json:"user_id" gorm:"not null;index"`
-	OrganizationID uint      `json:"organization_id" gorm:"not null;index"`
-	Year           int       `json:"year" gorm:"not null;index"`
-	Title          string    `json:"title" gorm:"not null"`
-	Description    string    `json:"description"`
-	Weight         float64   `json:"weight" gorm:"not null;default:0"` // Weight percentage (0-100)
-	TargetValue    string    `json:"target_value"`                     // Target value or description
-	MeasurementUnit string   `json:"measurement_unit"`                 // Unit of measurement (e.g., %, count, rating)
-	Status         string    `json:"status" gorm:"not null;default:'draft';check:status IN ('draft','active','completed','cancelled')"`
-	SetBy          uint      `json:"set_by" gorm:"not null;index"`     // User who set this KRA (manager/HR)
-	SetAt          time.Time `json:"set_at" gorm:"not null"`
-	
-	// Evaluation fields (filled at year end)
-	ActualValue    *string   `json:"actual_value"`                     // Actual achieved value
-	Rating         *float64  `json:"rating"`                           // Rating (1-5 scale)
-	Comments       *string   `json:"comments"`                         // Manager's evaluation comments
-	EvaluatedBy    *uint     `json:"evaluated_by" gorm:"index"`        // User who evaluated (manager/HR)
-	EvaluatedAt    *time.Time `json:"evaluated_at"`                    // When evaluation was completed
-	EmployeeComments *string  `json:"employee_comments"`               // Employee's self-assessment comments
-	
+	UserID          uint      `json:"user_id" gorm:"not null;index"`
+	OrganizationID  uint      `json:"organization_id" gorm:"not null;index"`
+	Year            int       `json:"year" gorm:"not null;index"`
+	Title           string    `json:"title" gorm:"not null"`
+	Description     string    `json:"description"`
+	Weight          float64   `json:"weight" gorm:"not null;default:0"` // Weight percentage (0-100)
+	TargetValue     string    `json:"target_value"`                     // Target value or description
+	MeasurementUnit string    `json:"measurement_unit"`                 // Unit of measurement (e.g., %, count, rating)
+	Status          string    `json:"status" gorm:"not null;default:'draft';check:status IN ('draft','active','completed','cancelled')"`
+	SetBy           uint      `json:"set_by" gorm:"not null;index"` // User who set this KRA (manager/HR)
+	SetAt           time.Time `json:"set_at" gorm:"not null"`
+
+    // Evaluation fields (filled at year end)
+    ActualValue      *string    `json:"actual_value"`                   // Deprecated: use employee_actual_value/manager_actual_value
+    EmployeeActualValue *string `json:"employee_actual_value"`          // Employee-entered actual value
+    ManagerActualValue  *string `json:"manager_actual_value"`           // Manager-entered actual value
+	Rating           *float64   `json:"rating"`                         // Manager's rating (1-5 scale)
+	Comments         *string    `json:"comments"`                       // Manager's evaluation comments
+	EvaluatedBy      *uint      `json:"evaluated_by" gorm:"index"`      // User who evaluated (manager/HR)
+	EvaluatedAt      *time.Time `json:"evaluated_at"`                   // When evaluation was completed
+	EmployeeComments *string    `json:"employee_comments"`              // Employee's self-assessment comments
+	EmployeeRating   *float64   `json:"employee_rating"`                // Employee's self-rating (1-5 scale)
+	EmployeeRatedAt  *time.Time `json:"employee_rated_at"`              // When employee self-rated
+	EmployeeRatedBy  *uint      `json:"employee_rated_by" gorm:"index"` // Employee who self-rated
+
+	// Visibility controls
+	ManagerFeedbackVisible *bool `json:"manager_feedback_visible" gorm:"default:false"` // Whether manager feedback is visible to employee
+
 	// Relationships
-	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
-	SetByUser    User         `json:"set_by_user,omitempty" gorm:"foreignKey:SetBy"`
-	Evaluator    *User        `json:"evaluator,omitempty" gorm:"foreignKey:EvaluatedBy"`
+	User          User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Organization  Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+	SetByUser     User         `json:"set_by_user,omitempty" gorm:"foreignKey:SetBy"`
+	Evaluator     *User        `json:"evaluator,omitempty" gorm:"foreignKey:EvaluatedBy"`
+	EmployeeRater *User        `json:"employee_rater,omitempty" gorm:"foreignKey:EmployeeRatedBy"`
 }
 
 // AuditLog represents audit trail logs for tracking changes

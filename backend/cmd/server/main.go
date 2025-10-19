@@ -442,10 +442,12 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			kras.PUT("/:id", handlers.KRA.UpdateKRA)
 			kras.DELETE("/:id", handlers.KRA.DeleteKRA)
 			kras.POST("/:id/evaluate", handlers.KRA.EvaluateKRA)
+			kras.POST("/:id/self-assess", handlers.KRA.SelfAssessKRA)
 			kras.GET("/user/:user_id", handlers.KRA.GetUserKRAs)
 			kras.GET("/user/:user_id/all", handlers.KRA.GetAllUserKRAs)
 			kras.GET("/user/:user_id/summary", handlers.KRA.GetKRASummary)
 			kras.GET("/team", handlers.KRA.GetTeamKRAs)
+			kras.GET("/reportees", handlers.KRA.GetReporteesKRAs)
 		}
 
 		// Private document routes (for salary slips page)

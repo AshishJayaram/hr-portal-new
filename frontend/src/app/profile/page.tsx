@@ -64,7 +64,7 @@ export default function ProfilePage() {
           </div>
           <div>
             <div className="text-xl font-semibold">{user?.name || 'User'}</div>
-            <div className="text-sm text-gray-400">{user?.email || 'user@example.com'}</div>
+            <div className="text-sm text-gray-400">{user?.email || 'No email available'}</div>
           </div>
         </div>
         <div className="grid md:grid-cols-2 gap-4">

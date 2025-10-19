@@ -68,3 +68,5 @@ echo ""
 echo "📚 For more details, see EMAIL_NOTIFICATIONS_SETUP.md"
 echo ""
 echo "Setup complete! Edit your .env file with your email credentials."
+
+

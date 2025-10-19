@@ -310,7 +310,7 @@ export const getUser = (id: string) =>
     const u = raw?.data ?? raw ?? {};
     const mapped: User = {
       id: String(u.id ?? id),
-      email: u.email ?? u.username ?? 'user@example.com',
+      email: u.email ?? u.username ?? 'No email available',
       name: u.name ?? u.username ?? 'User',
       role: toCanonicalRole(u.role) as Role,
       department: u.department,
@@ -1485,15 +1485,22 @@ export interface KRA {
   status: 'draft' | 'active' | 'completed' | 'cancelled';
   set_by: number;
   set_at: string;
-  actual_value?: string;
+  actual_value?: string; // deprecated
+  employee_actual_value?: string;
+  manager_actual_value?: string;
   rating?: number;
   comments?: string;
   evaluated_by?: number;
   evaluated_at?: string;
   employee_comments?: string;
+  employee_rating?: number;
+  employee_rated_at?: string;
+  employee_rated_by?: number;
   user?: User;
   set_by_user?: User;
   evaluator?: User;
+  employee_rater?: User;
+  manager_feedback_visible?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -1521,6 +1528,12 @@ export interface EvaluateKRARequest {
   actual_value: string;
   rating: number;
   comments?: string;
+  manager_feedback_visible?: boolean;
+}
+
+export interface SelfAssessKRARequest {
+  actual_value: string;
+  employee_rating: number;
   employee_comments?: string;
 }
 
@@ -1573,6 +1586,19 @@ export const evaluateKRA = (id: string, data: EvaluateKRARequest) =>
     method: 'POST',
     body: JSON.stringify(data),
   });
+
+export const selfAssessKRA = (id: string, data: SelfAssessKRARequest) =>
+  fetcher<any>(`/kras/${id}/self-assess`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const getReporteesKRAs = (year: number) =>
+  fetcher<any>(`/kras/reportees?year=${year}`)
+    .then((raw) => {
+      const items = raw?.data || [];
+      return { data: items } as ApiResponse<KRA[]>;
+    });
 
 export const getUserKRAs = (userId: string, year: number) =>
   fetcher<any>(`/kras/user/${userId}?year=${year}`)

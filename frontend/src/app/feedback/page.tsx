@@ -21,7 +21,7 @@ import {
   XCircle,
   AlertTriangle
 } from "lucide-react";
-import { getCurrentUser, createFeedback } from "@/lib/api";
+import { getCurrentUser, createFeedback, getFeedback, getFeedbackStats } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 
 interface Feedback {
@@ -49,54 +49,15 @@ export default function FeedbackPage() {
 
   const queryClient = useQueryClient();
 
-  // Mock data - replace with actual API calls
   const { data: feedback, isLoading } = useQuery({
     queryKey: ["feedback", statusFilter, typeFilter],
     queryFn: async () => {
-      // Mock data
-      return {
-        data: [
-          {
-            id: "1",
-            title: "Login page not loading on mobile",
-            description: "The login page fails to load properly on mobile devices, showing a blank screen.",
-            type: "bug",
-            priority: "high",
-            status: "open",
-            created_at: "2024-01-15T10:30:00Z",
-            user: {
-              name: "John Doe",
-              email: "john@example.com"
-            }
-          },
-          {
-            id: "2",
-            title: "Add dark mode toggle",
-            description: "It would be great to have a dark mode toggle for better user experience.",
-            type: "feature",
-            priority: "medium",
-            status: "in_progress",
-            created_at: "2024-01-10T14:20:00Z",
-            user: {
-              name: "Jane Smith",
-              email: "jane@example.com"
-            }
-          },
-          {
-            id: "3",
-            title: "Improve dashboard loading speed",
-            description: "The dashboard takes too long to load. Can we optimize the queries?",
-            type: "improvement",
-            priority: "medium",
-            status: "resolved",
-            created_at: "2024-01-05T09:15:00Z",
-            user: {
-              name: "Mike Johnson",
-              email: "mike@example.com"
-            }
-          }
-        ]
-      };
+      const res = await getFeedback();
+      // Optionally filter client-side until server supports filters
+      let items = res?.data || [];
+      if (statusFilter) items = items.filter((i: any) => i.status === statusFilter);
+      if (typeFilter) items = items.filter((i: any) => i.type === typeFilter);
+      return { data: items };
     }
   });
 

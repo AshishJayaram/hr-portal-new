@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"hr-portal-backend/internal/models"
+
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
@@ -20,6 +21,7 @@ type KRARepository interface {
 	Delete(id string) error
 	List(organizationID string, filters map[string]interface{}) ([]models.KRA, error)
 	GetTeamKRAs(managerID, organizationID string, year int) ([]models.KRA, error)
+	GetReporteesKRAs(managerID, organizationID string, year int) ([]models.KRA, error)
 }
 
 type kraRepository struct {
@@ -53,12 +55,12 @@ func (r *kraRepository) GetByID(id string) (*models.KRA, error) {
 // GetByUserAndYear retrieves KRAs for a specific user and year
 func (r *kraRepository) GetByUserAndYear(userID, organizationID string, year int) ([]models.KRA, error) {
 	var kras []models.KRA
-	
+
 	userIDUint, err := strconv.ParseUint(userID, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
-	
+
 	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
@@ -75,12 +77,12 @@ func (r *kraRepository) GetByUserAndYear(userID, organizationID string, year int
 // GetByUser retrieves all KRAs for a specific user
 func (r *kraRepository) GetByUser(userID, organizationID string) ([]models.KRA, error) {
 	var kras []models.KRA
-	
+
 	userIDUint, err := strconv.ParseUint(userID, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
-	
+
 	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
@@ -97,12 +99,12 @@ func (r *kraRepository) GetByUser(userID, organizationID string) ([]models.KRA, 
 // GetByManager retrieves KRAs for all users managed by a specific manager
 func (r *kraRepository) GetByManager(managerID, organizationID string, year int) ([]models.KRA, error) {
 	var kras []models.KRA
-	
+
 	managerIDUint, err := strconv.ParseUint(managerID, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid manager ID: %w", err)
 	}
-	
+
 	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
@@ -129,6 +131,40 @@ func (r *kraRepository) GetByManager(managerID, organizationID string, year int)
 // GetTeamKRAs retrieves KRAs for all team members (direct and indirect reports)
 func (r *kraRepository) GetTeamKRAs(managerID, organizationID string, year int) ([]models.KRA, error) {
 	return r.GetByManager(managerID, organizationID, year)
+}
+
+// GetReporteesKRAs retrieves KRAs for all direct reportees of a manager
+func (r *kraRepository) GetReporteesKRAs(managerID, organizationID string, year int) ([]models.KRA, error) {
+	var kras []models.KRA
+
+	managerIDUint, err := strconv.ParseUint(managerID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid manager ID: %w", err)
+	}
+
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Get only direct subordinate user IDs (not recursive)
+	var subordinateIDs []uint
+	if err := r.db.Model(&models.User{}).
+		Where("manager_id = ? AND organization_id = ?", uint(managerIDUint), uint(orgIDUint)).
+		Pluck("id", &subordinateIDs).Error; err != nil {
+		return nil, fmt.Errorf("failed to get subordinate IDs: %w", err)
+	}
+
+	if len(subordinateIDs) == 0 {
+		return kras, nil // No direct subordinates
+	}
+
+	if err := r.db.Preload("User").Preload("SetByUser").Preload("Evaluator").Preload("EmployeeRater").
+		Where("user_id IN ? AND organization_id = ? AND year = ?", subordinateIDs, uint(orgIDUint), year).
+		Order("user_id, created_at DESC").Find(&kras).Error; err != nil {
+		return nil, fmt.Errorf("failed to get reportees KRAs: %w", err)
+	}
+	return kras, nil
 }
 
 // Update updates an existing KRA
