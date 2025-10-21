@@ -898,13 +898,6 @@ function KRACard({
             </Button>
           )}
           
-          {/* Debug info for Herbert Raj issue */}
-          {process.env.NODE_ENV === 'development' && isDirectReportee && (
-            <div className="text-xs text-gray-500">
-              Debug: kra.user_id={kra.user_id}, currentUserId={currentUserId}, kra.rating={kra.rating}, shouldShowButton={!kra.rating}
-            </div>
-          )}
-          
           {/* HR/Admin Assessment Button - For HR/Admin evaluating any KRA */}
           {(userRole === 'HR' || userRole === 'Admin' || userRole === 'God') && Number(kra.user_id) !== Number(currentUserId) && !isDirectReportee && (
             <Button
@@ -2304,25 +2297,7 @@ function ReporteesKRASection({
   // Filter to only direct reportees and exclude current user's own KRAs (frontend safeguard)
   const directReporteesKRAs = (reporteesKRAs || []).filter((kra) => {
     const managerIdOfOwner = kra.user?.manager_id;
-    const isDirectReportee = Number(managerIdOfOwner) === Number(userId);
-    const isNotOwnKRA = Number(kra.user_id) !== Number(userId);
-    
-    // Debug logging for Herbert Raj issue
-    if (process.env.NODE_ENV === 'development') {
-      console.log('ReporteesKRASection Filter Debug:', {
-        kraId: kra.id,
-        kraUserId: kra.user_id,
-        kraUserName: kra.user?.name,
-        kraUserManagerId: managerIdOfOwner,
-        currentUserId: userId,
-        currentUserName: user?.name,
-        isDirectReportee,
-        isNotOwnKRA,
-        willInclude: isDirectReportee && isNotOwnKRA
-      });
-    }
-    
-    return isDirectReportee && isNotOwnKRA;
+    return Number(managerIdOfOwner) === Number(userId) && Number(kra.user_id) !== Number(userId);
   });
 
   // Group KRAs by user

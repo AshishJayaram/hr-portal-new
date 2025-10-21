@@ -155,10 +155,6 @@ func (r *kraRepository) GetReporteesKRAs(managerID, organizationID string, year 
 		return nil, fmt.Errorf("failed to get subordinate IDs: %w", err)
 	}
 
-	// Debug logging for Herbert Raj issue
-	fmt.Printf("DEBUG: Manager ID %d (org %d) has %d direct subordinates: %v\n", 
-		uint(managerIDUint), uint(orgIDUint), len(subordinateIDs), subordinateIDs)
-
 	if len(subordinateIDs) == 0 {
 		return kras, nil // No direct subordinates
 	}
