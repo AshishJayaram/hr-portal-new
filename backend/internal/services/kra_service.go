@@ -69,7 +69,7 @@ type SelfAssessKRARequest struct {
 	ActualValue      string  `json:"actual_value" binding:"required"`
 	EmployeeRating   float64 `json:"employee_rating" binding:"required,min=1,max=5"`
 	EmployeeComments string  `json:"employee_comments"`
-	EmployeeRatedBy  string  `json:"employee_rated_by"`
+	EmployeeRatedBy  string  `json:"employee_rated_by"` // Removed binding:"required"
 }
 
 // KRASummary represents a summary of KRA performance for a user
