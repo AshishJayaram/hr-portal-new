@@ -699,45 +699,129 @@ function KRACard({
             )}
           </div>
         )}
-        {/* Final score + contributors */}
+        {/* Assessment Display - Role-based visibility */}
         {(() => {
-          const canSeeManager = (userRole === 'HR' || userRole === 'Admin' || userRole === 'God' || (isDirectReportee && kra.manager_feedback_visible));
-          const employeeScore = kra.employee_rating ?? null;
-          const managerScore = canSeeManager && kra.rating ? kra.rating : null;
-          const finalScore = managerScore ?? employeeScore ?? null;
-          const contributors: string[] = [];
-          if (managerScore != null) contributors.push('Manager');
-          if (employeeScore != null) contributors.push('Employee');
-          return finalScore != null ? (
-            <div className="text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Score:</span>
-                <span className={`font-medium ${getRatingColor(finalScore)}`}>{finalScore}/5</span>
+          const isKraOwner = Number(kra.user_id) === Number(currentUserId);
+          const isManagerViewingReportee = isDirectReportee && !isKraOwner;
+          const isHrAdminGod = userRole === 'HR' || userRole === 'Admin' || userRole === 'God';
+          
+          // Employee can see their own assessment + manager feedback (if visible)
+          if (isKraOwner) {
+            return (
+              <div className="space-y-3">
+                {/* Employee's own assessment */}
+                {kra.employee_rating && (
+                  <div className="text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Your Assessment:</span>
+                      <span className={`font-medium ${getRatingColor(kra.employee_rating)}`}>
+                        {kra.employee_rating}/5
+                      </span>
+                    </div>
+                    {kra.employee_comments && (
+                      <p className="text-gray-900 dark:text-white mt-1 text-xs">{kra.employee_comments}</p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Manager feedback (only if visible) */}
+                {kra.manager_feedback_visible && kra.rating && (
+                  <div className="text-sm border-l-2 border-blue-200 dark:border-blue-700 pl-3">
+                    <div className="flex justify-between">
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">Manager Feedback:</span>
+                      <span className={`font-medium ${getRatingColor(kra.rating)}`}>
+                        {kra.rating}/5
+                      </span>
+                    </div>
+                    {kra.comments && (
+                      <p className="text-gray-900 dark:text-white mt-1 text-xs">{kra.comments}</p>
+                    )}
+                  </div>
+                )}
               </div>
-              {contributors.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {contributors.map((c, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                      {c}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null;
+            );
+          }
+          
+          // Manager can see reportee's assessment + their own assessment
+          if (isManagerViewingReportee) {
+            return (
+              <div className="space-y-3">
+                {/* Reportee's assessment */}
+                {kra.employee_rating && (
+                  <div className="text-sm border-l-2 border-green-200 dark:border-green-700 pl-3">
+                    <div className="flex justify-between">
+                      <span className="text-green-600 dark:text-green-400 font-medium">Reportee Assessment:</span>
+                      <span className={`font-medium ${getRatingColor(kra.employee_rating)}`}>
+                        {kra.employee_rating}/5
+                      </span>
+                    </div>
+                    {kra.employee_comments && (
+                      <p className="text-gray-900 dark:text-white mt-1 text-xs">{kra.employee_comments}</p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Manager's own assessment */}
+                {kra.rating && (
+                  <div className="text-sm border-l-2 border-blue-200 dark:border-blue-700 pl-3">
+                    <div className="flex justify-between">
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">Your Assessment:</span>
+                      <span className={`font-medium ${getRatingColor(kra.rating)}`}>
+                        {kra.rating}/5
+                      </span>
+                    </div>
+                    {kra.comments && (
+                      <p className="text-gray-900 dark:text-white mt-1 text-xs">{kra.comments}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          }
+          
+          // HR/Admin/God can see everything
+          if (isHrAdminGod) {
+            return (
+              <div className="space-y-3">
+                {/* Employee assessment */}
+                {kra.employee_rating && (
+                  <div className="text-sm border-l-2 border-green-200 dark:border-green-700 pl-3">
+                    <div className="flex justify-between">
+                      <span className="text-green-600 dark:text-green-400 font-medium">Employee Assessment:</span>
+                      <span className={`font-medium ${getRatingColor(kra.employee_rating)}`}>
+                        {kra.employee_rating}/5
+                      </span>
+                    </div>
+                    {kra.employee_comments && (
+                      <p className="text-gray-900 dark:text-white mt-1 text-xs">{kra.employee_comments}</p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Manager assessment */}
+                {kra.rating && (
+                  <div className="text-sm border-l-2 border-blue-200 dark:border-blue-700 pl-3">
+                    <div className="flex justify-between">
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">Manager Assessment:</span>
+                      <span className={`font-medium ${getRatingColor(kra.rating)}`}>
+                        {kra.rating}/5
+                      </span>
+                    </div>
+                    {kra.comments && (
+                      <p className="text-gray-900 dark:text-white mt-1 text-xs">{kra.comments}</p>
+                    )}
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Visibility: {kra.manager_feedback_visible ? 'Visible to employee' : 'Hidden from employee'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+          
+          // Default case - no assessments visible
+          return null;
         })()}
-        {kra.employee_comments && (
-          <div className="text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Employee Assessment:</span>
-            <p className="text-gray-900 dark:text-white mt-1">{kra.employee_comments}</p>
-          </div>
-        )}
-        {kra.comments && (userRole === 'HR' || userRole === 'Admin' || userRole === 'God' || (isDirectReportee && kra.manager_feedback_visible)) && (
-          <div className="text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Manager Comments:</span>
-            <p className="text-gray-900 dark:text-white mt-1">{kra.comments}</p>
-          </div>
-        )}
       </div>
 
       <div className="flex items-center justify-between">
@@ -745,19 +829,36 @@ function KRACard({
           Created: {new Date(kra.created_at).toLocaleDateString()}
         </div>
         <div className="flex flex-wrap gap-1">
-          {Number(kra.user_id) !== Number(currentUserId) && (userRole === 'Admin' || userRole === 'God' || userRole === 'HR' || isDirectReportee) && (
+          {/* Manager Assessment Button - Only for managers evaluating their reportees */}
+          {isDirectReportee && Number(kra.user_id) !== Number(currentUserId) && (
             <Button
               size="sm"
               variant="outline"
               onClick={onEvaluate}
-              title="Evaluate this KRA"
+              title="Evaluate your reportee's KRA"
+              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap text-xs px-2 py-1 order-first"
+            >
+              <Star className="w-3 h-3 mr-1" />
+              Manager Assess
+            </Button>
+          )}
+          
+          {/* HR/Admin Assessment Button - For HR/Admin evaluating any KRA */}
+          {(userRole === 'HR' || userRole === 'Admin' || userRole === 'God') && Number(kra.user_id) !== Number(currentUserId) && !isDirectReportee && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onEvaluate}
+              title="Evaluate this KRA as HR/Admin"
               className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 whitespace-nowrap text-xs px-2 py-1 order-first"
             >
               <Star className="w-3 h-3 mr-1" />
-              Assess
+              HR Assess
             </Button>
           )}
-          {!kra.employee_rating && Number(kra.user_id) === Number(currentUserId) && !isDirectReportee && (
+          
+          {/* Employee Self-Assessment Button - Only for KRA owners */}
+          {Number(kra.user_id) === Number(currentUserId) && !kra.employee_rating && (
             <Button
               size="sm"
               variant="outline"
@@ -766,7 +867,7 @@ function KRACard({
               className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 whitespace-nowrap text-xs px-2 py-1"
             >
               <Star className="w-3 h-3 mr-1" />
-              Assess
+              Self Assess
             </Button>
           )}
           <Button
@@ -1564,27 +1665,38 @@ function EvaluateKRAModal({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Employee side (read-only for manager) */}
-            <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-              <h4 className="font-medium text-gray-900 dark:text-white mb-3">Employee</h4>
+            <div className="p-4 rounded-lg border-l-4 border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20">
+              <div className="flex items-center mb-3">
+                <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                <h4 className="font-medium text-green-800 dark:text-green-300">Employee Assessment</h4>
+              </div>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Actual Value</label>
-                  <Input type="text" value={employeeSide.actual_value} disabled />
+                  <label className="block text-sm font-medium text-green-700 dark:text-green-400 mb-2">Actual Value</label>
+                  <Input type="text" value={employeeSide.actual_value || 'Not provided'} disabled className="bg-green-100 dark:bg-green-800/50" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Employee Rating</label>
-                  <Input type="text" value={employeeSide.rating || ''} disabled />
+                  <label className="block text-sm font-medium text-green-700 dark:text-green-400 mb-2">Employee Rating</label>
+                  <Input type="text" value={employeeSide.rating ? `${employeeSide.rating}/5` : 'Not rated'} disabled className="bg-green-100 dark:bg-green-800/50" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Employee Comments</label>
-                  <textarea value={employeeSide.comments} disabled className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-800" rows={4} />
+                  <label className="block text-sm font-medium text-green-700 dark:text-green-400 mb-2">Employee Comments</label>
+                  <textarea 
+                    value={employeeSide.comments || 'No comments provided'} 
+                    disabled 
+                    className="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-md bg-green-100 dark:bg-green-800/50 text-green-800 dark:text-green-300" 
+                    rows={4} 
+                  />
                 </div>
               </div>
             </div>
 
             {/* Manager side (editable for manager) */}
-            <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-              <h4 className="font-medium text-gray-900 dark:text-white mb-3">Manager</h4>
+            <div className="p-4 rounded-lg border-l-4 border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20">
+              <div className="flex items-center mb-3">
+                <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                <h4 className="font-medium text-blue-800 dark:text-blue-300">Manager Assessment</h4>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Actual Value *</label>
@@ -1677,9 +1789,12 @@ function SelfAssessKRAModal({
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Assess KRA: {kra.title}
-            </h2>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-purple-500 rounded-full mr-3"></div>
+              <h2 className="text-xl font-semibold text-purple-800 dark:text-purple-300">
+                Self Assessment: {kra.title}
+              </h2>
+            </div>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
