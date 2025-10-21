@@ -107,10 +107,10 @@ type BulkSelfAssessKRAsRequest struct {
 }
 
 type BulkSelfAssessKRAItem struct {
-	KRAID             string  `json:"kra_id" binding:"required"`
-	EmployeeActualValue string `json:"employee_actual_value" binding:"required"`
-	EmployeeRating     float64 `json:"employee_rating" binding:"required,min=1,max=5"`
-	EmployeeComments   string  `json:"employee_comments"`
+	KRAID               string  `json:"kra_id" binding:"required"`
+	EmployeeActualValue string  `json:"employee_actual_value" binding:"required"`
+	EmployeeRating      float64 `json:"employee_rating" binding:"required,min=1,max=5"`
+	EmployeeComments    string  `json:"employee_comments"`
 }
 
 // BulkAssessmentResponse represents the response for bulk assessment operations
@@ -121,7 +121,7 @@ type BulkAssessmentResponse struct {
 }
 
 type BulkAssessmentResult struct {
-	KRAID  string `json:"kra_id"`
+	KRAID   string `json:"kra_id"`
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
 }
