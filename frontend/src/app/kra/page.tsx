@@ -830,7 +830,7 @@ function KRACard({
         </div>
         <div className="flex flex-wrap gap-1">
           {/* Manager Assessment Button - Only for managers evaluating their reportees */}
-          {isDirectReportee && Number(kra.user_id) !== Number(currentUserId) && (
+          {isDirectReportee && Number(kra.user_id) !== Number(currentUserId) && !kra.rating && (
             <Button
               size="sm"
               variant="outline"
@@ -841,13 +841,6 @@ function KRACard({
               <Star className="w-3 h-3 mr-1" />
               Manager Assess
             </Button>
-          )}
-          
-          {/* Debug info - remove after testing */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="text-xs text-gray-500">
-              Debug: isDirectReportee={String(isDirectReportee)}, kra.user_id={kra.user_id}, currentUserId={currentUserId}, kra.user?.manager_id={kra.user?.manager_id}
-            </div>
           )}
           
           {/* HR/Admin Assessment Button - For HR/Admin evaluating any KRA */}
@@ -2220,23 +2213,7 @@ function ReporteesKRASection({
   // Filter to only direct reportees and exclude current user's own KRAs (frontend safeguard)
   const directReporteesKRAs = (reporteesKRAs || []).filter((kra) => {
     const managerIdOfOwner = kra.user?.manager_id;
-    const isDirectReportee = Number(managerIdOfOwner) === Number(userId);
-    const isNotOwnKRA = Number(kra.user_id) !== Number(userId);
-    
-    // Debug logging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('KRA Filter Debug:', {
-        kraId: kra.id,
-        kraUserId: kra.user_id,
-        currentUserId: userId,
-        kraUserManagerId: managerIdOfOwner,
-        isDirectReportee,
-        isNotOwnKRA,
-        willInclude: isDirectReportee && isNotOwnKRA
-      });
-    }
-    
-    return isDirectReportee && isNotOwnKRA;
+    return Number(managerIdOfOwner) === Number(userId) && Number(kra.user_id) !== Number(userId);
   });
 
   // Group KRAs by user
