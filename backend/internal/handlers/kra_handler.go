@@ -425,3 +425,55 @@ func (h *KRAHandler) GetKRASummary(c *gin.Context) {
 		"data": summary,
 	})
 }
+
+// BulkEvaluateKRAs handles POST /api/kras/bulk-evaluate
+func (h *KRAHandler) BulkEvaluateKRAs(c *gin.Context) {
+	var req services.BulkEvaluateKRAsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request body",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	response, err := h.kraService.BulkEvaluateKRAs(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to evaluate KRAs",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Bulk evaluation completed",
+		"data":    response,
+	})
+}
+
+// BulkSelfAssessKRAs handles POST /api/kras/bulk-self-assess
+func (h *KRAHandler) BulkSelfAssessKRAs(c *gin.Context) {
+	var req services.BulkSelfAssessKRAsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request body",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	response, err := h.kraService.BulkSelfAssessKRAs(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to self-assess KRAs",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Bulk self-assessment completed",
+		"data":    response,
+	})
+}

@@ -13,6 +13,7 @@ const baseLinks = [
   { href: "/leaves", label: "Leaves", icon: "🌴" },
   { href: "/reimbursements", label: "Reimbursements", icon: "💳" },
   { href: "/kra", label: "KRAs & Goals", icon: "🎯" },
+  { href: "/assessment", label: "Assessment", icon: "📝" },
 ];
 
 const hrAdminLinks = [

@@ -1625,6 +1625,44 @@ export const getKRASummary = (userId: string, year: number) =>
   fetcher<any>(`/kras/user/${userId}/summary?year=${year}`)
     .then((raw) => raw?.data as KRASummary);
 
+// Bulk Assessment API Functions
+export interface BulkEvaluateKRAItem {
+  kra_id: string;
+  manager_actual_value: string;
+  rating: number;
+  comments?: string;
+  manager_feedback_visible?: boolean;
+}
+
+export interface BulkSelfAssessKRAItem {
+  kra_id: string;
+  employee_actual_value: string;
+  employee_rating: number;
+  employee_comments?: string;
+}
+
+export interface BulkAssessmentResponse {
+  success_count: number;
+  error_count: number;
+  results: Array<{
+    kra_id: string;
+    success: boolean;
+    error?: string;
+  }>;
+}
+
+export const bulkEvaluateKRAs = (assessments: BulkEvaluateKRAItem[]) =>
+  fetcher<any>('/kras/bulk-evaluate', {
+    method: 'POST',
+    body: JSON.stringify({ assessments }),
+  }).then((raw) => raw?.data as BulkAssessmentResponse);
+
+export const bulkSelfAssessKRAs = (assessments: BulkSelfAssessKRAItem[]) =>
+  fetcher<any>('/kras/bulk-self-assess', {
+    method: 'POST',
+    body: JSON.stringify({ assessments }),
+  }).then((raw) => raw?.data as BulkAssessmentResponse);
+
 // -------------------- KRA Settings --------------------
 export interface KRASettings {
   default_fields: KRAField[];
@@ -1682,11 +1720,11 @@ export interface KRANotifications {
 
 // KRA Settings API functions
 export const getKRASettings = () =>
-  fetcher<any>('/settings/kra')
+  fetcher<any>('/company/settings/kra')
     .then((raw) => raw?.data as KRASettings);
 
 export const updateKRASettings = (settings: KRASettings) =>
-  fetcher<any>('/settings/kra', {
+  fetcher<any>('/company/settings/kra', {
     method: 'PATCH',
     body: JSON.stringify(settings),
   });

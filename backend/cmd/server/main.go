@@ -443,6 +443,8 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			kras.DELETE("/:id", handlers.KRA.DeleteKRA)
 			kras.POST("/:id/evaluate", handlers.KRA.EvaluateKRA)
 			kras.POST("/:id/self-assess", handlers.KRA.SelfAssessKRA)
+			kras.POST("/bulk-evaluate", handlers.KRA.BulkEvaluateKRAs)
+			kras.POST("/bulk-self-assess", handlers.KRA.BulkSelfAssessKRAs)
 			kras.GET("/user/:user_id", handlers.KRA.GetUserKRAs)
 			kras.GET("/user/:user_id/all", handlers.KRA.GetAllUserKRAs)
 			kras.GET("/user/:user_id/summary", handlers.KRA.GetKRASummary)

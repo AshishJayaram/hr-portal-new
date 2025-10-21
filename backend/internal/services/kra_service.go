@@ -20,6 +20,8 @@ type KRAService interface {
 	UpdateKRA(id string, req UpdateKRARequest) (*models.KRA, error)
 	EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA, error)
 	SelfAssessKRA(id string, req SelfAssessKRARequest) (*models.KRA, error)
+	BulkEvaluateKRAs(req BulkEvaluateKRAsRequest) (*BulkAssessmentResponse, error)
+	BulkSelfAssessKRAs(req BulkSelfAssessKRAsRequest) (*BulkAssessmentResponse, error)
 	DeleteKRA(id string) error
 	ListKRAs(organizationID string, filters map[string]interface{}) ([]models.KRA, error)
 	GetKRASummary(userID, organizationID string, year int) (*KRASummary, error)
@@ -84,6 +86,44 @@ type KRASummary struct {
 	WeightedScore float64      `json:"weighted_score"`
 	OverallRating string       `json:"overall_rating"`
 	KRAs          []models.KRA `json:"kras"`
+}
+
+// BulkEvaluateKRAsRequest represents a request to evaluate multiple KRAs
+type BulkEvaluateKRAsRequest struct {
+	Assessments []BulkEvaluateKRAItem `json:"assessments" binding:"required"`
+}
+
+type BulkEvaluateKRAItem struct {
+	KRAID                  string  `json:"kra_id" binding:"required"`
+	ManagerActualValue     string  `json:"manager_actual_value" binding:"required"`
+	Rating                 float64 `json:"rating" binding:"required,min=1,max=5"`
+	Comments               string  `json:"comments"`
+	ManagerFeedbackVisible *bool   `json:"manager_feedback_visible"`
+}
+
+// BulkSelfAssessKRAsRequest represents a request to self-assess multiple KRAs
+type BulkSelfAssessKRAsRequest struct {
+	Assessments []BulkSelfAssessKRAItem `json:"assessments" binding:"required"`
+}
+
+type BulkSelfAssessKRAItem struct {
+	KRAID             string  `json:"kra_id" binding:"required"`
+	EmployeeActualValue string `json:"employee_actual_value" binding:"required"`
+	EmployeeRating     float64 `json:"employee_rating" binding:"required,min=1,max=5"`
+	EmployeeComments   string  `json:"employee_comments"`
+}
+
+// BulkAssessmentResponse represents the response for bulk assessment operations
+type BulkAssessmentResponse struct {
+	SuccessCount int                    `json:"success_count"`
+	ErrorCount   int                    `json:"error_count"`
+	Results      []BulkAssessmentResult `json:"results"`
+}
+
+type BulkAssessmentResult struct {
+	KRAID  string `json:"kra_id"`
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
 }
 
 func NewKRAService(kraRepo repositories.KRARepository, userRepo repositories.UserRepository, auditService AuditService, notificationService NotificationService) KRAService {
@@ -275,8 +315,8 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 		return nil, fmt.Errorf("invalid evaluator ID: %w", err)
 	}
 
-    // Update evaluation fields
-    kra.ManagerActualValue = &req.ActualValue
+	// Update evaluation fields
+	kra.ManagerActualValue = &req.ActualValue
 	kra.Rating = &req.Rating
 	kra.Comments = &req.Comments
 	evaluatedByUint32 := uint(evaluatedByUint)
@@ -304,7 +344,7 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 		EntityID:       kraIDStr,
 		ChangedBy:      req.EvaluatedBy,
 		ChangeSummary:  fmt.Sprintf("Evaluated KRA '%s' with rating %.1f", kra.Title, req.Rating),
-    NewValues:      fmt.Sprintf(`{"manager_actual_value":"%s","rating":%.1f,"status":"completed"}`, req.ActualValue, req.Rating),
+		NewValues:      fmt.Sprintf(`{"manager_actual_value":"%s","rating":%.1f,"status":"completed"}`, req.ActualValue, req.Rating),
 	}
 
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
@@ -333,8 +373,8 @@ func (s *kraService) SelfAssessKRA(id string, req SelfAssessKRARequest) (*models
 		return nil, fmt.Errorf("invalid employee ID: %w", err)
 	}
 
-    // Update self-assessment fields
-    kra.EmployeeActualValue = &req.ActualValue
+	// Update self-assessment fields
+	kra.EmployeeActualValue = &req.ActualValue
 	kra.EmployeeRating = &req.EmployeeRating
 	kra.EmployeeComments = &req.EmployeeComments
 	employeeRatedByUint32 := uint(employeeRatedByUint)
@@ -356,7 +396,7 @@ func (s *kraService) SelfAssessKRA(id string, req SelfAssessKRARequest) (*models
 		EntityID:       kraIDStr,
 		ChangedBy:      req.EmployeeRatedBy,
 		ChangeSummary:  fmt.Sprintf("Self-assessed KRA '%s' with rating %.1f", kra.Title, req.EmployeeRating),
-    NewValues:      fmt.Sprintf(`{"employee_actual_value":"%s","employee_rating":%.1f}`, req.ActualValue, req.EmployeeRating),
+		NewValues:      fmt.Sprintf(`{"employee_actual_value":"%s","employee_rating":%.1f}`, req.ActualValue, req.EmployeeRating),
 	}
 
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
@@ -489,4 +529,75 @@ func (s *kraService) GetKRASummary(userID, organizationID string, year int) (*KR
 		OverallRating: overallRating,
 		KRAs:          kras,
 	}, nil
+}
+
+// BulkEvaluateKRAs evaluates multiple KRAs in a single operation
+func (s *kraService) BulkEvaluateKRAs(req BulkEvaluateKRAsRequest) (*BulkAssessmentResponse, error) {
+	response := &BulkAssessmentResponse{
+		Results: make([]BulkAssessmentResult, len(req.Assessments)),
+	}
+
+	for i, assessment := range req.Assessments {
+		result := BulkAssessmentResult{
+			KRAID: assessment.KRAID,
+		}
+
+		// Convert to individual EvaluateKRARequest
+		evaluateReq := EvaluateKRARequest{
+			ActualValue:            assessment.ManagerActualValue,
+			Rating:                 assessment.Rating,
+			Comments:               assessment.Comments,
+			ManagerFeedbackVisible: assessment.ManagerFeedbackVisible,
+		}
+
+		// Call the existing EvaluateKRA method
+		_, err := s.EvaluateKRA(assessment.KRAID, evaluateReq)
+		if err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			response.ErrorCount++
+		} else {
+			result.Success = true
+			response.SuccessCount++
+		}
+
+		response.Results[i] = result
+	}
+
+	return response, nil
+}
+
+// BulkSelfAssessKRAs self-assesses multiple KRAs in a single operation
+func (s *kraService) BulkSelfAssessKRAs(req BulkSelfAssessKRAsRequest) (*BulkAssessmentResponse, error) {
+	response := &BulkAssessmentResponse{
+		Results: make([]BulkAssessmentResult, len(req.Assessments)),
+	}
+
+	for i, assessment := range req.Assessments {
+		result := BulkAssessmentResult{
+			KRAID: assessment.KRAID,
+		}
+
+		// Convert to individual SelfAssessKRARequest
+		selfAssessReq := SelfAssessKRARequest{
+			ActualValue:      assessment.EmployeeActualValue,
+			EmployeeRating:   assessment.EmployeeRating,
+			EmployeeComments: assessment.EmployeeComments,
+		}
+
+		// Call the existing SelfAssessKRA method
+		_, err := s.SelfAssessKRA(assessment.KRAID, selfAssessReq)
+		if err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			response.ErrorCount++
+		} else {
+			result.Success = true
+			response.SuccessCount++
+		}
+
+		response.Results[i] = result
+	}
+
+	return response, nil
 }
