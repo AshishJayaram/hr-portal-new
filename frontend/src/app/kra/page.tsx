@@ -53,6 +53,8 @@ export default function KRAPage() {
 
   // Check if user can view team KRAs (HR, Admin, God only)
   const canViewTeamKRAs = userRole === "HR" || userRole === "Admin" || userRole === "God";
+  // Managers (and any employee) can view their own reportees' KRAs. Backend safely returns empty for non-managers.
+  const canViewReporteesKRAs = true;
 
   // Fetch users for manager selection
   const { data: usersData } = useQuery({
@@ -63,10 +65,12 @@ export default function KRAPage() {
     refetchOnWindowFocus: false,
   });
 
-  // Fetch KRA settings
+  // Fetch KRA settings (only for HR/Admin/God roles)
+  const canAccessKRASettings = userRole === 'HR' || userRole === 'Admin' || userRole === 'God';
   const { data: kraSettings } = useQuery({
     queryKey: ['kra-settings'],
     queryFn: () => getKRASettings(),
+    enabled: canAccessKRASettings, // Only fetch if user has permission
     staleTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
   });
@@ -93,7 +97,7 @@ export default function KRAPage() {
   const { data: reporteesKRAs, isLoading: loadingReporteesKRAs } = useQuery({
     queryKey: ['reportees-kras', selectedYear],
     queryFn: () => getReporteesKRAs(selectedYear),
-    enabled: Boolean(activeTab === 'reportees-kras' && canViewTeamKRAs),
+    enabled: Boolean(activeTab === 'reportees-kras' && canViewReporteesKRAs),
     staleTime: 0, // Force fresh data
     refetchOnWindowFocus: true,
   });
@@ -364,10 +368,8 @@ export default function KRAPage() {
       <Tabs
         tabs={[
           { id: 'my-kras', label: 'My KRAs', icon: '🎯' },
-          ...(canViewTeamKRAs ? [
-            { id: 'team-kras', label: 'Team KRAs', icon: '👥' },
-            { id: 'reportees-kras', label: 'Reportees KRAs', icon: '📊' }
-          ] : []),
+          ...(canViewTeamKRAs ? [ { id: 'team-kras', label: 'Team KRAs', icon: '👥' } ] : []),
+          ...(canViewReporteesKRAs ? [ { id: 'reportees-kras', label: 'Reportees KRAs', icon: '📊' } ] : []),
         ]}
         activeTab={activeTab}
         onTabChange={(tab) => setActiveTab(tab as 'my-kras' | 'team-kras' | 'reportees-kras')}
@@ -602,7 +604,7 @@ export default function KRAPage() {
         />
       )}
 
-      {activeTab === 'reportees-kras' && canViewTeamKRAs && (
+      {activeTab === 'reportees-kras' && canViewReporteesKRAs && (
         <ReporteesKRASection
           selectedYear={selectedYear}
           reporteesKRAs={reporteesKRAs?.data}
@@ -1805,11 +1807,25 @@ function TeamKRASection({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const getManagerName = (managerId?: number) => {
+    if (!managerId) return '';
+    const mgr = usersData?.find((u: any) => Number(u.id) === Number(managerId));
+    return mgr?.name || '';
+  };
+
   // Filter users based on search term
   const filteredUsers = usersData?.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
+  // Also fetch current user's own KRAs so their tile shows correct counts even if team API excludes self
+  const { data: ownKRAsForTiles } = useQuery({
+    queryKey: ['team-tiles-own-kras', userId, selectedYear],
+    queryFn: () => getUserKRAs(String(userId), selectedYear),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   // Paginate users
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
@@ -1821,7 +1837,19 @@ function TeamKRASection({
   const selectedUserData = usersData?.find(user => String(user.id) === selectedUser);
 
   // Calculate selected user's weightage for button state
-  const selectedUserKRAs = teamKRAs?.filter(kra => kra.user_id === Number(selectedUser)) || [];
+  // Fallback: if viewing own profile in Team KRAs, include own KRAs (not returned by /kras/team)
+  const { data: ownKRAsFallback } = useQuery({
+    queryKey: ['team-selected-user-kras', selectedUser, selectedYear],
+    queryFn: () => getUserKRAs(String(selectedUser), selectedYear),
+    enabled: Boolean(selectedUser && String(selectedUser) === String(userId)),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const selectedUserKRAsRaw = teamKRAs?.filter(kra => kra.user_id === Number(selectedUser)) || [];
+  const selectedUserKRAs = (selectedUserKRAsRaw.length > 0)
+    ? selectedUserKRAsRaw
+    : (String(selectedUser) === String(userId) ? (ownKRAsFallback?.data || []) : []);
   const totalWeightage = selectedUserKRAs.reduce((sum, kra) => sum + kra.weight, 0);
   const isSelectedUserWeightageFull = selectedUser ? totalWeightage >= 100 : false;
 
@@ -1866,7 +1894,9 @@ function TeamKRASection({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {paginatedUsers.map((user) => {
                 // Calculate total weightage for this user
-                const userKRAs = teamKRAs?.filter(kra => kra.user_id === Number(user.id)) || [];
+                const teamSideKRAs = teamKRAs?.filter(kra => kra.user_id === Number(user.id)) || [];
+                const isCurrentUser = Number(user.id) === Number(userId);
+                const userKRAs = isCurrentUser ? (ownKRAsForTiles?.data || teamSideKRAs) : teamSideKRAs;
                 const totalWeightage = userKRAs.reduce((sum, kra) => sum + kra.weight, 0);
                 
                 return (
@@ -1882,6 +1912,9 @@ function TeamKRASection({
                     <div className="font-medium text-gray-900 dark:text-white">{user.name}</div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">{user.email}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-500 capitalize">{user.role}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">
+                      Manager: {getManagerName(user.manager_id) || '—'}
+                    </div>
                     <div className="mt-2 flex items-center justify-between">
                       <span className="text-xs text-gray-500 dark:text-gray-500">
                         {userKRAs.length} KRA{userKRAs.length !== 1 ? 's' : ''}
