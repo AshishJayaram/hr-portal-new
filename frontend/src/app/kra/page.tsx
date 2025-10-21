@@ -843,6 +843,13 @@ function KRACard({
             </Button>
           )}
           
+          {/* Debug info - remove after testing */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-xs text-gray-500">
+              Debug: isDirectReportee={String(isDirectReportee)}, kra.user_id={kra.user_id}, currentUserId={currentUserId}
+            </div>
+          )}
+          
           {/* HR/Admin Assessment Button - For HR/Admin evaluating any KRA */}
           {(userRole === 'HR' || userRole === 'Admin' || userRole === 'God') && Number(kra.user_id) !== Number(currentUserId) && !isDirectReportee && (
             <Button
