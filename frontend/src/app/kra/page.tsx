@@ -857,8 +857,8 @@ function KRACard({
             </Button>
           )}
           
-          {/* Employee Self-Assessment Button - Only for KRA owners */}
-          {Number(kra.user_id) === Number(currentUserId) && !kra.employee_rating && (
+          {/* Employee Self-Assessment Button - Only for KRA owners in "My KRAs" context */}
+          {Number(kra.user_id) === Number(currentUserId) && !kra.employee_rating && !isDirectReportee && (
             <Button
               size="sm"
               variant="outline"
@@ -2283,9 +2283,9 @@ function ReporteesKRASection({
                       onEvaluate={() => onShowEvaluateModal(kra)}
                       onSelfAssess={() => onShowSelfAssessModal(kra)}
                       userRole={userRole}
-                      currentUserId={userId}
+                      currentUserId={userId} // Use the actual current user's ID (manager)
                       currentUserManagerId={user?.manager_id}
-                      isDirectReportee={Number(kra.user?.manager_id) === Number(userId)}
+                      isDirectReportee={true} // In ReporteesKRASection, all KRAs are from direct reportees
                     />
                   ))}
                 </div>
