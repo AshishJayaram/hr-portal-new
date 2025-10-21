@@ -936,7 +936,7 @@ function KRACard({
               className="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 whitespace-nowrap text-xs px-2 py-1"
             >
               <Edit className="w-3 h-3 mr-1" />
-              Edit Manager Assessment
+              Edit Assessment
             </Button>
           )}
           
@@ -950,7 +950,7 @@ function KRACard({
               className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 whitespace-nowrap text-xs px-2 py-1"
             >
               <Edit className="w-3 h-3 mr-1" />
-              Edit Self Assessment
+              Edit Assessment
             </Button>
           )}
           
