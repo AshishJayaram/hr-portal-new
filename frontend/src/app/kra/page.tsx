@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getCurrentUser } from "@/lib/api";
@@ -36,7 +36,7 @@ import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Tabs from "@/components/ui/Tabs";
 import RoleGuard from "@/components/RoleGuard";
-import { Plus, Edit, Trash2, CheckCircle, Clock, Target, TrendingUp, Users, BookOpen, Star, BarChart3, User, UserCheck, Save, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, CheckCircle, Clock, Target, TrendingUp, Users, BookOpen, Star, BarChart3, User as UserIcon, UserCheck, Save, AlertCircle } from "lucide-react";
 
 export default function KRAPage() {
   const user = getCurrentUser();
@@ -2465,15 +2465,17 @@ function AssessmentSection({
 }) {
   const queryClient = useQueryClient();
 
-  // Filter reportees KRAs to only direct reportees
-  const directReporteesKRAs = (reporteesKRAs || []).filter((kra) => {
-    const managerIdOfOwner = kra.user?.manager_id;
-    return Number(managerIdOfOwner) === Number(userId) && Number(kra.user_id) !== Number(userId);
-  });
+  // Memoize the filtered reportees KRAs to prevent infinite re-renders
+  const directReporteesKRAs = useMemo(() => {
+    return (reporteesKRAs || []).filter((kra) => {
+      const managerIdOfOwner = kra.user?.manager_id;
+      return Number(managerIdOfOwner) === Number(userId) && Number(kra.user_id) !== Number(userId);
+    });
+  }, [reporteesKRAs, userId]);
 
   // Initialize assessment data when KRAs are loaded
   useEffect(() => {
-    if (assessmentMode === 'self' && userKRAs) {
+    if (assessmentMode === 'self' && userKRAs && userKRAs.length > 0) {
       const selfAssessmentData = [{
         userId: userId,
         userName: user?.name || 'You',
@@ -2511,11 +2513,14 @@ function AssessmentSection({
         }))
       }));
       setAssessmentData(managerAssessmentData);
+    } else {
+      // Clear assessment data when no KRAs or switching modes
+      setAssessmentData([]);
     }
   }, [assessmentMode, userKRAs, directReporteesKRAs, userId, user?.name]);
 
   const handleAssessmentChange = (userIndex: number, kraIndex: number, field: string, value: any) => {
-    setAssessmentData(prev => {
+    setAssessmentData((prev: any[]) => {
       const newData = [...prev];
       newData[userIndex].kras[kraIndex] = {
         ...newData[userIndex].kras[kraIndex],
@@ -2621,7 +2626,7 @@ function AssessmentSection({
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                <User className="w-4 h-4 mr-2 inline" />
+                <UserIcon className="w-4 h-4 mr-2 inline" />
                 Self Assessment
               </button>
               <button
@@ -2714,7 +2719,7 @@ function AssessmentSection({
                     <div className="text-right">
                       <div className="text-sm text-gray-600 dark:text-gray-400">Total Weight</div>
                       <div className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                        {userData.kras.reduce((sum, kra) => {
+                        {userData.kras.reduce((sum: number, kra: any) => {
                           // Get the original KRA data to access weight
                           const originalKra = assessmentMode === 'self' 
                             ? userKRAs?.find(k => String(k.id) === kra.kraId)
