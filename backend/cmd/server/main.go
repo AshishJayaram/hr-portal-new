@@ -315,6 +315,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		holidays.Use(middleware.OrganizationRequired())
 		{
 			holidays.GET("", handlers.Holiday.ListHolidays)
+			holidays.GET("/upcoming", handlers.Holiday.GetUpcomingHolidaysAndEvents)
 			holidays.GET("/years", handlers.Holiday.GetAvailableYears)
 			holidays.POST("", middleware.RoleRequired("HR", "Admin"), handlers.Holiday.CreateHoliday)
 			holidays.GET("/:id", handlers.Holiday.GetHoliday)
@@ -438,11 +439,6 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		{
 			kras.GET("", handlers.KRA.ListKRAs)
 			kras.POST("", handlers.KRA.CreateKRA)
-			kras.GET("/:id", handlers.KRA.GetKRA)
-			kras.PUT("/:id", handlers.KRA.UpdateKRA)
-			kras.DELETE("/:id", handlers.KRA.DeleteKRA)
-			kras.POST("/:id/evaluate", handlers.KRA.EvaluateKRA)
-			kras.POST("/:id/self-assess", handlers.KRA.SelfAssessKRA)
 			kras.POST("/bulk-evaluate", handlers.KRA.BulkEvaluateKRAs)
 			kras.POST("/bulk-self-assess", handlers.KRA.BulkSelfAssessKRAs)
 			kras.GET("/user/:user_id", handlers.KRA.GetUserKRAs)
@@ -450,6 +446,11 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			kras.GET("/user/:user_id/summary", handlers.KRA.GetKRASummary)
 			kras.GET("/team", handlers.KRA.GetTeamKRAs)
 			kras.GET("/reportees", handlers.KRA.GetReporteesKRAs)
+			kras.GET("/:id", handlers.KRA.GetKRA)
+			kras.PUT("/:id", handlers.KRA.UpdateKRA)
+			kras.DELETE("/:id", handlers.KRA.DeleteKRA)
+			kras.POST("/:id/evaluate", handlers.KRA.EvaluateKRA)
+			kras.POST("/:id/self-assess", handlers.KRA.SelfAssessKRA)
 		}
 
 		// Private document routes (for salary slips page)

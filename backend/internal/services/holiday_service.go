@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -98,6 +99,13 @@ func (s *holidayService) GetHoliday(id string) (*models.Holiday, error) {
 }
 
 func (s *holidayService) ListHolidays(organizationID string, filters map[string]interface{}) ([]models.Holiday, error) {
+	// Check if this is an upcoming request
+	if upcoming, exists := filters["upcoming"]; exists && upcoming.(bool) {
+		// Remove the upcoming filter before calling repo
+		delete(filters, "upcoming")
+		return s.GetUpcomingHolidaysAndEvents(organizationID, 5)
+	}
+
 	holidays, err := s.repo.List(organizationID, filters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list holidays: %w", err)
@@ -175,4 +183,97 @@ func (s *holidayService) GetUpcomingHolidays(organizationID string, limit int) (
 		return nil, fmt.Errorf("failed to get upcoming holidays: %w", err)
 	}
 	return holidays, nil
+}
+
+// GetUpcomingHolidaysAndEvents returns upcoming holidays and events for dashboard
+func (s *holidayService) GetUpcomingHolidaysAndEvents(organizationID string, limit int) ([]models.Holiday, error) {
+	// Get all holidays and events
+	allHolidays, err := s.repo.List(organizationID, map[string]interface{}{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get holidays: %w", err)
+	}
+
+	// Filter upcoming holidays and events
+	upcoming := []models.Holiday{}
+	now := time.Now()
+	fmt.Printf("DEBUG: Current time: %v\n", now)
+
+	for _, holiday := range allHolidays {
+		shouldInclude := false
+
+		if holiday.Date != nil {
+			fmt.Printf("DEBUG: Holiday %s has date %v, after now: %v\n", holiday.Name, holiday.Date, holiday.Date.After(now))
+			if holiday.Date.After(now) {
+				// Future single-day holiday/event
+				shouldInclude = true
+			}
+		} else if holiday.DateRange != nil && *holiday.DateRange != "" {
+			// Multi-day holiday/event - check if any part is in the future
+			// Parse the date range to check if it's upcoming
+			dateRangeStr := *holiday.DateRange
+			fmt.Printf("DEBUG: Holiday %s has date range %s\n", holiday.Name, dateRangeStr)
+			if strings.Contains(dateRangeStr, " to ") {
+				parts := strings.Split(dateRangeStr, " to ")
+				if len(parts) == 2 {
+					startDate, err := time.Parse("2006-01-02", strings.TrimSpace(parts[0]))
+					if err == nil {
+						fmt.Printf("DEBUG: Parsed start date %v, after now: %v\n", startDate, startDate.After(now))
+						if startDate.After(now) {
+							shouldInclude = true
+						}
+					}
+				}
+			}
+		}
+		// Remove the condition for holidays without dates as they might be past events
+
+		if shouldInclude {
+			upcoming = append(upcoming, holiday)
+		}
+	}
+
+	// Sort by date (earliest first)
+	sort.Slice(upcoming, func(i, j int) bool {
+		// Handle different date formats
+		var dateI, dateJ time.Time
+
+		if upcoming[i].Date != nil {
+			dateI = *upcoming[i].Date
+		} else if upcoming[i].DateRange != nil {
+			// For date ranges, use the start date
+			dateRangeStr := *upcoming[i].DateRange
+			if strings.Contains(dateRangeStr, " to ") {
+				parts := strings.Split(dateRangeStr, " to ")
+				if len(parts) == 2 {
+					if parsed, err := time.Parse("2006-01-02", strings.TrimSpace(parts[0])); err == nil {
+						dateI = parsed
+					}
+				}
+			}
+		}
+
+		if upcoming[j].Date != nil {
+			dateJ = *upcoming[j].Date
+		} else if upcoming[j].DateRange != nil {
+			// For date ranges, use the start date
+			dateRangeStr := *upcoming[j].DateRange
+			if strings.Contains(dateRangeStr, " to ") {
+				parts := strings.Split(dateRangeStr, " to ")
+				if len(parts) == 2 {
+					if parsed, err := time.Parse("2006-01-02", strings.TrimSpace(parts[0])); err == nil {
+						dateJ = parsed
+					}
+				}
+			}
+		}
+
+		return dateI.Before(dateJ)
+	})
+
+	// Limit results
+	if limit > 0 && len(upcoming) > limit {
+		upcoming = upcoming[:limit]
+	}
+
+	return upcoming, nil
 }

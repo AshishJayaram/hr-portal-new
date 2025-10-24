@@ -73,7 +73,13 @@ func (s *leaveService) ApplyLeave(req ApplyLeaveRequest, httpReq *http.Request) 
 	}
 
 	// Calculate days based on half day settings and holidays
-	days := s.calculateLeaveDaysWithHolidays(req.FromDate, req.ToDate, req.StartHalf, req.EndHalf, holidays)
+	// For LOP leaves, don't exclude weekends/holidays as they are unpaid days
+	var days float64
+	if req.Type == "LOP" {
+		days = s.calculateLeaveDays(req.FromDate, req.ToDate, req.StartHalf, req.EndHalf)
+	} else {
+		days = s.calculateLeaveDaysWithHolidays(req.FromDate, req.ToDate, req.StartHalf, req.EndHalf, holidays)
+	}
 
 	// Check if user has sufficient leave balance (only for non-LOP leaves)
 	if req.Type != "LOP" {

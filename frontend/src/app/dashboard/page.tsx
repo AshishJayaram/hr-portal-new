@@ -296,7 +296,7 @@ export default function DashboardPage() {
               if (!b.date) return 1;
               return new Date(a.date).getTime() - new Date(b.date).getTime();
             })
-            .slice(0, 2)
+            .slice(0, 3)
             .map((event: any) => (
               <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
                 <div className="text-lg">
@@ -363,7 +363,7 @@ export default function DashboardPage() {
           <div className="sm:hidden space-y-3">
             {createCalendarEvents()
               .filter((e) => new Date(e.start) >= new Date(new Date().toDateString()))
-              .slice(0, 10)
+              .slice(0, 3)
               .map((e, index) => (
                 <div key={`mobile-${index}`} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
                   <div className={`w-2 h-8 rounded`} style={{ backgroundColor: e.color }} />

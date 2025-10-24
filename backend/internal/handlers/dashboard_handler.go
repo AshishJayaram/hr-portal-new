@@ -24,7 +24,7 @@ func NewDashboardHandler(dashboardService services.DashboardService) *DashboardH
 func (h *DashboardHandler) GetStats(c *gin.Context) {
 	organizationID := c.GetString("organization_id")
 	userID := c.GetString("user_id")
-	userRole := c.GetString("user_role")
+	userRole := c.GetString("role") // Changed from "user_role" to "role"
 
 	stats, err := h.dashboardService.GetStats(organizationID, userID, userRole)
 	if err != nil {

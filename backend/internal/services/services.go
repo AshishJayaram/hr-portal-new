@@ -171,6 +171,7 @@ type HolidayService interface {
 	CreateHoliday(req CreateHolidayRequest, httpReq *http.Request) (*models.Holiday, error)
 	GetHoliday(id string) (*models.Holiday, error)
 	ListHolidays(organizationID string, filters map[string]interface{}) ([]models.Holiday, error)
+	GetUpcomingHolidaysAndEvents(organizationID string, limit int) ([]models.Holiday, error)
 	GetAvailableYears(organizationID string) ([]int, error)
 	UpdateHoliday(id string, req UpdateHolidayRequest) (*models.Holiday, error)
 	DeleteHoliday(id string) error
@@ -251,10 +252,117 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token        string       `json:"token"`
-	RefreshToken string       `json:"refresh_token"`
-	User         *models.User `json:"user"`
-	ExpiresAt    time.Time    `json:"expires_at"`
+	Token        string        `json:"token"`
+	RefreshToken string        `json:"refresh_token"`
+	User         *UserResponse `json:"user"`
+	ExpiresAt    time.Time     `json:"expires_at"`
+}
+
+// UserResponse represents a user response with decrypted CTC
+type UserResponse struct {
+	ID             uint       `json:"id"`
+	OrganizationID uint       `json:"organization_id"`
+	Username       string     `json:"username"`
+	Email          string     `json:"email"`
+	Name           string     `json:"name"`
+	Designation    string     `json:"designation"`
+	Department     string     `json:"department"`
+	Role           string     `json:"role"`
+	ManagerID      *uint      `json:"manager_id"`
+	CTC            float64    `json:"ctc"` // Decrypted CTC value
+	Phone          string     `json:"phone"`
+	JoiningDate    *time.Time `json:"joining_date"`
+	IsActive       bool       `json:"is_active"`
+	LastLoginAt    *time.Time `json:"last_login_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+
+	// Relationships
+	Organization *OrganizationResponse `json:"organization,omitempty"`
+	Manager      *UserResponse         `json:"manager,omitempty"`
+	Subordinates []UserResponse        `json:"subordinates,omitempty"`
+}
+
+// OrganizationResponse represents an organization response
+type OrganizationResponse struct {
+	ID        uint      `json:"id"`
+	Name      string    `json:"name"`
+	Domain    string    `json:"domain"`
+	LogoURL   string    `json:"logo_url"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ConvertUserToResponse converts a models.User to UserResponse with decrypted CTC
+func ConvertUserToResponse(user *models.User) (*UserResponse, error) {
+	response := &UserResponse{
+		ID:             user.ID,
+		OrganizationID: user.OrganizationID,
+		Username:       user.Username,
+		Email:          user.Email,
+		Name:           user.Name,
+		Designation:    user.Designation,
+		Department:     user.Department,
+		Role:           user.Role,
+		ManagerID:      user.ManagerID,
+		Phone:          user.Phone,
+		JoiningDate:    user.JoiningDate,
+		IsActive:       user.IsActive,
+		LastLoginAt:    user.LastLoginAt,
+		CreatedAt:      user.CreatedAt,
+		UpdatedAt:      user.UpdatedAt,
+	}
+
+	// Decrypt CTC if it exists
+	if user.CTC != "" {
+		decryptedCTC, err := utils.DecryptFloat64(user.CTC)
+		if err != nil {
+			// If decryption fails, set CTC to 0
+			response.CTC = 0
+		} else {
+			response.CTC = decryptedCTC
+		}
+	} else {
+		response.CTC = 0
+	}
+
+	// Convert organization if it exists
+	if user.Organization.ID != 0 {
+		response.Organization = &OrganizationResponse{
+			ID:        user.Organization.ID,
+			Name:      user.Organization.Name,
+			Domain:    user.Organization.Domain,
+			LogoURL:   user.Organization.Logo,
+			CreatedAt: user.Organization.CreatedAt,
+			UpdatedAt: user.Organization.UpdatedAt,
+		}
+	}
+
+	// Convert manager if it exists
+	if user.Manager != nil {
+		managerResponse, err := ConvertUserToResponse(user.Manager)
+		if err != nil {
+			// If manager conversion fails, skip manager
+			response.Manager = nil
+		} else {
+			response.Manager = managerResponse
+		}
+	}
+
+	// Convert subordinates if they exist
+	if len(user.Subordinates) > 0 {
+		response.Subordinates = make([]UserResponse, 0, len(user.Subordinates))
+		for _, subordinate := range user.Subordinates {
+			subResponse, err := ConvertUserToResponse(&subordinate)
+			if err != nil {
+				// Skip this subordinate if conversion fails
+				continue
+			}
+			response.Subordinates = append(response.Subordinates, *subResponse)
+		}
+	}
+
+	return response, nil
 }
 
 type ApplyLeaveRequest struct {

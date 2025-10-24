@@ -112,7 +112,38 @@ func (h *HolidayHandler) ListHolidays(c *gin.Context) {
 		logrus.Info("DEBUG: No year filter provided")
 	}
 
+	// Check if this is an upcoming request
+	if upcoming := c.Query("upcoming"); upcoming == "true" {
+		filters["upcoming"] = true
+	}
+
 	holidays, err := h.service.ListHolidays(orgID.(string), filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": holidays})
+}
+
+// GetUpcomingHolidaysAndEvents retrieves upcoming holidays and events for dashboard
+func (h *HolidayHandler) GetUpcomingHolidaysAndEvents(c *gin.Context) {
+	// Get organization ID from context
+	orgID, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Organization ID not found"})
+		return
+	}
+
+	// Parse limit parameter (default to 5)
+	limit := 5
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	holidays, err := h.service.GetUpcomingHolidaysAndEvents(orgID.(string), limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

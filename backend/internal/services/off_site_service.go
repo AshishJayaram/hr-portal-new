@@ -96,6 +96,12 @@ func (s *offSiteService) CreateOffSite(req CreateOffSiteRequest, httpReq *http.R
 		return nil, fmt.Errorf("failed to create off-site: %w", err)
 	}
 
+	// Preload relationships before returning
+	offSiteWithRelations, err := s.offSiteRepo.GetByID(strconv.FormatUint(uint64(offSite.ID), 10))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get created off-site with relationships: %w", err)
+	}
+
 	// Log audit entry
 	orgIDStr := strconv.FormatUint(uint64(offSite.OrganizationID), 10)
 	offSiteIDStr := strconv.FormatUint(uint64(offSite.ID), 10)
@@ -115,7 +121,7 @@ func (s *offSiteService) CreateOffSite(req CreateOffSiteRequest, httpReq *http.R
 		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
-	return offSite, nil
+	return offSiteWithRelations, nil
 }
 
 func (s *offSiteService) GetOffSite(id string) (*models.OffSite, error) {

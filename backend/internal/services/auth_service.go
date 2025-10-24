@@ -76,10 +76,16 @@ func (s *authService) Login(req LoginRequest) (*LoginResponse, error) {
 	// Calculate expiration time
 	expiresAt := time.Now().Add(time.Duration(s.jwtConfig.ExpireHours) * time.Hour)
 
+	// Convert user to response with decrypted CTC
+	userResponse, err := ConvertUserToResponse(user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert user to response: %w", err)
+	}
+
 	return &LoginResponse{
 		Token:        token,
 		RefreshToken: refreshToken,
-		User:         user,
+		User:         userResponse,
 		ExpiresAt:    expiresAt,
 	}, nil
 }
@@ -137,10 +143,16 @@ func (s *authService) RefreshToken(refreshToken string) (*LoginResponse, error) 
 	// Calculate expiration time
 	expiresAt := time.Now().Add(time.Duration(s.jwtConfig.ExpireHours) * time.Hour)
 
+	// Convert user to response with decrypted CTC
+	userResponse, err := ConvertUserToResponse(user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert user to response: %w", err)
+	}
+
 	return &LoginResponse{
 		Token:        token,
 		RefreshToken: newRefreshToken,
-		User:         user,
+		User:         userResponse,
 		ExpiresAt:    expiresAt,
 	}, nil
 }

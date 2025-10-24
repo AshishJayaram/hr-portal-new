@@ -813,7 +813,7 @@ export const createHoliday = (body: Partial<Holiday>) =>
     method: "POST",
     body: JSON.stringify({ 
       name: body.name, 
-      date: body.date,
+      date: body.dateRange || body.date, // Send dateRange if available, otherwise date
       type: body.type || 'holiday',
       description: body.description,
       isCalendarEvent: body.isCalendarEvent ?? true,
@@ -824,6 +824,7 @@ export const createHoliday = (body: Partial<Holiday>) =>
       id: String(raw?.data?.id ?? raw.id),
       name: raw?.data?.name ?? raw.name,
       date: raw?.data?.date_range ?? raw?.data?.date ?? raw.date_range ?? raw.date,
+      dateRange: raw?.data?.date_range ?? raw.date_range,
       type: raw?.data?.type ?? raw.type ?? 'holiday',
       description: raw?.data?.description ?? raw.description,
       isCalendarEvent: raw?.data?.isCalendarEvent ?? raw?.data?.is_calendar_event ?? raw.isCalendarEvent ?? true,
@@ -837,7 +838,7 @@ export const updateHoliday = (id: string, body: Partial<Holiday>) =>
     method: "PATCH",
     body: JSON.stringify({ 
       name: body.name, 
-      date: body.date,
+      date: body.dateRange || body.date, // Send dateRange if available, otherwise date
       type: body.type,
       description: body.description,
       isCalendarEvent: body.isCalendarEvent,
@@ -848,6 +849,7 @@ export const updateHoliday = (id: string, body: Partial<Holiday>) =>
       id: String(raw?.data?.id ?? raw.id ?? id),
       name: raw?.data?.name ?? raw.name ?? (body.name as string),
       date: raw?.data?.date_range ?? raw?.data?.date ?? raw.date_range ?? raw.date ?? (body.date as string),
+      dateRange: raw?.data?.date_range ?? raw.date_range,
       type: raw?.data?.type ?? raw.type ?? body.type ?? 'holiday',
       description: raw?.data?.description ?? raw.description ?? body.description,
       isCalendarEvent: raw?.data?.isCalendarEvent ?? raw?.data?.is_calendar_event ?? raw.isCalendarEvent ?? body.isCalendarEvent ?? true,
