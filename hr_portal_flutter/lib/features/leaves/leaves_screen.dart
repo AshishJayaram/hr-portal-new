@@ -77,6 +77,12 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         title: const Text('Leaves'),
         actions: [
           IconButton(

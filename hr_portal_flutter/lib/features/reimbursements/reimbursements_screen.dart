@@ -137,8 +137,19 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(0), // Hide the default app bar
-        child: Container(),
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+          ),
+          title: const Text('Reimbursements'),
+          centerTitle: false,
+        ),
       ),
       drawer: const AppDrawer(),
       body: Container(

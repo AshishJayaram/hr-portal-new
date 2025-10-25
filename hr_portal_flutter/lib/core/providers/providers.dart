@@ -55,6 +55,13 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    double? parseCtc(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value);
+      return null;
+    }
+
     return User(
       id: json['id']?.toString() ?? '',
       name: json['name'] ?? '',
@@ -65,7 +72,8 @@ class User {
       username: json['username'] ?? '',
       organizationId: json['organization_id']?.toString() ?? '',
       isActive: json['is_active'] ?? true,
-      ctc: json['ctc']?.toDouble(),
+      // Accept ctc as number or numeric string; ignore encrypted strings
+      ctc: parseCtc(json['ctc'] ?? json['CTC'] ?? json['ctc_value'] ?? json['ctc_numeric']),
       lastLoginAt: json['last_login_at'] != null 
           ? DateTime.tryParse(json['last_login_at']) 
           : null,

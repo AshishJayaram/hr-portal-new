@@ -1505,6 +1505,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               }),
             ],
           );
+        },
+          ),
           
           const SizedBox(height: LiquidGlassTheme.spacingM),
           
