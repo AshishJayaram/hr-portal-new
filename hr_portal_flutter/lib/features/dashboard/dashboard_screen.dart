@@ -1805,8 +1805,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         : Colors.white60,
             child: const Text('Submit'),
           ),
-        ],
+                ],
+              ),
+              ],
+            ),
+          ),
+        ),
       ),
+    ),
     );
   }
 

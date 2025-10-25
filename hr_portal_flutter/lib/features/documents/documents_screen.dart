@@ -273,10 +273,10 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     ),
                     child: Column(
                       children: [
-                      // PDF Viewer Placeholder
-                      Expanded(
-                        child: Container(
-                          color: Colors.grey[50],
+                        // PDF Viewer Placeholder
+                        Expanded(
+                          child: Container(
+                            color: Colors.grey[50],
                           child: Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -367,11 +367,13 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     ],
                   ),
                 ),
-              ),
+              ],
             ),
+          ),
           ),
         ),
       ),
+    ),
     );
   }
 
