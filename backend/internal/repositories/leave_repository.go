@@ -198,8 +198,17 @@ func (r *leaveRepository) CountApprovedByOrganization(organizationID string, cou
 	if err != nil {
 		return fmt.Errorf("invalid organization ID: %w", err)
 	}
-	if err := r.db.Model(&models.Leave{}).Where("organization_id = ? AND status = ?", uint(orgIDUint), "approved").Count(count).Error; err != nil {
-		return fmt.Errorf("failed to count approved leaves by organization: %w", err)
+	
+	// Get current month's start and end dates
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	endOfMonth := startOfMonth.AddDate(0, 1, -1).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	
+	if err := r.db.Model(&models.Leave{}).
+		Where("organization_id = ? AND status = ? AND approved_at >= ? AND approved_at <= ?", 
+			uint(orgIDUint), "approved", startOfMonth, endOfMonth).
+		Count(count).Error; err != nil {
+		return fmt.Errorf("failed to count approved leaves by organization for this month: %w", err)
 	}
 	return nil
 }

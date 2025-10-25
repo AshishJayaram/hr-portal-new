@@ -235,15 +235,27 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   void _showDocumentViewer(String title, String fileUrl) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 500,
-          child: Column(
-            children: [
-              Expanded(
-                child: Container(
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+          child: GlassCard(
+            backgroundColor: Colors.white.withOpacity(0.15),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    title,
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey),
                     borderRadius: BorderRadius.circular(8),
@@ -345,15 +357,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
@@ -361,45 +367,52 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   void _showDownloadDialog(String title, String fileUrl) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Download $title'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Document is ready for download.'),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                fileUrl,
-                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
+          child: GlassCard(
+            backgroundColor: Colors.white.withOpacity(0.15),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Download $title',
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Document is ready for download.',
+                    style: LiquidGlassTheme.bodyMedium.copyWith(
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  GlassButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Opening document in browser...')),
+                      );
+                    },
+                    child: Text(
+                      'Open in Browser',
+                      style: LiquidGlassTheme.bodyMedium.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                // In a real app, you would use url_launcher to open the URL
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening document in browser...')),
-                );
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.open_in_browser),
-              label: const Text('Open in Browser'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -416,33 +429,65 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Filter by Category'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('All Categories'),
-              onTap: () {
-                Navigator.pop(context);
-                // Apply filter for all categories
-              },
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          child: GlassCard(
+            backgroundColor: Colors.white.withOpacity(0.15),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Filter by Category',
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: categories.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return ListTile(
+                            title: Text(
+                              'All Categories',
+                              style: LiquidGlassTheme.bodyMedium.copyWith(
+                                color: Colors.white,
+                              ),
+                            ),
+                            onTap: () {
+                              Navigator.pop(context);
+                              // Apply filter for all categories
+                            },
+                          );
+                        }
+                        final category = categories[index - 1];
+                        return ListTile(
+                          title: Text(
+                            category ?? 'Unknown',
+                            style: LiquidGlassTheme.bodyMedium.copyWith(
+                              color: Colors.white,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            // Apply filter for specific category
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
-            ...categories.map((category) => ListTile(
-              title: Text(category ?? 'Unknown'),
-              onTap: () {
-                Navigator.pop(context);
-                // Apply filter for specific category
-              },
-            )),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -450,40 +495,84 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   Future<void> _deleteDocument(String documentId) async {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Document'),
-        content: const Text('Are you sure you want to delete this document?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                final apiService = ref.read(apiServiceProvider);
-                final success = await apiService.deleteDocument(documentId);
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 400, maxHeight: 300),
+          child: GlassCard(
+            backgroundColor: Colors.white.withOpacity(0.15),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Delete Document',
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Are you sure you want to delete this document?',
+                    style: LiquidGlassTheme.bodyMedium.copyWith(
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GlassButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          'Cancel',
+                          style: LiquidGlassTheme.bodyMedium.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GlassButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          try {
+                            final apiService = ref.read(apiServiceProvider);
+                            final success = await apiService.deleteDocument(documentId);
 
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Document deleted successfully')),
-                  );
-                  _loadDocuments();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Failed to delete document')),
-                  );
-                }
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to delete document: $e')),
-                );
-              }
-            },
-            child: const Text('Delete'),
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Document deleted successfully')),
+                              );
+                              _loadDocuments();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Failed to delete document')),
+                              );
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to delete document: $e')),
+                            );
+                          }
+                        },
+                        child: Text(
+                          'Delete',
+                          style: LiquidGlassTheme.bodyMedium.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -759,16 +848,16 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   }
 }
 
-class _UploadDocumentDialog extends StatefulWidget {
+class _UploadDocumentDialog extends ConsumerStatefulWidget {
   final Function(FormData) onUpload;
 
   const _UploadDocumentDialog({required this.onUpload});
 
   @override
-  State<_UploadDocumentDialog> createState() => _UploadDocumentDialogState();
+  ConsumerState<_UploadDocumentDialog> createState() => _UploadDocumentDialogState();
 }
 
-class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
+class _UploadDocumentDialogState extends ConsumerState<_UploadDocumentDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _categoryController = TextEditingController();
@@ -793,7 +882,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
         backgroundColor: Colors.white.withOpacity(0.15),
         child: Container(
           width: MediaQuery.of(context).size.width * 0.9,
-          constraints: const BoxConstraints(maxWidth: 500),
+          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
           child: Form(
             key: _formKey,
             child: Column(

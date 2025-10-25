@@ -710,10 +710,10 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		return nil, fmt.Errorf("failed to get pending leaves count: %w", err)
 	}
 
-	// Get approved leaves count for the organization
+	// Get approved leaves count for the organization (this month only)
 	var approvedLeaves int64
 	if err := s.repos.Leave.CountApprovedByOrganization(organizationID, &approvedLeaves); err != nil {
-		return nil, fmt.Errorf("failed to get approved leaves count: %w", err)
+		return nil, fmt.Errorf("failed to get approved leaves count for this month: %w", err)
 	}
 
 	// Get total documents count for the organization

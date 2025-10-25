@@ -21,10 +21,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   final List<Map<String, dynamic>> _upcomingEvents = [];
   final List<Map<String, dynamic>> _leaveTypes = [];
   final List<Map<String, dynamic>> _recentOffSites = [];
+  final List<Map<String, dynamic>> _personalLeaves = [];
+  final List<Map<String, dynamic>> _teamLeaves = [];
   
   Map<String, dynamic>? _dashboardStats;
   bool _isLoadingStats = false;
   late AnimationController _refreshController;
+  
+  // Calendar state
+  DateTime _currentCalendarDate = DateTime.now();
 
   @override
   void initState() {
@@ -56,6 +61,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       _loadHolidays(),
       _loadEvents(),
       _loadOffSites(),
+      _loadLeaves(),
     ]);
     
     await _loadLeaveTypes();
@@ -331,6 +337,46 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
   }
 
+  Future<void> _loadLeaves() async {
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final authState = ref.read(authProvider);
+      final currentUser = authState.user;
+      
+      if (currentUser != null) {
+        // Load personal leaves
+        final personalLeaves = await apiService.getLeaves();
+        
+        // Load team leaves (if user is a manager)
+        List<Map<String, dynamic>> teamLeaves = [];
+        if (currentUser.role == 'HR' || currentUser.role == 'Admin' || currentUser.role == 'God') {
+          try {
+            // For now, we'll use the same personal leaves as team leaves
+            // In a real implementation, you'd have a separate API endpoint for team leaves
+            teamLeaves = personalLeaves.cast<Map<String, dynamic>>();
+          } catch (e) {
+            print('Error loading team leaves: $e');
+          }
+        }
+        
+        setState(() {
+          _personalLeaves.clear();
+          _teamLeaves.clear();
+          
+          if (personalLeaves is List) {
+            _personalLeaves.addAll(personalLeaves.cast<Map<String, dynamic>>());
+          }
+          
+          if (teamLeaves is List) {
+            _teamLeaves.addAll(teamLeaves);
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading leaves: $e');
+    }
+  }
+
   Future<void> _loadDashboardStats() async {
     setState(() {
       _isLoadingStats = true;
@@ -527,13 +573,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           Row(
             children: [
               // Hamburger Menu Button
-              IconButton(
-                icon: Icon(
-                  Icons.menu_rounded,
-                  color: Colors.white70,
-                  size: 20,
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                onPressed: () => Scaffold.of(context).openDrawer(),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.menu_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  onPressed: () {
+                    Scaffold.of(context).openDrawer();
+                  },
+                  tooltip: 'Open Menu',
+                ),
               ),
               const SizedBox(width: LiquidGlassTheme.spacingS),
               // Refresh Button
@@ -553,15 +608,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 ),
             onPressed: _loadDashboardData,
                 tooltip: 'Refresh',
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.menu_rounded,
-                  color: Colors.white70,
-                  size: 20,
-                ),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-                tooltip: 'Menu',
           ),
         ],
       ),
@@ -615,7 +661,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         ),
                         _buildStatCard(
                           context,
-                          'Approved Leaves',
+                          'Approved Leaves (This Month)',
                           _dashboardStats!['approved_leaves']?.toString() ?? '0',
                           Icons.check_circle_rounded,
                           LiquidGlassTheme.accentGreen,
@@ -1246,9 +1292,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildCalendarView() {
-    final now = DateTime.now();
-    final currentMonth = now.month;
-    final currentYear = now.year;
+    final currentMonth = _currentCalendarDate.month;
+    final currentYear = _currentCalendarDate.year;
     final firstDayOfMonth = DateTime(currentYear, currentMonth, 1);
     final lastDayOfMonth = DateTime(currentYear, currentMonth + 1, 0);
     final firstWeekday = firstDayOfMonth.weekday;
@@ -1286,6 +1331,48 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       }
     }
     
+    // Add personal leaves
+    for (final leave in _personalLeaves) {
+      final fromDate = DateTime.tryParse(leave['from_date'] ?? '');
+      final toDate = DateTime.tryParse(leave['to_date'] ?? '');
+      if (fromDate != null && toDate != null) {
+        var currentDate = DateTime(fromDate.year, fromDate.month, fromDate.day);
+        final endDateOnly = DateTime(toDate.year, toDate.month, toDate.day);
+        
+        while (currentDate.isBefore(endDateOnly.add(const Duration(days: 1)))) {
+          if (currentDate.month == currentMonth && currentDate.year == currentYear) {
+            monthEvents[currentDate] = (monthEvents[currentDate] ?? [])..add({
+              'title': '${leave['type'] ?? 'Leave'} - ${leave['reason'] ?? 'Personal Leave'}',
+              'type': 'personal_leave',
+              'color': LiquidGlassTheme.accentBlue,
+            });
+          }
+          currentDate = currentDate.add(const Duration(days: 1));
+        }
+      }
+    }
+    
+    // Add team leaves
+    for (final leave in _teamLeaves) {
+      final fromDate = DateTime.tryParse(leave['from_date'] ?? '');
+      final toDate = DateTime.tryParse(leave['to_date'] ?? '');
+      if (fromDate != null && toDate != null) {
+        var currentDate = DateTime(fromDate.year, fromDate.month, fromDate.day);
+        final endDateOnly = DateTime(toDate.year, toDate.month, toDate.day);
+        
+        while (currentDate.isBefore(endDateOnly.add(const Duration(days: 1)))) {
+          if (currentDate.month == currentMonth && currentDate.year == currentYear) {
+            monthEvents[currentDate] = (monthEvents[currentDate] ?? [])..add({
+              'title': '${leave['user_name'] ?? 'Team Member'} - ${leave['type'] ?? 'Leave'}',
+              'type': 'team_leave',
+              'color': LiquidGlassTheme.accentGreen,
+            });
+          }
+          currentDate = currentDate.add(const Duration(days: 1));
+        }
+      }
+    }
+    
     return GlassCard(
       backgroundColor: Colors.white.withOpacity(0.15),
       child: Column(
@@ -1310,7 +1397,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       size: 20,
                     ),
                     onPressed: () {
-                      // TODO: Navigate to previous month
+                      setState(() {
+                        _currentCalendarDate = DateTime(_currentCalendarDate.year, _currentCalendarDate.month - 1);
+                      });
                     },
                   ),
                   IconButton(
@@ -1320,7 +1409,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       size: 20,
                     ),
                     onPressed: () {
-                      // TODO: Navigate to next month
+                      setState(() {
+                        _currentCalendarDate = DateTime(_currentCalendarDate.year, _currentCalendarDate.month + 1);
+                      });
                     },
                   ),
                 ],
@@ -1356,6 +1447,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   children: List.generate(7, (dayIndex) {
                     final dayNumber = weekIndex * 7 + dayIndex - firstWeekday + 2;
                     final isCurrentMonth = dayNumber >= 1 && dayNumber <= lastDayOfMonth.day;
+                    final now = DateTime.now();
                     final isToday = isCurrentMonth && 
                         dayNumber == now.day && 
                         currentMonth == now.month && 
@@ -1368,41 +1460,44 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     final dayDate = DateTime(currentYear, currentMonth, dayNumber);
                     final dayEvents = monthEvents[dayDate] ?? [];
                     
-                    return Container(
-                      height: cellSize,
-                      margin: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(
-                        color: isToday ? LiquidGlassTheme.primaryPurple.withOpacity(0.3) : null,
-                        borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusSmall),
-                        border: isToday ? Border.all(color: LiquidGlassTheme.primaryPurple) : null,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            dayNumber.toString(),
-                            style: LiquidGlassTheme.bodySmall.copyWith(
-                              fontWeight: isToday ? FontWeight.w600 : FontWeight.normal,
-                              color: isToday ? Colors.white : Colors.white70,
-                              fontSize: cellSize > 30 ? 12 : 10,
+                    return GestureDetector(
+                      onTap: () => _showDayEventsDialog(context, dayDate, dayEvents),
+                      child: Container(
+                        height: cellSize,
+                        margin: const EdgeInsets.all(1),
+                        decoration: BoxDecoration(
+                          color: isToday ? LiquidGlassTheme.primaryPurple.withOpacity(0.3) : null,
+                          borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusSmall),
+                          border: isToday ? Border.all(color: LiquidGlassTheme.primaryPurple) : null,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              dayNumber.toString(),
+                              style: LiquidGlassTheme.bodySmall.copyWith(
+                                fontWeight: isToday ? FontWeight.w600 : FontWeight.normal,
+                                color: isToday ? Colors.white : Colors.white70,
+                                fontSize: cellSize > 30 ? 12 : 10,
+                              ),
                             ),
-                          ),
-                          if (dayEvents.isNotEmpty && cellSize > 25)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: dayEvents.take(3).map((event) {
-                                return Container(
-                                  width: cellSize > 30 ? 4 : 3,
-                                  height: cellSize > 30 ? 4 : 3,
-                                  margin: const EdgeInsets.symmetric(horizontal: 0.5),
-                                  decoration: BoxDecoration(
-                                    color: event['color'],
-                                    shape: BoxShape.circle,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                        ],
+                            if (dayEvents.isNotEmpty && cellSize > 25)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: dayEvents.take(3).map((event) {
+                                  return Container(
+                                    width: cellSize > 30 ? 4 : 3,
+                                    height: cellSize > 30 ? 4 : 3,
+                                    margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                                    decoration: BoxDecoration(
+                                      color: event['color'],
+                                      shape: BoxShape.circle,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                          ],
+                        ),
                       ),
                     );
                   }),
@@ -1410,8 +1505,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               }),
             ],
           );
-            },
-          ),
           
           const SizedBox(height: LiquidGlassTheme.spacingM),
           
@@ -1421,6 +1514,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             children: [
               _buildLegendItem('Holidays', LiquidGlassTheme.accentRed),
               _buildLegendItem('Off-site', LiquidGlassTheme.secondaryOrange),
+              _buildLegendItem('Personal Leave', LiquidGlassTheme.accentBlue),
+              _buildLegendItem('Team Leave', LiquidGlassTheme.accentGreen),
               _buildLegendItem('Today', LiquidGlassTheme.primaryPurple),
             ],
           ),
@@ -1507,18 +1602,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => Dialog(
           backgroundColor: Colors.transparent,
-          child: GlassCard(
-            backgroundColor: Colors.white.withOpacity(0.15),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-                Text(
-                  'Apply $leaveType',
-                  style: LiquidGlassTheme.heading4.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            child: GlassCard(
+              backgroundColor: Colors.white.withOpacity(0.15),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Apply $leaveType',
+                    style: LiquidGlassTheme.heading4.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
               const SizedBox(height: LiquidGlassTheme.spacingL),
               GlassTextField(
                 controller: startDateController,
@@ -1603,14 +1700,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               final fromDate = DateTime.parse(startDateController.text);
                               final toDate = DateTime.parse(endDateController.text);
                               
-                              // Get leave categories to find the category_id for the leave type
-                              final categories = await apiService.getLeaveCategories();
+                              // Get leave balance to find the category_id for the leave type
+                              final leaveBalance = await apiService.getLeaveBalance(currentUser.id);
                               String? categoryId;
                               
-                              for (final category in categories) {
-                                if (category['name']?.toString().toLowerCase() == leaveType.toLowerCase()) {
-                                  categoryId = category['id']?.toString();
+                              // First try to find in leave balance (more reliable)
+                              for (final balance in leaveBalance) {
+                                final categoryName = balance['category_name'] ?? '';
+                                if (categoryName.toLowerCase() == leaveType.toLowerCase()) {
+                                  categoryId = balance['category_id']?.toString();
                                   break;
+                                }
+                              }
+                              
+                              // If not found in balance, try leave categories API
+                              if (categoryId == null) {
+                                final categories = await apiService.getLeaveCategories();
+                                for (final category in categories) {
+                                  final categoryName = category['name']?.toString() ?? '';
+                                  if (categoryName.toLowerCase() == leaveType.toLowerCase()) {
+                                    categoryId = category['id']?.toString();
+                                    break;
+                                  }
+                                }
+                              }
+                              
+                              // Special handling for LOP (Loss of Pay)
+                              if (categoryId == null && leaveType.toUpperCase() == 'LOP') {
+                                // Try to find LOP category
+                                final categories = await apiService.getLeaveCategories();
+                                for (final category in categories) {
+                                  final categoryName = category['name']?.toString() ?? '';
+                                  if (categoryName.toUpperCase() == 'LOP' || categoryName.toUpperCase() == 'LOSS OF PAY') {
+                                    categoryId = category['id']?.toString();
+                                    break;
+                                  }
                                 }
                               }
                               
@@ -1680,11 +1804,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             child: const Text('Submit'),
           ),
         ],
-              ),
-            ],
-          ),
-        ),
-      ),
       ),
     );
   }
@@ -1833,5 +1952,109 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
     return months[month - 1];
+  }
+
+  void _showDayEventsDialog(BuildContext context, DateTime dayDate, List<Map<String, dynamic>> events) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: GlassCard(
+          backgroundColor: Colors.white.withOpacity(0.2),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+            padding: const EdgeInsets.all(20),
+        child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                      '${dayDate.day} ${_getMonthName(dayDate.month)} ${dayDate.year}',
+                      style: LiquidGlassTheme.heading4.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                      onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+                if (events.isEmpty)
+                  Text(
+                    'No events scheduled for this day',
+                    style: LiquidGlassTheme.bodyMedium.copyWith(
+                      color: Colors.white70,
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: events.length,
+                      itemBuilder: (context, index) {
+                        final event = events[index];
+                      return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                            color: event['color'].withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: event['color'].withOpacity(0.5),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+                                  color: event['color'],
+            shape: BoxShape.circle,
+          ),
+        ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+        Text(
+                                      event['title'] ?? 'Event',
+                                      style: LiquidGlassTheme.bodyMedium.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      event['type']?.toString().toUpperCase() ?? 'EVENT',
+                                      style: LiquidGlassTheme.caption.copyWith(
+                                        color: event['color'],
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                ),
+              ),
+          ],
+        ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

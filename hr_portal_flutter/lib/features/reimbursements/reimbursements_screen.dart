@@ -113,7 +113,8 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
     });
   }
 
-  void _showCreateForm() {
+  void _showCreateForm() async {
+    final canApplyForOthers = await _canApprove();
     showDialog(
       context: context,
       builder: (context) => _CreateReimbursementDialog(
@@ -121,7 +122,7 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
           await _load();
         },
         users: _users,
-        canApplyForOthers: await _canApprove(),
+        canApplyForOthers: canApplyForOthers,
       ),
     );
   }
@@ -579,26 +580,87 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
   void _showReimbursementDetails(Map<String, dynamic> reimbursement) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(reimbursement['reason'] ?? ''),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Amount: ₹${reimbursement['amount']}'),
-            Text('Date: ${reimbursement['date']}'),
-            Text('Status: ${reimbursement['status']}'),
-            if (reimbursement['description'] != null)
-              Text('Description: ${reimbursement['description']}'),
-            Text('Bills: ${(reimbursement['bills'] as List? ?? []).length} files'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 500),
+          child: GlassCard(
+            backgroundColor: Colors.white.withOpacity(0.15),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    reimbursement['reason'] ?? '',
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Amount: ₹${reimbursement['amount']}',
+                            style: LiquidGlassTheme.bodyLarge.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Date: ${reimbursement['date']}',
+                            style: LiquidGlassTheme.bodyMedium.copyWith(
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Status: ${reimbursement['status']}',
+                            style: LiquidGlassTheme.bodyMedium.copyWith(
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                          if (reimbursement['description'] != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Description: ${reimbursement['description']}',
+                              style: LiquidGlassTheme.bodyMedium.copyWith(
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          Text(
+                            'Bills: ${(reimbursement['bills'] as List? ?? []).length} files',
+                            style: LiquidGlassTheme.bodyMedium.copyWith(
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  GlassButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Close',
+                      style: LiquidGlassTheme.bodyMedium.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -619,7 +681,7 @@ class _ReimbursementsScreenState extends ConsumerState<ReimbursementsScreen> {
   }
 }
 
-class _CreateReimbursementDialog extends StatefulWidget {
+class _CreateReimbursementDialog extends ConsumerStatefulWidget {
   final Function() onSubmitted;
   final List<Map<String, dynamic>> users;
   final bool canApplyForOthers;
@@ -631,10 +693,10 @@ class _CreateReimbursementDialog extends StatefulWidget {
   });
 
   @override
-  State<_CreateReimbursementDialog> createState() => _CreateReimbursementDialogState();
+  ConsumerState<_CreateReimbursementDialog> createState() => _CreateReimbursementDialogState();
 }
 
-class _CreateReimbursementDialogState extends State<_CreateReimbursementDialog> {
+class _CreateReimbursementDialogState extends ConsumerState<_CreateReimbursementDialog> {
   final _formKey = GlobalKey<FormState>();
   final _reasonController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -660,7 +722,7 @@ class _CreateReimbursementDialogState extends State<_CreateReimbursementDialog> 
         backgroundColor: Colors.white.withOpacity(0.15),
         child: Container(
           width: MediaQuery.of(context).size.width * 0.9,
-          constraints: const BoxConstraints(maxWidth: 500),
+          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
           child: Form(
             key: _formKey,
             child: Column(

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/liquid_glass_theme.dart';
+import '../../core/widgets/glass_components.dart';
 import '../../core/services/api_service.dart';
 import '../../core/providers/providers.dart';
 
@@ -377,37 +379,69 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reject Leave'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Please provide a reason for rejection:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                labelText: 'Rejection Reason',
-                border: OutlineInputBorder(),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
+          child: GlassCard(
+            backgroundColor: Colors.white.withOpacity(0.15),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Reject Leave',
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Please provide a reason for rejection:',
+                    style: LiquidGlassTheme.bodyMedium.copyWith(
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  GlassTextField(
+                    controller: reasonController,
+                    labelText: 'Rejection Reason',
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GlassButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: Text(
+                          'Cancel',
+                          style: LiquidGlassTheme.bodyMedium.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GlassButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: Text(
+                          'Reject',
+                          style: LiquidGlassTheme.bodyMedium.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              maxLines: 3,
             ),
-          ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.errorColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Reject'),
-          ),
-        ],
       ),
     );
     
@@ -463,93 +497,160 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Apply Leave'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Leave Type',
-                    prefixIcon: Icon(Icons.category),
-                  ),
-                  value: selectedLeaveType,
-                  items: _availableLeaveTypes.map((type) {
-                    return DropdownMenuItem<String>(
-                      value: type['type'],
-                      child: Text(type['name']),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedLeaveType = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: startDateController,
-                  decoration: const InputDecoration(
-                    labelText: 'Start Date',
-                    prefixIcon: Icon(Icons.calendar_today),
-                  ),
-                  readOnly: true,
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (date != null) {
-                      startDateController.text = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: endDateController,
-                  decoration: const InputDecoration(
-                    labelText: 'End Date',
-                    prefixIcon: Icon(Icons.calendar_today),
-                  ),
-                  readOnly: true,
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (date != null) {
-                      endDateController.text = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: reasonController,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason',
-                    prefixIcon: Icon(Icons.note),
-                  ),
-                  maxLines: 3,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: selectedLeaveType != null && 
-                         startDateController.text.isNotEmpty && 
-                         endDateController.text.isNotEmpty && 
-                         reasonController.text.isNotEmpty
-                  ? () async {
+        builder: (context, setState) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+            child: GlassCard(
+              backgroundColor: Colors.white.withOpacity(0.15),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Apply Leave',
+                      style: LiquidGlassTheme.heading3.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GlassTextField(
+                              labelText: 'Leave Type',
+                              prefixIcon: const Icon(Icons.category),
+                              readOnly: true,
+                              controller: TextEditingController(
+                                text: selectedLeaveType != null 
+                                    ? _availableLeaveTypes.firstWhere((type) => type['type'] == selectedLeaveType)['name']
+                                    : 'Select Leave Type',
+                              ),
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => Dialog(
+                                    backgroundColor: Colors.transparent,
+                                    child: Container(
+                                      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
+                                      child: GlassCard(
+                                        backgroundColor: Colors.white.withOpacity(0.15),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Text(
+                                                'Select Leave Type',
+                                                style: LiquidGlassTheme.heading4.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: ListView.builder(
+                                                shrinkWrap: true,
+                                                itemCount: _availableLeaveTypes.length,
+                                                itemBuilder: (context, index) {
+                                                  final type = _availableLeaveTypes[index];
+                                                  return ListTile(
+                                                    title: Text(
+                                                      type['name'],
+                                                      style: LiquidGlassTheme.bodyMedium.copyWith(
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                    onTap: () {
+                                                      setState(() {
+                                                        selectedLeaveType = type['type'];
+                                                      });
+                                                      Navigator.pop(context);
+                                                    },
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            GlassTextField(
+                              controller: startDateController,
+                              labelText: 'Start Date',
+                              prefixIcon: const Icon(Icons.calendar_today),
+                              readOnly: true,
+                              onTap: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                );
+                                if (date != null) {
+                                  startDateController.text = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            GlassTextField(
+                              controller: endDateController,
+                              labelText: 'End Date',
+                              prefixIcon: const Icon(Icons.calendar_today),
+                              readOnly: true,
+                              onTap: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                );
+                                if (date != null) {
+                                  endDateController.text = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            GlassTextField(
+                              controller: reasonController,
+                              labelText: 'Reason',
+                              prefixIcon: const Icon(Icons.note),
+                              maxLines: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        GlassButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'Cancel',
+                            style: LiquidGlassTheme.bodyMedium.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        GlassButton(
+                          onPressed: selectedLeaveType != null && 
+                                     startDateController.text.isNotEmpty && 
+                                     endDateController.text.isNotEmpty && 
+                                     reasonController.text.isNotEmpty
+                              ? () async {
                       try {
                         final apiService = ref.read(apiServiceProvider);
                         final authState = ref.read(authProvider);
@@ -596,14 +697,22 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
                         );
                       }
                     }
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
+                              : null,
+                          child: Text(
+                            'Submit',
+                            style: LiquidGlassTheme.bodyMedium.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              child: const Text('Submit'),
             ),
-          ],
+          ),
         ),
       ),
     );

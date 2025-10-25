@@ -1,80 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-
-import '../../shared/widgets/app_drawer.dart';
-import '../../core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/liquid_glass_theme.dart';
 import '../../core/widgets/glass_components.dart';
-import '../../core/services/api_service.dart';
-import '../../core/providers/providers.dart';
 
-class AddEmployeeScreen extends ConsumerStatefulWidget {
+class AddEmployeeScreen extends StatefulWidget {
+  const AddEmployeeScreen({super.key});
+
   @override
-  ConsumerState<AddEmployeeScreen> createState() => _AddEmployeeScreenState();
+  State<AddEmployeeScreen> createState() => _AddEmployeeScreenState();
 }
 
-class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
+class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
   final PageController _pageController = PageController();
-  final _formKey = GlobalKey<FormState>();
-  
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
-  bool _isLoading = false;
-  
-  // Form controllers
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _designationController = TextEditingController();
-  final _departmentController = TextEditingController();
-  final _ctcController = TextEditingController();
-  
-  // Form data
-  String _selectedRole = 'Employee';
-  String? _selectedManagerId;
-  bool _isActive = true;
-  
-  // Data lists
-  List<Map<String, dynamic>> _managers = [];
-  List<Map<String, dynamic>> _organizations = [];
+  final int _totalSteps = 3;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
+  // Form controllers
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _departmentController = TextEditingController();
+  final TextEditingController _designationController = TextEditingController();
+  final TextEditingController _salaryController = TextEditingController();
+
+  String _selectedRole = 'Employee';
+  DateTime? _selectedDateOfBirth;
+  DateTime? _selectedJoiningDate;
 
   @override
   void dispose() {
     _pageController.dispose();
     _nameController.dispose();
     _emailController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    _designationController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
     _departmentController.dispose();
-    _ctcController.dispose();
+    _designationController.dispose();
+    _salaryController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    try {
-      final apiService = ref.read(apiServiceProvider);
-      final managers = await apiService.getUsers();
-      final organizations = await apiService.getOrganizations();
-      
-      setState(() {
-        _managers = managers.where((user) => 
-          user['role'] == 'HR' || user['role'] == 'Admin'
-        ).toList();
-        _organizations = organizations;
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load data: $e')),
+  void _nextStep() {
+    if (_currentStep < _totalSteps - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
       );
+    }
+  }
+
+  void _previousStep() {
+    if (_currentStep > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _submitForm() {
+    if (_formKey.currentState!.validate()) {
+      // Handle form submission
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Employee added successfully!')),
+      );
+      context.go('/employees');
     }
   }
 
@@ -85,10 +78,9 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(0), // Hide the default app bar
+        preferredSize: const Size.fromHeight(0),
         child: Container(),
       ),
-      drawer: const AppDrawer(),
       body: Container(
         decoration: BoxDecoration(
           gradient: isDark 
@@ -99,34 +91,105 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
           child: Column(
             children: [
               // Custom Header
-              _buildCustomHeader(context)
-                  .animate()
-                  .fadeIn(duration: 600.ms, delay: 100.ms)
-                  .slideY(begin: 0.2, end: 0),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    GlassButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Add Employee',
+                        style: LiquidGlassTheme.heading2.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               
-              // Progress indicator
-              _buildProgressIndicator(context)
-                  .animate()
-                  .fadeIn(duration: 600.ms, delay: 200.ms)
-                  .slideY(begin: 0.2, end: 0),
+              // Progress Indicator
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: List.generate(_totalSteps, (index) {
+                    return Expanded(
+                      child: Container(
+                        height: 4,
+                        margin: EdgeInsets.only(right: index < _totalSteps - 1 ? 8 : 0),
+                        decoration: BoxDecoration(
+                          color: index <= _currentStep 
+                              ? Colors.white 
+                              : Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              
+              const SizedBox(height: 24),
               
               // Stepper content
               Expanded(
                 child: PageView(
-              controller: _pageController,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentStep = index;
-                });
-              },
-              children: [
-                _buildPersonalInfoStep(),
-                _buildWorkInfoStep(),
-                _buildReviewStep(),
-              ],
-            ),
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentStep = index;
+                    });
+                  },
+                  children: [
+                    _buildPersonalInfoStep(),
+                    _buildWorkInfoStep(),
+                    _buildReviewStep(),
+                  ],
+                ),
+              ),
+              
+              // Navigation buttons
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    if (_currentStep > 0)
+                      Expanded(
+                        child: GlassButton(
+                          onPressed: _previousStep,
+                          child: Text(
+                            'Previous',
+                            style: LiquidGlassTheme.bodyMedium.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (_currentStep > 0) const SizedBox(width: 16),
+                    Expanded(
+                      child: GlassButton(
+                        onPressed: _currentStep == _totalSteps - 1 ? _submitForm : _nextStep,
+                        child: Text(
+                          _currentStep == _totalSteps - 1 ? 'Submit' : 'Next',
+                          style: LiquidGlassTheme.bodyMedium.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -140,58 +203,43 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.primaryColor.withOpacity(0.1), AppTheme.accentColor.withOpacity(0.1)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            GlassCard(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.person_add,
+                      size: 48,
+                      color: LiquidGlassTheme.primaryPurple,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Personal Information',
+                      style: LiquidGlassTheme.heading3.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Enter the employee\'s personal details',
+                      style: LiquidGlassTheme.bodyMedium.copyWith(
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.person_add,
-                    size: 48,
-                    color: AppTheme.primaryColor,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Personal Information',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Enter the basic personal details of the employee',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.secondaryColor,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
               ),
             ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             
             // Form fields
-            TextFormField(
+            GlassTextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Full Name',
-                hintText: 'Enter full name',
-                prefixIcon: Icon(Icons.person),
-                border: OutlineInputBorder(),
-              ),
+              labelText: 'Full Name',
+              prefixIcon: const Icon(Icons.person),
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter full name';
@@ -202,20 +250,16 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
             
             const SizedBox(height: 16),
             
-            TextFormField(
+            GlassTextField(
               controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email Address',
-                hintText: 'Enter email address',
-                prefixIcon: Icon(Icons.email),
-                border: OutlineInputBorder(),
-              ),
+              labelText: 'Email Address',
+              prefixIcon: const Icon(Icons.email),
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter email address';
                 }
-                if (!value.contains('@')) {
+                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
                   return 'Please enter a valid email address';
                 }
                 return null;
@@ -224,20 +268,14 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
             
             const SizedBox(height: 16),
             
-            TextFormField(
-              controller: _usernameController,
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                hintText: 'Enter username',
-                prefixIcon: Icon(Icons.account_circle),
-                border: OutlineInputBorder(),
-              ),
+            GlassTextField(
+              controller: _phoneController,
+              labelText: 'Phone Number',
+              prefixIcon: const Icon(Icons.phone),
+              keyboardType: TextInputType.phone,
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter username';
-                }
-                if (value.length < 3) {
-                  return 'Username must be at least 3 characters';
+                  return 'Please enter phone number';
                 }
                 return null;
               },
@@ -245,24 +283,11 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
             
             const SizedBox(height: 16),
             
-            TextFormField(
-              controller: _passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                hintText: 'Enter password',
-                prefixIcon: Icon(Icons.lock),
-                border: OutlineInputBorder(),
-              ),
-              obscureText: true,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter password';
-                }
-                if (value.length < 6) {
-                  return 'Password must be at least 6 characters';
-                }
-                return null;
-              },
+            GlassTextField(
+              controller: _addressController,
+              labelText: 'Address',
+              prefixIcon: const Icon(Icons.location_on),
+              maxLines: 3,
             ),
           ],
         ),
@@ -277,156 +302,100 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.accentColor.withOpacity(0.1), AppTheme.successColor.withOpacity(0.1)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.work,
+                    size: 48,
+                    color: LiquidGlassTheme.primaryPurple,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Work Information',
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enter the employee\'s work details',
+                    style: LiquidGlassTheme.bodyMedium.copyWith(
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.accentColor.withOpacity(0.2)),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.work,
-                  size: 48,
-                  color: AppTheme.accentColor,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Work Information',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.accentColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Enter the work-related details of the employee',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.secondaryColor,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
             ),
           ),
           
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           
-          // Form fields
-          DropdownButtonFormField<String>(
-            value: _selectedRole,
-            decoration: const InputDecoration(
-              labelText: 'Role',
-              prefixIcon: Icon(Icons.work),
-              border: OutlineInputBorder(),
-            ),
-            items: ['Employee', 'HR', 'Admin'].map((role) {
-              return DropdownMenuItem<String>(
-                value: role,
-                child: Text(role),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedRole = value!;
-              });
-            },
-          ),
-          
-          const SizedBox(height: 16),
-          
-          TextFormField(
-            controller: _designationController,
-            decoration: const InputDecoration(
-              labelText: 'Designation',
-              hintText: 'Enter designation',
-              prefixIcon: Icon(Icons.badge),
-              border: OutlineInputBorder(),
+          // Role selection
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Role',
+                    style: LiquidGlassTheme.bodyLarge.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _selectedRole,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    items: ['Employee', 'Manager', 'HR', 'Admin'].map((role) {
+                      return DropdownMenuItem(
+                        value: role,
+                        child: Text(role),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedRole = value!;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
           
           const SizedBox(height: 16),
           
-          TextFormField(
+          GlassTextField(
             controller: _departmentController,
-            decoration: const InputDecoration(
-              labelText: 'Department',
-              hintText: 'Enter department',
-              prefixIcon: Icon(Icons.business),
-              border: OutlineInputBorder(),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter department';
-              }
-              return null;
-            },
+            labelText: 'Department',
+            prefixIcon: const Icon(Icons.business),
           ),
           
           const SizedBox(height: 16),
           
-          TextFormField(
-            controller: _ctcController,
-            decoration: const InputDecoration(
-              labelText: 'CTC (Annual)',
-              hintText: 'Enter annual CTC',
-              prefixIcon: Icon(Icons.attach_money),
-              border: OutlineInputBorder(),
-            ),
+          GlassTextField(
+            controller: _designationController,
+            labelText: 'Designation',
+            prefixIcon: const Icon(Icons.badge),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          GlassTextField(
+            controller: _salaryController,
+            labelText: 'Salary',
+            prefixIcon: const Icon(Icons.attach_money),
             keyboardType: TextInputType.number,
-          ),
-          
-          const SizedBox(height: 16),
-          
-          if (_managers.isNotEmpty) ...[
-            DropdownButtonFormField<String>(
-              value: _selectedManagerId,
-              decoration: const InputDecoration(
-                labelText: 'Manager (Optional)',
-                prefixIcon: Icon(Icons.supervisor_account),
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                DropdownMenuItem<String>(
-                  value: null,
-                  child: Text('No Manager'),
-                ),
-                ..._managers.map((manager) {
-                  return DropdownMenuItem<String>(
-                    value: manager['id'].toString(),
-                    child: Text(manager['name'] ?? 'Unknown'),
-                  );
-                }).toList(),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedManagerId = value;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-          
-          Row(
-            children: [
-              Checkbox(
-                value: _isActive,
-                onChanged: (value) {
-                  setState(() {
-                    _isActive = value!;
-                  });
-                },
-              ),
-              const Text('Active Employee'),
-            ],
           ),
         ],
       ),
@@ -440,92 +409,87 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.successColor.withOpacity(0.1), AppTheme.primaryColor.withOpacity(0.1)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    size: 48,
+                    color: LiquidGlassTheme.accentGreen,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Review Information',
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Review all information before submitting',
+                    style: LiquidGlassTheme.bodyMedium.copyWith(
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.successColor.withOpacity(0.2)),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.check_circle,
-                  size: 48,
-                  color: AppTheme.successColor,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Review Information',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.successColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Review all information before creating the employee',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.secondaryColor,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
             ),
           ),
           
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           
           // Review cards
-          _buildReviewCard('Personal Information', [
-            _buildReviewItem('Name', _nameController.text),
-            _buildReviewItem('Email', _emailController.text),
-            _buildReviewItem('Username', _usernameController.text),
-          ]),
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Personal Information',
+                    style: LiquidGlassTheme.bodyLarge.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildReviewItem('Name', _nameController.text),
+                  _buildReviewItem('Email', _emailController.text),
+                  _buildReviewItem('Phone', _phoneController.text),
+                  _buildReviewItem('Address', _addressController.text),
+                ],
+              ),
+            ),
+          ),
           
           const SizedBox(height: 16),
           
-          _buildReviewCard('Work Information', [
-            _buildReviewItem('Role', _selectedRole),
-            _buildReviewItem('Designation', _designationController.text.isEmpty ? 'Not specified' : _designationController.text),
-            _buildReviewItem('Department', _departmentController.text),
-            _buildReviewItem('CTC', _ctcController.text.isEmpty ? 'Not specified' : '₹${_ctcController.text}'),
-            _buildReviewItem('Manager', _selectedManagerId != null 
-              ? _managers.firstWhere((m) => m['id'].toString() == _selectedManagerId)['name'] 
-              : 'No Manager'),
-            _buildReviewItem('Status', _isActive ? 'Active' : 'Inactive'),
-          ]),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReviewCard(String title, List<Widget> items) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
+          GlassCard(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Work Information',
+                    style: LiquidGlassTheme.bodyLarge.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildReviewItem('Role', _selectedRole),
+                  _buildReviewItem('Department', _departmentController.text),
+                  _buildReviewItem('Designation', _designationController.text),
+                  _buildReviewItem('Salary', _salaryController.text),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            ...items,
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -540,166 +504,21 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
             width: 100,
             child: Text(
               '$label:',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+              style: LiquidGlassTheme.bodyMedium.copyWith(
+                color: Colors.white.withOpacity(0.7),
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
           Expanded(
             child: Text(
-              value,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _nextStep() {
-    if (_currentStep == 0) {
-      if (_formKey.currentState!.validate()) {
-        _pageController.nextPage(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
-      }
-    } else {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
-  }
-
-  void _previousStep() {
-    _pageController.previousPage(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  Future<void> _submitForm() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final apiService = ref.read(apiServiceProvider);
-      final employeeData = {
-        'name': _nameController.text,
-        'email': _emailController.text,
-        'username': _usernameController.text,
-        'password': _passwordController.text,
-        'role': _selectedRole,
-        'designation': _designationController.text,
-        'department': _departmentController.text,
-        'is_active': _isActive,
-        if (_ctcController.text.isNotEmpty) 'ctc': double.tryParse(_ctcController.text),
-        if (_selectedManagerId != null) 'manager_id': _selectedManagerId,
-        if (_organizations.isNotEmpty) 'organization_id': _organizations.first['id'],
-      };
-
-      await apiService.createUser(employeeData);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Employee created successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
-      context.pop();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create employee: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Widget _buildCustomHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(LiquidGlassTheme.spacingM),
-      child: Row(
-        children: [
-          // Back Button
-          GlassButton(
-            onPressed: () => context.pop(),
-            backgroundColor: Colors.white.withOpacity(0.2),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.all(LiquidGlassTheme.spacingS),
-            child: const Icon(Icons.arrow_back_rounded, size: 20),
-          ),
-          const SizedBox(width: LiquidGlassTheme.spacingM),
-          // Title
-          Expanded(
-            child: Text(
-              'Add Employee',
-              style: LiquidGlassTheme.heading2.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          // Action Buttons
-          Row(
-            children: [
-              if (_currentStep > 0)
-                GlassButton(
-                  onPressed: _previousStep,
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                  foregroundColor: Colors.white,
-                  child: const Text('Previous'),
-                ),
-              const SizedBox(width: LiquidGlassTheme.spacingS),
-              GlassButton(
-                onPressed: _currentStep < 2 ? _nextStep : _submitForm,
-                backgroundColor: LiquidGlassTheme.primaryPurple,
-                foregroundColor: Colors.white,
-                child: Text(_currentStep < 2 ? 'Next' : 'Save'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressIndicator(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: LiquidGlassTheme.spacingM,
-        vertical: LiquidGlassTheme.spacingS,
-      ),
-      child: GlassCard(
-        backgroundColor: Colors.white.withOpacity(0.15),
-        child: Row(
-          children: [
-            Expanded(
-              child: LinearProgressIndicator(
-                value: (_currentStep + 1) / 3,
-                backgroundColor: Colors.white.withOpacity(0.2),
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ),
-            const SizedBox(width: LiquidGlassTheme.spacingM),
-            Text(
-              'Step ${_currentStep + 1} of 3',
+              value.isEmpty ? 'Not provided' : value,
               style: LiquidGlassTheme.bodyMedium.copyWith(
                 color: Colors.white,
-                fontWeight: FontWeight.w600,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -27,20 +27,8 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
   
   // Form data
   String _selectedType = 'holiday';
-  String _selectedColor = '#ef4444';
   bool _isMultiDay = false;
   bool _isCalendarEvent = true;
-
-  final List<String> _availableColors = [
-    '#ef4444', // Red
-    '#3b82f6', // Blue
-    '#10b981', // Green
-    '#f59e0b', // Yellow
-    '#8b5cf6', // Purple
-    '#06b6d4', // Cyan
-    '#84cc16', // Lime
-    '#f97316', // Orange
-  ];
 
   @override
   void dispose() {
@@ -54,12 +42,59 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+    final canCreateHoliday = user?.role == 'HR' || user?.role == 'Admin' || user?.role == 'God';
+    
+    if (!canCreateHoliday) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Access Denied'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                context.go('/holidays');
+              }
+            },
+          ),
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock, size: 64, color: Colors.red),
+              SizedBox(height: 16),
+              Text(
+                'Access Denied',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Only HR, Admin, and God users can create holidays and events.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Holiday/Event'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/holidays');
+            }
+          },
         ),
         actions: [
           if (_currentStep > 0)
@@ -207,18 +242,6 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
               onChanged: (value) {
                 setState(() {
                   _selectedType = value!;
-                  // Set default color based on type
-                  switch (value) {
-                    case 'holiday':
-                      _selectedColor = '#ef4444';
-                      break;
-                    case 'event':
-                      _selectedColor = '#f59e0b';
-                      break;
-                    case 'notice':
-                      _selectedColor = '#10b981';
-                      break;
-                  }
                 });
               },
             ),
@@ -234,44 +257,6 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Color selection
-            Text(
-              'Color',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: _availableColors.map((color) {
-                final isSelected = _selectedColor == color;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedColor = color;
-                    });
-                  },
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _parseColor(color),
-                      shape: BoxShape.circle,
-                      border: isSelected ? Border.all(color: Colors.black, width: 3) : null,
-                    ),
-                    child: isSelected
-                        ? const Icon(Icons.check, color: Colors.white, size: 20)
-                        : null,
-                  ),
-                );
-              }).toList(),
             ),
           ],
         ),
@@ -488,7 +473,6 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
             _buildReviewItem('Name', _nameController.text),
             _buildReviewItem('Type', _selectedType.toUpperCase()),
             _buildReviewItem('Description', _descriptionController.text.isEmpty ? 'No description' : _descriptionController.text),
-            _buildReviewItem('Color', ''),
           ]),
           
           const SizedBox(height: 16),
@@ -545,22 +529,7 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
             ),
           ),
           Expanded(
-            child: label == 'Color' 
-                ? Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          color: _parseColor(_selectedColor),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(_selectedColor),
-                    ],
-                  )
-                : Text(value),
+            child: Text(value),
           ),
         ],
       ),
@@ -601,7 +570,6 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
         'name': _nameController.text,
         'type': _selectedType,
         'description': _descriptionController.text,
-        'color': _selectedColor,
         'is_calendar_event': _isCalendarEvent,
         if (_isMultiDay) 
           'date_range': '${_startDateController.text} to ${_endDateController.text}'
@@ -609,16 +577,30 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
           'date': _startDateController.text,
       };
 
-      await apiService.createHoliday(holidayData);
+      final success = await apiService.createHoliday(holidayData);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Holiday/Event created successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
-      context.pop();
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Holiday/Event created successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Navigate back to holidays page
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        } else {
+          context.go('/holidays');
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to create holiday/event'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -631,16 +613,6 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
         _isLoading = false;
       });
     }
-  }
-
-  Color _parseColor(String colorValue) {
-    if (colorValue.startsWith('#')) {
-      String hexColor = colorValue.replaceAll('#', '');
-      if (hexColor.length == 6) {
-        return Color(int.parse('FF$hexColor', radix: 16));
-      }
-    }
-    return Colors.red;
   }
 
   String _formatDate(String dateString) {

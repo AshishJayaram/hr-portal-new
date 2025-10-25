@@ -82,10 +82,21 @@ class _HolidaysOnlyScreenState extends ConsumerState<HolidaysOnlyScreen> {
       appBar: AppBar(
         title: const Text('Holidays'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              context.go('/holidays/add');
+          Consumer(
+            builder: (context, ref, child) {
+              final authState = ref.watch(authProvider);
+              final user = authState.user;
+              final canCreateHoliday = user?.role == 'HR' || user?.role == 'Admin' || user?.role == 'God';
+              
+              if (canCreateHoliday) {
+                return IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () {
+                    context.go('/holidays/add');
+                  },
+                );
+              }
+              return const SizedBox.shrink();
             },
           ),
           IconButton(
