@@ -886,16 +886,16 @@ function KRACard({
         </div>
         <div className="flex flex-wrap gap-1">
           {/* Manager Assessment Button - Only for managers evaluating their reportees */}
-          {isDirectReportee && Number(kra.user_id) !== Number(currentUserId) && !kra.rating && (
+          {isDirectReportee && Number(kra.user_id) !== Number(currentUserId) && (
             <Button
               size="sm"
               variant="outline"
               onClick={onEvaluate}
-              title="Evaluate your reportee's KRA"
+              title={kra.rating ? "Edit your assessment of this KRA" : "Evaluate your reportee's KRA"}
               className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap text-xs px-2 py-1 order-first"
             >
               <Star className="w-3 h-3 mr-1" />
-              Manager Assess
+              {kra.rating ? "Edit Assessment" : "Manager Assess"}
             </Button>
           )}
           
@@ -905,53 +905,25 @@ function KRACard({
               size="sm"
               variant="outline"
               onClick={onEvaluate}
-              title="Evaluate this KRA as HR/Admin"
+              title={kra.rating ? "Edit your assessment of this KRA" : "Evaluate this KRA as HR/Admin"}
               className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 whitespace-nowrap text-xs px-2 py-1 order-first"
             >
               <Star className="w-3 h-3 mr-1" />
-              HR Assess
+              {kra.rating ? "Edit Assessment" : "HR Assess"}
             </Button>
           )}
           
           {/* Employee Self-Assessment Button - Only for KRA owners in "My KRAs" context */}
-          {Number(kra.user_id) === Number(currentUserId) && !kra.employee_rating && !isDirectReportee && (
+          {Number(kra.user_id) === Number(currentUserId) && !isDirectReportee && (
             <Button
               size="sm"
               variant="outline"
               onClick={onSelfAssess}
-              title="Self assess your KRA"
+              title={kra.employee_rating ? "Edit your self-assessment" : "Self assess your KRA"}
               className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 whitespace-nowrap text-xs px-2 py-1"
             >
               <Star className="w-3 h-3 mr-1" />
-              Self Assess
-            </Button>
-          )}
-          
-          {/* Edit Manager Assessment Button - For managers to edit their assessment */}
-          {isDirectReportee && Number(kra.user_id) !== Number(currentUserId) && kra.rating && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onEvaluate}
-              title="Edit your assessment of this KRA"
-              className="text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 whitespace-nowrap text-xs px-2 py-1"
-            >
-              <Edit className="w-3 h-3 mr-1" />
-              Edit Assessment
-            </Button>
-          )}
-          
-          {/* Edit Self Assessment Button - For employees to edit their own assessment */}
-          {Number(kra.user_id) === Number(currentUserId) && kra.employee_rating && !isDirectReportee && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSelfAssess}
-              title="Edit your self-assessment"
-              className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 whitespace-nowrap text-xs px-2 py-1"
-            >
-              <Edit className="w-3 h-3 mr-1" />
-              Edit Assessment
+              {kra.employee_rating ? "Edit Assessment" : "Self Assess"}
             </Button>
           )}
           
@@ -2375,7 +2347,7 @@ function ReporteesKRASection({
                       userRole={userRole}
                       currentUserId={userId} // Use the actual current user's ID (manager)
                       currentUserManagerId={user?.manager_id}
-                      isDirectReportee={true} // In ReporteesKRASection, all KRAs are from direct reportees
+                      isDirectReportee={Number(kra.user_id) !== Number(userId)} // Only true for actual reportees, not self
                     />
                   ))}
                 </div>

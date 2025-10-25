@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/liquid_glass_theme.dart';
+import '../../core/widgets/glass_components.dart';
 import '../../core/services/api_service.dart';
 import '../../core/providers/providers.dart';
 
@@ -25,138 +29,54 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final currentUser = authState.user;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canManageDocuments = currentUser?.role == 'HR' || currentUser?.role == 'Admin' || currentUser?.role == 'God';
+    
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Documents'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.upload),
-            onPressed: () {
-              _uploadDocument();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadDocuments,
-          ),
-        ],
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(0), // Hide the default app bar
+        child: Container(),
       ),
       drawer: const AppDrawer(),
-      body: Column(
-        children: [
-          // Search and Filter Bar
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search documents...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    _showFilterOptions();
-                  },
-                  icon: const Icon(Icons.filter_list),
-                ),
-              ],
-            ),
-          ),
-          
-          // Documents List
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _documents.isEmpty
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark 
+              ? LiquidGlassTheme.darkPrimaryGradient 
+              : LiquidGlassTheme.primaryGradient,
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom Header
+              _buildCustomHeader(context, canManageDocuments)
+                  .animate()
+                  .fadeIn(duration: 600.ms, delay: 100.ms)
+                  .slideY(begin: 0.2, end: 0),
+              
+              // Search and Filter Bar
+              _buildSearchFilter(context)
+                  .animate()
+                  .fadeIn(duration: 600.ms, delay: 200.ms)
+                  .slideY(begin: 0.2, end: 0),
+              
+              // Documents List
+              Expanded(
+                child: _isLoading
                     ? const Center(
-                        child: Text(
-                          'No documents found',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _documents.length,
-                        itemBuilder: (context, index) {
-                          final document = _documents[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              leading: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: _getFileTypeColor(document['mime_type'] ?? ''),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  _getFileTypeIcon(document['mime_type'] ?? ''),
-                                  color: Colors.white,
-                                ),
-                              ),
-                              title: Text(
-                                document['title'] ?? 'Untitled',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(document['category'] ?? ''),
-                                  Text(
-                                    '${document['file_name'] ?? ''} • ${_formatDate(document['created_at'])}',
-                                    style: TextStyle(
-                                      color: AppTheme.secondaryColor,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.visibility),
-                                    onPressed: () => _viewDocument(document),
-                                    tooltip: 'View Document',
-                                  ),
-                                  PopupMenuButton<String>(
-                                    onSelected: (value) {
-                                      switch (value) {
-                                        case 'download':
-                                          _downloadDocument(document);
-                                          break;
-                                        case 'delete':
-                                          _deleteDocument(document['id']);
-                                          break;
-                                      }
-                                    },
-                                    itemBuilder: (context) => [
-                                      const PopupMenuItem(
-                                        value: 'download',
-                                        child: Text('Download'),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'delete',
-                                        child: Text('Delete'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                    : _documents.isEmpty
+                        ? _buildEmptyState(context)
+                        : _buildDocumentsList(context),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -202,7 +122,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
 
     try {
       final apiService = ref.read(apiServiceProvider);
-      final currentUser = await apiService.getCurrentUser();
+      final authState = ref.read(authProvider);
+      final currentUser = authState.user;
       
       List<Map<String, dynamic>> documents = [];
       
@@ -210,9 +131,14 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         // Get documents that are either public or assigned to the current user
         final allDocuments = await apiService.getDocuments();
         
+        // Apply role-based filtering like frontend
         documents = allDocuments.where((doc) {
+          if (currentUser.role == 'HR' || currentUser.role == 'Admin' || currentUser.role == 'God') {
+            return true; // HR/Admin can see all documents
+          }
+          // Employees can see: their own documents + public documents
           bool isPublic = doc['is_public'] == true || doc['is_public'] == 1;
-          bool isAssignedToUser = doc['user_id'] == currentUser['id'].toString();
+          bool isAssignedToUser = doc['user_id'] == currentUser.id;
           
           return isPublic || isAssignedToUser;
         }).toList();
@@ -619,6 +545,218 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       ),
     );
   }
+
+  Widget _buildCustomHeader(BuildContext context, bool canManageDocuments) {
+    return Container(
+      padding: const EdgeInsets.all(LiquidGlassTheme.spacingM),
+      child: Row(
+        children: [
+          // Title
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Documents',
+                  style: LiquidGlassTheme.heading2.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  'Manage and access organizational documents',
+                  style: LiquidGlassTheme.bodyMedium.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Action Buttons
+          Row(
+            children: [
+              if (canManageDocuments)
+                GlassButton(
+                  onPressed: () => _uploadDocument(),
+                  backgroundColor: LiquidGlassTheme.primaryPurple,
+                  foregroundColor: Colors.white,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.upload_rounded, size: 16),
+                      SizedBox(width: LiquidGlassTheme.spacingS),
+                      Text('Upload Document'),
+                    ],
+                  ),
+                ),
+              const SizedBox(width: LiquidGlassTheme.spacingS),
+              GlassButton(
+                onPressed: _loadDocuments,
+                backgroundColor: Colors.white.withOpacity(0.2),
+                foregroundColor: Colors.white,
+                child: const Icon(Icons.refresh_rounded, size: 20),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchFilter(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: LiquidGlassTheme.spacingM),
+      child: GlassCard(
+        backgroundColor: Colors.white.withOpacity(0.15),
+        child: Row(
+          children: [
+            Expanded(
+              child: GlassTextField(
+                hintText: 'Search documents by title or category...',
+                prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
+              ),
+            ),
+            const SizedBox(width: LiquidGlassTheme.spacingS),
+            GlassButton(
+              onPressed: () => _showFilterOptions(),
+              backgroundColor: Colors.white.withOpacity(0.2),
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.filter_list_rounded, size: 20),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: GlassCard(
+        backgroundColor: Colors.white.withOpacity(0.15),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.folder_open_rounded,
+              size: 64,
+              color: Colors.white70,
+            ),
+            const SizedBox(height: LiquidGlassTheme.spacingM),
+            Text(
+              'No documents found',
+              style: LiquidGlassTheme.heading4.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: LiquidGlassTheme.spacingS),
+            Text(
+              'Upload your first document to get started',
+              style: LiquidGlassTheme.bodyMedium.copyWith(
+                color: Colors.white70,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentsList(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(LiquidGlassTheme.spacingM),
+      itemCount: _documents.length,
+      itemBuilder: (context, index) {
+        final document = _documents[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: LiquidGlassTheme.spacingM),
+          child: GlassCard(
+            backgroundColor: Colors.white.withOpacity(0.15),
+            child: ListTile(
+              leading: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: _getFileTypeColor(document['mime_type'] ?? ''),
+                  borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusMedium),
+                ),
+                child: Icon(
+                  _getFileTypeIcon(document['mime_type'] ?? ''),
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              title: Text(
+                document['title'] ?? 'Untitled',
+                style: LiquidGlassTheme.bodyLarge.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    document['category'] ?? '',
+                    style: LiquidGlassTheme.bodyMedium.copyWith(
+                      color: Colors.white70,
+                    ),
+                  ),
+                  Text(
+                    '${document['file_name'] ?? ''} • ${_formatDate(document['created_at'])}',
+                    style: LiquidGlassTheme.bodySmall.copyWith(
+                      color: Colors.white60,
+                    ),
+                  ),
+                ],
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GlassButton(
+                    onPressed: () => _viewDocument(document),
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(LiquidGlassTheme.spacingS),
+                    child: const Icon(Icons.visibility_rounded, size: 16),
+                  ),
+                  const SizedBox(width: LiquidGlassTheme.spacingS),
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'download':
+                          _downloadDocument(document);
+                          break;
+                        case 'delete':
+                          _deleteDocument(document['id']);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'download',
+                        child: Text('Download'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    ],
+                    child: GlassButton(
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.all(LiquidGlassTheme.spacingS),
+                      child: const Icon(Icons.more_vert_rounded, size: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _UploadDocumentDialog extends StatefulWidget {
@@ -636,6 +774,7 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
   final _categoryController = TextEditingController();
   bool _isPublic = false;
   bool _isUploading = false;
+  PlatformFile? _selectedFile;
 
   @override
   void dispose() {
@@ -646,125 +785,250 @@ class _UploadDocumentDialogState extends State<_UploadDocumentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Upload Document'),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Document Title',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a title';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _categoryController,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a category';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Checkbox(
-                    value: _isPublic,
-                    onChanged: (value) {
-                      setState(() {
-                        _isPublic = value ?? false;
-                      });
-                    },
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: GlassCard(
+        backgroundColor: Colors.white.withOpacity(0.15),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(LiquidGlassTheme.spacingM),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.upload_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: LiquidGlassTheme.spacingS),
+                      Text(
+                        'Upload Document',
+                        style: LiquidGlassTheme.heading4.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      GlassButton(
+                        onPressed: () => Navigator.pop(context),
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.all(LiquidGlassTheme.spacingS),
+                        child: const Icon(Icons.close_rounded, size: 16),
+                      ),
+                    ],
                   ),
-                  const Text('Make this document public'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                height: 120,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.cloud_upload,
-                      size: 48,
-                      color: AppTheme.primaryColor,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'File picker integration required',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const Text(
-                      'Use file_picker package for actual implementation',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                  ],
+                
+                // Form Content
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: LiquidGlassTheme.spacingM),
+                  child: Column(
+                    children: [
+                      GlassTextField(
+                        controller: _titleController,
+                        hintText: 'Document Title',
+                        prefixIcon: const Icon(Icons.title_rounded, color: Colors.white70),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a title';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: LiquidGlassTheme.spacingM),
+                      GlassTextField(
+                        controller: _categoryController,
+                        hintText: 'Category',
+                        prefixIcon: const Icon(Icons.category_rounded, color: Colors.white70),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a category';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: LiquidGlassTheme.spacingM),
+                      
+                      // Public checkbox
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _isPublic,
+                            onChanged: (value) {
+                              setState(() {
+                                _isPublic = value ?? false;
+                              });
+                            },
+                            activeColor: LiquidGlassTheme.primaryPurple,
+                          ),
+                          Text(
+                            'Make this document public',
+                            style: LiquidGlassTheme.bodyMedium.copyWith(
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: LiquidGlassTheme.spacingM),
+                      
+                      // File picker
+                      GestureDetector(
+                        onTap: _pickFile,
+                        child: Container(
+                          width: double.infinity,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusMedium),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 2,
+                              style: BorderStyle.solid,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _selectedFile != null ? Icons.check_circle_rounded : Icons.cloud_upload_rounded,
+                                size: 48,
+                                color: _selectedFile != null ? Colors.green : Colors.white70,
+                              ),
+                              const SizedBox(height: LiquidGlassTheme.spacingS),
+                              Text(
+                                _selectedFile != null 
+                                    ? 'File selected: ${_selectedFile!.name}'
+                                    : 'Tap to select a file',
+                                style: LiquidGlassTheme.bodyMedium.copyWith(
+                                  color: Colors.white70,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (_selectedFile != null)
+                                Text(
+                                  '${(_selectedFile!.size / 1024 / 1024).toStringAsFixed(2)} MB',
+                                  style: LiquidGlassTheme.bodySmall.copyWith(
+                                    color: Colors.white60,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                
+                // Action Buttons
+                Container(
+                  padding: const EdgeInsets.all(LiquidGlassTheme.spacingM),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GlassButton(
+                          onPressed: _isUploading ? null : () => Navigator.pop(context),
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          foregroundColor: Colors.white,
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: LiquidGlassTheme.spacingM),
+                      Expanded(
+                        child: GlassButton(
+                          onPressed: _isUploading ? null : _uploadFile,
+                          backgroundColor: _isUploading 
+                              ? Colors.white.withOpacity(0.2)
+                              : LiquidGlassTheme.primaryPurple,
+                          foregroundColor: Colors.white,
+                          child: _isUploading 
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text('Upload'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isUploading ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isUploading ? null : _uploadFile,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-          ),
-          child: _isUploading 
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Upload'),
-        ),
-      ],
     );
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (result != null) {
+        setState(() {
+          _selectedFile = result.files.first;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick file: $e')),
+      );
+    }
   }
 
   Future<void> _uploadFile() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    if (_selectedFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file to upload')),
+      );
+      return;
+    }
     
     setState(() {
       _isUploading = true;
     });
 
     try {
-      // Create FormData with mock file for demonstration
+      final apiService = ref.read(apiServiceProvider);
+      final authState = ref.read(authProvider);
+      final currentUser = authState.user;
+      
+      if (currentUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not found. Please login again.')),
+        );
+        return;
+      }
+
+      // Create FormData with actual file
       final formData = FormData.fromMap({
         'title': _titleController.text,
         'category': _categoryController.text,
-        'isPublic': _isPublic.toString(),
-        // Note: In a real app, you would add the actual file here
-        // 'file': await MultipartFile.fromFile(filePath),
+        'is_public': _isPublic.toString(),
+        'user_id': currentUser.id,
+        'organization_id': currentUser.organizationId,
+        'file': await MultipartFile.fromFile(
+          _selectedFile!.path!,
+          filename: _selectedFile!.name,
+        ),
       });
 
       await widget.onUpload(formData);

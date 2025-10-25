@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/liquid_glass_theme.dart';
+import '../../core/widgets/glass_components.dart';
 import '../../core/services/api_service.dart';
 import '../../core/providers/providers.dart';
 
@@ -24,24 +27,23 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Employees'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              context.go('/employees/add');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadEmployees,
-          ),
-        ],
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(0), // Hide the default app bar
+        child: Container(),
       ),
       drawer: const AppDrawer(),
-      body: Column(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark 
+              ? LiquidGlassTheme.darkPrimaryGradient 
+              : LiquidGlassTheme.primaryGradient,
+        ),
+        child: SafeArea(
+          child: Column(
         children: [
           // Search and Filter Bar
           Padding(

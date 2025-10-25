@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/liquid_glass_theme.dart';
+import '../../core/widgets/glass_components.dart';
 import '../../core/services/api_service.dart';
 import '../../core/providers/providers.dart';
 
@@ -77,55 +80,39 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Employee'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          if (_currentStep > 0)
-            TextButton(
-              onPressed: _previousStep,
-              child: const Text('Previous'),
-            ),
-          TextButton(
-            onPressed: _currentStep < 2 ? _nextStep : _submitForm,
-            child: Text(_currentStep < 2 ? 'Next' : 'Save'),
-          ),
-        ],
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(0), // Hide the default app bar
+        child: Container(),
       ),
       drawer: const AppDrawer(),
-      body: Column(
-        children: [
-          // Progress indicator
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: LinearProgressIndicator(
-                    value: (_currentStep + 1) / 3,
-                    backgroundColor: Colors.grey[300],
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Step ${_currentStep + 1} of 3',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Stepper content
-          Expanded(
-            child: PageView(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark 
+              ? LiquidGlassTheme.darkPrimaryGradient 
+              : LiquidGlassTheme.primaryGradient,
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom Header
+              _buildCustomHeader(context)
+                  .animate()
+                  .fadeIn(duration: 600.ms, delay: 100.ms)
+                  .slideY(begin: 0.2, end: 0),
+              
+              // Progress indicator
+              _buildProgressIndicator(context)
+                  .animate()
+                  .fadeIn(duration: 600.ms, delay: 200.ms)
+                  .slideY(begin: 0.2, end: 0),
+              
+              // Stepper content
+              Expanded(
+                child: PageView(
               controller: _pageController,
               onPageChanged: (index) {
                 setState(() {
@@ -636,5 +623,84 @@ class _AddEmployeeScreenState extends ConsumerState<AddEmployeeScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Widget _buildCustomHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(LiquidGlassTheme.spacingM),
+      child: Row(
+        children: [
+          // Back Button
+          GlassButton(
+            onPressed: () => context.pop(),
+            backgroundColor: Colors.white.withOpacity(0.2),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.all(LiquidGlassTheme.spacingS),
+            child: const Icon(Icons.arrow_back_rounded, size: 20),
+          ),
+          const SizedBox(width: LiquidGlassTheme.spacingM),
+          // Title
+          Expanded(
+            child: Text(
+              'Add Employee',
+              style: LiquidGlassTheme.heading2.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          // Action Buttons
+          Row(
+            children: [
+              if (_currentStep > 0)
+                GlassButton(
+                  onPressed: _previousStep,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  foregroundColor: Colors.white,
+                  child: const Text('Previous'),
+                ),
+              const SizedBox(width: LiquidGlassTheme.spacingS),
+              GlassButton(
+                onPressed: _currentStep < 2 ? _nextStep : _submitForm,
+                backgroundColor: LiquidGlassTheme.primaryPurple,
+                foregroundColor: Colors.white,
+                child: Text(_currentStep < 2 ? 'Next' : 'Save'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressIndicator(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: LiquidGlassTheme.spacingM,
+        vertical: LiquidGlassTheme.spacingS,
+      ),
+      child: GlassCard(
+        backgroundColor: Colors.white.withOpacity(0.15),
+        child: Row(
+          children: [
+            Expanded(
+              child: LinearProgressIndicator(
+                value: (_currentStep + 1) / 3,
+                backgroundColor: Colors.white.withOpacity(0.2),
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(width: LiquidGlassTheme.spacingM),
+            Text(
+              'Step ${_currentStep + 1} of 3',
+              style: LiquidGlassTheme.bodyMedium.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

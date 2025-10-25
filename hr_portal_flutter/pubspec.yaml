@@ -1,5 +1,5 @@
-name: hr_portal_flutter
-description: HR Portal Flutter Application
+name: liquid_hr_portal
+description: Liquid Glass HR Portal - Modern Employee Management System
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -42,6 +42,15 @@ dependencies:
   # File handling
   file_picker: ^6.1.1
   path_provider: ^2.1.2
+  
+  # Modern UI Dependencies for Liquid Glass Effects
+  glassmorphism: ^3.0.0
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+  lottie: ^2.7.0
+  flutter_staggered_animations: ^1.1.1
+  flutter_svg: ^2.0.9
+  cached_network_image: ^3.3.0
 
 dev_dependencies:
   flutter_test:
@@ -73,8 +82,8 @@ flutter_launcher_icons:
   web:
     generate: true
     image_path: "assets/icon/hr_portal_icon.png"
-    background_color: "#1E3A8A"
-    theme_color: "#10B981"
+    background_color: "#8B5CF6"
+    theme_color: "#3B82F6"
   windows:
     generate: true
     image_path: "assets/icon/hr_portal_icon.png"

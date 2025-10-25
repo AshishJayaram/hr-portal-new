@@ -455,6 +455,20 @@ class ApiService {
     }
   }
 
+  Future<bool> createHoliday(Map<String, dynamic> holidayData) async {
+    try {
+      final response = await _dio.post('/holidays', data: holidayData);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('Create holiday error: $e');
+      if (e is DioException) {
+        print('Dio error details: ${e.response?.data}');
+        print('Status code: ${e.response?.statusCode}');
+      }
+      return false;
+    }
+  }
+
   // Platform statistics (for God dashboard)
   Future<Map<String, dynamic>?> getPlatformStats() async {
     try {
@@ -765,15 +779,6 @@ class ApiService {
   }
 
   // Holiday management methods
-  Future<Map<String, dynamic>?> createHoliday(Map<String, dynamic> holidayData) async {
-    try {
-      final response = await _dio.post('/holidays', data: holidayData);
-      return response.data['data'];
-    } catch (e) {
-      print('Create holiday error: $e');
-      rethrow;
-    }
-  }
 
   Future<Map<String, dynamic>?> updateHoliday(String holidayId, Map<String, dynamic> holidayData) async {
     try {

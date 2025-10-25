@@ -32,10 +32,11 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
 
     try {
       final apiService = ref.read(apiServiceProvider);
-      final currentUser = await apiService.getCurrentUser();
+      final authState = ref.read(authProvider);
+      final currentUser = authState.user;
       
-      if (currentUser != null && currentUser['id'] != null) {
-        final leaveBalance = await apiService.getLeaveBalance(currentUser['id'].toString());
+      if (currentUser != null) {
+        final leaveBalance = await apiService.getLeaveBalance(currentUser.id);
         
         // Get available leave types (categories with allocations + LOP)
         final availableTypes = <Map<String, dynamic>>[];
@@ -45,6 +46,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
           availableTypes.add({
             'name': balance['category_name'] ?? balance['type'] ?? 'Leave',
             'type': balance['category_name'] ?? balance['type'] ?? 'Leave',
+            'category_id': balance['category_id']?.toString(),
           });
         }
         
@@ -52,6 +54,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
         availableTypes.add({
           'name': 'LOP',
           'type': 'LOP',
+          'category_id': null, // LOP doesn't need category_id
         });
         
         setState(() {
@@ -549,21 +552,47 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
                   ? () async {
                       try {
                         final apiService = ref.read(apiServiceProvider);
-                        await apiService.createLeave({
+                        final authState = ref.read(authProvider);
+                        final currentUser = authState.user;
+                        
+                        if (currentUser == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('User not found. Please login again.')),
+                          );
+                          return;
+                        }
+                        
+                        // Find the selected leave type details
+                        final selectedType = _availableLeaveTypes.firstWhere(
+                          (type) => type['type'] == selectedLeaveType,
+                        );
+                        
+                        // Parse dates
+                        final fromDate = DateTime.parse(startDateController.text);
+                        final toDate = DateTime.parse(endDateController.text);
+                        
+                        final leaveData = {
+                          'user_id': currentUser.id,
+                          'organization_id': currentUser.organizationId,
+                          'category_id': selectedType['category_id'] ?? '',
                           'type': selectedLeaveType,
-                          'from': startDateController.text,
-                          'to': endDateController.text,
                           'reason': reasonController.text,
-                        });
+                          'from_date': fromDate.toIso8601String(),
+                          'to_date': toDate.toIso8601String(),
+                          'start_half': 'FULL',
+                          'end_half': 'FULL',
+                        };
+                        
+                        await apiService.createLeave(leaveData);
                         
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$selectedLeaveType application submitted')),
+                          SnackBar(content: Text('$selectedLeaveType application submitted successfully')),
                         );
                         _loadLeaves();
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to submit leave application: $e')),
+                          SnackBar(content: Text('Failed to submit leave application: ${e.toString()}')),
                         );
                       }
                     }

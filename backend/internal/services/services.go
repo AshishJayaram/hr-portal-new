@@ -461,7 +461,8 @@ type UploadSalarySlipRequest struct {
 type CreateHolidayRequest struct {
 	OrganizationID  string `json:"organization_id" validate:"required"`
 	Name            string `json:"name" validate:"required"`
-	Date            string `json:"date"` // Accept string date in YYYY-MM-DD format
+	Date            string `json:"date"`       // Accept string date in YYYY-MM-DD format
+	DateRange       string `json:"date_range"` // Accept string date range (e.g., "2024-01-01 to 2024-01-03")
 	Type            string `json:"type" validate:"required,oneof=holiday event notice"`
 	Description     string `json:"description"`
 	IsCalendarEvent bool   `json:"is_calendar_event"`

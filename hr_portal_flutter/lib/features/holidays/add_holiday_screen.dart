@@ -602,10 +602,11 @@ class _AddHolidayScreenState extends ConsumerState<AddHolidayScreen> {
         'type': _selectedType,
         'description': _descriptionController.text,
         'color': _selectedColor,
-        'isCalendarEvent': _isCalendarEvent,
-        'date': _isMultiDay 
-            ? '${_startDateController.text} to ${_endDateController.text}'
-            : _startDateController.text,
+        'is_calendar_event': _isCalendarEvent,
+        if (_isMultiDay) 
+          'date_range': '${_startDateController.text} to ${_endDateController.text}'
+        else if (_startDateController.text.isNotEmpty)
+          'date': _startDateController.text,
       };
 
       await apiService.createHoliday(holidayData);

@@ -42,20 +42,19 @@ func (s *holidayService) CreateHoliday(req CreateHolidayRequest, httpReq *http.R
 
 	// Parse date if provided
 	if req.Date != "" {
-		// Check if it's a date range (e.g., "2024-01-01 to 2024-01-03")
-		if strings.Contains(req.Date, " to ") {
-			// For multi-day events, store the range as a string
-			holiday.Date = nil            // Clear the single date field
-			holiday.DateRange = &req.Date // Store the range
-		} else {
-			// Single date
-			parsedDate, err := time.Parse("2006-01-02", req.Date)
-			if err != nil {
-				return nil, fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
-			}
-			holiday.Date = &parsedDate
-			holiday.DateRange = nil
+		// Single date
+		parsedDate, err := time.Parse("2006-01-02", req.Date)
+		if err != nil {
+			return nil, fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
 		}
+		holiday.Date = &parsedDate
+	}
+
+	// Parse date range if provided
+	if req.DateRange != "" {
+		holiday.DateRange = &req.DateRange
+		// Clear single date if date range is provided
+		holiday.Date = nil
 	}
 
 	if err := s.repo.Create(holiday); err != nil {
