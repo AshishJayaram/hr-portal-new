@@ -616,8 +616,12 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
                               onTap: () async {
                                 final date = await showDatePicker(
                                   context: context,
-                                  initialDate: DateTime.now(),
-                                  firstDate: DateTime.now(),
+                                  initialDate: startDateController.text.isNotEmpty
+                                      ? DateTime.parse(startDateController.text)
+                                      : DateTime.now(),
+                                  firstDate: startDateController.text.isNotEmpty
+                                      ? DateTime.parse(startDateController.text)
+                                      : DateTime.now(),
                                   lastDate: DateTime.now().add(const Duration(days: 365)),
                                 );
                                 if (date != null) {
@@ -675,8 +679,20 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
                         );
                         
                         // Parse dates
+                        String toRfc3339Z(DateTime d) {
+                          final u = d.toUtc();
+                          final base = u.toIso8601String();
+                          final noFrac = base.contains('.') ? base.split('.').first : base;
+                          return noFrac.endsWith('Z') ? noFrac : noFrac + 'Z';
+                        }
                         final fromDate = DateTime.parse(startDateController.text);
                         final toDate = DateTime.parse(endDateController.text);
+                        if (toDate.isBefore(fromDate)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('End date cannot be before start date')),
+                          );
+                          return;
+                        }
                         
                         final leaveData = {
                           'user_id': currentUser.id,
@@ -684,8 +700,8 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
                           'category_id': selectedType['category_id'] ?? '',
                           'type': selectedLeaveType,
                           'reason': reasonController.text,
-                          'from_date': fromDate.toIso8601String(),
-                          'to_date': toDate.toIso8601String(),
+                          'from_date': toRfc3339Z(fromDate),
+                          'to_date': toRfc3339Z(toDate),
                           'start_half': 'FULL',
                           'end_half': 'FULL',
                         };

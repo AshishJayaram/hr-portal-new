@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/providers/providers.dart';
+import '../../core/theme/liquid_glass_theme.dart';
+import '../../core/widgets/glass_components.dart';
 
 class SettingsScreen extends ConsumerWidget {
   @override
@@ -12,204 +14,177 @@ class SettingsScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Settings'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        title: Text(
+          'Settings',
+          style: LiquidGlassTheme.heading4.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
       ),
       drawer: const AppDrawer(),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Theme Settings
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Appearance',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    leading: Icon(Icons.palette, color: AppTheme.primaryColor),
-                    title: const Text('Theme'),
-                    subtitle: Text(_getThemeModeText(themeMode)),
-                    trailing: DropdownButton<ThemeMode>(
-                      value: themeMode,
-                      items: [
-                        DropdownMenuItem(
-                          value: ThemeMode.light,
-                          child: const Text('Light'),
+      body: Container(
+        decoration: BoxDecoration(gradient: LiquidGlassTheme.darkPrimaryGradient),
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // Theme Settings
+              GlassCard(
+                backgroundColor: Colors.white.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Appearance',
+                        style: LiquidGlassTheme.bodyLarge.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 16),
+                      ListTile(
+                        leading: const Icon(Icons.palette, color: Colors.white70),
+                        title: const Text('Theme', style: TextStyle(color: Colors.white)),
+                        subtitle: Text(_getThemeModeText(themeMode), style: const TextStyle(color: Colors.white70)),
+                        trailing: DropdownButton<ThemeMode>(
+                          value: themeMode,
+                          dropdownColor: Colors.black87,
+                          items: const [
+                            DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
+                            DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
+                            DropdownMenuItem(value: ThemeMode.system, child: Text('System')),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              ref.read(themeModeProvider.notifier).setThemeMode(value);
+                            }
+                          },
                         ),
-                        DropdownMenuItem(
-                          value: ThemeMode.dark,
-                          child: const Text('Dark'),
-                        ),
-                        DropdownMenuItem(
-                          value: ThemeMode.system,
-                          child: const Text('System'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          ref.read(themeModeProvider.notifier).setThemeMode(value);
-                        }
-                      },
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Account Settings
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Account',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              const SizedBox(height: 16),
+              // Account Settings
+              GlassCard(
+                backgroundColor: Colors.white.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Account', style: LiquidGlassTheme.bodyLarge.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 16),
+                      ListTile(
+                        leading: const Icon(Icons.person, color: Colors.white70),
+                        title: const Text('Profile', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Manage your profile information', style: TextStyle(color: Colors.white70)),
+                        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54),
+                        onTap: () => context.push('/profile'),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.lock, color: Colors.white70),
+                        title: const Text('Change Password', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Update your password', style: TextStyle(color: Colors.white70)),
+                        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54),
+                        onTap: () => context.push('/change-password'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    leading: Icon(Icons.person, color: AppTheme.primaryColor),
-                    title: const Text('Profile'),
-                    subtitle: const Text('Manage your profile information'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      context.push('/profile');
-                    },
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.lock, color: AppTheme.primaryColor),
-                    title: const Text('Change Password'),
-                    subtitle: const Text('Update your password'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      context.push('/change-password');
-                    },
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Notification Settings
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Notifications',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              const SizedBox(height: 16),
+              // Notification Settings
+              GlassCard(
+                backgroundColor: Colors.white.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Notifications', style: LiquidGlassTheme.bodyLarge.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 16),
+                      SwitchListTile(
+                        secondary: const Icon(Icons.notifications, color: Colors.white70),
+                        title: const Text('Push Notifications', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Receive push notifications', style: TextStyle(color: Colors.white70)),
+                        value: true,
+                        onChanged: (value) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Push notifications ${value ? 'enabled' : 'disabled'}')),
+                          );
+                        },
+                      ),
+                      SwitchListTile(
+                        secondary: const Icon(Icons.email, color: Colors.white70),
+                        title: const Text('Email Notifications', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Receive email notifications', style: TextStyle(color: Colors.white70)),
+                        value: true,
+                        onChanged: (value) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Email notifications ${value ? 'enabled' : 'disabled'}')),
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  SwitchListTile(
-                    secondary: Icon(Icons.notifications, color: AppTheme.primaryColor),
-                    title: const Text('Push Notifications'),
-                    subtitle: const Text('Receive push notifications'),
-                    value: true,
-                    onChanged: (value) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Push notifications ${value ? 'enabled' : 'disabled'}')),
-                      );
-                    },
-                  ),
-                  SwitchListTile(
-                    secondary: Icon(Icons.email, color: AppTheme.primaryColor),
-                    title: const Text('Email Notifications'),
-                    subtitle: const Text('Receive email notifications'),
-                    value: true,
-                    onChanged: (value) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Email notifications ${value ? 'enabled' : 'disabled'}')),
-                      );
-                    },
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // About
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'About',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              const SizedBox(height: 16),
+              // About
+              GlassCard(
+                backgroundColor: Colors.white.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('About', style: LiquidGlassTheme.bodyLarge.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 16),
+                      ListTile(
+                        leading: const Icon(Icons.info, color: Colors.white70),
+                        title: const Text('App Version', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('1.0.0', style: TextStyle(color: Colors.white70)),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.help, color: Colors.white70),
+                        title: const Text('Help & Support', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('Get help and support', style: TextStyle(color: Colors.white70)),
+                        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54),
+                        onTap: () => _showHelpDialog(context),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.privacy_tip, color: Colors.white70),
+                        title: const Text('Privacy Policy', style: TextStyle(color: Colors.white)),
+                        subtitle: const Text('View privacy policy', style: TextStyle(color: Colors.white70)),
+                        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54),
+                        onTap: () => _showPrivacyDialog(context),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    leading: Icon(Icons.info, color: AppTheme.primaryColor),
-                    title: const Text('App Version'),
-                    subtitle: const Text('1.0.0'),
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.help, color: AppTheme.primaryColor),
-                    title: const Text('Help & Support'),
-                    subtitle: const Text('Get help and support'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      _showHelpDialog(context);
-                    },
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.privacy_tip, color: AppTheme.primaryColor),
-                    title: const Text('Privacy Policy'),
-                    subtitle: const Text('View privacy policy'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      _showPrivacyDialog(context);
-                    },
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          
-          const SizedBox(height: 32),
-          
-          // Logout Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                ref.read(authProvider.notifier).logout();
-              },
-              icon: const Icon(Icons.logout),
-              label: const Text('Logout'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.errorColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+              const SizedBox(height: 32),
+              // Logout Button
+              GlassButton(
+                onPressed: () => ref.read(authProvider.notifier).logout(),
+                child: Text(
+                  'Logout',
+                  style: LiquidGlassTheme.bodyMedium.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

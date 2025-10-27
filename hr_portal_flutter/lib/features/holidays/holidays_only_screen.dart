@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/liquid_glass_theme.dart';
+import '../../core/widgets/glass_components.dart';
 import '../../core/providers/providers.dart';
 
 class HolidaysOnlyScreen extends ConsumerStatefulWidget {
@@ -79,7 +81,10 @@ class _HolidaysOnlyScreenState extends ConsumerState<HolidaysOnlyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu),
@@ -112,7 +117,12 @@ class _HolidaysOnlyScreenState extends ConsumerState<HolidaysOnlyScreen> {
         ],
       ),
       drawer: const AppDrawer(),
-      body: Column(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LiquidGlassTheme.darkPrimaryGradient,
+        ),
+        child: SafeArea(
+          child: Column(
         children: [
           // Year selector and filters
           Container(
@@ -169,12 +179,13 @@ class _HolidaysOnlyScreenState extends ConsumerState<HolidaysOnlyScreen> {
           // Content
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
                 : _filteredHolidays.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No holidays found',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ? GlassCard(
+                        backgroundColor: Colors.white.withOpacity(0.1),
+                        child: const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text('No holidays found', style: TextStyle(color: Colors.white70)),
                         ),
                       )
                     : ListView.builder(
@@ -187,6 +198,8 @@ class _HolidaysOnlyScreenState extends ConsumerState<HolidaysOnlyScreen> {
                       ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -318,9 +331,110 @@ class _HolidaysOnlyScreenState extends ConsumerState<HolidaysOnlyScreen> {
   }
 
   void _showEditHolidayDialog(Map<String, dynamic> holiday) {
-    // TODO: Implement edit holiday dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit holiday functionality coming soon')),
+    final nameController = TextEditingController(text: holiday['name'] ?? '');
+    final descriptionController = TextEditingController(text: holiday['description'] ?? '');
+    final dateController = TextEditingController(text: (holiday['date'] ?? '').toString());
+    final isRange = (holiday['date_range'] ?? '').toString().contains(' to ');
+    final startDateController = TextEditingController(text: isRange ? (holiday['date_range'] as String).split(' to ')[0] : dateController.text);
+    final endDateController = TextEditingController(text: isRange ? (holiday['date_range'] as String).split(' to ')[1] : dateController.text);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Holiday'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: startDateController,
+                      decoration: const InputDecoration(labelText: 'Start Date (YYYY-MM-DD)'),
+                      readOnly: true,
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.tryParse(startDateController.text) ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (date != null) {
+                          startDateController.text = date.toIso8601String().split('T')[0];
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: endDateController,
+                      decoration: const InputDecoration(labelText: 'End Date (YYYY-MM-DD)'),
+                      readOnly: true,
+                      onTap: () async {
+                        final start = DateTime.tryParse(startDateController.text);
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: start ?? DateTime.now(),
+                          firstDate: start ?? DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (date != null) {
+                          endDateController.text = date.toIso8601String().split('T')[0];
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final apiService = ref.read(apiServiceProvider);
+                final payload = {
+                  'name': nameController.text,
+                  'description': descriptionController.text,
+                  if (startDateController.text.isNotEmpty && endDateController.text.isNotEmpty)
+                    'date_range': '${startDateController.text} to ${endDateController.text}'
+                  else if (startDateController.text.isNotEmpty)
+                    'date': startDateController.text,
+                };
+                await apiService.updateHoliday(holiday['id'].toString(), payload);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Holiday updated')),
+                );
+                _loadHolidays();
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to update holiday: $e')),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 

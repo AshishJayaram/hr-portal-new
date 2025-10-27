@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/widgets/app_drawer.dart';
+import '../../core/theme/liquid_glass_theme.dart';
+import '../../core/widgets/glass_components.dart';
+
 class FeedbackScreen extends ConsumerStatefulWidget {
   const FeedbackScreen({super.key});
 
@@ -21,129 +25,98 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Submit Feedback',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+        child: GlassCard(
+          backgroundColor: Colors.white.withOpacity(0.12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Submit Feedback',
+                    style: LiquidGlassTheme.heading4.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Title *',
-                    border: OutlineInputBorder(),
-                    hintText: 'Brief description of the issue or suggestion',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a title';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedType.isEmpty ? null : _selectedType,
-                  decoration: const InputDecoration(
-                    labelText: 'Type *',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'bug', child: Text('Bug Report')),
-                    DropdownMenuItem(value: 'feature', child: Text('Feature Request')),
-                    DropdownMenuItem(value: 'improvement', child: Text('Improvement')),
-                    DropdownMenuItem(value: 'other', child: Text('Other')),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedType = value ?? '';
-                    });
-                  },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please select a type';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedPriority,
-                  decoration: const InputDecoration(
-                    labelText: 'Priority',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'low', child: Text('Low')),
-                    DropdownMenuItem(value: 'medium', child: Text('Medium')),
-                    DropdownMenuItem(value: 'high', child: Text('High')),
-                    DropdownMenuItem(value: 'critical', child: Text('Critical')),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedPriority = value ?? 'medium';
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description *',
-                    border: OutlineInputBorder(),
-                    hintText: 'Please provide detailed information...',
-                  ),
-                  maxLines: 4,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a description';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Title *',
+                      border: OutlineInputBorder(),
+                      hintText: 'Brief description of the issue or suggestion',
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            // TODO: Submit feedback
-                            Navigator.of(context).pop();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Feedback submitted successfully'),
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text('Submit'),
-                      ),
+                    validator: (value) => value == null || value.isEmpty ? 'Please enter a title' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedType.isEmpty ? null : _selectedType,
+                    decoration: const InputDecoration(labelText: 'Type *', border: OutlineInputBorder()),
+                    items: const [
+                      DropdownMenuItem(value: 'bug', child: Text('Bug Report')),
+                      DropdownMenuItem(value: 'feature', child: Text('Feature Request')),
+                      DropdownMenuItem(value: 'improvement', child: Text('Improvement')),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (value) => setState(() => _selectedType = value ?? ''),
+                    validator: (value) => value == null || value.isEmpty ? 'Please select a type' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedPriority,
+                    decoration: const InputDecoration(labelText: 'Priority', border: OutlineInputBorder()),
+                    items: const [
+                      DropdownMenuItem(value: 'low', child: Text('Low')),
+                      DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                      DropdownMenuItem(value: 'high', child: Text('High')),
+                      DropdownMenuItem(value: 'critical', child: Text('Critical')),
+                    ],
+                    onChanged: (value) => setState(() => _selectedPriority = value ?? 'medium'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description *',
+                      border: OutlineInputBorder(),
+                      hintText: 'Please provide detailed information...',
                     ),
-                  ],
-                ),
-              ],
+                    maxLines: 4,
+                    validator: (value) => value == null || value.isEmpty ? 'Please enter a description' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GlassButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text('Cancel', style: LiquidGlassTheme.bodyMedium.copyWith(color: Colors.white)),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: GlassButton(
+                          onPressed: () {
+                            if (_formKey.currentState!.validate()) {
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Feedback submitted successfully')),
+                              );
+                            }
+                          },
+                          child: Text('Submit', style: LiquidGlassTheme.bodyMedium.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -154,156 +127,132 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Feedback & Bug Reports'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _showCreateForm,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
           ),
+        ),
+        title: Text(
+          'Feedback & Bug Reports',
+          style: LiquidGlassTheme.heading4.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          IconButton(icon: const Icon(Icons.add), onPressed: _showCreateForm),
         ],
       ),
-      body: Column(
-        children: [
-          // Filters
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _statusFilter.isEmpty ? null : _statusFilter,
-                    decoration: const InputDecoration(
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: '', child: Text('All Status')),
-                      DropdownMenuItem(value: 'open', child: Text('Open')),
-                      DropdownMenuItem(value: 'in_progress', child: Text('In Progress')),
-                      DropdownMenuItem(value: 'resolved', child: Text('Resolved')),
-                      DropdownMenuItem(value: 'closed', child: Text('Closed')),
+      drawer: const AppDrawer(),
+      body: Container(
+        decoration: BoxDecoration(gradient: LiquidGlassTheme.darkPrimaryGradient),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Filters
+              GlassCard(
+                backgroundColor: Colors.white.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _statusFilter.isEmpty ? null : _statusFilter,
+                          decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
+                          items: const [
+                            DropdownMenuItem(value: '', child: Text('All Status')),
+                            DropdownMenuItem(value: 'open', child: Text('Open')),
+                            DropdownMenuItem(value: 'in_progress', child: Text('In Progress')),
+                            DropdownMenuItem(value: 'resolved', child: Text('Resolved')),
+                            DropdownMenuItem(value: 'closed', child: Text('Closed')),
+                          ],
+                          onChanged: (value) => setState(() => _statusFilter = value ?? ''),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _typeFilter.isEmpty ? null : _typeFilter,
+                          decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
+                          items: const [
+                            DropdownMenuItem(value: '', child: Text('All Types')),
+                            DropdownMenuItem(value: 'bug', child: Text('Bug Report')),
+                            DropdownMenuItem(value: 'feature', child: Text('Feature Request')),
+                            DropdownMenuItem(value: 'improvement', child: Text('Improvement')),
+                            DropdownMenuItem(value: 'other', child: Text('Other')),
+                          ],
+                          onChanged: (value) => setState(() => _typeFilter = value ?? ''),
+                        ),
+                      ),
                     ],
-                    onChanged: (value) {
-                      setState(() {
-                        _statusFilter = value ?? '';
-                      });
-                    },
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _typeFilter.isEmpty ? null : _typeFilter,
-                    decoration: const InputDecoration(
-                      labelText: 'Type',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: '', child: Text('All Types')),
-                      DropdownMenuItem(value: 'bug', child: Text('Bug Report')),
-                      DropdownMenuItem(value: 'feature', child: Text('Feature Request')),
-                      DropdownMenuItem(value: 'improvement', child: Text('Improvement')),
-                      DropdownMenuItem(value: 'other', child: Text('Other')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _typeFilter = value ?? '';
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Feedback List
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _getMockFeedback().length,
-              itemBuilder: (context, index) {
-                final feedback = _getMockFeedback()[index];
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+              ),
+              // Feedback List
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _getMockFeedback().length,
+                  itemBuilder: (context, index) {
+                    final feedback = _getMockFeedback()[index];
+                    return GlassCard(
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _getTypeIcon(feedback['type']),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                feedback['title'],
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                            Row(
+                              children: [
+                                _getTypeIcon(feedback['type']),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    feedback['title'],
+                                    style: LiquidGlassTheme.bodyLarge.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                                  ),
                                 ),
-                              ),
+                                _buildPriorityChip(feedback['priority']),
+                                const SizedBox(width: 8),
+                                _buildStatusChip(feedback['status']),
+                              ],
                             ),
-                            _buildPriorityChip(feedback['priority']),
-                            const SizedBox(width: 8),
-                            _buildStatusChip(feedback['status']),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          feedback['description'],
-                          style: const TextStyle(color: Colors.grey),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
+                            const SizedBox(height: 8),
                             Text(
-                              'By: ${feedback['user']}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
+                              feedback['description'],
+                              style: const TextStyle(color: Colors.white70),
                             ),
-                            Text(
-                              feedback['date'],
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('By: ${feedback['user']}', style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                                Text(feedback['date'], style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                              ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: () {
-                                // TODO: View feedback details
-                              },
-                              child: const Text('View'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                // TODO: Edit feedback
-                              },
-                              child: const Text('Edit'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                // TODO: Delete feedback
-                              },
-                              child: const Text('Delete'),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(onPressed: () {}, child: const Text('View')),
+                                TextButton(onPressed: () {}, child: const Text('Edit')),
+                                TextButton(onPressed: () {}, child: const Text('Delete')),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateForm,
@@ -319,19 +268,19 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
     switch (type) {
       case 'bug':
         icon = Icons.bug_report;
-        color = Colors.red;
+        color = Colors.redAccent;
         break;
       case 'feature':
         icon = Icons.lightbulb;
-        color = Colors.blue;
+        color = Colors.lightBlueAccent;
         break;
       case 'improvement':
         icon = Icons.message;
-        color = Colors.green;
+        color = Colors.greenAccent;
         break;
       default:
         icon = Icons.info;
-        color = Colors.grey;
+        color = Colors.white70;
     }
 
     return Icon(icon, size: 20, color: color);
@@ -342,28 +291,27 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
     
     switch (priority) {
       case 'critical':
-        color = Colors.red;
+        color = Colors.redAccent;
         break;
       case 'high':
-        color = Colors.orange;
+        color = Colors.orangeAccent;
         break;
       case 'medium':
-        color = Colors.yellow;
+        color = Colors.yellowAccent.shade700;
         break;
       case 'low':
-        color = Colors.green;
+        color = Colors.greenAccent;
         break;
       default:
-        color = Colors.grey;
+        color = Colors.white70;
     }
 
-    return Chip(
-      label: Text(priority.toUpperCase()),
-      backgroundColor: color.withOpacity(0.1),
-      labelStyle: TextStyle(
-        color: color,
-        fontSize: 10,
-        fontWeight: FontWeight.bold,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+      child: Text(
+        priority.toUpperCase(),
+        style: LiquidGlassTheme.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -374,35 +322,37 @@ class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
     
     switch (status) {
       case 'open':
-        color = Colors.blue;
+        color = Colors.lightBlueAccent;
         icon = Icons.schedule;
         break;
       case 'in_progress':
-        color = Colors.orange;
+        color = Colors.orangeAccent;
         icon = Icons.warning;
         break;
       case 'resolved':
-        color = Colors.green;
+        color = Colors.greenAccent;
         icon = Icons.check_circle;
         break;
       case 'closed':
-        color = Colors.grey;
+        color = Colors.white70;
         icon = Icons.cancel;
         break;
       default:
-        color = Colors.grey;
+        color = Colors.white70;
         icon = Icons.schedule;
     }
 
-    return Chip(
-      label: Text(status.replaceAll('_', ' ').toUpperCase()),
-      backgroundColor: color.withOpacity(0.1),
-      labelStyle: TextStyle(
-        color: color,
-        fontSize: 10,
-        fontWeight: FontWeight.bold,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text(status.replaceAll('_', ' ').toUpperCase(), style: LiquidGlassTheme.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+        ],
       ),
-      avatar: Icon(icon, size: 12, color: color),
     );
   }
 

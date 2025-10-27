@@ -135,15 +135,11 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Edit Employee'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              if (widget.returnRoute != null) {
-                context.go(widget.returnRoute!);
-              } else {
-                context.pop();
-              }
-            },
+          leading: Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
           ),
         ),
         drawer: const AppDrawer(),
@@ -154,15 +150,11 @@ class _EditEmployeeScreenState extends ConsumerState<EditEmployeeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Edit ${_employee?['name'] ?? 'Employee'}'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (widget.returnRoute != null) {
-              context.go(widget.returnRoute!);
-            } else {
-              context.pop();
-            }
-          },
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
         ),
         actions: [
           if (_currentStep > 0)

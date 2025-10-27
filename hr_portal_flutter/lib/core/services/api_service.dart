@@ -338,7 +338,15 @@ class ApiService {
 
   Future<Map<String, dynamic>?> createLeave(Map<String, dynamic> leaveData) async {
     try {
-      final response = await _dio.post('/leaves', data: leaveData);
+      // Ensure date keys match backend: from_date, to_date
+      final payload = Map<String, dynamic>.from(leaveData);
+      if (payload.containsKey('from')) {
+        payload['from_date'] = payload.remove('from');
+      }
+      if (payload.containsKey('to')) {
+        payload['to_date'] = payload.remove('to');
+      }
+      final response = await _dio.post('/leaves', data: payload);
       return response.data['data'];
     } catch (e) {
       print('Create leave error: $e');

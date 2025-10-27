@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/liquid_glass_theme.dart';
+import '../../core/widgets/glass_components.dart';
 import '../../core/providers/providers.dart';
 
 class LeavesOnlyScreen extends ConsumerStatefulWidget {
@@ -106,14 +108,28 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('My Leaves'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        title: Text(
+          'My Leaves',
+          style: LiquidGlassTheme.heading4.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () {
-              _showLeaveApplicationDialog();
-            },
+            onPressed: _showLeaveApplicationDialog,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -122,60 +138,64 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
         ],
       ),
       drawer: const AppDrawer(),
-      body: Column(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LiquidGlassTheme.darkPrimaryGradient,
+        ),
+        child: SafeArea(
+          child: Column(
         children: [
           // Leave balance summary
           if (_leaveBalance.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Leave Balance',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+            GlassCard(
+              backgroundColor: Colors.white.withOpacity(0.1),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Leave Balance',
+                      style: LiquidGlassTheme.bodyLarge.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 8,
-                        children: _leaveBalance.map((balance) {
-                          final remaining = balance['remaining_days'] ?? 0;
-                          final total = balance['total_days'] ?? 0;
-                          final categoryName = balance['category_name'] ?? 'Leave';
-                          
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: _leaveBalance.map((balance) {
+                        final remaining = balance['remaining_days'] ?? 0;
+                        final total = balance['total_days'] ?? 0;
+                        final categoryName = balance['category_name'] ?? 'Leave';
+                        final color = LiquidGlassTheme.accentBlue;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: color.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            '$categoryName: $remaining/$total',
+                            style: LiquidGlassTheme.bodySmall.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
                             ),
-                            child: Text(
-                              '$categoryName: $remaining/$total',
-                              style: TextStyle(
-                                color: AppTheme.primaryColor,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
           
           // Filter chips
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+          GlassCard(
+            backgroundColor: Colors.white.withOpacity(0.1),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -195,12 +215,13 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
           // Content
           Expanded(
             child: _isLoadingLeaves
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
                 : _filteredLeaves.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No leave applications found',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ? GlassCard(
+                        backgroundColor: Colors.white.withOpacity(0.1),
+                        child: const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text('No leave applications found', style: TextStyle(color: Colors.white70)),
                         ),
                       )
                     : ListView.builder(
@@ -213,6 +234,8 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
                       ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -236,8 +259,8 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
   }
 
   Widget _buildLeaveCard(Map<String, dynamic> leave) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return GlassCard(
+      backgroundColor: Colors.white.withOpacity(0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -248,9 +271,9 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
                 Expanded(
                   child: Text(
                     leave['type'] ?? 'Leave',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                    style: LiquidGlassTheme.bodyLarge.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -262,11 +285,11 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
             
             Row(
               children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                const Icon(Icons.calendar_today, size: 16, color: Colors.white70),
                 const SizedBox(width: 4),
                 Text(
                   '${_formatDate(leave['from'])} - ${_formatDate(leave['to'])}',
-                  style: TextStyle(color: Colors.grey[600]),
+                  style: LiquidGlassTheme.bodySmall.copyWith(color: Colors.white70),
                 ),
               ],
             ),
@@ -275,7 +298,7 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
               const SizedBox(height: 8),
               Text(
                 leave['reason'],
-                style: TextStyle(color: Colors.grey[700]),
+                style: LiquidGlassTheme.bodySmall.copyWith(color: Colors.white70),
               ),
             ],
             
@@ -285,20 +308,20 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
               children: [
                 if (leave['status'] == 'pending') ...[
                   IconButton(
-                    icon: const Icon(Icons.edit),
+                    icon: const Icon(Icons.edit, color: Colors.white70),
                     onPressed: () {
                       _showEditLeaveDialog(leave);
                     },
                   ),
                   IconButton(
-                    icon: const Icon(Icons.cancel, color: Colors.orange),
+                    icon: const Icon(Icons.cancel, color: Colors.orangeAccent),
                     onPressed: () {
                       _showCancelConfirmation(leave);
                     },
                   ),
                 ],
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: const Icon(Icons.delete, color: Colors.redAccent),
                   onPressed: () {
                     _showDeleteConfirmation(leave);
                   },
@@ -340,16 +363,15 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(
         label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
+        style: LiquidGlassTheme.caption.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -419,8 +441,12 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
                   onTap: () async {
                     final date = await showDatePicker(
                       context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
+                      initialDate: startDateController.text.isNotEmpty
+                          ? DateTime.parse(startDateController.text)
+                          : DateTime.now(),
+                      firstDate: startDateController.text.isNotEmpty
+                          ? DateTime.parse(startDateController.text)
+                          : DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                     );
                     if (date != null) {
@@ -452,10 +478,24 @@ class _LeavesOnlyScreenState extends ConsumerState<LeavesOnlyScreen> {
                   ? () async {
                       try {
                         final apiService = ref.read(apiServiceProvider);
+                        String toRfc3339Z(DateTime d) {
+                          final u = d.toUtc();
+                          final base = u.toIso8601String();
+                          final noFrac = base.contains('.') ? base.split('.').first : base;
+                          return noFrac.endsWith('Z') ? noFrac : noFrac + 'Z';
+                        }
+                        final fromDate = DateTime.parse(startDateController.text);
+                        final toDate = DateTime.parse(endDateController.text);
+                        if (toDate.isBefore(fromDate)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('End date cannot be before start date')),
+                          );
+                          return;
+                        }
                         await apiService.createLeave({
                           'type': selectedLeaveType,
-                          'from': startDateController.text,
-                          'to': endDateController.text,
+                          'from_date': toRfc3339Z(fromDate),
+                          'to_date': toRfc3339Z(toDate),
                           'reason': reasonController.text,
                         });
                         

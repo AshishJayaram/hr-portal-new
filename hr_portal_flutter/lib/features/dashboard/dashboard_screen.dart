@@ -84,9 +84,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           for (var holiday in filteredHolidays) {
             bool isUpcoming = false;
             
-            if (holiday['dateRange'] != null && holiday['dateRange'].isNotEmpty) {
+            final dateRangeRaw = (holiday['date_range'] ?? holiday['dateRange'] ?? '').toString();
+            if (dateRangeRaw.isNotEmpty) {
               // Multi-day event - check if any part of the range is today or future
-              final dateRangeStr = holiday['dateRange'].toString();
+              final dateRangeStr = dateRangeRaw;
               // Parse date range (e.g., "2024-12-25 to 2024-12-27")
               if (dateRangeStr.contains(' to ')) {
                 final parts = dateRangeStr.split(' to ');
@@ -109,7 +110,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               if (isUpcoming) {
                 _upcomingHolidays.add({
                   ...holiday,
-                  'date': holiday['dateRange'],
+                  'date': dateRangeStr,
                   'isMultiDay': true,
                 });
               }
@@ -153,9 +154,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               String eventDate = '';
               bool isMultiDay = false;
               
-              if (holiday['dateRange'] != null && holiday['dateRange'].isNotEmpty) {
+              final dateRangeRaw = (holiday['date_range'] ?? holiday['dateRange'] ?? '').toString();
+              if (dateRangeRaw.isNotEmpty) {
                 // Multi-day notice - check if any part of the range is today or future
-                final dateRangeStr = holiday['dateRange'].toString();
+                final dateRangeStr = dateRangeRaw;
                 if (dateRangeStr.contains(' to ')) {
                   final parts = dateRangeStr.split(' to ');
                   if (parts.length == 2) {
@@ -171,7 +173,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     isUpcoming = date.isAtSameMomentAs(today) || date.isAfter(today);
                   }
                 }
-                eventDate = holiday['dateRange'];
+                eventDate = dateRangeStr;
                 isMultiDay = true;
               } else if (holiday['date'] != null) {
                 // Single day notice - check if it's today or future
@@ -573,22 +575,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           Row(
             children: [
               // Hamburger Menu Button
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.menu_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                  onPressed: () {
-                    Scaffold.of(context).openDrawer();
-                  },
-                  tooltip: 'Open Menu',
-                ),
+              Builder(
+                builder: (BuildContext context) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.menu_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      onPressed: () {
+                        Scaffold.of(context).openDrawer();
+                      },
+                      tooltip: 'Open Menu',
+                    ),
+                  );
+                },
               ),
               const SizedBox(width: LiquidGlassTheme.spacingS),
               // Refresh Button
@@ -708,12 +714,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-              'Upcoming Events & Notices',
-              style: LiquidGlassTheme.heading3.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
+                Expanded(
+                  child: Text(
+                    'Upcoming Events & Notices',
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
                 TextButton(
@@ -788,12 +798,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-              'Upcoming Holidays',
-              style: LiquidGlassTheme.heading3.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
+                Expanded(
+                  child: Text(
+                    'Upcoming Holidays',
+                    style: LiquidGlassTheme.heading3.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
                 TextButton(
@@ -935,25 +949,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     ),
                   )
             : AnimationLimiter(
-                child: GridView.count(
-                    crossAxisCount: 2,
-                  crossAxisSpacing: LiquidGlassTheme.spacingM,
-                  mainAxisSpacing: LiquidGlassTheme.spacingM,
-                    childAspectRatio: 1.1,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                  children: _leaveTypes.asMap().entries.map((entry) {
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Always render as a grid (not a single-column list)
+                    // Provide a bit more height to avoid bottom overflow
+                    final crossAxisCount = 2;
+                    final childAspect = 0.85; // width/height; <1 gives taller tiles
+                    return GridView.count(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: LiquidGlassTheme.spacingM,
+                      mainAxisSpacing: LiquidGlassTheme.spacingM,
+                      childAspectRatio: childAspect,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: _leaveTypes.asMap().entries.map((entry) {
                     return AnimationConfiguration.staggeredGrid(
                       position: entry.key,
                       duration: const Duration(milliseconds: 375),
-                      columnCount: 2,
+                        columnCount: crossAxisCount,
                       child: ScaleAnimation(
                         child: FadeInAnimation(
                           child: _buildLeaveTypeCard(context, entry.value),
                         ),
                       ),
                     );
-                  }).toList(),
+                      }).toList(),
+                    );
+                  },
                 ),
               ),
       ],
@@ -1015,6 +1037,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final balance = leaveType['balance'] as int;
     final used = leaveType['used'] as int;
     final remaining = balance - used;
+    final String title = leaveType['name'];
+    final bool isLongTitle = title.length > 16;
     
     return GlassCard(
       backgroundColor: Colors.white.withOpacity(0.15),
@@ -1023,20 +1047,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
           Container(
-            padding: const EdgeInsets.all(LiquidGlassTheme.spacingM),
+            padding: EdgeInsets.all(isLongTitle ? LiquidGlassTheme.spacingS : LiquidGlassTheme.spacingM),
             decoration: BoxDecoration(
               color: _parseColor(leaveType['color']).withOpacity(0.2),
               borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusMedium),
             ),
             child: Icon(
                 leaveType['icon'],
-                size: 32,
+                size: isLongTitle ? 28 : 32,
               color: Colors.white,
               ),
           ),
-          const SizedBox(height: LiquidGlassTheme.spacingM),
+          const SizedBox(height: LiquidGlassTheme.spacingS),
               Text(
-                leaveType['name'],
+                title,
             style: LiquidGlassTheme.bodyMedium.copyWith(
               fontWeight: FontWeight.w600,
               color: Colors.white,
@@ -1045,7 +1069,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-          const SizedBox(height: LiquidGlassTheme.spacingS),
+          const SizedBox(height: LiquidGlassTheme.spacingXS),
               if (leaveType['name'].toString().toLowerCase() != 'lop' && 
                   leaveType['name'].toString().toLowerCase() != 'loss of pay')
                 Container(
@@ -1646,8 +1670,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 onTap: () async {
                   final date = await showDatePicker(
                     context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
+                    initialDate: startDateController.text.isNotEmpty
+                        ? DateTime.parse(startDateController.text)
+                        : DateTime.now(),
+                    firstDate: startDateController.text.isNotEmpty
+                        ? DateTime.parse(startDateController.text)
+                        : DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 365)),
                   );
                   if (date != null) {
@@ -1679,6 +1707,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                        endDateController.text.isNotEmpty && 
                        reasonController.text.isNotEmpty
                 ? () async {
+                    // Validate end date >= start date
+                    final fromDateTry = DateTime.tryParse(startDateController.text);
+                    final toDateTry = DateTime.tryParse(endDateController.text);
+                    if (fromDateTry == null || toDateTry == null || toDateTry.isBefore(fromDateTry)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('End date cannot be before start date'),
+                          backgroundColor: LiquidGlassTheme.accentRed,
+                        ),
+                      );
+                      return;
+                    }
                     try {
                       final apiService = ref.read(apiServiceProvider);
                               final authState = ref.read(authProvider);
@@ -1699,8 +1739,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               }
                               
                               // Parse dates
-                              final fromDate = DateTime.parse(startDateController.text);
-                              final toDate = DateTime.parse(endDateController.text);
+                              final fromDate = DateTime.parse(startDateController.text).toUtc();
+                              final toDate = DateTime.parse(endDateController.text).toUtc();
                               
                               // Get leave balance to find the category_id for the leave type
                               final leaveBalance = await apiService.getLeaveBalance(currentUser.id);
@@ -1754,14 +1794,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 return;
                               }
                               
+                              // Normalize type to backend-accepted values
+                              String normalizedType(String raw) {
+                                final t = raw.trim().toLowerCase();
+                                if (t.contains('lop') || t.contains('loss of pay')) return 'LOP';
+                                if (t.contains('casual')) return 'Casual Leave';
+                                if (t.contains('sick')) return 'Sick Leave';
+                                if (t.contains('professional')) return 'Professional Leave';
+                                return raw; // fallback to original
+                              }
+
+                              String toRfc3339Z(DateTime d) {
+                                final u = d.toUtc();
+                                final base = u.toIso8601String();
+                                final noFrac = base.contains('.') ? base.split('.').first : base;
+                                return noFrac.endsWith('Z') ? noFrac : noFrac + 'Z';
+                              }
+
                               final leaveData = {
                                 'user_id': currentUser.id,
                                 'organization_id': currentUser.organizationId,
                                 'category_id': categoryId,
-                        'type': leaveType,
+                                'type': normalizedType(leaveType),
                         'reason': reasonController.text,
-                                'from_date': fromDate.toIso8601String(),
-                                'to_date': toDate.toIso8601String(),
+                                // Backend expects RFC3339 with timezone
+                                'from_date': toRfc3339Z(fromDate),
+                                'to_date': toRfc3339Z(toDate),
                                 'start_half': 'FULL',
                                 'end_half': 'FULL',
                               };
@@ -1780,15 +1838,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 ),
                       );
                     } catch (e) {
+                      String message = 'Failed to submit leave application';
+                      try {
+                        // Try to extract backend error
+                        // ignore: avoid_dynamic_calls
+                        final data = (e as dynamic).response?.data;
+                        if (data is Map && data['error'] is String) {
+                          message = data['error'];
+                        }
+                      } catch (_) {}
                       ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Failed to submit leave application: ${e.toString()}'),
-                                  backgroundColor: LiquidGlassTheme.accentRed,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusMedium),
-                                  ),
-                                ),
+                        SnackBar(
+                          content: Text(message),
+                          backgroundColor: LiquidGlassTheme.accentRed,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusMedium),
+                          ),
+                        ),
                       );
                     }
                   }
@@ -1938,19 +2005,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   String _formatHolidayDate(dynamic dateValue) {
     if (dateValue == null) return 'No date';
-    
+    final value = dateValue.toString();
     try {
-      final date = DateTime.parse(dateValue.toString());
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      
-      final day = date.day.toString().padLeft(2, '0');
-      final month = months[date.month - 1];
-      final year = date.year.toString().substring(2);
-      
-      return '$day $month $year';
+      if (value.contains(' to ')) {
+        final parts = value.split(' to ');
+        if (parts.length == 2) {
+          final startDate = DateTime.tryParse(parts[0].trim());
+          final endDate = DateTime.tryParse(parts[1].trim());
+          if (startDate != null && endDate != null) {
+            return '${startDate.day}/${startDate.month}/${startDate.year} - ${endDate.day}/${endDate.month}/${endDate.year}';
+          }
+        }
+      }
+      final date = DateTime.parse(value);
+      return '${date.day}/${date.month}/${date.year}';
     } catch (e) {
-      return dateValue.toString();
+      return value;
     }
   }
 

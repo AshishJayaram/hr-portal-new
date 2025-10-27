@@ -246,134 +246,135 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   void _showDocumentViewer(String title, String fileUrl) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
-          child: GlassCard(
-            backgroundColor: Colors.white.withOpacity(0.15),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    title,
-                    style: LiquidGlassTheme.heading3.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+            child: GlassCard(
+              backgroundColor: Colors.white.withOpacity(0.15),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      title,
+                      style: LiquidGlassTheme.heading3.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        // PDF Viewer Placeholder
-                        Expanded(
-                          child: Container(
-                            color: Colors.grey[50],
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          // PDF Viewer Placeholder
+                          Expanded(
+                            child: Container(
+                              color: Colors.grey[50],
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.picture_as_pdf, size: 64, color: Colors.red),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'PDF Viewer',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey[700],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Document: $title',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[600],
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue[50],
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.blue[200]!),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          const Icon(Icons.info_outline, color: Colors.blue),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'PDF viewer integration required',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.blue[700],
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Use packages like flutter_pdfview or pdfx',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.blue[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Action buttons
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                const Icon(Icons.picture_as_pdf, size: 64, color: Colors.red),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'PDF Viewer',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey[700],
-                                  ),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _showDownloadDialog(title, fileUrl);
+                                  },
+                                  icon: const Icon(Icons.download),
+                                  label: const Text('Download'),
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Document: $title',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue[50],
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.blue[200]!),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      const Icon(Icons.info_outline, color: Colors.blue),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'PDF viewer integration required',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.blue[700],
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Use packages like flutter_pdfview or pdfx',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.blue[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    // In a real app, you would use url_launcher
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Opening in external viewer...')),
+                                    );
+                                    Navigator.pop(context);
+                                  },
+                                  icon: const Icon(Icons.open_in_new),
+                                  label: const Text('Open External'),
                                 ),
                               ],
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                      // Action buttons
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _showDownloadDialog(title, fileUrl);
-                              },
-                              icon: const Icon(Icons.download),
-                              label: const Text('Download'),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                // In a real app, you would use url_launcher
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Opening in external viewer...')),
-                                );
-                                Navigator.pop(context);
-                              },
-                              icon: const Icon(Icons.open_in_new),
-                              label: const Text('Open External'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          ),
-        ),
-      ),
-    ),
+        );
+      },
     );
   }
 

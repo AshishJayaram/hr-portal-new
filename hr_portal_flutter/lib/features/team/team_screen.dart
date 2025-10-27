@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/liquid_glass_theme.dart';
+import '../../core/widgets/glass_components.dart';
 import '../../core/services/api_service.dart';
 import '../../core/providers/providers.dart';
 
@@ -17,6 +19,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
   List<Map<String, dynamic>> _filteredTeamMembers = [];
   String _searchQuery = '';
   String _selectedFilter = 'All';
+  List<String> _suggestedFilters = ['All'];
   bool _isLoading = false;
 
   @override
@@ -28,8 +31,24 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Team'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        title: Text(
+          'Team',
+          style: LiquidGlassTheme.heading4.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -38,7 +57,12 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
         ],
       ),
       drawer: const AppDrawer(),
-      body: Column(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LiquidGlassTheme.darkPrimaryGradient,
+        ),
+        child: SafeArea(
+          child: Column(
         children: [
           // Search and Filter Bar
           Padding(
@@ -74,19 +98,8 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildFilterChip('All', 'All'),
-                      _buildFilterChip('Active', 'Active'),
-                      _buildFilterChip('On Leave', 'On Leave'),
-                      _buildFilterChip('Engineering', 'Engineering'),
-                      _buildFilterChip('Design', 'Design'),
-                    ],
-                  ),
-                ),
+                // Removed chips row under search
+                const SizedBox.shrink(),
               ],
             ),
           ),
@@ -98,11 +111,11 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
               itemCount: _filteredTeamMembers.length,
               itemBuilder: (context, index) {
                 final member = _filteredTeamMembers[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
+                return GlassCard(
+                  backgroundColor: Colors.white.withOpacity(0.1),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: Colors.white.withOpacity(0.2),
                       child: Text(
                         (member['name'] ?? 'U')[0],
                         style: const TextStyle(
@@ -113,36 +126,29 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
                     ),
                     title: Text(
                       member['name'] ?? 'Unknown',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: LiquidGlassTheme.bodyMedium.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(member['role'] ?? 'Unknown Role'),
-                        Text(
-                          member['department'] ?? 'Unknown Department',
-                          style: TextStyle(
-                            color: AppTheme.secondaryColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                    subtitle: Text(
+                      member['designation'] ?? member['department'] ?? '',
+                      style: LiquidGlassTheme.bodySmall.copyWith(color: Colors.white70),
                     ),
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: member['status'] == 'Active' 
-                            ? AppTheme.successColor 
-                            : AppTheme.warningColor,
+                        color: (member['status'] == 'Active'
+                                ? LiquidGlassTheme.accentGreen
+                                : LiquidGlassTheme.secondaryOrange)
+                            .withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        member['status'] ?? 'Unknown',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        (member['department'] ?? '').toString().isEmpty
+                            ? '—'
+                            : (member['department'] as String),
+                        style: LiquidGlassTheme.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
                       ),
                     ),
                     onTap: () {
@@ -154,6 +160,8 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
             ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -185,18 +193,26 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
         final name = (member['name'] ?? '').toString().toLowerCase();
         final role = (member['role'] ?? '').toString().toLowerCase();
         final department = (member['department'] ?? '').toString().toLowerCase();
+        final designation = (member['designation'] ?? '').toString().toLowerCase();
+        final status = (member['status'] ?? '').toString().toLowerCase();
         
         final matchesSearch = _searchQuery.isEmpty ||
             name.contains(_searchQuery.toLowerCase()) ||
             role.contains(_searchQuery.toLowerCase()) ||
-            department.contains(_searchQuery.toLowerCase());
+            department.contains(_searchQuery.toLowerCase()) ||
+            designation.contains(_searchQuery.toLowerCase());
 
         // Apply status/department filter
         bool matchesFilter = true;
         if (_selectedFilter != 'All') {
-          final status = member['status'] ?? '';
-          final dept = member['department'] ?? '';
-          matchesFilter = status == _selectedFilter || dept == _selectedFilter;
+          final dept = (member['department'] ?? '').toString();
+          final rl = (member['role'] ?? '').toString();
+          final des = (member['designation'] ?? '').toString();
+          matchesFilter =
+              status == _selectedFilter.toLowerCase() ||
+              dept == _selectedFilter ||
+              rl == _selectedFilter ||
+              des == _selectedFilter;
         }
 
         return matchesSearch && matchesFilter;
@@ -205,6 +221,13 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
   }
 
   void _showFilterOptions() {
+    final Set<String> allFilters = {
+      'All',
+      ..._allTeamMembers.map((m) => (m['status'] ?? '').toString()).where((s) => s.isNotEmpty),
+      ..._allTeamMembers.map((m) => (m['department'] ?? '').toString()).where((s) => s.isNotEmpty),
+      ..._allTeamMembers.map((m) => (m['role'] ?? '').toString()).where((s) => s.isNotEmpty),
+      ..._allTeamMembers.map((m) => (m['designation'] ?? '').toString()).where((s) => s.isNotEmpty),
+    };
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -212,35 +235,23 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              title: const Text('All'),
-              onTap: () {
-                setState(() {
-                  _selectedFilter = 'All';
-                  _applyFilters();
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              title: const Text('Active Only'),
-              onTap: () {
-                setState(() {
-                  _selectedFilter = 'Active';
-                  _applyFilters();
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              title: const Text('On Leave Only'),
-              onTap: () {
-                setState(() {
-                  _selectedFilter = 'On Leave';
-                  _applyFilters();
-                });
-                Navigator.pop(context);
-              },
+            SizedBox(
+              height: 300,
+              width: 400,
+              child: ListView(
+                children: allFilters.map((label) {
+                  return ListTile(
+                    title: Text(label),
+                    onTap: () {
+                      setState(() {
+                        _selectedFilter = label;
+                        _applyFilters();
+                      });
+                      Navigator.pop(context);
+                    },
+                  );
+                }).toList(),
+              ),
             ),
           ],
         ),
@@ -321,7 +332,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
         _applyFilters();
         _isLoading = false;
       });
-      
+      _computeSuggestedFilters();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Team members refreshed')),
       );
@@ -333,5 +344,24 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
         SnackBar(content: Text('Failed to load team members: $e')),
       );
     }
+  }
+
+  void _computeSuggestedFilters() {
+    final Map<String, int> counts = {};
+    for (final m in _allTeamMembers) {
+      for (final key in ['status', 'department', 'role', 'designation']) {
+        final v = (m[key] ?? '').toString().trim();
+        if (v.isNotEmpty) counts[v] = (counts[v] ?? 0) + 1;
+      }
+    }
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top = sorted.take(9).map((e) => e.key).toList();
+    setState(() {
+      _suggestedFilters = ['All', ...top];
+      if (!_suggestedFilters.contains(_selectedFilter)) {
+        _selectedFilter = 'All';
+      }
+    });
   }
 }

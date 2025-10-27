@@ -188,18 +188,6 @@ class AppDrawer extends ConsumerWidget {
                         .fadeIn(duration: 400.ms, delay: 700.ms)
                         .slideX(begin: -0.2, end: 0),
                     
-                    if (user?.role == 'Admin' || user?.role == 'HR' || user?.role == 'God')
-                      _buildDrawerItem(
-                        context,
-                        Icons.history_rounded,
-                        'Audit Logs',
-                        '/audit-logs',
-                        currentRoute,
-                        isDark,
-                      ).animate()
-                          .fadeIn(duration: 400.ms, delay: 750.ms)
-                          .slideX(begin: -0.2, end: 0),
-                    
                     _buildDrawerItem(
                       context,
                       Icons.settings_rounded,
@@ -209,17 +197,6 @@ class AppDrawer extends ConsumerWidget {
                       isDark,
                     ).animate()
                         .fadeIn(duration: 400.ms, delay: 800.ms)
-                        .slideX(begin: -0.2, end: 0),
-                    
-                    _buildDrawerItem(
-                      context,
-                      Icons.smart_toy_rounded,
-                      'AI-Friendly',
-                      '/ai-friendly',
-                      currentRoute,
-                      isDark,
-                    ).animate()
-                        .fadeIn(duration: 400.ms, delay: 850.ms)
                         .slideX(begin: -0.2, end: 0),
                   ],
                   

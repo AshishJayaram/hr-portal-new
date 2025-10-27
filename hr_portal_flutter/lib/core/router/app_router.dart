@@ -135,14 +135,6 @@ final appRouter = GoRouter(
           builder: (context, state) => OrganizationManagementScreen(),
         ),
         GoRoute(
-          path: '/audit-logs',
-          builder: (context, state) => AuditLogsScreen(),
-        ),
-        GoRoute(
-          path: '/ai-friendly',
-          builder: (context, state) => AIFriendlyPage(),
-        ),
-        GoRoute(
           path: '/reimbursements',
           builder: (context, state) => ReimbursementsScreen(),
         ),
