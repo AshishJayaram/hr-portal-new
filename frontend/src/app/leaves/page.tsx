@@ -269,11 +269,9 @@ export default function LeavesPage() {
       {/* My Leaves Tab Content */}
       {(!canViewTeamBalances || activeTab === 'my-leaves') && (
         <>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-primary">
-            Leave Management
-          </h1>
+          <h1 className="text-3xl font-bold text-primary">Leave Management</h1>
           <p className="text-secondary mt-1">
             {canApprove ? "Review and manage leave requests" : "Apply for and track your leaves"}
           </p>
@@ -357,7 +355,7 @@ export default function LeavesPage() {
 
       {/* Leaves List */}
       <div>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {activeTab === 'team-leaves' ? "Team Leave Requests" : "My Leave Requests"}
           </h2>
@@ -365,7 +363,7 @@ export default function LeavesPage() {
             <Button
               size="sm"
               onClick={() => setShowApplyOnBehalfForm(true)}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 self-start md:self-auto"
             >
               <Plus className="h-4 w-4" />
               Apply on Behalf
@@ -556,14 +554,10 @@ export default function LeavesPage() {
       {/* Team Leaves Tab Content */}
       {canViewTeamBalances && activeTab === 'team-leaves' && (
         <>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-primary">
-                Team Leaves
-              </h1>
-              <p className="text-secondary mt-1">
-                Manage your team's leave requests and view leave balances
-              </p>
+              <h1 className="text-3xl font-bold text-primary">Team Leaves</h1>
+              <p className="text-secondary mt-1">Manage your team's leave requests and view leave balances</p>
             </div>
           </div>
 

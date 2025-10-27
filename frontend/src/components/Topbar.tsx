@@ -26,20 +26,23 @@ export default function Topbar() {
   const title = titles[pathname] || "HR Portal";
 
   return (
-    <header className="sticky top-0 z-20 flex justify-between items-center pl-16 pr-6 py-4 md:px-6 border-b border-card bg-card/80 backdrop-blur-sm dark:bg-white/5 dark:border-white/10">
-      <h2 className="text-xl font-bold text-primary dark:text-white">{title}</h2>
-
-      <div className="flex items-center gap-3 text-sm">
-        {user?.role !== 'Employee' && (
-          <span className={`px-2 py-1 rounded text-xs text-white shadow ${
-            user?.role === 'God' 
-              ? 'bg-gradient-to-r from-purple-600 to-pink-600' 
-              : 'bg-indigo-600 dark:bg-gradient-to-r dark:from-indigo-600 dark:to-purple-600'
-          }`}>
-            {user?.role || "Employee"}
-          </span>
-        )}
-        <ThemeToggle />
+    <header className="sticky top-0 z-20 pl-16 pr-6 py-4 md:px-6 border-b border-card bg-card/80 backdrop-blur-sm dark:bg-white/5 dark:border-white/10">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-xl font-bold text-primary dark:text-white truncate min-w-0">
+          {title}
+        </h2>
+        <div className="flex items-center gap-3 text-sm flex-shrink-0 whitespace-nowrap">
+          {user?.role !== 'Employee' && (
+            <span className={`px-2 py-1 rounded text-xs text-white shadow ${
+              user?.role === 'God' 
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600' 
+                : 'bg-indigo-600 dark:bg-gradient-to-r dark:from-indigo-600 dark:to-purple-600'
+            }`}>
+              {user?.role || "Employee"}
+            </span>
+          )}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

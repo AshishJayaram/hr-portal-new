@@ -22,7 +22,6 @@ const hrAdminLinks = [
   { href: "/salary-slips", label: "Salary Slips", icon: "💰" },
   { href: "/holidays", label: "Holidays, Events & Notices", icon: "📅" },
   { href: "/off-site", label: "Off-site Tracker", icon: "🏢" },
-  { href: "/audit-logs", label: "Audit Logs", icon: "📊" },
 ];
 
 
@@ -103,7 +102,6 @@ export default function Sidebar() {
             </Link>
           ))}
         </nav>
-
 
         {/* User dropdown at bottom */}
         <div className="mt-6 pt-6 border-t border-white/10 relative" ref={userMenuRef}>
@@ -187,7 +185,6 @@ export default function Sidebar() {
                 </Link>
               ))}
             </nav>
-
 
             {/* Mobile user tile */}
             <div className="mt-6 pt-6 border-t border-white/10">

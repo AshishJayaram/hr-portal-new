@@ -711,31 +711,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    'Upcoming Events & Notices',
-                    style: LiquidGlassTheme.heading3.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                Text(
+                  'Upcoming Events & Notices',
+                  style: LiquidGlassTheme.heading3.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
                   ),
                 ),
-                TextButton(
-              onPressed: () => context.go('/holidays'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white70,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: LiquidGlassTheme.spacingM,
-                  vertical: LiquidGlassTheme.spacingS,
-                ),
-              ),
-                  child: const Text('View All'),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.go('/holidays'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: LiquidGlassTheme.spacingM,
+                        vertical: LiquidGlassTheme.spacingS,
+                      ),
+                    ),
+                    child: const Text('View All'),
+                  ),
                 ),
               ],
             ),
@@ -795,31 +794,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    'Upcoming Holidays',
-                    style: LiquidGlassTheme.heading3.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                Text(
+                  'Upcoming Holidays',
+                  style: LiquidGlassTheme.heading3.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
                   ),
                 ),
-                TextButton(
-              onPressed: () => context.go('/holidays'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white70,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: LiquidGlassTheme.spacingM,
-                  vertical: LiquidGlassTheme.spacingS,
-                ),
-              ),
-                  child: const Text('View All'),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.go('/holidays'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: LiquidGlassTheme.spacingM,
+                        vertical: LiquidGlassTheme.spacingS,
+                      ),
+                    ),
+                    child: const Text('View All'),
+                  ),
                 ),
               ],
             ),

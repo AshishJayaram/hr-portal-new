@@ -16,6 +16,7 @@ import {
   getKRASummary,
   getUsers,
   getKRASettings,
+  bulkEvaluateKRAs,
   type KRA,
   type CreateKRARequest,
   type UpdateKRARequest,
@@ -23,7 +24,8 @@ import {
   type SelfAssessKRARequest,
   type KRASummary,
   type KRASettings,
-  type User
+  type User,
+  type BulkEvaluateKRAItem
 } from "@/lib/api";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
@@ -524,6 +526,7 @@ export default function KRAPage() {
                   currentUserId={userId}
                   currentUserManagerId={user?.manager_id}
                   isDirectReportee={false} // In "My KRAs", user is evaluating their own KRAs
+                  showSelfAssessButton={true}
                 />
               ))}
             </div>
@@ -633,7 +636,8 @@ function KRACard({
   userRole,
   currentUserId,
   currentUserManagerId,
-  isDirectReportee
+  isDirectReportee,
+  showSelfAssessButton
 }: { 
   kra: KRA; 
   onEdit: () => void; 
@@ -644,6 +648,7 @@ function KRACard({
   currentUserId: string;
   currentUserManagerId?: number;
   isDirectReportee?: boolean;
+  showSelfAssessButton?: boolean;
 }) {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -684,6 +689,24 @@ function KRACard({
           <span className="text-gray-600 dark:text-gray-400">Weight:</span>
           <span className="font-medium text-gray-900 dark:text-white">{kra.weight}%</span>
         </div>
+        {(() => {
+          const isKraOwner = Number(kra.user_id) === Number(currentUserId);
+          const isManagerViewingReportee = isDirectReportee && !isKraOwner;
+          const isHrAdminGod = userRole === 'HR' || userRole === 'Admin' || userRole === 'God';
+          if (isManagerViewingReportee || isHrAdminGod) {
+            return (
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600 dark:text-gray-400">
+                  Employee rating: <span className={`${getRatingColor(kra.employee_rating)} font-medium`}>{kra.employee_rating ? `${kra.employee_rating}/5` : '—'}</span>
+                </span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Manager rating: <span className={`${getRatingColor(kra.rating)} font-medium`}>{kra.rating ? `${kra.rating}/5` : '—'}</span>
+                </span>
+              </div>
+            );
+          }
+          return null;
+        })()}
         {(kra.employee_actual_value || kra.manager_actual_value) && (
           <div className="grid grid-cols-1 gap-1 text-sm">
             {kra.employee_actual_value && (
@@ -895,7 +918,7 @@ function KRACard({
               className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap text-xs px-2 py-1 order-first"
             >
               <Star className="w-3 h-3 mr-1" />
-              {kra.rating ? "Edit Assessment" : "Manager Assess"}
+              {kra.rating ? "Edit Assessment" : "Assess"}
             </Button>
           )}
           
@@ -909,12 +932,12 @@ function KRACard({
               className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 whitespace-nowrap text-xs px-2 py-1 order-first"
             >
               <Star className="w-3 h-3 mr-1" />
-              {kra.rating ? "Edit Assessment" : "HR Assess"}
+              {kra.rating ? "Edit Assessment" : "Assess"}
             </Button>
           )}
           
           {/* Employee Self-Assessment Button - Only for KRA owners in "My KRAs" context */}
-          {Number(kra.user_id) === Number(currentUserId) && !isDirectReportee && (
+          {showSelfAssessButton !== false && Number(kra.user_id) === Number(currentUserId) && !isDirectReportee && (
             <Button
               size="sm"
               variant="outline"
@@ -2206,6 +2229,7 @@ function TeamKRASection({
                       currentUserId={userId}
                       currentUserManagerId={user?.manager_id}
                       isDirectReportee={kra.user?.manager_id === Number(userId)} // Check if this user's manager is the current user
+                      showSelfAssessButton={false}
                     />
                   ))}
                 </div>
@@ -2267,11 +2291,8 @@ function ReporteesKRASection({
   userId: string;
   user?: any;
 }) {
-  // Filter to only direct reportees and exclude current user's own KRAs (frontend safeguard)
-  const directReporteesKRAs = (reporteesKRAs || []).filter((kra) => {
-    const managerIdOfOwner = kra.user?.manager_id;
-    return Number(managerIdOfOwner) === Number(userId) && Number(kra.user_id) !== Number(userId);
-  });
+  // Use server-scoped data (backend already returns direct reportees only)
+  const directReporteesKRAs = (reporteesKRAs || []);
 
   // Group KRAs by user
   const krasByUser = directReporteesKRAs.reduce((acc, kra) => {
@@ -2311,49 +2332,20 @@ function ReporteesKRASection({
         </div>
       ) : Object.keys(krasByUser).length > 0 ? (
         <div className="space-y-6">
-          {Object.entries(krasByUser).map(([userId, { user, kras }]) => {
-            const totalWeightage = kras.reduce((sum, kra) => sum + kra.weight, 0);
-            
-            return (
-              <Card key={userId} className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
-                      {user?.name || 'Unknown User'}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {user?.email || 'No email'} • {user?.role || 'No role'}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {kras.length} KRA{kras.length !== 1 ? 's' : ''}
-                    </div>
-                    <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                      {kras.length > 0 ? `${totalWeightage.toFixed(1)}% total weight` : 'No KRAs'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {kras.map((kra) => (
-                    <KRACard
-                      key={kra.id}
-                      kra={kra}
-                      onEdit={() => onShowEditModal(kra)}
-                      onDelete={() => onDeleteKRA(String(kra.id))}
-                      onEvaluate={() => onShowEvaluateModal(kra)}
-                      onSelfAssess={() => onShowSelfAssessModal(kra)}
-                      userRole={userRole}
-                      currentUserId={userId} // Use the actual current user's ID (manager)
-                      currentUserManagerId={user?.manager_id}
-                      isDirectReportee={Number(kra.user_id) !== Number(userId)} // Only true for actual reportees, not self
-                    />
-                  ))}
-                </div>
-              </Card>
-            );
-          })}
+          {Object.entries(krasByUser).map(([userKey, { user, kras }]) => (
+            <ReporteeGroupCard
+              key={userKey}
+              user={user}
+              kras={kras}
+              userRole={userRole}
+              currentUserId={userId}
+              currentUserManagerId={user?.manager_id}
+              onShowEditModal={onShowEditModal}
+              onShowEvaluateModal={onShowEvaluateModal}
+              onShowSelfAssessModal={onShowSelfAssessModal}
+              onDeleteKRA={onDeleteKRA}
+            />
+          ))}
         </div>
       ) : (
         <div className="text-center py-8">
@@ -2369,5 +2361,184 @@ function ReporteesKRASection({
         </div>
       )}
     </div>
+  );
+}
+
+// Reportee group card with bulk assess and ratings visibility
+function ReporteeGroupCard({
+  user,
+  kras,
+  userRole,
+  currentUserId,
+  currentUserManagerId,
+  onShowEditModal,
+  onShowEvaluateModal,
+  onShowSelfAssessModal,
+  onDeleteKRA,
+}: {
+  user: any;
+  kras: KRA[];
+  userRole: string;
+  currentUserId: string;
+  currentUserManagerId?: number;
+  onShowEditModal: (kra: KRA) => void;
+  onShowEvaluateModal: (kra: KRA) => void;
+  onShowSelfAssessModal: (kra: KRA) => void;
+  onDeleteKRA: (id: string) => void;
+}) {
+  const totalWeightage = kras.reduce((sum, k) => sum + k.weight, 0);
+  const queryClient = useQueryClient();
+  const [showBulkAssess, setShowBulkAssess] = useState(false);
+  const [bulkItems, setBulkItems] = useState<BulkEvaluateKRAItem[]>(kras.map(k => ({
+    kra_id: String(k.id),
+    manager_actual_value: k.manager_actual_value || '',
+    rating: k.rating || 0,
+    comments: k.comments || '',
+    manager_feedback_visible: k.manager_feedback_visible || false,
+  })));
+  const [allVisible, setAllVisible] = useState<boolean>(false);
+  const bulkMutation = useMutation({
+    mutationFn: bulkEvaluateKRAs,
+    onSuccess: () => {
+      toast.success('Assessments submitted');
+      // Refresh relevant caches so ratings show up immediately
+      queryClient.invalidateQueries({ queryKey: ['reportees-kras'] });
+      queryClient.invalidateQueries({ queryKey: ['team-kras'] });
+      queryClient.invalidateQueries({ queryKey: ['user-kras'] });
+      queryClient.invalidateQueries({ queryKey: ['kra-summary'] });
+      setShowBulkAssess(false);
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to submit assessments'),
+  });
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="font-semibold text-gray-900 dark:text-white">
+            {user?.name || 'Unknown User'}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {user?.email || 'No email'} • {user?.role || 'No role'}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            {kras.length} KRA{kras.length !== 1 ? 's' : ''}
+          </div>
+          <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+            {kras.length > 0 ? `${totalWeightage.toFixed(1)}% total weight` : 'No KRAs'}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          {kras.length} KRA{kras.length !== 1 ? 's' : ''} • {totalWeightage.toFixed(1)}% total weight
+        </div>
+        <Button
+          onClick={() => setShowBulkAssess(true)}
+          className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white shadow"
+        >
+          Assess All
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        {kras.map((kra) => (
+          <KRACard
+            key={kra.id}
+            kra={kra}
+            onEdit={() => onShowEditModal(kra)}
+            onDelete={() => onDeleteKRA(String(kra.id))}
+            onEvaluate={() => onShowEvaluateModal(kra)}
+            onSelfAssess={() => onShowSelfAssessModal(kra)}
+            userRole={userRole}
+            currentUserId={currentUserId}
+            currentUserManagerId={currentUserManagerId}
+            isDirectReportee={true}
+            showSelfAssessButton={false}
+          />
+        ))}
+      </div>
+
+      {showBulkAssess && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Assess All KRAs - {user?.name}</h3>
+              <button onClick={() => setShowBulkAssess(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <input
+                  id={`visible_all_${user?.id || 'user'}`}
+                  type="checkbox"
+                  checked={allVisible}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setAllVisible(checked);
+                    setBulkItems(prev => prev.map(item => ({ ...item, manager_feedback_visible: checked })));
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor={`visible_all_${user?.id || 'user'}`} className="text-sm text-gray-700 dark:text-gray-300">
+                  Visible to all
+                </label>
+              </div>
+              {kras.map((k, idx) => (
+                <div key={k.id} className="p-3 rounded border border-gray-200 dark:border-gray-700">
+                  <div className="font-medium text-gray-900 dark:text-white mb-2">{k.title}</div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <Input
+                      label="Actual Value"
+                      value={bulkItems[idx]?.manager_actual_value || ''}
+                      onChange={(e) => {
+                        const copy = [...bulkItems];
+                        copy[idx] = { ...copy[idx], manager_actual_value: e.target.value };
+                        setBulkItems(copy);
+                      }}
+                    />
+                    <Select
+                      label="Rating"
+                      value={String(bulkItems[idx]?.rating || 0)}
+                      onChange={(e) => {
+                        const copy = [...bulkItems];
+                        copy[idx] = { ...copy[idx], rating: parseInt(e.target.value) };
+                        setBulkItems(copy);
+                      }}
+                      options={[{ value: '0', label: 'Select' }, { value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }, { value: '5', label: '5' }]}
+                    />
+                  </div>
+                  <div className="mt-2">
+                    <textarea
+                      placeholder="Manager comments"
+                      value={bulkItems[idx]?.comments || ''}
+                      onChange={(e) => {
+                        const copy = [...bulkItems];
+                        copy[idx] = { ...copy[idx], comments: e.target.value };
+                        setBulkItems(copy);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowBulkAssess(false)}>Cancel</Button>
+                <Button
+                  onClick={() => bulkMutation.mutate(bulkItems)}
+                  disabled={bulkMutation.isPending}
+                  className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
+                >
+                  {bulkMutation.isPending ? 'Submitting…' : 'Submit All'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }

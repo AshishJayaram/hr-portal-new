@@ -214,22 +214,18 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">
-          Employee Hierarchy
-        </h1>
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Employee Hierarchy</h1>
         <div className="flex items-center gap-4">
           <div className="text-sm text-gray-500 dark:text-gray-400">
             {totalEmployees} employees • {totalManagers} managers
           </div>
           <Button
-            onClick={() => {
-              // Manual refresh triggered
-              refetch();
-            }}
+            onClick={() => { refetch(); }}
             disabled={isLoading}
             variant="outline"
             size="sm"
+            className="self-start md:self-auto"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh

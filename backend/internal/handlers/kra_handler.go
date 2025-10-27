@@ -437,6 +437,9 @@ func (h *KRAHandler) BulkEvaluateKRAs(c *gin.Context) {
 		return
 	}
 
+	// Set evaluator from auth context
+	req.EvaluatedBy = c.GetString("user_id")
+
 	response, err := h.kraService.BulkEvaluateKRAs(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

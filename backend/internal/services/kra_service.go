@@ -91,6 +91,7 @@ type KRASummary struct {
 // BulkEvaluateKRAsRequest represents a request to evaluate multiple KRAs
 type BulkEvaluateKRAsRequest struct {
 	Assessments []BulkEvaluateKRAItem `json:"assessments" binding:"required"`
+	EvaluatedBy string                `json:"evaluated_by"`
 }
 
 type BulkEvaluateKRAItem struct {
@@ -304,7 +305,7 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 	}
 
 	// Validate evaluator exists
-	_, err = s.userRepo.GetByID(req.EvaluatedBy)
+	evaluator, err := s.userRepo.GetByID(req.EvaluatedBy)
 	if err != nil {
 		return nil, fmt.Errorf("evaluator not found: %w", err)
 	}
@@ -313,6 +314,19 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 	evaluatedByUint, err := strconv.ParseUint(req.EvaluatedBy, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid evaluator ID: %w", err)
+	}
+
+	// Authorization: evaluator must be the employee's manager OR have privileged role (HR/Admin/God)
+	// Fetch KRA owner user to check reporting line
+	ownerUser, err := s.userRepo.GetByID(strconv.FormatUint(uint64(kra.UserID), 10))
+	if err != nil {
+		return nil, fmt.Errorf("kra owner not found: %w", err)
+	}
+
+	isPrivileged := evaluator.Role == "HR" || evaluator.Role == "Admin" || evaluator.Role == "God"
+	isDirectManager := ownerUser.ManagerID != nil && uint(evaluatedByUint) == *ownerUser.ManagerID
+	if !isPrivileged && !isDirectManager {
+		return nil, fmt.Errorf("unauthorized: only the employee's manager or HR/Admin/God can evaluate this KRA")
 	}
 
 	// Update evaluation fields
@@ -361,6 +375,16 @@ func (s *kraService) SelfAssessKRA(id string, req SelfAssessKRARequest) (*models
 		return nil, fmt.Errorf("KRA not found: %w", err)
 	}
 
+	// Authorization: only the KRA owner (employee) can self-assess their KRA
+	// Convert employee_rated_by to uint and compare with KRA.UserID
+	employeeRatedByUint, convErr := strconv.ParseUint(req.EmployeeRatedBy, 10, 32)
+	if convErr != nil {
+		return nil, fmt.Errorf("invalid employee ID: %w", convErr)
+	}
+	if uint(employeeRatedByUint) != kra.UserID {
+		return nil, fmt.Errorf("unauthorized: only the KRA owner can self-assess this KRA")
+	}
+
 	// Validate employee exists
 	_, err = s.userRepo.GetByID(req.EmployeeRatedBy)
 	if err != nil {
@@ -368,10 +392,7 @@ func (s *kraService) SelfAssessKRA(id string, req SelfAssessKRARequest) (*models
 	}
 
 	// Convert string ID to uint
-	employeeRatedByUint, err := strconv.ParseUint(req.EmployeeRatedBy, 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("invalid employee ID: %w", err)
-	}
+	// (already parsed above)
 
 	// Update self-assessment fields
 	kra.EmployeeActualValue = &req.ActualValue
@@ -537,9 +558,29 @@ func (s *kraService) BulkEvaluateKRAs(req BulkEvaluateKRAsRequest) (*BulkAssessm
 		Results: make([]BulkAssessmentResult, len(req.Assessments)),
 	}
 
+	// Enforce: only one user per bulk request
+	var singleUserID uint
+
 	for i, assessment := range req.Assessments {
 		result := BulkAssessmentResult{
 			KRAID: assessment.KRAID,
+		}
+
+		// Load KRA to verify owner consistency across all assessments
+		kra, errGet := s.kraRepo.GetByID(assessment.KRAID)
+		if errGet != nil {
+			result.Success = false
+			result.Error = errGet.Error()
+			response.ErrorCount++
+			response.Results[i] = result
+			continue
+		}
+
+		if singleUserID == 0 {
+			singleUserID = kra.UserID
+		} else if kra.UserID != singleUserID {
+			// Hard fail: multiple users detected in one bulk request
+			return nil, fmt.Errorf("bulk evaluate supports only one user per request")
 		}
 
 		// Convert to individual EvaluateKRARequest
@@ -548,6 +589,7 @@ func (s *kraService) BulkEvaluateKRAs(req BulkEvaluateKRAsRequest) (*BulkAssessm
 			Rating:                 assessment.Rating,
 			Comments:               assessment.Comments,
 			ManagerFeedbackVisible: assessment.ManagerFeedbackVisible,
+			EvaluatedBy:            req.EvaluatedBy,
 		}
 
 		// Call the existing EvaluateKRA method
