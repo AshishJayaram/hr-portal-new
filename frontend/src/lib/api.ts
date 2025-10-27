@@ -351,11 +351,21 @@ export const createUser = (body: Partial<User> & any) => {
   });
 };
 
-export const updateUser = (id: string, body: Partial<User>) =>
-  fetcher<ApiResponse<User>>(`/api/users/${id}`, {
+export const updateUser = (id: string, body: Partial<User>) => {
+  const payload: any = { ...body };
+  if (payload.ctc !== undefined && payload.ctc !== null) {
+    const coerced = typeof payload.ctc === 'string' ? parseFloat(payload.ctc) : payload.ctc;
+    if (!Number.isNaN(coerced)) {
+      payload.ctc = coerced;
+    } else {
+      delete payload.ctc; // avoid sending invalid type
+    }
+  }
+  return fetcher<ApiResponse<User>>(`/api/users/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
+}
 
 export const deleteUser = (id: string) =>
   fetcher<ApiResponse<void>>(`/api/users/${id}`, {
