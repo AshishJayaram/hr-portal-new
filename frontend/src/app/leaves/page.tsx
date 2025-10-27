@@ -37,7 +37,7 @@ export default function LeavesPage() {
   const [leaves, setLeaves] = useState<any[]>([]);
   const [filteredLeaves, setFilteredLeaves] = useState<any[]>([]);
   const [editingLeave, setEditingLeave] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'my-leaves' | 'team-leaves'>('my-leaves');
+  const [activeTab, setActiveTab] = useState<'my-leaves' | 'team-leaves' | 'team-balances'>('my-leaves');
   const [loadingLeaves, setLoadingLeaves] = useState<Set<string>>(new Set());
   const [approvingLeaves, setApprovingLeaves] = useState<Set<string>>(new Set());
   const [rejectingLeaves, setRejectingLeaves] = useState<Set<string>>(new Set());
@@ -48,6 +48,8 @@ export default function LeavesPage() {
   const [showApplyForm, setShowApplyForm] = useState(false);
   const [showApplyOnBehalfForm, setShowApplyOnBehalfForm] = useState(false);
   const [selectedTeamMember, setSelectedTeamMember] = useState<string | null>(null);
+  const [teamBalancesPage, setTeamBalancesPage] = useState(1);
+  const [teamBalancesPerPage] = useState(6);
   const queryClient = useQueryClient();
 
   // Get user role from existing user object
@@ -258,10 +260,11 @@ export default function LeavesPage() {
           <Tabs
             tabs={[
               { id: 'my-leaves', label: 'My Leaves' },
-              { id: 'team-leaves', label: 'Team Leaves' }
+              { id: 'team-leaves', label: 'Team Leave Requests' },
+              { id: 'team-balances', label: 'Team Balances' }
             ]}
             activeTab={activeTab}
-            onTabChange={(tabId) => setActiveTab(tabId as 'my-leaves' | 'team-leaves')}
+            onTabChange={(tabId) => setActiveTab(tabId as 'my-leaves' | 'team-leaves' | 'team-balances')}
           />
         </Card>
       )}
@@ -561,27 +564,188 @@ export default function LeavesPage() {
             </div>
           </div>
 
-          {/* Team Leave Balances */}
+          {/* Team Leave Requests List - NEW */}
           <Card>
             <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Team Leave Balances
+                Team Leave Requests
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                View leave balances for all your team members
+                Review and manage leave requests from your team members
               </p>
             </div>
 
+            <div className="space-y-4">
+              {filteredLeaves.map((leave, idx) => (
+                <motion.div
+                  key={leave.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.03 }}
+                  className="p-4 border rounded-lg transition-all duration-200 border-card bg-white/60 hover:bg-white/90 hover:shadow-md hover:border-indigo-200 dark:border-white/10 dark:bg-transparent dark:hover:bg-white/10 dark:hover:border-indigo-400/30"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white">
+                        <Calendar className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-primary">{leave.type}</h3>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
+                            {capitalize(leave.status)}
+                          </span>
+                        </div>
+                        
+                        {leave.user && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <User className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-400">
+                              {leave.user.name || "Unknown Employee"}
+                            </span>
+                            {leave.user.designation && (
+                              <span className="text-xs text-gray-500">
+                                ({leave.user.designation})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>{formatDate(leave.from)} - {formatDate(leave.to)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {canApprove && leave.status === "pending" && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => approveLeaveMutation.mutate(leave.id)}
+                            loading={approvingLeaves.has(leave.id)}
+                            disabled={approvingLeaves.has(leave.id) || rejectingLeaves.has(leave.id)}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              const reason = prompt("Reason for rejection:");
+                              if (reason !== null) {
+                                rejectLeaveMutation.mutate({ leaveId: leave.id, reason });
+                              }
+                            }}
+                            loading={rejectingLeaves.has(leave.id)}
+                            disabled={approvingLeaves.has(leave.id) || rejectingLeaves.has(leave.id)}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            
+            {filteredLeaves.length === 0 && (
+              <div className="text-center py-8">
+                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-300 mb-2">No leave requests found</h3>
+                <p className="text-gray-400">
+                  No leave requests from your team members yet.
+                </p>
+              </div>
+            )}
+
+            {/* Pagination Controls for Team Leaves */}
+            {totalPages > 1 && (
+              <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, total)} of {total} requests
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(pageNum)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+
+        </>
+      )}
+
+      {/* Team Balances Tab Content */}
+      {canViewTeamBalances && activeTab === 'team-balances' && (
+        <>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-primary">Team Leave Balances</h1>
+              <p className="text-secondary mt-1">View leave balances for all your team members</p>
+            </div>
+          </div>
+
+          {/* Team Leave Balances */}
+          <Card>
             {loadingTeamBalances && (
               <div className="text-sm text-gray-500 mb-4">Loading team balances...</div>
             )}
             
             {teamBalances?.data && Object.keys(teamBalances.data).length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
-                {/* Team Members List */}
-                <div className="lg:col-span-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {Object.entries(teamBalances.data).map(([userId, userBalances]) => (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
+                  {/* Team Members List */}
+                  <div className="lg:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {Object.entries(teamBalances.data)
+                        .slice((teamBalancesPage - 1) * teamBalancesPerPage, teamBalancesPage * teamBalancesPerPage)
+                        .map(([userId, userBalances]) => (
                       <div 
                         key={userId} 
                         className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
@@ -703,6 +867,63 @@ export default function LeavesPage() {
                   </div>
                 </div>
               </div>
+              
+              {/* Pagination Controls */}
+              {Object.keys(teamBalances.data).length > teamBalancesPerPage && (
+                <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Showing {((teamBalancesPage - 1) * teamBalancesPerPage) + 1} to {Math.min(teamBalancesPage * teamBalancesPerPage, Object.keys(teamBalances.data).length)} of {Object.keys(teamBalances.data).length} members
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTeamBalancesPage(teamBalancesPage - 1)}
+                      disabled={teamBalancesPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: Math.min(5, Math.ceil(Object.keys(teamBalances.data).length / teamBalancesPerPage)) }, (_, i) => {
+                        let pageNum;
+                        const totalTeamPages = Math.ceil(Object.keys(teamBalances.data).length / teamBalancesPerPage);
+                        if (totalTeamPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (teamBalancesPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (teamBalancesPage >= totalTeamPages - 2) {
+                          pageNum = totalTeamPages - 4 + i;
+                        } else {
+                          pageNum = teamBalancesPage - 2 + i;
+                        }
+                        
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={teamBalancesPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setTeamBalancesPage(pageNum)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTeamBalancesPage(teamBalancesPage + 1)}
+                      disabled={teamBalancesPage >= Math.ceil(Object.keys(teamBalances.data).length / teamBalancesPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+              </>
             ) : (
               <div className="text-center py-12">
                 <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -713,7 +934,6 @@ export default function LeavesPage() {
               </div>
             )}
           </Card>
-
         </>
       )}
 

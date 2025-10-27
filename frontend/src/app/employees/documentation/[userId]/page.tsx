@@ -366,32 +366,36 @@ export default function EmployeeDocumentationPage() {
                 </div>
               ) : (
                 growthRecords.map((record: EmployeeGrowthRecord) => (
-                  <div key={record.id} className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10">
+                  <div key={record.id} className="flex flex-col sm:flex-row items-start gap-4 p-4 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10 hover:shadow-md transition-shadow">
                     <div className="flex-shrink-0">
                       {getGrowthIcon(record.type)}
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">{record.title}</h3>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 dark:text-white break-words">{record.title}</h3>
                       {record.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{record.description}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 break-words">{record.description}</p>
                       )}
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{formatDate(record.date)}</p>
                     </div>
-                    <div className="flex-shrink-0 flex gap-2">
-                      <button
+                    <div className="flex flex-shrink-0 gap-2 w-full sm:w-auto">
+                      <Button
                         onClick={() => handleEditGrowth(record)}
-                        className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
                         disabled={updateGrowthMutation.isPending}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 sm:flex-none text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 border-blue-600 dark:border-blue-400 text-xs sm:text-sm px-2 sm:px-3"
                       >
                         Edit
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={() => handleDeleteGrowth(record.id!)}
-                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
                         disabled={deleteGrowthMutation.isPending}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 sm:flex-none text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 border-red-600 dark:border-red-400 text-xs sm:text-sm px-2 sm:px-3"
                       >
                         Delete
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))

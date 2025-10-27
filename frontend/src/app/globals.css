@@ -55,11 +55,17 @@
   --grid-color: rgba(255, 255, 255, 0.06);
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* Adaptive gradient + subtle grid background */
