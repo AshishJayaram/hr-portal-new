@@ -13,13 +13,13 @@ build/
 .pub/
 pubspec.lock
 
-# Flutter web
-hr_portal_flutter/build/
-hr_portal_flutter/.dart_tool/
-hr_portal_flutter/.packages
-hr_portal_flutter/.pub-cache/
-hr_portal_flutter/.pub/
-hr_portal_flutter/pubspec.lock
+# Flutter web (renamed)
+flutter_app/build/
+flutter_app/.dart_tool/
+flutter_app/.packages
+flutter_app/.pub-cache/
+flutter_app/.pub/
+flutter_app/pubspec.lock
 
 # Node.js
 node_modules/
@@ -56,6 +56,12 @@ Thumbs.db
 
 # Logs
 *.log
+.cursor/
+.cursor/**
+.cursor/*.log
+.cursor/.agent-tools/
+.cursor/.agent-tools/**
+.cursor/**/backend.log
 
 # Runtime data
 pids

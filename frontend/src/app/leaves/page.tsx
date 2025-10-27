@@ -739,69 +739,54 @@ export default function LeavesPage() {
             
             {teamBalances?.data && Object.keys(teamBalances.data).length > 0 ? (
               <>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[400px]">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
                   {/* Team Members List */}
-                  <div className="lg:col-span-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="xl:col-span-2 space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Team Members</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {Object.entries(teamBalances.data)
                         .slice((teamBalancesPage - 1) * teamBalancesPerPage, teamBalancesPage * teamBalancesPerPage)
                         .map(([userId, userBalances]) => (
                       <div 
                         key={userId} 
-                        className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
+                        className={`border rounded-lg p-5 cursor-pointer transition-all duration-200 ${
                           selectedTeamMember === userId
                             ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md'
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm'
                         }`}
                         onClick={() => handleTeamMemberSelect(userId)}
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg">
                             {getUserName(userId).charAt(0).toUpperCase()}
                           </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-gray-900 dark:text-white text-base truncate">
                               {getUserName(userId).split(' (')[0]}
                             </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                               {getUserName(userId).split(' (')[1]?.replace(')', '') || 'Employee'}
                             </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {userBalances.length} leave categories
                             </p>
                           </div>
                           <div className={`transform transition-transform duration-200 ${
                             selectedTeamMember === userId ? 'rotate-90' : ''
                           }`}>
-                            <ChevronDown className="h-5 w-5 text-gray-400" />
+                            <ChevronDown className="h-5 w-5 text-gray-400 flex-shrink-0" />
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
 
-                {/* Details Panel - Fixed Height */}
-                <div className="lg:col-span-1">
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 h-full">
+                  {/* Details Panel - Sticky */}
+                  <div className="xl:col-span-1">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Leave Details</h3>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700 sticky top-6">
                     {selectedTeamMember && teamBalances?.data?.[selectedTeamMember] ? (
-                      <div className="h-full flex flex-col">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            Leave Details
-                          </h3>
-                          <button
-                            onClick={() => setSelectedTeamMember(null)}
-                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-                            title="Close details"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                        
-                        <div className="flex-1 overflow-y-auto space-y-4">
+                      <div className="space-y-4 max-h-[600px] overflow-y-auto">
                           {teamBalances.data[selectedTeamMember].map((balance: any) => (
                             <div key={balance.id} className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                               <div className="flex justify-between items-center mb-3">
@@ -851,10 +836,9 @@ export default function LeavesPage() {
                               </div>
                             </div>
                           ))}
-                        </div>
                       </div>
                     ) : (
-                      <div className="h-full flex items-center justify-center">
+                      <div className="flex items-center justify-center py-12">
                         <div className="text-center">
                           <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                           <h3 className="text-lg font-medium text-gray-300 mb-2">Select a team member</h3>
@@ -864,9 +848,9 @@ export default function LeavesPage() {
                         </div>
                       </div>
                     )}
+                    </div>
                   </div>
                 </div>
-              </div>
               
               {/* Pagination Controls */}
               {Object.keys(teamBalances.data).length > teamBalancesPerPage && (

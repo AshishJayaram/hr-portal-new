@@ -21,15 +21,15 @@ The HR Portal now includes a comprehensive email notification system that sends 
 ## Manual Configuration Required
 
 ### 1. Environment Variables
-You need to set the following environment variables in your `.env` file or system environment:
+You need to set the following environment variables in your `backend/.env` file or system environment:
 
 ```bash
 # SMTP Configuration
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-FROM_EMAIL=your-email@gmail.com
+SMTP_USER=the.aa.hr.team@gmail.com
+SMTP_PASS=strongpassword
+FROM_EMAIL=the.aa.hr.team@gmail.com
 
 # Optional: WhatsApp Configuration (for future implementation)
 TWILIO_ACCOUNT_SID=your-twilio-account-sid

@@ -36,6 +36,10 @@ docker-compose up -d
 - **Framework**: Next.js 15.5.2
 - **Build**: Static export with Nginx
 
+### Mobile (Flutter)
+- Directory: `flutter_app/` (renamed from `hr_portal_flutter/`)
+- Platforms: iOS, Android, Web
+
 ### Database (PostgreSQL)
 - **Port**: 5432
 - **Database**: hr_portal
@@ -108,6 +112,20 @@ git pull
 docker-compose build --no-cache
 docker-compose up -d
 ```
+
+## Splitting into three repositories (microservices)
+
+To split the monorepo into three standalone repositories while preserving history, use the helper script:
+
+```bash
+scripts/split_repos.sh <backend_repo_url> <frontend_repo_url> <flutter_repo_url>
+```
+
+This will create split branches using `git subtree split` and push them as `main` to the provided remotes:
+
+- `backend/`  → split-backend → backend_repo_url
+- `frontend/` → split-frontend → frontend_repo_url
+- `flutter_app/` → split-flutter → flutter_repo_url
 
 ## Production Considerations
 
