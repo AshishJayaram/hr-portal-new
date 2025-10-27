@@ -1,3 +1,23 @@
+# Flutter
+.dart_tool/
+.packages
+build/
+.pub-cache/
+.pub/
+pubspec.lock
+
+# Platform specific
+ios/Pods/
+ios/.generated/
+android/.gradle/
+android/local.properties
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/
+*.iml
+
 # Miscellaneous
 *.class
 *.log

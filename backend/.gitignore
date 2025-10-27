@@ -1,0 +1,30 @@
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Env
+.env
+
+# Temp
+tmp/
+temp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Cache
+.cache/
+
+# Docker local files
+.dynamodb/
+
+# Upload artifacts (kept tracked by default) — uncomment to ignore
+# uploads/
+
+
