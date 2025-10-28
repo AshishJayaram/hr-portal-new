@@ -737,7 +737,7 @@ export default function LeavesPage() {
               <div className="text-sm text-gray-500 mb-4">Loading team balances...</div>
             )}
             
-            {teamBalances?.data && Object.keys(teamBalances.data).length > 0 && (
+            {teamBalances?.data && Object.keys(teamBalances.data).length > 0 ? (
               <div>
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
                   {/* Team Members List */}
@@ -908,8 +908,7 @@ export default function LeavesPage() {
                   </div>
                 )}
               </div>
-            )}
-            {(!teamBalances?.data || Object.keys(teamBalances?.data || {}).length === 0) && (
+            ) : (
               <div className="text-center py-12">
                 <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-300 mb-2">No team members found</h3>
