@@ -479,7 +479,7 @@ export default function KRAPage() {
                   }, 100);
                 }}
                 variant="outline"
-                className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900"
+                className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20"
               >
                 <BookOpen className="w-4 h-4 mr-2" />
                 View Sample Format
@@ -495,9 +495,9 @@ export default function KRAPage() {
                 }}
                 disabled={isWeightageFull}
                 className={`shadow-lg ${
-                  isWeightageFull 
-                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+                  isWeightageFull
+                    ? 'bg-gray-400 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white'
                 }`}
                 title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
               >
@@ -552,7 +552,7 @@ export default function KRAPage() {
                     }, 100);
                   }}
                   variant="outline"
-                  className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900"
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20"
                 >
                   <BookOpen className="w-4 h-4 mr-2" />
                   View Sample Format
@@ -568,9 +568,9 @@ export default function KRAPage() {
                   }}
                   disabled={isWeightageFull}
                   className={`shadow-lg ${
-                    isWeightageFull 
-                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+                    isWeightageFull
+                      ? 'bg-gray-400 dark:bg-gray-600 text-gray-600 dark:text-gray-300 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white'
                   }`}
                   title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
                 >
@@ -1166,7 +1166,7 @@ function SampleKRASheetModal({
               <div className="flex justify-end mt-6">
                 <Button
                   onClick={onStartCreating}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white shadow-lg"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Start Creating KRAs
@@ -1668,7 +1668,7 @@ function EditKRAModal({
             </Button>
             <Button
               type="submit"
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white shadow-lg"
             >
               Update KRA
             </Button>
@@ -1822,7 +1822,7 @@ function EvaluateKRAModal({
             </Button>
             <Button
               type="submit"
-              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white shadow-lg"
+              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 dark:from-green-500 dark:to-blue-500 dark:hover:from-green-600 dark:hover:to-blue-600 text-white shadow-lg"
             >
               Submit Assessment
             </Button>
@@ -1946,7 +1946,7 @@ function SelfAssessKRAModal({
               </Button>
               <Button
                 type="submit"
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg"
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 dark:from-purple-500 dark:to-pink-500 dark:hover:from-purple-600 dark:hover:to-pink-600 text-white shadow-lg"
               >
                 Submit Assessment
               </Button>
