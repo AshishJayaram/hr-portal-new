@@ -830,9 +830,10 @@ export const getHolidays = (params?: Record<string, string>) =>
 export const createHoliday = (body: Partial<Holiday>) =>
   fetcher<any>("/holidays", {
     method: "POST",
-    body: JSON.stringify({ 
-      name: body.name, 
-      date: body.dateRange || body.date, // Send dateRange if available, otherwise date
+    body: JSON.stringify({
+      name: body.name,
+      // Send either date or dateRange based on whether the date contains " to "
+      ...(body.date && body.date.includes(' to ') ? { dateRange: body.date } : { date: body.date }),
       type: body.type || 'holiday',
       description: body.description,
       isCalendarEvent: body.isCalendarEvent ?? true,
