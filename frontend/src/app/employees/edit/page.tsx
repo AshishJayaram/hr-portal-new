@@ -41,6 +41,7 @@ function EditEmployeeForm({ id }: { id: string }) {
     manager_id: "",
     ctc: "",
     joining_date: "",
+    birthday: "",
   });
   const [transferReports, setTransferReports] = useState(false);
   const [originalManagerId, setOriginalManagerId] = useState("");
@@ -110,7 +111,68 @@ function EditEmployeeForm({ id }: { id: string }) {
         department: user.data.department || "",
         manager_id: managerId,
         ctc: user.data.ctc || "",
-        joining_date: user.data.joining_date ? new Date(user.data.joining_date).toISOString().split('T')[0] : "",
+        joining_date: user.data.joining_date ? (() => {
+          try {
+            const dateStr = String(user.data.joining_date).trim();
+
+            // Handle different date formats
+            let date: Date;
+            if (dateStr.includes('T') || dateStr.includes(' ')) {
+              // Full timestamp format like "1983-11-13 00:00:00+00:00" or "1983-11-13T00:00:00Z"
+              const cleanDateStr = dateStr.split(' ')[0].split('T')[0]; // Extract just the date part
+              date = new Date(cleanDateStr + 'T00:00:00');
+            } else {
+              // Date-only format like "1998-11-20"
+              date = new Date(dateStr + 'T00:00:00');
+            }
+
+            if (isNaN(date.getTime())) {
+              console.error("Invalid joining date after parsing:", dateStr);
+              return "";
+            }
+
+            // Format as YYYY-MM-DD for HTML date input
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const formatted = `${year}-${month}-${day}`;
+            return formatted;
+          } catch (e) {
+            console.error("Error parsing joining date:", user.data.joining_date, e);
+            return "";
+          }
+        })() : "",
+        birthday: user.data.birthday ? (() => {
+          try {
+            const dateStr = String(user.data.birthday).trim();
+
+            // Handle different date formats
+            let date: Date;
+            if (dateStr.includes('T') || dateStr.includes(' ')) {
+              // Full timestamp format like "1983-11-13 00:00:00+00:00" or "1983-11-13T00:00:00Z"
+              const cleanDateStr = dateStr.split(' ')[0].split('T')[0]; // Extract just the date part
+              date = new Date(cleanDateStr + 'T00:00:00');
+            } else {
+              // Date-only format like "1998-11-20"
+              date = new Date(dateStr + 'T00:00:00');
+            }
+
+            if (isNaN(date.getTime())) {
+              console.error("Invalid birthday after parsing:", dateStr);
+              return "";
+            }
+
+            // Format as YYYY-MM-DD for HTML date input
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const formatted = `${year}-${month}-${day}`;
+            return formatted;
+          } catch (e) {
+            console.error("Error parsing birthday:", user.data.birthday, e);
+            return "";
+          }
+        })() : "",
       });
       
       // Store original manager ID for comparison
@@ -273,6 +335,7 @@ function EditEmployeeForm({ id }: { id: string }) {
       department: formData.department,
       manager_id: formData.manager_id ? String(formData.manager_id) : undefined, // Convert to string to match backend
       joining_date: formData.joining_date || undefined,
+      birthday: formData.birthday || "",
       transfer_reports: formData.manager_id !== originalManagerId ? transferReports : undefined, // Only include if manager changed
     };
 
@@ -398,6 +461,12 @@ function EditEmployeeForm({ id }: { id: string }) {
               value={formData.joining_date}
               onChange={(e) => setFormData({ ...formData, joining_date: e.target.value })}
             />
+            <Input
+              label="Birthday"
+              type="date"
+              value={formData.birthday}
+              onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+            />
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm">Manager (search and select)</label>
@@ -436,29 +505,29 @@ function EditEmployeeForm({ id }: { id: string }) {
                     </div>
                   )}
                   {(managerQuery.length > 0 || managers?.data) && (
-                    <div className="mt-2 max-h-48 overflow-y-auto border border-white/10 rounded bg-gray-900">
+                    <div className="mt-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 shadow-lg">
                       {(managers?.data || [])
                         .filter((u: any) => String(u.id) !== String(id)) // Exclude current employee
                         .map((u: any) => (
                         <button
                           type="button"
                           key={u.id}
-                          className={`w-full text-left px-3 py-2 hover:bg-white/10 transition-colors ${String(formData.manager_id) === String(u.id) ? 'bg-indigo-500/20 border-l-2 border-indigo-500' : ''}`}
-                          onClick={() => { 
-                            setFormData({ ...formData, manager_id: String(u.id) }); 
-                            setManagerQuery(`${u.name} (ID: ${u.id})`); 
+                          className={`w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors ${String(formData.manager_id) === String(u.id) ? 'bg-indigo-100 dark:bg-indigo-900/30 border-l-2 border-indigo-500' : ''}`}
+                          onClick={() => {
+                            setFormData({ ...formData, manager_id: String(u.id) });
+                            setManagerQuery(`${u.name} (ID: ${u.id})`);
                             setSelectedManagerName(u.name); 
                           }}
                         >
                           <div className="flex items-center justify-between">
                             <span>{u.name}</span>
-                            <span className="text-xs text-gray-400">ID: {u.id} • {u.role}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">ID: {u.id} • {u.role}</span>
                           </div>
-                          {u.designation && <div className="text-xs text-gray-500 mt-1">{u.designation}</div>}
+                          {u.designation && <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{u.designation}</div>}
                         </button>
                       ))}
                       {(!managers?.data || managers.data.filter((u: any) => String(u.id) !== String(id)).length === 0) && (
-                        <div className="px-3 py-2 text-sm text-gray-400">No matching users found. Try typing to search...</div>
+                        <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No matching users found. Try typing to search...</div>
                       )}
                     </div>
                   )}

@@ -4,7 +4,7 @@ const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.headers.get('authorization');
@@ -17,7 +17,8 @@ export async function GET(
       );
     }
 
-    const response = await fetch(`${backendUrl}/api/holidays/${params.id}`, {
+    const { id } = await params;
+    const response = await fetch(`${backendUrl}/api/holidays/${id}`, {
       method: 'GET',
       headers: {
         'Authorization': token,
@@ -46,7 +47,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.headers.get('authorization');
@@ -59,9 +60,10 @@ export async function PATCH(
       );
     }
 
+    const { id } = await params;
     const body = await request.json();
 
-    const response = await fetch(`${backendUrl}/api/holidays/${params.id}`, {
+    const response = await fetch(`${backendUrl}/api/holidays/${id}`, {
       method: 'PATCH',
       headers: {
         'Authorization': token,
@@ -92,7 +94,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = request.headers.get('authorization');
@@ -105,7 +107,8 @@ export async function DELETE(
       );
     }
 
-    const response = await fetch(`${backendUrl}/api/holidays/${params.id}`, {
+    const { id } = await params;
+    const response = await fetch(`${backendUrl}/api/holidays/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': token,

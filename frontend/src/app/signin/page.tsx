@@ -18,20 +18,10 @@ export default function SignInPage() {
     // Check system theme preference
     const checkTheme = () => {
       const savedTheme = localStorage.getItem("theme");
-      if (savedTheme) {
-        setIsDarkMode(savedTheme === "dark");
-      } else {
-        setIsDarkMode(window.matchMedia("(prefers-color-scheme: dark)").matches);
-      }
+      setIsDarkMode(savedTheme === "dark");
     };
 
     checkTheme();
-    
-    // Listen for theme changes
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    mediaQuery.addEventListener("change", checkTheme);
-    
-    return () => mediaQuery.removeEventListener("change", checkTheme);
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {

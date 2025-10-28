@@ -231,6 +231,8 @@ type CreateUserRequest struct {
 	Role           string  `json:"role" validate:"required,oneof=Employee Manager HR Admin"`
 	ManagerID      string  `json:"manager_id"`
 	CTC            float64 `json:"ctc"`
+	JoiningDate    *string `json:"joining_date"`
+	Birthday       *string `json:"birthday"`
 }
 
 type UpdateUserRequest struct {
@@ -244,6 +246,8 @@ type UpdateUserRequest struct {
 	TransferReports *bool    `json:"transfer_reports"`
 	CTC             *float64 `json:"ctc"`
 	IsActive        *bool    `json:"is_active"`
+	JoiningDate     *string  `json:"joining_date"`
+	Birthday        *string  `json:"birthday"`
 }
 
 type LoginRequest struct {
@@ -553,6 +557,15 @@ type DashboardStatsResponse struct {
 	RecentSalarySlips []models.SalarySlip    `json:"recent_salary_slips"`
 	LeaveBalances     []LeaveBalanceResponse `json:"leave_balances"`
 	RecentOffSites    []models.OffSite       `json:"recent_off_sites"`
+	UserBirthdays     []UserBirthdayResponse `json:"user_birthdays"`
+}
+
+// UserBirthdayResponse represents a user birthday for dashboard display
+type UserBirthdayResponse struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Birthday        string `json:"birthday"`
+	BirthdayVisible bool   `json:"birthday_visible"`
 }
 
 // AuditActionRequest represents the request to create an audit log

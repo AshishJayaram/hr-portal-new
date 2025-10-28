@@ -95,6 +95,24 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 		user.CTC = encryptedCTC
 	}
 
+	// Set joining date if provided
+	if req.JoiningDate != nil && *req.JoiningDate != "" {
+		joiningDate, err := time.Parse("2006-01-02", *req.JoiningDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid joining date format: %w", err)
+		}
+		user.JoiningDate = &joiningDate
+	}
+
+	// Set birthday if provided
+	if req.Birthday != nil && *req.Birthday != "" {
+		birthday, err := time.Parse("2006-01-02", *req.Birthday)
+		if err != nil {
+			return nil, fmt.Errorf("invalid birthday format: %w", err)
+		}
+		user.Birthday = &birthday
+	}
+
 	if err := s.userRepo.Create(user); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -257,6 +275,30 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 
 	if req.IsActive != nil {
 		user.IsActive = *req.IsActive
+	}
+
+	if req.JoiningDate != nil {
+		if *req.JoiningDate == "" {
+			user.JoiningDate = nil
+		} else {
+			joiningDate, err := time.Parse("2006-01-02", *req.JoiningDate)
+			if err != nil {
+				return nil, fmt.Errorf("invalid joining date format: %w", err)
+			}
+			user.JoiningDate = &joiningDate
+		}
+	}
+
+	if req.Birthday != nil {
+		if *req.Birthday == "" {
+			user.Birthday = nil
+		} else {
+			birthday, err := time.Parse("2006-01-02", *req.Birthday)
+			if err != nil {
+				return nil, fmt.Errorf("invalid birthday format: %w", err)
+			}
+			user.Birthday = &birthday
+		}
 	}
 
 	// Update non-manager fields first

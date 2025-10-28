@@ -165,17 +165,17 @@ export default function EmployeesPage() {
                   {u.designation && <p className="text-xs text-gray-500">{u.designation}</p>}
                 </div>
               </div>
-              <div className="flex items-center justify-between text-sm text-gray-400">
+              <div className="flex flex-col gap-3 text-sm text-gray-400">
                 <div className="flex flex-col">
                   <span className="font-medium">{u.role}</span>
                   {u.department && <span className="text-xs">{u.department}</span>}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Link href={`/employees/documentation/${u.id}`} className="text-blue-600 dark:text-blue-400 hover:underline">Docs</Link>
-                  <Link href={`/employees/edit?id=${u.id}`} className="text-indigo-400 hover:underline">Edit</Link>
+                <div className="flex flex-col sm:flex-row gap-2 sm:justify-start">
+                  <Link href={`/employees/documentation/${u.id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Docs</Link>
+                  <Link href={`/employees/edit?id=${u.id}`} className="text-indigo-400 hover:underline text-sm">Edit</Link>
                   <button
                     onClick={() => setDeleteConfirm({ id: u.id, name: u.name })}
-                    className="text-red-400 hover:underline"
+                    className="text-red-400 hover:underline text-sm text-left sm:text-right"
                   >
                     Delete
                   </button>

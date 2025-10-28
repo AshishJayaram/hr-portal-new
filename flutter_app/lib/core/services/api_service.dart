@@ -452,6 +452,33 @@ class ApiService {
     }
   }
 
+  Future<bool> generatePayslipPDF(Map<String, dynamic> payslipData) async {
+    try {
+      final response = await _dio.post(
+        '/salary-slips/generate',
+        data: payslipData,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      // The response contains the PDF as bytes
+      if (response.statusCode == 200 && response.data != null) {
+        // For mobile, we would save the PDF to a file
+        // For now, just return success
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      print('Generate payslip PDF error: $e');
+      return false;
+    }
+  }
+
   // Holiday methods
   Future<List<Map<String, dynamic>>> getHolidays() async {
     try {

@@ -72,26 +72,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               (() => {
                 try {
-                  // Check localStorage first, then system preference
+                  // Check localStorage only - ignore system preference
                   const savedTheme = localStorage.getItem('theme');
-                  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  const shouldUseDark = savedTheme === 'dark' || (savedTheme === null && systemPrefersDark);
-                  
+                  const shouldUseDark = savedTheme === 'dark';
+
                   if (shouldUseDark) {
                     document.documentElement.classList.add('dark');
                   } else {
                     document.documentElement.classList.remove('dark');
                   }
                 } catch (e) {
-                  // Fallback to system preference
-                  try {
-                    const mql = window.matchMedia('(prefers-color-scheme: dark)');
-                    if (mql.matches) {
-                      document.documentElement.classList.add('dark');
-                    } else {
-                      document.documentElement.classList.remove('dark');
-                    }
-                  } catch (e2) {}
+                  // Default to light mode
+                  document.documentElement.classList.remove('dark');
                 }
               })();
             `,

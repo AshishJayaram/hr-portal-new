@@ -16,8 +16,24 @@ interface EditLeaveFormProps {
 export default function EditLeaveForm({ leave, onClose, onSuccess }: EditLeaveFormProps) {
   const [type, setType] = useState<string>(leave.type || "");
   const [reason, setReason] = useState(leave.reason || "");
-  const [startDate, setStartDate] = useState(leave.from ? leave.from.split('T')[0] : "");
-  const [endDate, setEndDate] = useState(leave.to ? leave.to.split('T')[0] : "");
+  const [startDate, setStartDate] = useState(() => {
+    if (leave.from) {
+      const dateStr = String(leave.from);
+      // Handle both timestamp and date-only formats
+      const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
+      return cleanDate;
+    }
+    return "";
+  });
+  const [endDate, setEndDate] = useState(() => {
+    if (leave.to) {
+      const dateStr = String(leave.to);
+      // Handle both timestamp and date-only formats
+      const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
+      return cleanDate;
+    }
+    return "";
+  });
   const [startHalf, setStartHalf] = useState<"FULL" | "AM" | "PM">(leave.startHalf || "FULL");
   const [endHalf, setEndHalf] = useState<"FULL" | "AM" | "PM">(leave.endHalf || "FULL");
   const [calculatedDays, setCalculatedDays] = useState(leave.days || 0);

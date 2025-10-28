@@ -9,11 +9,10 @@ export default function ThemeToggle() {
   // Run only on the client
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // Check localStorage first, then system preference
+      // Check localStorage only - ignore system preference
       const savedTheme = localStorage.getItem('theme');
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const shouldUseDark = savedTheme === 'dark' || (savedTheme === null && systemPrefersDark);
-      
+      const shouldUseDark = savedTheme === 'dark';
+
       setDark(shouldUseDark);
       setMounted(true);
     }
@@ -31,27 +30,7 @@ export default function ThemeToggle() {
     }
   }, [dark, mounted]);
 
-  // Follow system changes live (only if no explicit user choice)
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia || !mounted) return;
-    
-    const mql = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e: MediaQueryListEvent) => {
-      // Only follow system changes if user hasn't made an explicit choice
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme === null) {
-        setDark(e.matches);
-      }
-    };
-    
-    try {
-      mql.addEventListener('change', handler);
-      return () => mql.removeEventListener('change', handler);
-    } catch {
-      mql.addListener(handler);
-      return () => mql.removeListener(handler);
-    }
-  }, [mounted]);
+  // No longer follow system preference changes - theme is controlled entirely by app
 
   // Prevent hydration mismatch by not rendering until mounted
   if (!mounted) {

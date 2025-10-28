@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"hr-portal-backend/internal/database"
 	"hr-portal-backend/internal/handlers"
 	"hr-portal-backend/internal/middleware"
+	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
 	"hr-portal-backend/internal/services"
 
@@ -101,7 +103,7 @@ func main() {
 	router := setupRouter(cfg, handlers)
 
 	// Start server
-	startServer(router, cfg.Server.Port)
+	startServer(router, cfg.Server.Port, repos, services.Notification)
 }
 
 func setupLogging(cfg *config.Config) {
@@ -268,6 +270,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			salarySlips.DELETE("/:id", handlers.SalarySlip.DeleteSalarySlip)
 			salarySlips.GET("/:id/download", handlers.SalarySlip.DownloadSalarySlip)
 			salarySlips.GET("/:id/pdf", middleware.RoleRequired("HR", "Admin", "God"), handlers.PayslipPDF.GeneratePayslipPDF)
+			salarySlips.POST("/generate", middleware.RoleRequired("HR", "Admin", "God"), handlers.PayslipPDF.GenerateCustomPayslipPDF)
 		}
 
 		// Company settings routes
@@ -471,11 +474,116 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 	return router
 }
 
-func startServer(router *gin.Engine, port int) {
+// startBirthdayNotifications starts a goroutine that periodically checks for upcoming birthdays
+// and sends notifications to all users in the organization
+func startBirthdayNotifications(repos *repositories.Repositories, notificationService services.NotificationService) {
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour) // Check once per day
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				sendBirthdayNotifications(repos, notificationService)
+			}
+		}
+	}()
+}
+
+// sendBirthdayNotifications checks for upcoming birthdays and sends notifications
+func sendBirthdayNotifications(repos *repositories.Repositories, notificationService services.NotificationService) {
+	logrus.Info("Checking for birthday notifications...")
+
+	// Get all organizations
+	organizations, err := repos.Organization.List()
+	if err != nil {
+		logrus.Errorf("Failed to get organizations for birthday notifications: %v", err)
+		return
+	}
+
+	now := time.Now()
+
+	for _, org := range organizations {
+		// Get all users in the organization with visible birthdays
+		users, err := repos.User.List(strconv.FormatUint(uint64(org.ID), 10), map[string]interface{}{})
+		if err != nil {
+			logrus.Errorf("Failed to get users for organization %d: %v", org.ID, err)
+			continue
+		}
+
+		var birthdayUsers []models.User
+
+		for _, user := range users {
+			if user.Birthday != nil && user.BirthdayVisible {
+				// Calculate this year's birthday
+				birthdayThisYear := time.Date(
+					now.Year(),
+					user.Birthday.Month(),
+					user.Birthday.Day(),
+					0, 0, 0, 0,
+					user.Birthday.Location(),
+				)
+
+				// If birthday has passed this year, check next year's birthday
+				if birthdayThisYear.Before(now) {
+					birthdayThisYear = birthdayThisYear.AddDate(1, 0, 0)
+				}
+
+				daysUntilBirthday := int(birthdayThisYear.Sub(now).Hours() / 24)
+
+				// Send notifications for birthdays within 7 days
+				if daysUntilBirthday <= 7 && daysUntilBirthday >= 0 {
+					birthdayUsers = append(birthdayUsers, user)
+				}
+			}
+		}
+
+		// Send notifications for each birthday person
+		for _, birthdayUser := range birthdayUsers {
+			birthdayThisYear := time.Date(
+				now.Year(),
+				birthdayUser.Birthday.Month(),
+				birthdayUser.Birthday.Day(),
+				0, 0, 0, 0,
+				birthdayUser.Birthday.Location(),
+			)
+
+			if birthdayThisYear.Before(now) {
+				birthdayThisYear = birthdayThisYear.AddDate(1, 0, 0)
+			}
+
+			daysUntilBirthday := int(birthdayThisYear.Sub(now).Hours() / 24)
+
+			// Send to all users in the organization (except the birthday person themselves if it's today)
+			for _, recipient := range users {
+				notificationType := "reminder"
+				if daysUntilBirthday == 0 {
+					notificationType = "today"
+				} else if daysUntilBirthday <= 3 {
+					notificationType = "advance_wish"
+				}
+
+				// Don't send birthday notifications to the person themselves
+				if recipient.ID != birthdayUser.ID {
+					if err := notificationService.SendBirthdayNotification(&birthdayUser, &recipient, notificationType); err != nil {
+						logrus.Errorf("Failed to send birthday notification for %s to %s: %v", birthdayUser.Name, recipient.Name, err)
+					}
+				}
+			}
+		}
+	}
+
+	logrus.Info("Birthday notification check completed")
+}
+
+func startServer(router *gin.Engine, port int, repos *repositories.Repositories, notificationService services.NotificationService) {
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: router,
 	}
+
+	// Start birthday notification service
+	startBirthdayNotifications(repos, notificationService)
 
 	// Start server in a goroutine
 	go func() {

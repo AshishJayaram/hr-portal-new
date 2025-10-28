@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -557,9 +558,9 @@ func (s *companySettingsService) getDefaultKRASettings() *KRASettings {
 		},
 		MeasurementUnits: []string{"%", "count", "rating", "hours", "days", "currency", "other"},
 		RatingScale: KRARatingScale{
-			Min:    1,
-			Max:     5,
-			Step:    0.1,
+			Min:  1,
+			Max:  5,
+			Step: 0.1,
 			Labels: map[string]string{
 				"1": "Poor",
 				"2": "Below Average",
@@ -570,11 +571,11 @@ func (s *companySettingsService) getDefaultKRASettings() *KRASettings {
 			Description: "5-point rating scale for KRA evaluation",
 		},
 		WeightDistribution: KRAWeightConfig{
-			MaxTotalWeight:       100,
-			MinIndividualWeight:  1,
-			MaxIndividualWeight:  50,
-			AllowOverflow:        false,
-			AutoDistribute:       false,
+			MaxTotalWeight:      100,
+			MinIndividualWeight: 1,
+			MaxIndividualWeight: 50,
+			AllowOverflow:       false,
+			AutoDistribute:      false,
 		},
 		EvaluationCriteria: []KRACriteria{
 			{
@@ -608,10 +609,10 @@ func (s *companySettingsService) getDefaultKRASettings() *KRASettings {
 			NotifyOnEvaluation:    true,
 			NotifyOnCompletion:    true,
 			EmailTemplates: map[string]string{
-				"creation":    "A new KRA has been assigned to you",
-				"evaluation":  "Your KRA has been evaluated",
-				"completion":  "Your KRA has been completed",
-				"reminder":    "Reminder: Your KRA evaluation is due soon",
+				"creation":   "A new KRA has been assigned to you",
+				"evaluation": "Your KRA has been evaluated",
+				"completion": "Your KRA has been completed",
+				"reminder":   "Reminder: Your KRA evaluation is due soon",
 			},
 		},
 	}
@@ -835,6 +836,12 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		recentOffSites = recentOffSites[:5]
 	}
 
+	// Get user birthdays for the organization
+	userBirthdays, err := s.getUserBirthdays(organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user birthdays: %w", err)
+	}
+
 	return &DashboardStatsResponse{
 		TotalUsers:        totalUsers,
 		TotalLeaves:       totalLeaves,
@@ -847,6 +854,7 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		RecentSalarySlips: recentSalarySlips,
 		LeaveBalances:     leaveBalances,
 		RecentOffSites:    recentOffSites,
+		UserBirthdays:     userBirthdays,
 	}, nil
 }
 
@@ -899,6 +907,72 @@ func (s *dashboardService) getLeaveBalances(organizationID, userID string) ([]Le
 	}
 
 	return balances, nil
+}
+
+// getUserBirthdays fetches users with birthdays for the organization
+func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthdayResponse, error) {
+	// Get all users in the organization with birthdays
+	users, err := s.repos.User.List(organizationID, map[string]interface{}{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+
+	var birthdays []UserBirthdayResponse
+	now := time.Now()
+
+	for _, user := range users {
+		if user.Birthday != nil && user.BirthdayVisible {
+			// Calculate this year's birthday date
+			birthdayThisYear := time.Date(
+				now.Year(),
+				user.Birthday.Month(),
+				user.Birthday.Day(),
+				0, 0, 0, 0,
+				user.Birthday.Location(),
+			)
+
+			// If birthday has already passed this year, get next year's birthday
+			if birthdayThisYear.Before(now) {
+				birthdayThisYear = birthdayThisYear.AddDate(1, 0, 0)
+			}
+
+			// Only include birthdays within the next 30 days
+			daysUntilBirthday := int(birthdayThisYear.Sub(now).Hours() / 24)
+			if daysUntilBirthday <= 30 {
+				birthdays = append(birthdays, UserBirthdayResponse{
+					ID:              strconv.FormatUint(uint64(user.ID), 10),
+					Name:            user.Name,
+					Birthday:        user.Birthday.Format("2006-01-02"),
+					BirthdayVisible: user.BirthdayVisible,
+				})
+			}
+		}
+	}
+
+	// Sort by upcoming birthday date
+	sort.Slice(birthdays, func(i, j int) bool {
+		birthdayI, _ := time.Parse("2006-01-02", birthdays[i].Birthday)
+		birthdayJ, _ := time.Parse("2006-01-02", birthdays[j].Birthday)
+
+		birthdayThisYearI := time.Date(now.Year(), birthdayI.Month(), birthdayI.Day(), 0, 0, 0, 0, birthdayI.Location())
+		if birthdayThisYearI.Before(now) {
+			birthdayThisYearI = birthdayThisYearI.AddDate(1, 0, 0)
+		}
+
+		birthdayThisYearJ := time.Date(now.Year(), birthdayJ.Month(), birthdayJ.Day(), 0, 0, 0, 0, birthdayJ.Location())
+		if birthdayThisYearJ.Before(now) {
+			birthdayThisYearJ = birthdayThisYearJ.AddDate(1, 0, 0)
+		}
+
+		return birthdayThisYearI.Before(birthdayThisYearJ)
+	})
+
+	// Limit to 10 upcoming birthdays
+	if len(birthdays) > 10 {
+		birthdays = birthdays[:10]
+	}
+
+	return birthdays, nil
 }
 
 // isValidFileType checks if the file type is allowed

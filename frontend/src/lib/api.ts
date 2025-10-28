@@ -32,6 +32,7 @@ export interface User {
   manager?: User;
   ctc?: string;
   joining_date?: string;
+  birthday?: string;
   organization_id?: number;
   organization?: Organization;
   created_at: string;
@@ -148,6 +149,14 @@ export interface DashboardStats {
   recent_salary_slips: SalarySlip[];
   leave_balances: LeaveBalance[];
   recent_off_sites: OffSite[];
+  user_birthdays: UserBirthday[];
+}
+
+export interface UserBirthday {
+  id: string;
+  name: string;
+  birthday: string;
+  birthday_visible: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -940,22 +949,24 @@ export const getDashboardStats = () =>
       recent_salary_slips: d.recent_salary_slips ?? [],
       leave_balances: d.leave_balances ?? [],
       recent_off_sites: d.recent_off_sites ?? [],
+      user_birthdays: d.user_birthdays ?? [],
     };
     return { data: mapped } as ApiResponse<DashboardStats>;
-  }).catch(() => ({ 
-    data: { 
-      total_users: 0, 
-      total_leaves: 0, 
-      pending_leaves: 0, 
-      approved_leaves: 0, 
+  }).catch(() => ({
+    data: {
+      total_users: 0,
+      total_leaves: 0,
+      pending_leaves: 0,
+      approved_leaves: 0,
       total_documents: 0,
       upcoming_holidays: [],
       recent_leaves: [],
       recent_documents: [],
       recent_salary_slips: [],
       leave_balances: [],
-      recent_off_sites: []
-    } 
+      recent_off_sites: [],
+      user_birthdays: []
+    }
   } as ApiResponse<DashboardStats>));
 
 // -------------------- Team --------------------

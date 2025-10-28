@@ -246,19 +246,19 @@ function ManagerSearch({ query, onSelect, selectedId }: { query: string; onSelec
   });
   const users = data?.data || [];
   return (
-    <div className="mt-2 max-h-48 overflow-y-auto border border-white/10 rounded">
+    <div className="mt-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 shadow-lg">
       {users.map((u: any) => (
         <button
           type="button"
           key={u.id}
-          className={`w-full text-left px-3 py-2 hover:bg-white/10 ${selectedId === String(u.id) ? 'bg-white/5' : ''}`}
+          className={`w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors ${selectedId === String(u.id) ? 'bg-indigo-100 dark:bg-indigo-900/30 border-l-2 border-indigo-500' : ''}`}
           onClick={() => onSelect(String(u.id), u.name)}
         >
-          {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
+          {u.name} <span className="text-xs text-gray-500 dark:text-gray-400">(ID: {u.id})</span>
         </button>
       ))}
       {users.length === 0 && (
-        <div className="px-3 py-2 text-sm text-gray-400">No users</div>
+        <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No users found</div>
       )}
     </div>
   );

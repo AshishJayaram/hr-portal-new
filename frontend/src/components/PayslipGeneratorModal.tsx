@@ -260,7 +260,7 @@ export default function PayslipGeneratorModal({
       };
 
       // Call API to generate PDF
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/payslips/generate`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/salary-slips/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -126,6 +126,31 @@ export default function DashboardPage() {
         }
       })));
 
+    // Add birthdays
+    events.push(...(dashboardData?.data?.user_birthdays || [])
+      .filter((b: any) => b.birthday_visible)
+      .map((b: any) => {
+        const birthdayDate = new Date(b.birthday);
+        const currentYear = new Date().getFullYear();
+        const birthdayThisYear = new Date(currentYear, birthdayDate.getMonth(), birthdayDate.getDate());
+
+        // If birthday has passed this year, show next year's birthday
+        if (birthdayThisYear < new Date()) {
+          birthdayThisYear.setFullYear(currentYear + 1);
+        }
+
+        return {
+          title: `🎂 ${b.name}'s Birthday`,
+          start: birthdayThisYear,
+          end: birthdayThisYear,
+          color: "#ec4899", // Pink color for birthdays
+          extendedProps: {
+            type: 'birthday',
+            description: `${b.name}'s birthday`
+          }
+        };
+      }));
+
     // Add leaves with grouping for Admin/HR users - only approved leaves
     const leaves = (dashboardData?.data?.recent_leaves || []).filter((leave: any) => leave.status === 'approved');
     
@@ -308,6 +333,7 @@ export default function DashboardPage() {
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       event.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
                       event.type === 'event' ? 'bg-amber-500/20 text-amber-400' :
+                      event.type === 'notice' ? 'bg-purple-500/20 text-purple-400' :
                       'bg-green-500/20 text-green-400'
                     }`}>
                       {event.type || 'holiday'}

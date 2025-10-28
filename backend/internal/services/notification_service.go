@@ -19,6 +19,7 @@ type NotificationService interface {
 	SendOffSiteNotification(offSite *models.OffSite, recipient *models.User, notificationType string) error
 	SendReimbursementNotification(reimbursement *models.Reimbursement, recipient *models.User, notificationType string) error
 	SendHolidayNotification(holiday *models.Holiday, recipient *models.User) error
+	SendBirthdayNotification(user *models.User, recipient *models.User, notificationType string) error
 }
 
 // notificationService implements NotificationService interface
@@ -293,6 +294,38 @@ func (s *notificationService) SendHolidayNotification(holiday *models.Holiday, r
 	// Send WhatsApp notification
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
 		fmt.Printf("Failed to send holiday WhatsApp notification: %v\n", err)
+	}
+
+	return nil
+}
+
+// SendBirthdayNotification sends notification for birthday reminders and celebrations
+func (s *notificationService) SendBirthdayNotification(user *models.User, recipient *models.User, notificationType string) error {
+	var subject, message string
+
+	switch notificationType {
+	case "reminder":
+		subject = fmt.Sprintf("Birthday Reminder - %s", user.Name)
+		message = fmt.Sprintf("Dear %s,\n\nThis is a friendly reminder that %s's birthday is coming up on %s.\n\nConsider sending birthday wishes or planning a small celebration.\n\nBest regards,\nHR Portal System",
+			recipient.Name, user.Name, user.Birthday.Format("January 2, 2006"))
+	case "today":
+		subject = fmt.Sprintf("Happy Birthday - %s! 🎂", user.Name)
+		message = fmt.Sprintf("Dear %s,\n\nToday is %s's birthday! 🎂\n\nLet's celebrate this special day and make %s feel appreciated.\n\nBest regards,\nHR Portal System",
+			recipient.Name, user.Name, user.Name)
+	case "advance_wish":
+		subject = fmt.Sprintf("Advance Birthday Wishes - %s", user.Name)
+		message = fmt.Sprintf("Dear %s,\n\n%s's birthday is coming up soon on %s. 🎂\n\nSending advance birthday wishes to %s!\n\nHappy Birthday in advance! May this year bring you joy, success, and all the happiness you deserve.\n\nBest regards,\nHR Portal System",
+			recipient.Name, user.Name, user.Birthday.Format("January 2, 2006"), user.Name)
+	}
+
+	// Send email notification
+	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
+		fmt.Printf("Failed to send birthday email notification: %v\n", err)
+	}
+
+	// Send WhatsApp notification
+	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
+		fmt.Printf("Failed to send birthday WhatsApp notification: %v\n", err)
 	}
 
 	return nil
