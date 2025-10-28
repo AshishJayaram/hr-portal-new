@@ -68,7 +68,7 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
             <span className="text-xs text-gray-600 dark:text-gray-400">Off-site Work</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: "#ec4899" }}></div>
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: "#06b6d4" }}></div>
             <span className="text-xs text-gray-600 dark:text-gray-400">Birthdays</span>
           </div>
         </div>

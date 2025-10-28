@@ -143,7 +143,7 @@ export default function DashboardPage() {
           title: `🎂 ${b.name}'s Birthday`,
           start: birthdayThisYear,
           end: birthdayThisYear,
-          color: "#ec4899", // Pink color for birthdays
+          color: "#06b6d4", // Cyan color for birthdays
           extendedProps: {
             type: 'birthday',
             description: `${b.name}'s birthday`
