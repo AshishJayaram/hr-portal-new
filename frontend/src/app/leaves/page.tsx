@@ -737,8 +737,8 @@ export default function LeavesPage() {
               <div className="text-sm text-gray-500 mb-4">Loading team balances...</div>
             )}
             
-            {teamBalances?.data && Object.keys(teamBalances.data).length > 0 ? (
-              <>
+            {teamBalances?.data && Object.keys(teamBalances.data).length > 0 && (
+              <div>
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
                   {/* Team Members List */}
                   <div className="xl:col-span-2 space-y-4">
@@ -851,64 +851,65 @@ export default function LeavesPage() {
                     </div>
                   </div>
                 </div>
-              
-              {/* Pagination Controls */}
-              {Object.keys(teamBalances.data).length > teamBalancesPerPage && (
-                <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Showing {((teamBalancesPage - 1) * teamBalancesPerPage) + 1} to {Math.min(teamBalancesPage * teamBalancesPerPage, Object.keys(teamBalances.data).length)} of {Object.keys(teamBalances.data).length} members
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setTeamBalancesPage(teamBalancesPage - 1)}
-                      disabled={teamBalancesPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    
-                    <div className="flex items-center space-x-1">
-                      {Array.from({ length: Math.min(5, Math.ceil(Object.keys(teamBalances.data).length / teamBalancesPerPage)) }, (_, i) => {
-                        let pageNum;
-                        const totalTeamPages = Math.ceil(Object.keys(teamBalances.data).length / teamBalancesPerPage);
-                        if (totalTeamPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (teamBalancesPage <= 3) {
-                          pageNum = i + 1;
-                        } else if (teamBalancesPage >= totalTeamPages - 2) {
-                          pageNum = totalTeamPages - 4 + i;
-                        } else {
-                          pageNum = teamBalancesPage - 2 + i;
-                        }
-                        
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={teamBalancesPage === pageNum ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setTeamBalancesPage(pageNum)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      })}
+
+                {/* Pagination Controls */}
+                {Object.keys(teamBalances.data).length > teamBalancesPerPage && (
+                  <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      Showing {((teamBalancesPage - 1) * teamBalancesPerPage) + 1} to {Math.min(teamBalancesPage * teamBalancesPerPage, Object.keys(teamBalances.data).length)} of {Object.keys(teamBalances.data).length} members
                     </div>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setTeamBalancesPage(teamBalancesPage + 1)}
-                      disabled={teamBalancesPage >= Math.ceil(Object.keys(teamBalances.data).length / teamBalancesPerPage)}
-                    >
-                      Next
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTeamBalancesPage(teamBalancesPage - 1)}
+                        disabled={teamBalancesPage === 1}
+                      >
+                        Previous
+                      </Button>
+
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: Math.min(5, Math.ceil(Object.keys(teamBalances.data).length / teamBalancesPerPage)) }, (_, i) => {
+                          let pageNum;
+                          const totalTeamPages = Math.ceil(Object.keys(teamBalances.data).length / teamBalancesPerPage);
+                          if (totalTeamPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (teamBalancesPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (teamBalancesPage >= totalTeamPages - 2) {
+                            pageNum = totalTeamPages - 4 + i;
+                          } else {
+                            pageNum = teamBalancesPage - 2 + i;
+                          }
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={teamBalancesPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setTeamBalancesPage(pageNum)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTeamBalancesPage(teamBalancesPage + 1)}
+                        disabled={teamBalancesPage >= Math.ceil(Object.keys(teamBalances.data).length / teamBalancesPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-              </>
-            ) : (
+                )}
+              </div>
+            )}
+            {(!teamBalances?.data || Object.keys(teamBalances?.data || {}).length === 0) && (
               <div className="text-center py-12">
                 <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-300 mb-2">No team members found</h3>

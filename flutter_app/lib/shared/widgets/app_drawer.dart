@@ -17,8 +17,10 @@ class AppDrawer extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
     final currentRoute = GoRouterState.of(context).uri.path;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final drawerWidth = MediaQuery.of(context).size.width * 0.82;
 
     return Drawer(
+      width: drawerWidth,
       backgroundColor: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
@@ -34,16 +36,22 @@ class AppDrawer extends ConsumerWidget {
             ),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                // Slightly stronger overlay for readability, adaptive to theme
+                color: (isDark ? Colors.black : Colors.white).withOpacity(0.15),
                 border: Border(
                   right: BorderSide(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withOpacity(0.25),
                     width: 1,
                   ),
                 ),
               ),
-              child: ListView(
-                padding: EdgeInsets.zero,
+              child: SafeArea(
+                child: ListView(
+                  padding: EdgeInsets.only(
+                    top: LiquidGlassTheme.spacingM,
+                    bottom: MediaQuery.of(context).padding.bottom + LiquidGlassTheme.spacingL,
+                  ),
+                  physics: const ClampingScrollPhysics(),
                 children: [
                   // Header Section
                   _buildHeader(context, user, isDark)
@@ -210,6 +218,7 @@ class AppDrawer extends ConsumerWidget {
                   
                   const SizedBox(height: LiquidGlassTheme.spacingXL),
                 ],
+                ),
               ),
             ),
           ),

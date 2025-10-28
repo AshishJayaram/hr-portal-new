@@ -86,7 +86,7 @@ export default function Sidebar() {
           HR Portal
         </h1>
 
-        <nav className="mt-8 space-y-2 flex-1">
+        <nav className="mt-8 space-y-2 flex-1 overflow-y-auto pr-2 -mr-2">
           {links.map((link) => (
             <Link
               key={link.href}
@@ -162,13 +162,13 @@ export default function Sidebar() {
             animate={{ x: 0 }}
             exit={{ x: -250 }}
             transition={{ type: "tween", duration: 0.3 }}
-            className="fixed inset-y-0 left-0 w-64 bg-white/10 backdrop-blur-xl border-r border-white/10 p-6 z-40"
+            className="fixed inset-y-0 left-0 w-64 bg-white/15 backdrop-blur-xl border-r border-white/10 p-6 z-40 flex flex-col"
           >
             <h1 className="pl-8 text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-yellow-400 bg-clip-text text-transparent">
               HR Portal
             </h1>
 
-            <nav className="mt-8 space-y-2">
+            <nav className="mt-6 space-y-2 flex-1 overflow-y-auto pr-2 -mr-2">
               {links.map((link) => (
                 <Link
                   key={link.href}
