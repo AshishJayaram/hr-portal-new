@@ -213,8 +213,20 @@ func (h *SalarySlipHandler) DownloadSalarySlip(c *gin.Context) {
 		return
 	}
 
-	// Generate the file URL for the frontend
-	baseURL := "http://localhost:8080" // TODO: Make this configurable
+	// Generate the file URL for the frontend (respect proxy headers)
+	proto := c.Request.Header.Get("X-Forwarded-Proto")
+	if proto == "" {
+		if c.Request.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	host := c.Request.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = c.Request.Host
+	}
+	baseURL := fmt.Sprintf("%s://%s", proto, host)
 	fileURL := fmt.Sprintf("%s/api/files/salary-slips/%s", baseURL, salarySlipID)
 
 	// Return JSON response with file URL

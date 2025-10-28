@@ -80,20 +80,22 @@ type Organization struct {
 // User represents a user in the system
 type User struct {
 	BaseModel
-	OrganizationID uint       `json:"organization_id" gorm:"not null;index"`
-	Username       string     `json:"username" gorm:"not null;uniqueIndex:idx_username_org,where:deleted_at IS NULL"`
-	Email          string     `json:"email" gorm:"not null;uniqueIndex:idx_email_org,where:deleted_at IS NULL"`
-	PasswordHash   string     `json:"-" gorm:"not null"`
-	Name           string     `json:"name" gorm:"not null"`
-	Designation    string     `json:"designation"`
-	Department     string     `json:"department" gorm:"not null"`
-	Role           string     `json:"role" gorm:"not null;check:role IN ('Employee','HR','Admin','God')"`
-	ManagerID      *uint      `json:"manager_id" gorm:"index"`
-	CTC            string     `json:"ctc" gorm:"default:''"` // Encrypted CTC value
-	Phone          string     `json:"phone" gorm:"size:20"`  // For WhatsApp notifications
-	JoiningDate    *time.Time `json:"joining_date"`          // Employee joining date for KRA calculations
-	IsActive       bool       `json:"is_active" gorm:"default:true"`
-	LastLoginAt    *time.Time `json:"last_login_at"`
+	OrganizationID  uint       `json:"organization_id" gorm:"not null;index"`
+	Username        string     `json:"username" gorm:"not null;uniqueIndex:idx_username_org,where:deleted_at IS NULL"`
+	Email           string     `json:"email" gorm:"not null;uniqueIndex:idx_email_org,where:deleted_at IS NULL"`
+	PasswordHash    string     `json:"-" gorm:"not null"`
+	Name            string     `json:"name" gorm:"not null"`
+	Designation     string     `json:"designation"`
+	Department      string     `json:"department" gorm:"not null"`
+	Role            string     `json:"role" gorm:"not null;check:role IN ('Employee','HR','Admin','God')"`
+	ManagerID       *uint      `json:"manager_id" gorm:"index"`
+	CTC             string     `json:"ctc" gorm:"default:''"`                // Encrypted CTC value
+	Phone           string     `json:"phone" gorm:"size:20"`                 // For WhatsApp notifications
+	JoiningDate     *time.Time `json:"joining_date"`                         // Employee joining date for KRA calculations
+	Birthday        *time.Time `json:"birthday"`                             // Employee birthday (date only)
+	BirthdayVisible bool       `json:"birthday_visible" gorm:"default:true"` // Whether birthday is visible to others
+	IsActive        bool       `json:"is_active" gorm:"default:true"`
+	LastLoginAt     *time.Time `json:"last_login_at"`
 
 	// Relationships
 	Organization     Organization      `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
@@ -473,18 +475,18 @@ type KRA struct {
 	SetBy           uint      `json:"set_by" gorm:"not null;index"` // User who set this KRA (manager/HR)
 	SetAt           time.Time `json:"set_at" gorm:"not null"`
 
-    // Evaluation fields (filled at year end)
-    ActualValue      *string    `json:"actual_value"`                   // Deprecated: use employee_actual_value/manager_actual_value
-    EmployeeActualValue *string `json:"employee_actual_value"`          // Employee-entered actual value
-    ManagerActualValue  *string `json:"manager_actual_value"`           // Manager-entered actual value
-	Rating           *float64   `json:"rating"`                         // Manager's rating (1-5 scale)
-	Comments         *string    `json:"comments"`                       // Manager's evaluation comments
-	EvaluatedBy      *uint      `json:"evaluated_by" gorm:"index"`      // User who evaluated (manager/HR)
-	EvaluatedAt      *time.Time `json:"evaluated_at"`                   // When evaluation was completed
-	EmployeeComments *string    `json:"employee_comments"`              // Employee's self-assessment comments
-	EmployeeRating   *float64   `json:"employee_rating"`                // Employee's self-rating (1-5 scale)
-	EmployeeRatedAt  *time.Time `json:"employee_rated_at"`              // When employee self-rated
-	EmployeeRatedBy  *uint      `json:"employee_rated_by" gorm:"index"` // Employee who self-rated
+	// Evaluation fields (filled at year end)
+	ActualValue         *string    `json:"actual_value"`                   // Deprecated: use employee_actual_value/manager_actual_value
+	EmployeeActualValue *string    `json:"employee_actual_value"`          // Employee-entered actual value
+	ManagerActualValue  *string    `json:"manager_actual_value"`           // Manager-entered actual value
+	Rating              *float64   `json:"rating"`                         // Manager's rating (1-5 scale)
+	Comments            *string    `json:"comments"`                       // Manager's evaluation comments
+	EvaluatedBy         *uint      `json:"evaluated_by" gorm:"index"`      // User who evaluated (manager/HR)
+	EvaluatedAt         *time.Time `json:"evaluated_at"`                   // When evaluation was completed
+	EmployeeComments    *string    `json:"employee_comments"`              // Employee's self-assessment comments
+	EmployeeRating      *float64   `json:"employee_rating"`                // Employee's self-rating (1-5 scale)
+	EmployeeRatedAt     *time.Time `json:"employee_rated_at"`              // When employee self-rated
+	EmployeeRatedBy     *uint      `json:"employee_rated_by" gorm:"index"` // Employee who self-rated
 
 	// Visibility controls
 	ManagerFeedbackVisible *bool `json:"manager_feedback_visible" gorm:"default:false"` // Whether manager feedback is visible to employee

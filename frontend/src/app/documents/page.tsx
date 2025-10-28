@@ -369,7 +369,7 @@ export default function DocumentsPage() {
                   <h3 className="font-semibold text-white group-hover:text-indigo-300 transition-colors">
                     {doc.title}
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{doc.category}</p>
+                  <p className="text-sm text-secondary">{doc.category}</p>
                 </div>
               </div>
               <RoleGuard allowedRoles={["HR", "Admin"]}>
@@ -404,7 +404,7 @@ export default function DocumentsPage() {
                   {doc.category}
                 </span>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-500">
+              <p className="text-xs text-secondary">
                 Uploaded by {doc.uploadedBy} on {formatDate(doc.createdAt)}
               </p>
             </div>
@@ -623,14 +623,14 @@ export default function DocumentsPage() {
                   </p>
                 ) : (
                   paginatedUsers.map((ack: any) => (
-                    <div key={ack.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div key={ack.id} className="flex items-start gap-3 p-3 bg-white/10 rounded-lg">
                       <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                         {ack.user?.name?.charAt(0) || 'U'}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 dark:text-gray-100">{ack.user?.name || 'Unknown User'}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{ack.user?.email || 'N/A'}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                        <p className="font-medium text-white">{ack.user?.name || 'Unknown User'}</p>
+                        <p className="text-sm text-secondary truncate">{ack.user?.email || 'N/A'}</p>
+                        <p className="text-xs text-secondary mt-1">
                           Acknowledged: {ack.acknowledged_at ? new Date(ack.acknowledged_at).toLocaleString() : 'N/A'}
                         </p>
                       </div>
@@ -641,8 +641,8 @@ export default function DocumentsPage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                  <p className="text-sm text-secondary">
                     Showing {(ackPage - 1) * ackPerPage + 1} - {Math.min(ackPage * ackPerPage, filtered.length)} of {filtered.length}
                   </p>
                   <div className="flex gap-2">

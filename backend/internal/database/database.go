@@ -79,6 +79,12 @@ func migrate(db *gorm.DB) error {
 		return fmt.Errorf("failed to auto-migrate: %w", err)
 	}
 
+	// One-time backfill: assign dummy birthdays where missing (SQLite syntax)
+	if err := db.Exec(`UPDATE users SET birthday = DATE('1970-01-01','+' || (abs(random()) % 18250) || ' days') WHERE birthday IS NULL`).Error; err != nil {
+		// Non-fatal; log and continue
+		fmt.Printf("birthday backfill failed: %v\n", err)
+	}
+
 	// Create indexes for better performance
 	if err := createIndexes(db); err != nil {
 		return fmt.Errorf("failed to create indexes: %w", err)

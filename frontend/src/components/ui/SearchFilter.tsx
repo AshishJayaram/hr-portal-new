@@ -72,12 +72,12 @@ export default function SearchFilter({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-card bg-white text-gray-900 hover:bg-gray-50 transition-colors dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-card bg-transparent text-primary hover:bg-white/10 transition-colors"
           >
             <Filter className="h-4 w-4" />
             Filters
             {activeFilterCount > 0 && (
-              <span className="bg-indigo-600 text-white text-xs px-2 py-1 rounded-full dark:bg-indigo-500">
+              <span className="bg-indigo-600 text-white text-xs px-2 py-1 rounded-full">
                 {activeFilterCount}
               </span>
             )}
@@ -86,7 +86,7 @@ export default function SearchFilter({
           {activeFilterCount > 0 && (
             <button
               onClick={clearFilters}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-secondary hover:text-primary dark:text-gray-400 dark:hover:text-white transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs text-secondary hover:text-primary transition-colors"
             >
               <X className="h-3 w-3" />
               Clear
@@ -101,17 +101,17 @@ export default function SearchFilter({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filters.map((filter) => (
               <div key={filter.key} className="space-y-2">
-                <label className="text-sm font-medium text-primary dark:text-gray-200">
+                <label className="text-sm font-medium text-primary">
                   {filter.label}
                 </label>
                 <select
                   value={activeFilters[filter.key] || ""}
                   onChange={(e) => handleFilterChange(filter.key, e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-card bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:border-white/20 dark:bg-white/10 dark:text-white dark:focus:ring-offset-transparent"
+                  className="w-full px-3 py-2 rounded-lg border border-card bg-transparent text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-transparent"
                 >
                   <option value="">All {filter.label}</option>
                   {filter.options.map((option) => (
-                    <option key={option.value} value={option.value} className="bg-white text-gray-900 dark:bg-gray-800 dark:text-white">
+                    <option key={option.value} value={option.value} className="bg-card text-primary">
                       {option.label}
                     </option>
                   ))}

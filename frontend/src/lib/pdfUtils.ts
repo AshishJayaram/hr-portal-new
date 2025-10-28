@@ -8,16 +8,32 @@
  * @param title - The title to display for the PDF
  */
 export function openPDFViewer(fileUrl: string, title?: string) {
-  // Check if the file is a PDF
-  if (!fileUrl.toLowerCase().endsWith('.pdf')) {
-    // For non-PDF files, open in new tab as before
-    window.open(fileUrl, '_blank');
+  const isPDF = fileUrl.toLowerCase().endsWith('.pdf');
+  const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+  // Build destination URL
+  const destination = isPDF
+    ? `/pdf?url=${encodeURIComponent(fileUrl)}&title=${encodeURIComponent(title || 'PDF Document')}`
+    : fileUrl;
+
+  // On mobile browsers, opening new tabs can be blocked; navigate in the same tab
+  if (isMobile) {
+    window.location.assign(destination);
     return;
   }
 
-  // For PDF files, open in our PDF viewer
-  const pdfViewerUrl = `/pdf?url=${encodeURIComponent(fileUrl)}&title=${encodeURIComponent(title || 'PDF Document')}`;
-  window.open(pdfViewerUrl, '_blank');
+  // Desktop: open in new tab with safe rel
+  const a = document.createElement('a');
+  a.href = destination;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  if (!isPDF) {
+    // Hint download for non-PDF files
+    a.download = title || '';
+  }
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 /**

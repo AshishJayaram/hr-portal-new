@@ -58,8 +58,20 @@ func (h *DocumentHandler) ListDocuments(c *gin.Context) {
 		return
 	}
 
-	// Add fileUrl to each document for frontend consumption
-	baseURL := "http://localhost:8080" // TODO: Make this configurable
+	// Add fileUrl to each document for frontend consumption (derive base URL from request headers)
+	proto := c.Request.Header.Get("X-Forwarded-Proto")
+	if proto == "" {
+		if c.Request.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	host := c.Request.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = c.Request.Host
+	}
+	baseURL := fmt.Sprintf("%s://%s", proto, host)
 	for i := range documents {
 		documents[i].FileUrl = fmt.Sprintf("%s/api/files/documents/%d", baseURL, documents[i].ID)
 	}
@@ -206,9 +218,20 @@ func (h *DocumentHandler) DownloadDocument(c *gin.Context) {
 		return
 	}
 
-	// Generate the file URL for the frontend
-	// Use the backend server URL + the file serving endpoint
-	baseURL := "http://localhost:8080" // TODO: Make this configurable
+	// Generate the file URL for the frontend based on request host/proto (works behind proxies and on mobile)
+	proto := c.Request.Header.Get("X-Forwarded-Proto")
+	if proto == "" {
+		if c.Request.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	host := c.Request.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = c.Request.Host
+	}
+	baseURL := fmt.Sprintf("%s://%s", proto, host)
 	fileURL := fmt.Sprintf("%s/api/files/documents/%s", baseURL, documentID)
 
 	// Return JSON response with file URL

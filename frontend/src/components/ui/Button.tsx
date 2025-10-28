@@ -14,8 +14,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     
     const variants = {
       default: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm",
-      outline: "border border-card bg-white text-gray-900 hover:bg-gray-50 dark:border-white/20 dark:bg-transparent dark:text-white dark:hover:bg-white/10",
-      ghost: "bg-transparent text-gray-900 hover:bg-gray-100 dark:text-white dark:hover:bg-white/10",
+      // Theme-independent outline: contrast via CSS variables, no system dark dependency
+      outline: "border border-card bg-transparent text-primary hover:bg-white/10",
+      // Ghost inherits text color from theme variables
+      ghost: "bg-transparent text-primary hover:bg-white/10",
       destructive: "bg-red-500 text-white hover:bg-red-600",
     } as const;
 
