@@ -291,7 +291,7 @@ export default function LeavesPage() {
               <div className="border-b border-gray-700">
                 <button
                   onClick={() => setShowApplyForm(!showApplyForm)}
-                  className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-800/50 transition-colors"
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
                   <div className="flex items-center space-x-3">
                     <Plus className="h-5 w-5 text-indigo-400" />
@@ -380,7 +380,7 @@ export default function LeavesPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.03 }}
-                    className="p-4 border rounded-lg transition-all duration-200 border-card bg-white/60 hover:bg-white/90 hover:shadow-md hover:border-indigo-200 dark:border-white/10 dark:bg-transparent dark:hover:bg-white/10 dark:hover:border-indigo-400/30"
+                    className="p-4 border rounded-lg transition-all duration-200 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-400/50 shadow-sm"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-4">
@@ -390,7 +390,7 @@ export default function LeavesPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <h3 className="font-semibold text-primary">{leave.type}</h3>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(leave.status)}`}>
                               {capitalize(leave.status)}
                             </span>
                           </div>
@@ -485,9 +485,9 @@ export default function LeavesPage() {
         
               {filteredLeaves.length === 0 && (
                 <div className="text-center py-8">
-                  <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <Calendar className="h-12 w-12 text-gray-500 dark:text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-300 mb-2">No leave requests found</h3>
-                  <p className="text-gray-400">
+                  <p className="text-gray-600 dark:text-gray-300">
                     {leaves.length === 0 ? "No leave requests yet." : "Try adjusting your search or filters."}
                   </p>
                 </div>
@@ -569,7 +569,7 @@ export default function LeavesPage() {
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Team Leave Requests
               </h2>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-gray-600 dark:text-gray-300 mt-1">
                 Review and manage leave requests from your team members
               </p>
             </div>
@@ -591,15 +591,15 @@ export default function LeavesPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
                           <h3 className="font-semibold text-primary">{leave.type}</h3>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium self-start ${getStatusColor(leave.status)}`}>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium text-white self-start ${getStatusColor(leave.status)}`}>
                             {capitalize(leave.status)}
                           </span>
                         </div>
 
                         {leave.user && (
                           <div className="flex items-center gap-2 mb-2">
-                            <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-sm text-gray-400 truncate">
+                              <User className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
                               {leave.user.name || "Unknown Employee"}
                             </span>
                             {leave.user.designation && (
@@ -654,9 +654,9 @@ export default function LeavesPage() {
             
             {filteredLeaves.length === 0 && (
               <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-300 mb-2">No leave requests found</h3>
-                <p className="text-gray-400">
+                <Calendar className="h-12 w-12 text-gray-500 dark:text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-200 mb-2">No leave requests found</h3>
+                <p className="text-gray-600 dark:text-gray-300">
                   No leave requests from your team members yet.
                 </p>
               </div>
@@ -728,7 +728,7 @@ export default function LeavesPage() {
             <h2 className="text-2xl font-bold text-primary dark:text-white">
               Team Leave Balances
             </h2>
-            <p className="text-secondary dark:text-gray-400 mt-1">
+            <p className="text-secondary dark:text-gray-300 mt-1">
               Overview of leave balances for your team members
             </p>
           </div>
@@ -781,7 +781,7 @@ export default function LeavesPage() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-primary dark:text-white">{userName}</h3>
-                        <p className="text-sm text-secondary dark:text-gray-400">{user?.role || 'Employee'}</p>
+                        <p className="text-sm text-secondary dark:text-gray-300">{user?.role || 'Employee'}</p>
                       </div>
                     </div>
 
@@ -805,7 +805,7 @@ export default function LeavesPage() {
                               }`}>
                                 {remaining}/{total}
                               </span>
-                              <span className="text-xs text-secondary dark:text-gray-400">
+                              <span className="text-xs text-secondary dark:text-gray-300">
                                 ({used} used)
                               </span>
                             </div>
