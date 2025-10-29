@@ -3,7 +3,7 @@
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction"; // for click/hover support
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type CalendarEvent = {
   title: string;
@@ -28,6 +28,123 @@ type CalendarEvent = {
 export default function Calendar({ events, userRole }: { events: CalendarEvent[]; userRole?: string }) {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Force calendar to respect our theme system
+  useEffect(() => {
+    const checkTheme = () => {
+      const savedTheme = localStorage.getItem('theme');
+      const isDark = savedTheme === 'dark';
+
+      // Create or update style element for FullCalendar theming
+      let styleEl = document.getElementById('fullcalendar-theme-override');
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'fullcalendar-theme-override';
+        document.head.appendChild(styleEl);
+      }
+
+      if (isDark) {
+        styleEl.textContent = `
+          .fc-theme-standard,
+          .fc-scrollgrid,
+          .fc-col-header,
+          .fc-daygrid-day,
+          .fc-daygrid-day-top,
+          .fc-daygrid-day-number,
+          .fc-button {
+            background-color: rgb(31 41 55) !important;
+            color: rgb(209 213 219) !important;
+            border-color: rgb(75 85 99) !important;
+          }
+
+          .fc-day-today {
+            background-color: rgb(30 58 138 / 0.2) !important;
+          }
+
+          .fc-button:hover {
+            background-color: rgb(55 65 81) !important;
+          }
+
+          .fc-button-active {
+            background-color: rgb(37 99 235) !important;
+            color: white !important;
+          }
+
+          .fc-col-header-cell {
+            background-color: rgb(55 65 81) !important;
+            border-color: rgb(75 85 99) !important;
+          }
+
+          .fc-daygrid-day:hover {
+            background-color: rgb(55 65 81) !important;
+          }
+
+          .fc-theme-standard .fc-scrollgrid {
+            border-color: rgb(75 85 99) !important;
+          }
+        `;
+      } else {
+        styleEl.textContent = `
+          .fc-theme-standard,
+          .fc-scrollgrid,
+          .fc-col-header,
+          .fc-daygrid-day,
+          .fc-daygrid-day-top,
+          .fc-daygrid-day-number,
+          .fc-button {
+            background-color: white !important;
+            color: rgb(55 65 81) !important;
+            border-color: rgb(229 231 235) !important;
+          }
+
+          .fc-day-today {
+            background-color: rgb(239 246 255) !important;
+          }
+
+          .fc-button:hover {
+            background-color: rgb(249 250 251) !important;
+          }
+
+          .fc-button-active {
+            background-color: rgb(37 99 235) !important;
+            color: white !important;
+          }
+
+          .fc-col-header-cell {
+            background-color: rgb(249 250 251) !important;
+            border-color: rgb(229 231 235) !important;
+          }
+
+          .fc-daygrid-day:hover {
+            background-color: rgb(249 250 251) !important;
+          }
+
+          .fc-theme-standard .fc-scrollgrid {
+            border-color: rgb(229 231 235) !important;
+          }
+        `;
+      }
+    };
+
+    checkTheme();
+
+    // Listen for theme changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'theme') {
+        checkTheme();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      const styleEl = document.getElementById('fullcalendar-theme-override');
+      if (styleEl) {
+        styleEl.remove();
+      }
+    };
+  }, []);
   return (
     <div className="space-y-4">
       {/* Calendar Legend */}
@@ -75,7 +192,15 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
       </div>
 
       {/* Calendar */}
-      <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-lg">
+      <div
+        className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-lg"
+        style={{
+          '--fc-page-bg-color': 'transparent',
+          '--fc-neutral-bg-color': 'transparent',
+          '--fc-list-event-hover-bg-color': 'transparent',
+          '--fc-today-bg-color': 'rgb(59 130 246 / 0.1)',
+        } as React.CSSProperties}
+      >
         <FullCalendar
           plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
@@ -89,8 +214,8 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
           }}
           eventDisplay="block"
           eventClick={(info) => {
-            const event = events.find(e => 
-              e.title === info.event.title && 
+            const event = events.find(e =>
+              e.title === info.event.title &&
               e.start.toString() === info.event.start?.toString()
             );
             if (event) {
@@ -98,6 +223,7 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
               setShowModal(true);
             }
           }}
+          themeSystem="standard"
         />
       </div>
 
