@@ -135,10 +135,10 @@ export default function TeamPage() {
     return (
       <div key={node.user.id} className="ml-4">
         <div 
-          className={`flex items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors border-l-2 ${
+          className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors border-l-2 bg-card ${
             selectedUser?.id === node.user.id ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500' : 
-            isManager ? 'border-green-500' : 'border-gray-200 dark:border-gray-700'
-          }`}
+            isManager ? 'border-green-500' : 'border-card'
+          } hover:bg-white/70 dark:hover:bg-white/5`}
           onClick={() => setSelectedUser(node.user)}
         >
           {hasChildren && (
@@ -147,7 +147,7 @@ export default function TeamPage() {
                 e.stopPropagation();
                 toggleUser(node.user.id);
               }}
-              className="p-1 hover:bg-gray-200 dark:hover:bg-white/10 rounded"
+              className="p-1 hover:bg-white/70 dark:hover:bg-white/10 rounded"
             >
               {isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
@@ -166,7 +166,7 @@ export default function TeamPage() {
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900 dark:text-white truncate">
+              <span className="font-medium text-primary dark:text-gray-100 truncate">
                 {node.user.name}
               </span>
               {getRoleIcon(node.user.role)}
@@ -179,11 +179,11 @@ export default function TeamPage() {
                 </span>
               )}
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
+            <div className="text-sm text-secondary dark:text-gray-300 truncate">
               {node.user.designation || node.user.email}
             </div>
             {node.user.department && (
-              <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                 <Building className="h-3 w-3" />
                 {node.user.department}
               </div>
@@ -191,14 +191,14 @@ export default function TeamPage() {
           </div>
           
           {hasChildren && (
-            <div className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded">
+            <div className="text-xs text-gray-600 dark:text-gray-300 bg-white/70 dark:bg-white/10 px-2 py-1 rounded">
               {node.children.length} report{node.children.length !== 1 ? 's' : ''}
             </div>
           )}
         </div>
         
         {hasChildren && isExpanded && (
-          <div className="ml-4 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
+          <div className="ml-4 border-l-2 border-card pl-2">
             {node.children.map(child => renderUserNode(child))}
           </div>
         )}
