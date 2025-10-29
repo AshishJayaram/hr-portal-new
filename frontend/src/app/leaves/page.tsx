@@ -95,7 +95,7 @@ export default function LeavesPage() {
   const { data: teamBalances, isLoading: loadingTeamBalances, error: teamBalancesError } = useQuery({
     queryKey: ["team-leave-balances", userId],
     queryFn: () => getTeamLeaveBalances(),
-    enabled: canViewTeamBalances && activeTab === 'team-leaves', // Only fetch when needed
+    enabled: canViewTeamBalances && (activeTab === 'team-leaves' || activeTab === 'team-balances'), // Fetch for both team tabs
     staleTime: 60000, // Cache for 1 minute
   });
 
@@ -581,7 +581,7 @@ export default function LeavesPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
-                  className="p-4 border rounded-lg transition-all duration-200 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/80 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-400/50 shadow-sm"
+                  className="p-4 border rounded-lg transition-all duration-200 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-750 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-400/50 shadow-sm"
                 >
                   <div className="flex flex-col gap-4">
                     <div className="flex items-start gap-4">
@@ -723,7 +723,112 @@ export default function LeavesPage() {
 
       {/* Team Balances Tab Content */}
       {canViewTeamBalances && activeTab === 'team-balances' && (
-        <div>Team balances coming soon...</div>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold text-primary dark:text-white">
+              Team Leave Balances
+            </h2>
+            <p className="text-secondary dark:text-gray-400 mt-1">
+              Overview of leave balances for your team members
+            </p>
+          </div>
+
+          {loadingTeamBalances ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-gray-200 dark:bg-gray-700 h-4 w-32 rounded mb-3"></div>
+                  <div className="bg-gray-200 dark:bg-gray-700 h-8 w-24 rounded mb-2"></div>
+                  <div className="bg-gray-200 dark:bg-gray-700 h-3 w-40 rounded"></div>
+                </div>
+              ))}
+            </div>
+          ) : teamBalancesError ? (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Error loading team balances
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                    {teamBalancesError.message || 'Unable to fetch team leave balance information.'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : teamBalances?.data && Object.keys(teamBalances.data).length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Object.entries(teamBalances.data).map(([userId, balances], idx) => {
+                const user = usersData?.find(u => u.id === userId);
+                const userName = user?.name || 'Unknown User';
+
+                return (
+                  <motion.div
+                    key={userId}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                        {userName.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-primary dark:text-white">{userName}</h3>
+                        <p className="text-sm text-secondary dark:text-gray-400">{user?.role || 'Employee'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {(balances as any[]).map((balance, balanceIdx) => {
+                        const type = balance.category_name || balance.type || 'Leave';
+                        const remaining = balance.remaining_days || balance.remaining || 0;
+                        const used = balance.used_days || balance.used || 0;
+                        const total = balance.total_days || balance.total || 0;
+
+                        return (
+                          <div key={balanceIdx} className="flex justify-between items-center py-1">
+                            <span className="text-sm font-medium text-primary dark:text-white capitalize">
+                              {type}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-semibold ${
+                                remaining > 0
+                                  ? 'text-indigo-600 dark:text-indigo-400'
+                                  : 'text-red-500 dark:text-red-400'
+                              }`}>
+                                {remaining}/{total}
+                              </span>
+                              <span className="text-xs text-secondary dark:text-gray-400">
+                                ({used} used)
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No team data</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Unable to load team leave balance information.
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
 
