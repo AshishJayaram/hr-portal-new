@@ -126,29 +126,36 @@ export default function DashboardPage() {
         }
       })));
 
-    // Add birthdays
+    // Add birthdays - show for multiple years to make them appear as repeating events
+    const currentYear = new Date().getFullYear();
     events.push(...(dashboardData?.data?.user_birthdays || [])
       .filter((b: any) => b.birthday_visible)
-      .map((b: any) => {
+      .flatMap((b: any) => {
         const birthdayDate = new Date(b.birthday);
-        const currentYear = new Date().getFullYear();
-        const birthdayThisYear = new Date(currentYear, birthdayDate.getMonth(), birthdayDate.getDate());
+        const birthdays = [];
 
-        // If birthday has passed this year, show next year's birthday
-        if (birthdayThisYear < new Date()) {
-          birthdayThisYear.setFullYear(currentYear + 1);
+        // Show birthdays for current year and next 2 years
+        for (let yearOffset = 0; yearOffset < 3; yearOffset++) {
+          const birthdayThisYear = new Date(currentYear + yearOffset, birthdayDate.getMonth(), birthdayDate.getDate());
+
+          // Only show if the birthday hasn't passed in the current year (for current year only)
+          if (yearOffset === 0 && birthdayThisYear < new Date()) {
+            continue; // Skip past birthdays in current year
+          }
+
+          birthdays.push({
+            title: `🎂 ${b.name}'s Birthday`,
+            start: birthdayThisYear,
+            end: birthdayThisYear,
+            color: "#06b6d4", // Cyan color for birthdays
+            extendedProps: {
+              type: 'birthday',
+              description: `${b.name}'s birthday`
+            }
+          });
         }
 
-        return {
-          title: `🎂 ${b.name}'s Birthday`,
-          start: birthdayThisYear,
-          end: birthdayThisYear,
-          color: "#06b6d4", // Cyan color for birthdays
-          extendedProps: {
-            type: 'birthday',
-            description: `${b.name}'s birthday`
-          }
-        };
+        return birthdays;
       }));
 
     // Add leaves with grouping for Admin/HR users - only approved leaves

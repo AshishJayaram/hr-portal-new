@@ -581,7 +581,7 @@ export default function LeavesPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
-                  className="p-4 border rounded-lg transition-all duration-200 border-card bg-white/60 hover:bg-white/90 hover:shadow-md hover:border-indigo-200 dark:border-white/10 dark:bg-transparent dark:hover:bg-white/10 dark:hover:border-indigo-400/30"
+                  className="p-4 border rounded-lg transition-all duration-200 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/80 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-400/50 shadow-sm"
                 >
                   <div className="flex flex-col gap-4">
                     <div className="flex items-start gap-4">

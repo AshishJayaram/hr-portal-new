@@ -82,6 +82,21 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
           .fc-theme-standard .fc-scrollgrid {
             border-color: rgb(75 85 99) !important;
           }
+
+          /* Calendar container and legend theming */
+          .calendar-legend {
+            background-color: rgb(31 41 55) !important;
+            border-color: rgb(75 85 99) !important;
+            color: rgb(209 213 219) !important;
+          }
+
+          .calendar-legend h3 {
+            color: rgb(209 213 219) !important;
+          }
+
+          .calendar-legend span {
+            color: rgb(156 163 175) !important;
+          }
         `;
       } else {
         styleEl.textContent = `
@@ -122,6 +137,21 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
           .fc-theme-standard .fc-scrollgrid {
             border-color: rgb(229 231 235) !important;
           }
+
+          /* Calendar container and legend theming */
+          .calendar-legend {
+            background-color: white !important;
+            border-color: rgb(229 231 235) !important;
+            color: rgb(55 65 81) !important;
+          }
+
+          .calendar-legend h3 {
+            color: rgb(55 65 81) !important;
+          }
+
+          .calendar-legend span {
+            color: rgb(107 114 128) !important;
+          }
         `;
       }
     };
@@ -148,7 +178,7 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
   return (
     <div className="space-y-4">
       {/* Calendar Legend */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm calendar-legend">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Calendar Legend</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {userRole === "HR" || userRole === "Admin" || userRole === "God" ? (
