@@ -4,7 +4,6 @@ import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import Providers from "./Providers";
 import AuthGuard from "./AuthGuard";
-import { GlassContainer } from "./ui/glass";
 import { usePathname } from "next/navigation";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -22,15 +21,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       ) : (
         // App pages → with sidebar/topbar and auth guard
         <AuthGuard>
-          <GlassContainer className="flex h-screen overflow-x-hidden">
+          <div className="flex h-screen overflow-x-hidden">
             <Sidebar />
-            <div className="flex-1 flex flex-col overflow-x-hidden backdrop-blur-sm bg-liquid-glass-white dark:bg-liquid-glass-black">
+            <div className="flex-1 flex flex-col overflow-x-hidden">
               <Topbar />
               <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 sm:p-4">
-                <div className="mx-auto w-full max-w-7xl space-y-6">{children}</div>
+                <div className="mx-auto w-full max-w-7xl">{children}</div>
               </main>
             </div>
-          </GlassContainer>
+          </div>
         </AuthGuard>
       )}
     </Providers>

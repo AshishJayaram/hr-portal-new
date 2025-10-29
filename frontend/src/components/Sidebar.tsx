@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { canManageUsers, isManager, getCurrentUser, hasRole, isGod } from "@/lib/api";
 import RoleGuard from "./RoleGuard";
 import FeedbackPopup from "./FeedbackPopup";
-import { GlassCard } from "./ui/glass";
 
 const baseLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
@@ -82,8 +81,8 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col bg-liquid-glass-white dark:bg-liquid-glass-black backdrop-blur-xl border-r border-white/20 p-6 shadow-liquid-glass">
-        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-liquid-primary-purple to-liquid-primary-purple-light bg-clip-text text-transparent">
+      <aside className="hidden md:flex w-64 flex-col bg-white/5 backdrop-blur-xl border-r border-white/10 p-6">
+        <h1 className="text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-yellow-400 bg-clip-text text-transparent">
           HR Portal
         </h1>
 
@@ -92,10 +91,10 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center px-4 py-3 rounded-liquid-md transition-all will-change-transform ${
+              className={`flex items-center px-4 py-2 rounded-lg transition-all will-change-transform ${
                 pathname === link.href
-                  ? "bg-liquid-primary text-white shadow-liquid-glass"
-                  : "hover:bg-liquid-glass-white dark:hover:bg-liquid-glass-black hover:shadow-liquid"
+                  ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-900/30"
+                  : "hover:bg-white/10 hover:shadow hover:shadow-indigo-900/20"
               }`}
             >
               <span className="mr-3 text-lg">{link.icon}</span>
@@ -105,33 +104,33 @@ export default function Sidebar() {
         </nav>
 
         {/* User dropdown at bottom */}
-        <div className="mt-6 pt-6 border-t border-white/20 relative" ref={userMenuRef}>
+        <div className="mt-6 pt-6 border-t border-white/10 relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-liquid-md hover:bg-liquid-glass-white dark:hover:bg-liquid-glass-black transition-all"
+            className="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"
             aria-haspopup="menu"
             aria-expanded={userMenuOpen}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-liquid-primary flex items-center justify-center text-white font-bold shadow-liquid">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
                 {user?.name?.charAt(0) || 'U'}
               </div>
               <div className="text-left">
-                <div className="text-sm font-medium text-gray-900 dark:text-white">{user?.name || 'User'}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Menu</div>
+                <div className="text-sm font-medium">{user?.name || 'User'}</div>
+                <div className="text-xs text-gray-400">Menu</div>
               </div>
             </div>
           </button>
           {userMenuOpen && (
-            <div className="absolute bottom-16 left-0 w-full bg-liquid-glass-white dark:bg-liquid-glass-black backdrop-blur-xl border border-white/20 rounded-liquid-md shadow-liquid-glass p-2">
-              <button className="w-full text-left px-3 py-2 rounded-liquid-sm hover:bg-liquid-glass-white dark:hover:bg-liquid-glass-black text-gray-900 dark:text-white" onClick={() => { setUserMenuOpen(false); router.push('/profile'); }}>Profile</button>
-              <button className="w-full text-left px-3 py-2 rounded-liquid-sm hover:bg-liquid-glass-white dark:hover:bg-liquid-glass-black text-gray-900 dark:text-white" onClick={() => { setUserMenuOpen(false); setShowFeedbackPopup(true); }}>Feedback</button>
+            <div className="absolute bottom-14 left-0 w-full bg-white/10 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl p-2">
+              <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10" onClick={() => { setUserMenuOpen(false); router.push('/profile'); }}>Profile</button>
+              <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10" onClick={() => { setUserMenuOpen(false); setShowFeedbackPopup(true); }}>Feedback</button>
               {canAccessSettings && (
-                <button className="w-full text-left px-3 py-2 rounded-liquid-sm hover:bg-liquid-glass-white dark:hover:bg-liquid-glass-black text-gray-900 dark:text-white" onClick={() => { setUserMenuOpen(false); router.push('/company/settings'); }}>Settings</button>
+                <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10" onClick={() => { setUserMenuOpen(false); router.push('/company/settings'); }}>Settings</button>
               )}
-              <div className="my-2 h-px bg-white/20" />
+              <div className="my-1 h-px bg-white/10" />
               <button
-                className="w-full text-left px-3 py-2 rounded-liquid-sm bg-liquid-accent-red/20 text-liquid-accent-red hover:bg-liquid-accent-red/30"
+                className="w-full text-left px-3 py-2 rounded bg-red-500/10 text-red-300 hover:bg-red-500/20"
                 onClick={() => {
                   localStorage.removeItem('user');
                   localStorage.removeItem('token');
@@ -163,9 +162,9 @@ export default function Sidebar() {
             animate={{ x: 0 }}
             exit={{ x: -250 }}
             transition={{ type: "tween", duration: 0.3 }}
-            className="fixed inset-y-0 left-0 w-64 bg-liquid-glass-white dark:bg-liquid-glass-black backdrop-blur-xl border-r border-white/20 p-6 z-40 flex flex-col shadow-liquid-glass"
+            className="fixed inset-y-0 left-0 w-64 bg-white/15 backdrop-blur-xl border-r border-white/10 p-6 z-40 flex flex-col"
           >
-            <h1 className="pl-8 text-3xl font-extrabold bg-gradient-to-r from-liquid-primary-purple to-liquid-primary-purple-light bg-clip-text text-transparent">
+            <h1 className="pl-8 text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-yellow-400 bg-clip-text text-transparent">
               HR Portal
             </h1>
 
@@ -175,10 +174,10 @@ export default function Sidebar() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setOpen(false)} // close on click
-                  className={`flex items-center px-4 py-3 rounded-liquid-md transition-all ${
+                  className={`flex items-center px-4 py-2 rounded-lg transition-all ${
                     pathname === link.href
-                      ? "bg-liquid-primary text-white shadow-liquid-glass"
-                      : "hover:bg-liquid-glass-white dark:hover:bg-liquid-glass-black"
+                      ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md"
+                      : "hover:bg-white/10"
                   }`}
                 >
                   <span className="mr-3 text-lg">{link.icon}</span>
@@ -188,38 +187,38 @@ export default function Sidebar() {
             </nav>
 
             {/* Mobile user tile */}
-            <div className="mt-6 pt-6 border-t border-white/20">
+            <div className="mt-6 pt-6 border-t border-white/10">
               <button
                 onClick={() => { setOpen(false); router.push('/profile'); }}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-liquid-md hover:bg-liquid-glass-white dark:hover:bg-liquid-glass-black transition-all"
+                className="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-liquid-primary flex items-center justify-center text-white font-bold shadow-liquid">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
                     {user?.name?.charAt(0) || 'U'}
                   </div>
                   <div className="text-left">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">{user?.name || 'User'}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">View profile</div>
+                    <div className="text-sm font-medium">{user?.name || 'User'}</div>
+                    <div className="text-xs text-gray-400">View profile</div>
                   </div>
                 </div>
               </button>
               <button
                 onClick={() => { setOpen(false); setShowFeedbackPopup(true); }}
-                className="w-full text-left px-4 py-3 rounded-liquid-md hover:bg-liquid-glass-white dark:hover:bg-liquid-glass-black transition-all text-gray-900 dark:text-white"
+                className="w-full text-left px-4 py-2 rounded hover:bg-white/10 transition-colors"
               >
                 Feedback
               </button>
               {canAccessSettings && (
                 <button
                   onClick={() => { setOpen(false); router.push('/company/settings'); }}
-                  className="w-full text-left px-4 py-3 rounded-liquid-md hover:bg-liquid-glass-white dark:hover:bg-liquid-glass-black transition-all text-gray-900 dark:text-white"
+                  className="w-full text-left px-4 py-2 rounded hover:bg-white/10 transition-colors"
                 >
                   Settings
                 </button>
               )}
               <button
                 onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); localStorage.removeItem('organizationId'); setOpen(false); router.push('/signin'); }}
-                className="mt-3 w-full text-left px-4 py-3 rounded-liquid-md bg-liquid-accent-red/20 text-liquid-accent-red hover:bg-liquid-accent-red/30 transition-all"
+                className="mt-2 w-full text-left px-4 py-2 rounded bg-red-500/10 text-red-300 hover:bg-red-500/20"
               >
                 Sign Out
               </button>

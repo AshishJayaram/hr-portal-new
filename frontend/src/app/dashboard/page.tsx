@@ -7,7 +7,6 @@ import Loader from "../../components/Loader";
 import LeaveBalanceCard from "../../components/LeaveBalanceCard";
 import Calendar from "../../components/Calendar";
 import Card from "@/components/ui/Card";
-import { GlassCard } from "@/components/ui/glass";
 import { motion } from "framer-motion";
 import RoleGuard from "../../components/RoleGuard";
 import Link from "next/link";
@@ -31,23 +30,12 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <GlassCard className="p-6" variant="gradient">
-          <header>
-            <h1 className="text-4xl font-extrabold bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
-              Dashboard
-            </h1>
-            <p className="text-gray-200 mt-3 text-lg">
-              Overview of HR metrics, employee activities, and organizational data
-            </p>
-          </header>
-        </GlassCard>
-        <GlassCard variant="default">
-          <div className="p-6">
-            <h3 className="text-liquid-accent-red font-semibold mb-3 text-xl">Error loading dashboard data</h3>
-            <p className="text-gray-600 dark:text-gray-300">{error.message}</p>
-          </div>
-        </GlassCard>
+      <div className="space-y-8">
+        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Dashboard</h1>
+        <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4">
+          <h3 className="text-red-400 font-semibold mb-2">Error loading dashboard data</h3>
+          <p className="text-red-300 text-sm">{error.message}</p>
+        </div>
       </div>
     );
   }
@@ -294,16 +282,14 @@ export default function DashboardPage() {
         }}
       />
 
-      <GlassCard className="p-6" variant="gradient">
-        <header>
-          <h1 className="text-4xl font-extrabold bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
-            Dashboard
-          </h1>
-          <p className="text-gray-200 mt-3 text-lg">
-            Overview of HR metrics, employee activities, and organizational data
-          </p>
-        </header>
-      </GlassCard>
+      <header>
+        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+          Dashboard
+        </h1>
+        <p className="text-gray-400 mt-2">
+          Overview of HR metrics, employee activities, and organizational data
+        </p>
+      </header>
 
 
       {/* Leave Balances */}
@@ -315,10 +301,8 @@ export default function DashboardPage() {
       {/* Events & Notices */}
       <section aria-labelledby="events-notices-heading">
         <h2 id="events-notices-heading" className="sr-only">Upcoming Events & Notices</h2>
-        <GlassCard>
-          <div className="p-6">
-            <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Upcoming Events & Notices</h3>
-            <div className="space-y-4">
+        <Card title="Upcoming Events & Notices">
+        <div className="space-y-3">
           
           {(dashboardData?.data?.upcoming_holidays || [])
             .filter((h: any) => {
@@ -339,18 +323,17 @@ export default function DashboardPage() {
             })
             .slice(0, 3)
             .map((event: any) => (
-              <div key={event.id} className="flex items-start gap-4 p-4 rounded-liquid-md bg-liquid-glass-white dark:bg-liquid-glass-black border border-white/20 shadow-liquid">
-                <div className="text-2xl">
+              <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                <div className="text-lg">
                   {event.type === 'event' ? "📅" : event.type === 'notice' ? "📢" : "🎊"}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className="font-medium text-primary">{event.name || event.title}</h4>
-                    <span className={`px-3 py-1 rounded-liquid-sm text-xs font-medium ${
-                      event.type === 'holiday' ? 'bg-liquid-accent-red/20 text-liquid-accent-red' :
-                      event.type === 'event' ? 'bg-liquid-secondary/20 text-liquid-secondary-orange' :
-                      event.type === 'notice' ? 'bg-liquid-primary/20 text-liquid-primary-purple' :
-                      'bg-liquid-accent-green/20 text-liquid-accent-green'
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      event.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
+                      event.type === 'event' ? 'bg-amber-500/20 text-amber-400' :
+                      'bg-purple-500/20 text-purple-400'
                     }`}>
                       {event.type || 'holiday'}
                     </span>
@@ -385,61 +368,56 @@ export default function DashboardPage() {
               No upcoming events or notices
             </div>
           )}
-            </div>
-            <div className="mt-4 pt-4 border-t border-white/20">
-              <Link href="/holidays" className="text-sm text-liquid-primary-purple hover:text-liquid-primary-purple-light transition-colors">
-                View all events & notices →
-              </Link>
-            </div>
-          </div>
-        </GlassCard>
+        </div>
+        <div className="mt-4 pt-4 border-t border-white/10">
+          <Link href="/holidays" className="text-sm text-indigo-400 hover:text-indigo-300">
+            View all events & notices →
+          </Link>
+        </div>
+      </Card>
       </section>
 
       <div className="space-y-6">
         {/* Calendar or List (responsive) */}
         <section aria-labelledby="calendar-heading">
           <h2 id="calendar-heading" className="sr-only">Calendar View</h2>
-          <GlassCard>
-            <div className="p-6">
-              <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Upcoming Leaves & Holidays</h3>
-              <div className="hidden sm:block">
-                <Calendar events={createCalendarEvents()} userRole={userRole} />
-              </div>
-              <div className="sm:hidden space-y-3">
-                {createCalendarEvents()
-                  .filter((e) => new Date(e.start) >= new Date(new Date().toDateString()))
-                  .slice(0, 3)
-                  .map((e, index) => (
-                    <div key={`mobile-${index}`} className="flex items-center gap-4 p-4 rounded-liquid-md bg-liquid-glass-white dark:bg-liquid-glass-black border border-white/20 shadow-liquid">
-                      <div className={`w-3 h-10 rounded-liquid-sm`} style={{ backgroundColor: e.color }} />
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{e.title}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {e.start instanceof Date
-                            ? e.start.toLocaleDateString()
-                            : new Date(e.start).toLocaleDateString()}
-                        </div>
-                      </div>
+          <Card title="Upcoming Leaves & Holidays">
+      <div className="hidden sm:block">
+        <Calendar events={createCalendarEvents()} userRole={userRole} />
+      </div>
+          <div className="sm:hidden space-y-3">
+            {createCalendarEvents()
+              .filter((e) => new Date(e.start) >= new Date(new Date().toDateString()))
+              .slice(0, 3)
+              .map((e, index) => (
+                <div key={`mobile-${index}`} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div className={`w-2 h-8 rounded`} style={{ backgroundColor: e.color }} />
+                  <div>
+                    <div className="text-sm text-gray-300">{e.title}</div>
+                    <div className="text-xs text-gray-400">
+                      {e.start instanceof Date
+                        ? e.start.toLocaleDateString()
+                        : new Date(e.start).toLocaleDateString()}
                     </div>
-                  ))}
-              </div>
-            </div>
-          </GlassCard>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </Card>
         </section>
 
         {/* Recent Documents - compact */}
-        <GlassCard>
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Recent Documents</h3>
-              <button
-                onClick={() => window.location.href = '/documents'}
-                className="text-liquid-primary-purple hover:text-liquid-primary-purple-light text-sm font-medium transition-colors"
-              >
-                View All
-              </button>
-            </div>
-            <ul className="divide-y divide-white/20 text-sm">
+        <Card className="p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold">Recent Documents</h3>
+            <button
+              onClick={() => window.location.href = '/documents'}
+              className="text-indigo-400 hover:text-indigo-300 text-sm font-medium"
+            >
+              View All
+            </button>
+          </div>
+          <ul className="divide-y divide-gray-700 text-sm">
               {(dashboardData?.data?.recent_documents || [])
                 .filter((doc: any) => {
                   // Filter out private documents for non-HR/Admin users
@@ -449,15 +427,15 @@ export default function DashboardPage() {
                   return doc.isPublic || doc.user_id === userId; // Employees can only see public docs or their own
                 })
                 .slice(0, 3).map((doc: any) => (
-                <li key={doc.id} className="py-3 flex justify-between items-center">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-liquid-md bg-liquid-primary flex items-center justify-center text-white flex-shrink-0 shadow-liquid">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="truncate block font-medium text-gray-900 dark:text-white">{doc.title}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{doc.category}</span>
-                    </div>
+              <li key={doc.id} className="py-2 flex justify-between items-center">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white flex-shrink-0">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="truncate block font-medium">{doc.title}</span>
+                    <span className="text-xs text-gray-400">{doc.category}</span>
+                  </div>
                 </div>
                 <button
                   onClick={async () => {
@@ -483,58 +461,54 @@ export default function DashboardPage() {
                       // Failed to download document
                     }
                   }}
-                  className="text-liquid-primary-purple hover:text-liquid-primary-purple-light text-sm font-medium ml-2 flex-shrink-0 transition-colors"
+                  className="text-indigo-400 hover:underline"
                 >
                   {doc.fileUrl?.toLowerCase().endsWith('.pdf') ? 'View PDF' : 'View'}
                 </button>
               </li>
             ))}
-            {((dashboardData?.data?.recent_documents || []).length || 0) === 0 && (
-              <li className="text-gray-500 dark:text-gray-400 py-4 text-center">No documents available</li>
-            )}
-            </ul>
-          </div>
-        </GlassCard>
+          {((dashboardData?.data?.recent_documents || []).length || 0) === 0 && (
+            <li className="text-gray-400 py-4 text-center">No documents available</li>
+          )}
+        </ul>
+      </Card>
 
         {/* Recent Salary Slips - compact */}
-        <GlassCard>
-          <div className="p-6">
-            <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Recent Salary Slips</h3>
-            <ul className="divide-y divide-white/20 text-sm">
-              {(dashboardData?.data?.recent_salary_slips || []).slice(0, 3).map((slip: any) => (
-                <li key={slip.id} className="py-3 flex justify-between items-center">
-                  <span className="truncate pr-3 font-medium text-gray-900 dark:text-white">
-                    {new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                  </span>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/salary-slips/${slip.id}/download`, {
-                          headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                            'X-Organization-ID': localStorage.getItem('organizationId') || '',
-                          },
-                        });
-                        const data = await response.json();
-                        if (data.fileUrl) {
-                          window.open(data.fileUrl, '_blank');
-                        }
-                      } catch (error) {
-                        // Failed to download salary slip
+        <Card title="Recent Salary Slips" className="p-4">
+          <ul className="divide-y divide-gray-700 text-sm">
+            {(dashboardData?.data?.recent_salary_slips || []).slice(0, 3).map((slip: any) => (
+              <li key={slip.id} className="py-2 flex justify-between items-center">
+                <span className="truncate pr-3">
+                  {new Date(slip.year, slip.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </span>
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/salary-slips/${slip.id}/download`, {
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                          'X-Organization-ID': localStorage.getItem('organizationId') || '',
+                        },
+                      });
+                      const data = await response.json();
+                      if (data.fileUrl) {
+                        window.open(data.fileUrl, '_blank');
                       }
-                    }}
-                    className="text-liquid-primary-purple hover:text-liquid-primary-purple-light font-medium transition-colors"
-                  >
-                    View
-                  </button>
-                </li>
+                    } catch (error) {
+                      // Failed to download salary slip
+                    }
+                  }}
+                  className="text-indigo-400 hover:underline"
+                >
+                  View
+                </button>
+              </li>
             ))}
-              {((dashboardData?.data?.recent_salary_slips || []).length || 0) === 0 && (
-                <li className="text-gray-500 dark:text-gray-400 py-3">No salary slips</li>
-              )}
-            </ul>
-          </div>
-        </GlassCard>
+            {((dashboardData?.data?.recent_salary_slips || []).length || 0) === 0 && (
+              <li className="text-gray-400">No salary slips</li>
+            )}
+          </ul>
+        </Card>
       </div>
     </main>
   );
