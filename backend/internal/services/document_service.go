@@ -942,16 +942,13 @@ func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthd
 				birthdayThisYear = birthdayThisYear.AddDate(1, 0, 0)
 			}
 
-			// Only include birthdays within the next 30 days
-			daysUntilBirthday := int(birthdayThisYear.Sub(now).Hours() / 24)
-			if daysUntilBirthday <= 30 {
-				birthdays = append(birthdays, UserBirthdayResponse{
-					ID:              strconv.FormatUint(uint64(user.ID), 10),
-					Name:            user.Name,
-					Birthday:        user.Birthday.Format("2006-01-02"),
-					BirthdayVisible: user.BirthdayVisible,
-				})
-			}
+            // Include all visible birthdays; frontend will decide how many years to render
+            birthdays = append(birthdays, UserBirthdayResponse{
+                ID:              strconv.FormatUint(uint64(user.ID), 10),
+                Name:            user.Name,
+                Birthday:        user.Birthday.Format("2006-01-02"),
+                BirthdayVisible: user.BirthdayVisible,
+            })
 		}
 	}
 
@@ -973,10 +970,10 @@ func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthd
 		return birthdayThisYearI.Before(birthdayThisYearJ)
 	})
 
-	// Limit to 10 upcoming birthdays
-	if len(birthdays) > 10 {
-		birthdays = birthdays[:10]
-	}
+    // Limit to reasonable number to avoid payload bloat
+    if len(birthdays) > 100 {
+        birthdays = birthdays[:100]
+    }
 
 	return birthdays, nil
 }
