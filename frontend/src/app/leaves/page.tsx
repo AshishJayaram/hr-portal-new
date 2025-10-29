@@ -380,7 +380,7 @@ export default function LeavesPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.03 }}
-                    className="p-4 border rounded-lg transition-all duration-200 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-400/50 shadow-sm"
+                    className="p-4 border rounded-lg transition-all duration-200 border-card bg-card hover:bg-white/70 dark:hover:bg-white/5 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-400/50 shadow-sm"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-4">
@@ -581,7 +581,7 @@ export default function LeavesPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
-                  className="p-4 border rounded-lg transition-all duration-200 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-750 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-400/50 shadow-sm"
+                  className="p-4 border rounded-lg transition-all duration-200 border-card bg-card hover:bg-white/70 dark:hover:bg-white/5 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-400/50 shadow-sm"
                 >
                   <div className="flex flex-col gap-4">
                     <div className="flex items-start gap-4">
@@ -773,7 +773,7 @@ export default function LeavesPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
-                    className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                    className="bg-card border border-card rounded-lg p-4 hover:bg-white/70 dark:hover:bg-white/5 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
