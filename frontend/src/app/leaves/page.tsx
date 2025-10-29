@@ -47,6 +47,7 @@ export default function LeavesPage() {
   const [total, setTotal] = useState(0);
   const [showApplyForm, setShowApplyForm] = useState(false);
   const [showApplyOnBehalfForm, setShowApplyOnBehalfForm] = useState(false);
+  const [teamBalanceSearch, setTeamBalanceSearch] = useState("");
   const [selectedTeamMember, setSelectedTeamMember] = useState<string | null>(null);
   const [teamBalancesPage, setTeamBalancesPage] = useState(1);
   const [teamBalancesPerPage] = useState(6);
@@ -733,6 +734,13 @@ export default function LeavesPage() {
             </p>
           </div>
 
+          {/* Team Balances Search */}
+          <SearchFilter
+            searchPlaceholder="Search team members..."
+            onSearch={(q) => setTeamBalanceSearch(q)}
+            onFilter={() => {}}
+          />
+
           {loadingTeamBalances ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -763,7 +771,13 @@ export default function LeavesPage() {
             </div>
           ) : teamBalances?.data && Object.keys(teamBalances.data).length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Object.entries(teamBalances.data).map(([userId, balances], idx) => {
+              {Object.entries(teamBalances.data)
+                .filter(([userId]) => {
+                  const user = usersData?.find(u => u.id === userId);
+                  const name = (user?.name || '').toLowerCase();
+                  return !teamBalanceSearch || name.includes(teamBalanceSearch.toLowerCase());
+                })
+                .map(([userId, balances], idx) => {
                 const user = usersData?.find(u => u.id === userId);
                 const userName = user?.name || 'Unknown User';
 

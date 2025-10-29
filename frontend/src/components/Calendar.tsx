@@ -53,7 +53,7 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
           .fc-daygrid-day-number,
           .fc-button {
             background-color: rgb(31 41 55) !important;
-            color: rgb(209 213 219) !important;
+            color: rgb(243 244 246) !important;
             border-color: rgb(75 85 99) !important;
           }
 
@@ -87,15 +87,15 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
           .calendar-legend {
             background-color: rgb(31 41 55) !important;
             border-color: rgb(75 85 99) !important;
-            color: rgb(209 213 219) !important;
+            color: rgb(243 244 246) !important;
           }
 
           .calendar-legend h3 {
-            color: rgb(209 213 219) !important;
+            color: rgb(243 244 246) !important;
           }
 
           .calendar-legend span {
-            color: rgb(156 163 175) !important;
+            color: rgb(209 213 219) !important;
           }
         `;
       } else {
@@ -178,52 +178,52 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
   return (
     <div className="space-y-4">
       {/* Calendar Legend */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm calendar-legend">
+          <div className="rounded-lg border border-card bg-card p-4 shadow-sm calendar-legend">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Calendar Legend</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {userRole === "HR" || userRole === "Admin" || userRole === "God" ? (
             <>
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded" style={{ backgroundColor: "#10b981" }}></div>
-                <span className="text-xs text-gray-600 dark:text-gray-400">Your Leaves</span>
+                  <div className="w-3 h-3 rounded" style={{ backgroundColor: "#10b981" }}></div>
+                  <span className="text-xs text-gray-600 dark:text-gray-200">Your Leaves</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 rounded" style={{ backgroundColor: "#6366f1" }}></div>
-                <span className="text-xs text-gray-600 dark:text-gray-400">Team Leaves</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-200">Team Leaves</span>
               </div>
             </>
           ) : (
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded" style={{ backgroundColor: "#10b981" }}></div>
-              <span className="text-xs text-gray-600 dark:text-gray-400">Your Leaves</span>
+                  <span className="text-xs text-gray-600 dark:text-gray-200">Your Leaves</span>
             </div>
           )}
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#ef4444" }}></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Holidays</span>
+                <span className="text-xs text-gray-600 dark:text-gray-200">Holidays</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#ec4899" }}></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Events</span>
+                <span className="text-xs text-gray-600 dark:text-gray-200">Events</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#8b5cf6" }}></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Notices</span>
+                <span className="text-xs text-gray-600 dark:text-gray-200">Notices</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#f97316" }}></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Off-site Work</span>
+                <span className="text-xs text-gray-600 dark:text-gray-200">Off-site Work</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#06b6d4" }}></div>
-            <span className="text-xs text-gray-600 dark:text-gray-400">Birthdays</span>
+                <span className="text-xs text-gray-600 dark:text-gray-200">Birthdays</span>
           </div>
         </div>
       </div>
 
       {/* Calendar */}
       <div
-        className="rounded-xl overflow-hidden border border-card bg-card p-4 shadow-lg"
+        className="rounded-xl overflow-hidden border border-card bg-card p-4 shadow-lg text-gray-900 dark:text-gray-100"
         style={{
           '--fc-page-bg-color': 'transparent',
           '--fc-neutral-bg-color': 'transparent',
