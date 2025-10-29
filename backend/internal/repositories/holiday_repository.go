@@ -40,39 +40,45 @@ func (r *holidayRepository) List(organizationID string, filters map[string]inter
 }
 
 func (r *holidayRepository) GetAvailableYears(organizationID string) ([]int, error) {
-    var years []struct { Year int `json:"year"` }
+	var years []struct {
+		Year int `json:"year"`
+	}
 
-    // Get distinct FY years from single-date holidays (derive FY by month >= Apr)
-    if err := r.db.Model(&models.Holiday{}).
-        Select("DISTINCT CASE "+
-            "WHEN strftime('%m', date) >= '04' THEN CAST(strftime('%Y', date) AS INTEGER) "+
-            "ELSE CAST(strftime('%Y', date) AS INTEGER) - 1 "+
-            "END as year").
-        Where("organization_id = ? AND deleted_at IS NULL AND date IS NOT NULL", organizationID).
-        Scan(&years).Error; err != nil {
-        return nil, fmt.Errorf("failed to get available years (single date): %w", err)
-    }
+	// Get distinct FY years from single-date holidays (derive FY by month >= Apr)
+	if err := r.db.Model(&models.Holiday{}).
+		Select("DISTINCT CASE "+
+			"WHEN strftime('%m', date) >= '04' THEN CAST(strftime('%Y', date) AS INTEGER) "+
+			"ELSE CAST(strftime('%Y', date) AS INTEGER) - 1 "+
+			"END as year").
+		Where("organization_id = ? AND deleted_at IS NULL AND date IS NOT NULL", organizationID).
+		Scan(&years).Error; err != nil {
+		return nil, fmt.Errorf("failed to get available years (single date): %w", err)
+	}
 
-    // Also include years from date_range (start and end years)
-    var rangeYears []struct { Year int `json:"year"` }
-    // Start year from date_range
-    if err := r.db.Model(&models.Holiday{}).
-        Select("DISTINCT CAST(substr(date_range, 1, 4) AS INTEGER) as year").
-        Where("organization_id = ? AND deleted_at IS NULL AND date_range IS NOT NULL", organizationID).
-        Scan(&rangeYears).Error; err == nil {
-        years = append(years, rangeYears...)
-    }
-    rangeYears = nil
-    // End year from date_range (last 10 chars are 'YYYY-MM-DD')
-    if err := r.db.Model(&models.Holiday{}).
-        Select("DISTINCT CAST(substr(date_range, length(date_range) - 9, 4) AS INTEGER) as year").
-        Where("organization_id = ? AND deleted_at IS NULL AND date_range IS NOT NULL", organizationID).
-        Scan(&rangeYears).Error; err == nil {
-        years = append(years, rangeYears...)
-    }
+	// Also include years from date_range (start and end years)
+	var rangeYears []struct {
+		Year int `json:"year"`
+	}
+	// Start year from date_range
+	if err := r.db.Model(&models.Holiday{}).
+		Select("DISTINCT CAST(substr(date_range, 1, 4) AS INTEGER) as year").
+		Where("organization_id = ? AND deleted_at IS NULL AND date_range IS NOT NULL", organizationID).
+		Scan(&rangeYears).Error; err == nil {
+		years = append(years, rangeYears...)
+	}
+	rangeYears = nil
+	// End year from date_range (last 10 chars are 'YYYY-MM-DD')
+	if err := r.db.Model(&models.Holiday{}).
+		Select("DISTINCT CAST(substr(date_range, length(date_range) - 9, 4) AS INTEGER) as year").
+		Where("organization_id = ? AND deleted_at IS NULL AND date_range IS NOT NULL", organizationID).
+		Scan(&rangeYears).Error; err == nil {
+		years = append(years, rangeYears...)
+	}
 
-    var yearList []int
-    for _, y := range years { yearList = append(yearList, y.Year) }
+	var yearList []int
+	for _, y := range years {
+		yearList = append(yearList, y.Year)
+	}
 
 	// Remove duplicates and sort
 	yearMap := make(map[int]bool)
@@ -117,13 +123,14 @@ func (r *holidayRepository) buildQuery(query *gorm.DB, filters map[string]interf
 		case "year":
 			if yearStr, ok := value.(string); ok {
 				// Filter by year using SQLite strftime - check both date and date_range fields
+				// Handle NULL dates (multi-day holidays only have date_range)
 				if len(yearStr) == 4 {
-					query = query.Where("strftime('%Y', date) = ? OR date_range LIKE ?", yearStr, fmt.Sprintf("%%%s%%", yearStr))
+					query = query.Where("(date IS NOT NULL AND strftime('%Y', date) = ?) OR date_range LIKE ?", yearStr, fmt.Sprintf("%%%s%%", yearStr))
 				}
 			} else if year, ok := value.(int); ok {
 				if year > 0 {
 					yearStr := fmt.Sprintf("%d", year)
-					query = query.Where("strftime('%Y', date) = ? OR date_range LIKE ?", yearStr, fmt.Sprintf("%%%s%%", yearStr))
+					query = query.Where("(date IS NOT NULL AND strftime('%Y', date) = ?) OR date_range LIKE ?", yearStr, fmt.Sprintf("%%%s%%", yearStr))
 				}
 			}
 		case "type":
