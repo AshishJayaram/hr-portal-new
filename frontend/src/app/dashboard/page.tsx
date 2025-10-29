@@ -223,10 +223,16 @@ export default function DashboardPage() {
       
       const myLeaves = leaves.filter((l: any) => String(l.user_id) === String(userId));
       
-      events.push(...myLeaves.map((l: any) => ({
+      events.push(...myLeaves.map((l: any) => {
+        const start = new Date(l.from_date || l.from);
+        const endInclusive = new Date(l.to_date || l.to);
+        const endExclusive = new Date(endInclusive);
+        endExclusive.setDate(endExclusive.getDate() + 1); // make all-day event inclusive
+        return ({
           title: l.type,
-          start: new Date(l.from_date || l.from),
-          end: new Date(l.to_date || l.to),
+          start,
+          end: endExclusive,
+          allDay: true,
           color: "#10b981", // Green for current user's leaves
           extendedProps: {
             type: 'leave',
@@ -239,7 +245,8 @@ export default function DashboardPage() {
             count: 1,
             isCurrentUser: true
           }
-        })));
+        });
+      }));
     }
 
     return events;
