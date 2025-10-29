@@ -223,7 +223,7 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
 
       {/* Calendar */}
       <div
-        className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-lg"
+        className="rounded-xl overflow-hidden border border-card bg-card p-4 shadow-lg"
         style={{
           '--fc-page-bg-color': 'transparent',
           '--fc-neutral-bg-color': 'transparent',

@@ -63,7 +63,7 @@ export default function SearchFilter({
           placeholder={searchPlaceholder}
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 rounded-lg border border-card bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent"
+          className="w-full pl-10 pr-4 py-2 rounded-lg border border-card bg-card text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent"
         />
       </div>
 

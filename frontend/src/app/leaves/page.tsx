@@ -565,7 +565,7 @@ export default function LeavesPage() {
 
           {/* Team Leave Requests List - NEW */}
           <Card>
-            <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
+            <div className="border-b border-card pb-4 mb-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Team Leave Requests
               </h2>
@@ -664,7 +664,7 @@ export default function LeavesPage() {
 
             {/* Pagination Controls for Team Leaves */}
             {totalPages > 1 && (
-              <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 border-t border-card">
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, total)} of {total} requests
                 </div>
