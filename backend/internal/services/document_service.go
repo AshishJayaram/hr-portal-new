@@ -693,9 +693,12 @@ func NewDashboardService(repos *repositories.Repositories) DashboardService {
 }
 
 func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*DashboardStatsResponse, error) {
+	fmt.Printf("DEBUG: GetStats called for org %s, user %s, role %s\n", organizationID, userID, userRole)
+
 	// Get total users count for the organization
 	var totalUsers int64
 	if err := s.repos.User.CountByOrganization(organizationID, &totalUsers); err != nil {
+		fmt.Printf("DEBUG: Error getting user count: %v\n", err)
 		return nil, fmt.Errorf("failed to get total users count: %w", err)
 	}
 
@@ -914,8 +917,11 @@ func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthd
 	// Get all users in the organization with birthdays
 	users, err := s.repos.User.List(organizationID, map[string]interface{}{})
 	if err != nil {
+		fmt.Printf("DEBUG: Error getting users for org %s: %v\n", organizationID, err)
 		return nil, fmt.Errorf("failed to get users: %w", err)
 	}
+
+	fmt.Printf("DEBUG: Found %d users in organization %s\n", len(users), organizationID)
 
 	var birthdays []UserBirthdayResponse
 	now := time.Now()

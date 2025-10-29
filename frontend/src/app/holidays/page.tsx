@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getHolidays, getAvailableHolidayYears, createHoliday, updateHoliday, deleteHoliday, Holiday, canManageHolidays } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
+import { GlassCard } from "@/components/ui/glass";
 import Loader from "@/components/ui/Loader";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -169,23 +170,25 @@ export default function HolidaysPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Holidays, Events & Notices</h1>
-        <RoleGuard allowedRoles={["HR", "Admin"]}>
-          <button
-            onClick={() => {
-              setEditingHoliday(null);
-              setShowForm(true);
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700"
-          >
-            Add Holiday/Event/Notice
-          </button>
-        </RoleGuard>
-      </div>
+      <GlassCard variant="gradient" className="p-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">Holidays, Events & Notices</h1>
+          <RoleGuard allowedRoles={["HR", "Admin"]}>
+            <Button
+              onClick={() => {
+                setEditingHoliday(null);
+                setShowForm(true);
+              }}
+            >
+              Add Holiday/Event/Notice
+            </Button>
+          </RoleGuard>
+        </div>
+      </GlassCard>
 
       {/* Year Selector for Financial Year */}
-      <div className="bg-gray-100 dark:bg-gray-800/50 rounded-lg p-4">
+      <GlassCard>
+        <div className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <label htmlFor="year-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -215,23 +218,29 @@ export default function HolidaysPage() {
             Showing holidays and events for FY {selectedYear}
           </div>
         </div>
-      </div>
+        </div>
+      </GlassCard>
 
       {(error || createHolidayMutation.error || updateHolidayMutation.error || deleteHolidayMutation.error) && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
-          {error?.message || 
-           createHolidayMutation.error?.message || 
-           updateHolidayMutation.error?.message || 
-           deleteHolidayMutation.error?.message}
-        </div>
+        <GlassCard variant="default">
+          <div className="p-6">
+            <div className="text-liquid-accent-red">
+              {error?.message ||
+               createHolidayMutation.error?.message ||
+               updateHolidayMutation.error?.message ||
+               deleteHolidayMutation.error?.message}
+            </div>
+          </div>
+        </GlassCard>
       )}
 
       <RoleGuard allowedRoles={["HR", "Admin"]}>
         {showForm && (
-          <Card>
-            <h2 className="text-xl font-semibold mb-4">
-              {editingHoliday ? "Edit Holiday/Event/Notice" : "Add Holiday/Event/Notice"}
-            </h2>
+          <GlassCard>
+            <div className="p-6">
+              <h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">
+                {editingHoliday ? "Edit Holiday/Event/Notice" : "Add Holiday/Event/Notice"}
+              </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <Input
@@ -356,7 +365,8 @@ export default function HolidaysPage() {
                 </Button>
               </div>
             </form>
-          </Card>
+            </div>
+          </GlassCard>
         )}
       </RoleGuard>
 
@@ -372,7 +382,7 @@ export default function HolidaysPage() {
             return new Date(aDate).getTime() - new Date(bDate).getTime();
           })
           .map((holiday) => (
-          <Card key={holiday.id}>
+          <GlassCard key={holiday.id}>
             <div className="flex justify-between items-start">
               <div className="flex items-start gap-3">
                 <div className="text-2xl">
@@ -478,7 +488,7 @@ export default function HolidaysPage() {
                 </div>
               </RoleGuard>
             </div>
-          </Card>
+          </GlassCard>
         ))}
       </div>
     </div>

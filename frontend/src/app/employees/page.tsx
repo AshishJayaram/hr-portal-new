@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getUsers, canManageUsers, deleteUser } from "@/lib/api";
 import Loader from "@/components/Loader";
 import Card from "@/components/ui/Card";
+import { GlassCard } from "@/components/ui/glass";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -89,15 +90,18 @@ export default function EmployeesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Employees</h1>
-        <Link href="/employees/add">
-          <Button>New Employee</Button>
-        </Link>
-      </div>
+      <GlassCard variant="gradient" className="p-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-4xl font-extrabold bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">Employees</h1>
+          <Link href="/employees/add">
+            <Button>New Employee</Button>
+          </Link>
+        </div>
+      </GlassCard>
 
       {/* Search and Filters */}
-      <Card className="p-4">
+      <GlassCard>
+        <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-2">
             <Input
@@ -144,19 +148,21 @@ export default function EmployeesPage() {
             </Button>
           </div>
         )}
-      </Card>
+        </div>
+      </GlassCard>
 
       {/* Results Count */}
       <div className="text-sm text-gray-400">
         Showing {filteredUsers.length} of {data?.data?.length || 0} employees
       </div>
 
-      <Card>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredUsers.map((u: any) => (
-            <div key={u.id} className="p-4 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 transition-colors">
+      <GlassCard>
+        <div className="p-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredUsers.map((u: any) => (
+              <div key={u.id} className="p-4 rounded-liquid-lg bg-liquid-glass-white dark:bg-liquid-glass-black border border-white/20 shadow-liquid hover:shadow-liquid-glass transition-all">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                <div className="w-12 h-12 rounded-liquid-md bg-liquid-primary flex items-center justify-center text-white font-bold shadow-liquid">
                   {u.name?.charAt(0) || "U"}
                 </div>
                 <div className="flex-1">
@@ -185,19 +191,22 @@ export default function EmployeesPage() {
               {/* Growth Tracker */}
               <GrowthTracker userId={u.id} userName={u.name} maxItems={2} />
             </div>
-          ))}
-        </div>
-        {filteredUsers.length === 0 && (
-          <div className="text-center py-8">
-            <div className="text-4xl mb-2">🔍</div>
-            <p className="text-gray-400">
-              {searchTerm || roleFilter || departmentFilter 
-                ? "No employees match your search criteria." 
-                : "No employees found."}
-            </p>
+            ))}
           </div>
-        )}
-      </Card>
+          {filteredUsers.length === 0 && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 rounded-liquid-lg bg-liquid-glass-white dark:bg-liquid-glass-black flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🔍</span>
+              </div>
+              <p className="text-gray-500 dark:text-gray-400">
+                {searchTerm || roleFilter || departmentFilter
+                  ? "No employees match your search criteria."
+                  : "No employees found."}
+              </p>
+            </div>
+          )}
+        </div>
+      </GlassCard>
 
       {/* Delete Confirmation Dialog */}
       {deleteConfirm && (
