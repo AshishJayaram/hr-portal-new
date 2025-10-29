@@ -505,7 +505,7 @@ function EditEmployeeForm({ id }: { id: string }) {
                     </div>
                   )}
                   {(managerQuery.length > 0 || managers?.data) && (
-                    <div className="mt-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 shadow-lg">
+                    <div className="mt-2 max-h-48 overflow-y-auto border border-card dark:border-white/10 rounded bg-card dark:bg-white/10 shadow-lg">
                       {(managers?.data || [])
                         .filter((u: any) => String(u.id) !== String(id)) // Exclude current employee
                         .map((u: any) => (
