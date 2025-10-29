@@ -71,12 +71,17 @@ export default function DashboardPage() {
       .filter((h: any) => h.isCalendarEvent !== false)
       .map((h: any) => {
         if (h.date_range) {
-          // Multi-day event
+          // Multi-day event (FullCalendar treats all-day 'end' as exclusive)
           const [start, end] = h.date_range.split(" to ");
+          const startDate = new Date(start.trim());
+          const endInclusive = new Date(end.trim());
+          const endExclusive = new Date(endInclusive);
+          endExclusive.setDate(endExclusive.getDate() + 1); // make inclusive visible
           return {
             title: h.name || h.title,
-            start: new Date(start.trim()),
-            end: new Date(end.trim()),
+            start: startDate,
+            end: endExclusive,
+            allDay: true,
             color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
             extendedProps: {
               type: h.type || 'holiday',
@@ -88,7 +93,8 @@ export default function DashboardPage() {
           return {
             title: h.name || h.title,
             start: new Date(h.date),
-            end: new Date(h.date),
+            end: new Date(new Date(h.date).getTime() + 24*60*60*1000), // exclusive end for single all-day
+            allDay: true,
             color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
             extendedProps: {
               type: h.type || 'holiday',
@@ -394,7 +400,8 @@ export default function DashboardPage() {
       </div>
           <div className="sm:hidden space-y-3">
             {createCalendarEvents()
-              .filter((e) => new Date(e.start) >= new Date(new Date().toDateString()))
+              // include ongoing multi-day events (end is exclusive)
+              .filter((e) => new Date(e.end) > new Date(new Date().toDateString()))
               .slice(0, 3)
               .map((e, index) => (
                 <div key={`mobile-${index}`} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
