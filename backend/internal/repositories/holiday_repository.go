@@ -40,27 +40,39 @@ func (r *holidayRepository) List(organizationID string, filters map[string]inter
 }
 
 func (r *holidayRepository) GetAvailableYears(organizationID string) ([]int, error) {
-	var years []struct {
-		Year int `json:"year"`
-	}
+    var years []struct { Year int `json:"year"` }
 
-	// Get distinct years from holidays table for this organization
-	err := r.db.Model(&models.Holiday{}).
-		Select("DISTINCT CASE "+
-			"WHEN strftime('%m', date) >= '04' THEN CAST(strftime('%Y', date) AS INTEGER) "+
-			"ELSE CAST(strftime('%Y', date) AS INTEGER) - 1 "+
-			"END as year").
-		Where("organization_id = ? AND deleted_at IS NULL", organizationID).
-		Scan(&years).Error
+    // Get distinct FY years from single-date holidays (derive FY by month >= Apr)
+    if err := r.db.Model(&models.Holiday{}).
+        Select("DISTINCT CASE "+
+            "WHEN strftime('%m', date) >= '04' THEN CAST(strftime('%Y', date) AS INTEGER) "+
+            "ELSE CAST(strftime('%Y', date) AS INTEGER) - 1 "+
+            "END as year").
+        Where("organization_id = ? AND deleted_at IS NULL AND date IS NOT NULL", organizationID).
+        Scan(&years).Error; err != nil {
+        return nil, fmt.Errorf("failed to get available years (single date): %w", err)
+    }
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to get available years: %w", err)
-	}
+    // Also include years from date_range (start and end years)
+    var rangeYears []struct { Year int `json:"year"` }
+    // Start year from date_range
+    if err := r.db.Model(&models.Holiday{}).
+        Select("DISTINCT CAST(substr(date_range, 1, 4) AS INTEGER) as year").
+        Where("organization_id = ? AND deleted_at IS NULL AND date_range IS NOT NULL", organizationID).
+        Scan(&rangeYears).Error; err == nil {
+        years = append(years, rangeYears...)
+    }
+    rangeYears = nil
+    // End year from date_range (last 10 chars are 'YYYY-MM-DD')
+    if err := r.db.Model(&models.Holiday{}).
+        Select("DISTINCT CAST(substr(date_range, length(date_range) - 9, 4) AS INTEGER) as year").
+        Where("organization_id = ? AND deleted_at IS NULL AND date_range IS NOT NULL", organizationID).
+        Scan(&rangeYears).Error; err == nil {
+        years = append(years, rangeYears...)
+    }
 
-	var yearList []int
-	for _, y := range years {
-		yearList = append(yearList, y.Year)
-	}
+    var yearList []int
+    for _, y := range years { yearList = append(yearList, y.Year) }
 
 	// Remove duplicates and sort
 	yearMap := make(map[int]bool)
