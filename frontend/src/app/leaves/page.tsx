@@ -7,6 +7,8 @@ import {
   getLeavesPaginated,
   getLeaveBalance,
   getTeamLeaveBalances,
+  exportTeamLeavesCSV,
+  exportTeamBalancesCSV,
   updateLeave,
   applyLeave,
   approveLeave,
@@ -49,6 +51,8 @@ export default function LeavesPage() {
   const [showApplyOnBehalfForm, setShowApplyOnBehalfForm] = useState(false);
   const [teamBalanceSearch, setTeamBalanceSearch] = useState("");
   const [expandedTeamCards, setExpandedTeamCards] = useState<Set<string>>(new Set());
+  const [exportMonth, setExportMonth] = useState<string>(new Date().toISOString().slice(0,7));
+  const [exportAsOf, setExportAsOf] = useState<string>(new Date().toISOString().slice(0,10));
 
   const toggleTeamCard = (userId: string) => {
     setExpandedTeamCards(prev => {
@@ -217,6 +221,17 @@ export default function LeavesPage() {
     setFilteredLeaves(filtered);
   };
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const leaveTypes = useMemo(() => {
     const types = [...new Set(leaves.map(leave => leave.type).filter(Boolean))];
     return types.map(type => ({ value: type!, label: capitalize(type!) }));
@@ -270,12 +285,63 @@ export default function LeavesPage() {
           <Tabs
             tabs={[
               { id: 'my-leaves', label: 'My Leaves' },
-              { id: 'team-leaves', label: 'Team Leave Requests' },
+              { id: 'team-leaves', label: 'Team Leaves' },
               { id: 'team-balances', label: 'Team Balances' }
             ]}
             activeTab={activeTab}
             onTabChange={(tabId) => setActiveTab(tabId as 'my-leaves' | 'team-leaves' | 'team-balances')}
           />
+        </Card>
+      )}
+
+      {/* Export controls for HR/Admin on Team tabs */}
+      {canApprove && activeTab === 'team-leaves' && (
+        <Card>
+          <div className="flex flex-col md:flex-row md:items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm text-secondary mb-1">Approved Leaves Month</label>
+              <input type="month" value={exportMonth} onChange={(e) => setExportMonth(e.target.value)} className="w-full rounded-md border bg-transparent p-2" />
+            </div>
+            <div>
+              <Button
+                onClick={async () => {
+                  try {
+                    const blob = await exportTeamLeavesCSV(exportMonth);
+                    downloadBlob(blob, `team-leaves-${exportMonth}.csv`);
+                  } catch (e:any) {
+                    toast.error(e.message || 'Failed to export');
+                  }
+                }}
+              >
+                Download Approved Leaves (CSV)
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {canApprove && activeTab === 'team-balances' && (
+        <Card>
+          <div className="flex flex-col md:flex-row md:items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm text-secondary mb-1">Balances As Of</label>
+              <input type="date" max={new Date().toISOString().slice(0,10)} value={exportAsOf} onChange={(e) => setExportAsOf(e.target.value)} className="w-full rounded-md border bg-transparent p-2" />
+            </div>
+            <div>
+              <Button
+                onClick={async () => {
+                  try {
+                    const blob = await exportTeamBalancesCSV(exportAsOf);
+                    downloadBlob(blob, `team-balances-${exportAsOf}.csv`);
+                  } catch (e:any) {
+                    toast.error(e.message || 'Failed to export');
+                  }
+                }}
+              >
+                Download Team Balances (CSV)
+              </Button>
+            </div>
+          </div>
         </Card>
       )}
 

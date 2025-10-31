@@ -1,21 +1,33 @@
 package database
 
 import (
-	"fmt"
-	"time"
+    "fmt"
+    "os"
+    "path/filepath"
+    "time"
 
-	"hr-portal-backend/internal/config"
-	"hr-portal-backend/internal/models"
+    "hr-portal-backend/internal/config"
+    "hr-portal-backend/internal/models"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+    "gorm.io/driver/sqlite"
+    "gorm.io/gorm"
+    "gorm.io/gorm/logger"
 )
 
 // Initialize sets up the database connection and runs migrations
 func Initialize(cfg config.DatabaseConfig) (*gorm.DB, error) {
-	// Use SQLite database file
-	dsn := "./hr_portal.db"
+    // Use configurable SQLite database file path
+    dsn := cfg.SQLitePath
+    if dsn == "" {
+        dsn = "./hr_portal.db"
+    }
+    // Fallback to cmd/server/hr_portal.db if the selected path doesn't exist
+    if _, err := os.Stat(dsn); os.IsNotExist(err) {
+        alt := filepath.Join(".", "cmd", "server", "hr_portal.db")
+        if _, err2 := os.Stat(alt); err2 == nil {
+            dsn = alt
+        }
+    }
 
 	// Configure GORM
 	gormConfig := &gorm.Config{

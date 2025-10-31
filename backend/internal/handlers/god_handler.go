@@ -107,20 +107,85 @@ func (h *GodHandler) GetOrganization(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// CreateOrganization creates a new organization
+// CreateOrganization creates a new organization with optional admin user
 func (h *GodHandler) CreateOrganization(c *gin.Context) {
-	var org models.Organization
-	if err := c.ShouldBindJSON(&org); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+	var req struct {
+		Name        string `json:"name" binding:"required"`
+		Domain      string `json:"domain" binding:"required"`
+		Description string `json:"description"`
+		AdminUser   *struct {
+			Username string `json:"username" binding:"required"`
+			Email    string `json:"email" binding:"required,email"`
+			Password string `json:"password" binding:"required"`
+			Name     string `json:"name" binding:"required"`
+		} `json:"admin_user"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: " + err.Error()})
 		return
+	}
+
+	// Create organization
+	org := models.Organization{
+		Name:     req.Name,
+		Domain:   req.Domain,
+		IsActive: true,
+	}
+	
+	// Store description in Settings as JSON if provided
+	if req.Description != "" {
+		org.Settings = fmt.Sprintf(`{"description":"%s"}`, req.Description)
 	}
 
 	if err := h.services.Organization.Create(&org); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create organization"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create organization: " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, org)
+	response := gin.H{
+		"organization": gin.H{
+			"id":         org.ID,
+			"name":       org.Name,
+			"domain":     org.Domain,
+			"is_active":  org.IsActive,
+			"created_at": org.CreatedAt,
+			"updated_at": org.UpdatedAt,
+		},
+		"message": "Organization created successfully",
+	}
+
+	// Create admin user if provided
+	if req.AdminUser != nil {
+		adminUser, err := h.services.User.CreateUser(services.CreateUserRequest{
+			OrganizationID: fmt.Sprintf("%d", org.ID),
+			Username:       req.AdminUser.Username,
+			Email:          req.AdminUser.Email,
+			Password:       req.AdminUser.Password,
+			Name:           req.AdminUser.Name,
+			Role:           "Admin",
+			Department:     "Administration",
+			Designation:    "Administrator",
+		}, c.Request)
+		
+		if err != nil {
+			// Organization was created but admin user creation failed
+			response["error"] = "Organization created but failed to create admin user: " + err.Error()
+			c.JSON(http.StatusCreated, response)
+			return
+		}
+
+		response["admin_user"] = gin.H{
+			"id":       adminUser.ID,
+			"username": adminUser.Username,
+			"email":    adminUser.Email,
+			"name":     adminUser.Name,
+			"role":     adminUser.Role,
+		}
+		response["message"] = "Organization and admin user created successfully"
+	}
+
+	c.JSON(http.StatusCreated, response)
 }
 
 // UpdateOrganization updates an organization
@@ -357,11 +422,18 @@ func (h *GodHandler) UploadOrganizationLogo(c *gin.Context) {
 
 	// Generate unique filename
 	filename := fmt.Sprintf("org_%s_logo%s", organizationID, ext)
-	uploadPath := filepath.Join("uploads", "logos", filename)
+	uploadDir := filepath.Join("uploads", "logos")
+	uploadPath := filepath.Join(uploadDir, filename)
 
 	// Create directory if it doesn't exist
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
+		return
+	}
+
+	// Save the uploaded file
 	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file: " + err.Error()})
 		return
 	}
 

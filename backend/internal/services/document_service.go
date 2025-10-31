@@ -778,10 +778,7 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		}
 	}
 
-	// Sort by created_at desc and limit to 10
-	if len(recentLeaves) > 10 {
-		recentLeaves = recentLeaves[:10]
-	}
+	// Do not limit leaves here so HR/Admin can see all organization leaves on calendar
 
 	// Get recent documents using the same logic as Documents page
 	filters := make(map[string]interface{})
@@ -808,41 +805,63 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 	}
 
 	// Get recent salary slips for the current user only
-	recentSalarySlips, err := s.repos.SalarySlip.List(organizationID, map[string]interface{}{
+	// Handle gracefully if table doesn't exist
+	recentSalarySlips := []models.SalarySlip{}
+	salarySlipsList, err := s.repos.SalarySlip.List(organizationID, map[string]interface{}{
 		"user_id": userID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get recent salary slips: %w", err)
-	}
-
-	// Sort by created_at desc and limit to 3
-	if len(recentSalarySlips) > 3 {
-		recentSalarySlips = recentSalarySlips[:3]
+		// If table doesn't exist or other error, log but continue with empty array
+		fmt.Printf("Warning: Failed to get recent salary slips (table may not exist): %v\n", err)
+		recentSalarySlips = []models.SalarySlip{}
+	} else {
+		recentSalarySlips = salarySlipsList
+		// Sort by created_at desc and limit to 3
+		if len(recentSalarySlips) > 3 {
+			recentSalarySlips = recentSalarySlips[:3]
+		}
 	}
 
 	// Get leave balances for the current user
-	leaveBalances, err := s.getLeaveBalances(organizationID, userID)
+	// Handle gracefully if there's an error
+	leaveBalances := []LeaveBalanceResponse{}
+	balancesList, err := s.getLeaveBalances(organizationID, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get leave balances: %w", err)
+		// Log error but continue with empty array
+		fmt.Printf("Warning: Failed to get leave balances: %v\n", err)
+		leaveBalances = []LeaveBalanceResponse{}
+	} else {
+		leaveBalances = balancesList
 	}
 
 	// Get recent off-site entries for the current user
-	recentOffSites, err := s.repos.OffSite.List(organizationID, map[string]interface{}{
+	// Handle gracefully if table doesn't exist
+	recentOffSites := []models.OffSite{}
+	offSitesList, err := s.repos.OffSite.List(organizationID, map[string]interface{}{
 		"user_id": userID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get recent off-sites: %w", err)
-	}
-
-	// Sort by created_at desc and limit to 5
-	if len(recentOffSites) > 5 {
-		recentOffSites = recentOffSites[:5]
+		// If table doesn't exist or other error, log but continue with empty array
+		fmt.Printf("Warning: Failed to get recent off-sites (table may not exist): %v\n", err)
+		recentOffSites = []models.OffSite{}
+	} else {
+		recentOffSites = offSitesList
+		// Sort by created_at desc and limit to 5
+		if len(recentOffSites) > 5 {
+			recentOffSites = recentOffSites[:5]
+		}
 	}
 
 	// Get user birthdays for the organization
-	userBirthdays, err := s.getUserBirthdays(organizationID)
+	// Handle gracefully if there's an error
+	userBirthdays := []UserBirthdayResponse{}
+	birthdaysList, err := s.getUserBirthdays(organizationID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user birthdays: %w", err)
+		// Log error but continue with empty array
+		fmt.Printf("Warning: Failed to get user birthdays: %v\n", err)
+		userBirthdays = []UserBirthdayResponse{}
+	} else {
+		userBirthdays = birthdaysList
 	}
 
 	return &DashboardStatsResponse{

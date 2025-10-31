@@ -1,0 +1,6 @@
+./check_birthdays.go
+./check_org4_birthdays.go
+./debug_login.go
+./reset_passwords.go
+./test_password.go
+./update_birthday.go

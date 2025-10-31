@@ -181,21 +181,15 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
           <div className="rounded-lg border border-card bg-card p-4 shadow-sm calendar-legend">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Calendar Legend</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {userRole === "HR" || userRole === "Admin" || userRole === "God" ? (
-            <>
-              <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 rounded" style={{ backgroundColor: "#10b981" }}></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-200">Your Leaves</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 rounded" style={{ backgroundColor: "#6366f1" }}></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-200">Team Leaves</span>
-              </div>
-            </>
+          {userRole === "HR" || userRole === "Admin" || userRole === "God" || userRole === "Manager" ? (
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: "#6366f1" }}></div>
+              <span className="text-xs text-gray-600 dark:text-gray-200">Team Leaves</span>
+            </div>
           ) : (
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 rounded" style={{ backgroundColor: "#10b981" }}></div>
-                  <span className="text-xs text-gray-600 dark:text-gray-200">Your Leaves</span>
+              <span className="text-xs text-gray-600 dark:text-gray-200">Your Leaves</span>
             </div>
           )}
           <div className="flex items-center space-x-2">
@@ -210,10 +204,23 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#8b5cf6" }}></div>
                 <span className="text-xs text-gray-600 dark:text-gray-200">Notices</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: "#f97316" }}></div>
-                <span className="text-xs text-gray-600 dark:text-gray-200">Off-site Work</span>
-          </div>
+          {(userRole === "HR" || userRole === "Admin" || userRole === "God" || userRole === "Manager") ? (
+            <>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: "#fb923c" }}></div>
+                <span className="text-xs text-gray-600 dark:text-gray-200">My Off-site</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: "#f97316" }}></div>
+                <span className="text-xs text-gray-600 dark:text-gray-200">Team Off-site</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: "#f97316" }}></div>
+              <span className="text-xs text-gray-600 dark:text-gray-200">Off-site</span>
+            </div>
+          )}
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#06b6d4" }}></div>
                 <span className="text-xs text-gray-600 dark:text-gray-200">Birthdays</span>

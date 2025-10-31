@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getDashboardStats, getCurrentUser } from "../../lib/api";
+import { getDashboardStats, getCurrentUser, getLeaves, getOffSites } from "../../lib/api";
 import Loader from "../../components/Loader";
 import LeaveBalanceCard from "../../components/LeaveBalanceCard";
 import Calendar from "../../components/Calendar";
@@ -22,6 +22,20 @@ export default function DashboardPage() {
   const { data: dashboardData, isLoading, error } = useQuery({
     queryKey: ["dashboard-data"],
     queryFn: getDashboardStats,
+  });
+
+  // For managers: fetch team leaves; others may rely on dashboard stats or own leaves
+  const roleStr = String(userRole);
+  const { data: teamLeaves } = useQuery({
+    queryKey: ["team-leaves", new Date().getMonth()],
+    queryFn: () => getLeaves({ view: "team", status: "approved" }),
+    enabled: (roleStr === "Manager") || (roleStr === "HR") || (roleStr === "Admin") || (roleStr === "God"),
+  });
+
+  const { data: teamOffSites } = useQuery({
+    queryKey: ["team-offsites", new Date().getMonth()],
+    queryFn: () => getOffSites({ view: "team" }),
+    enabled: (roleStr === "Manager") || (roleStr === "HR") || (roleStr === "Admin") || (roleStr === "God"),
   });
 
 
@@ -66,15 +80,17 @@ export default function DashboardPage() {
     const events: any[] = [];
     
     
-    // Add holidays
+    // Add holidays (robust multi-day parsing)
     events.push(...(dashboardData?.data?.upcoming_holidays || [])
       .filter((h: any) => h.isCalendarEvent !== false)
       .map((h: any) => {
-        if (h.date_range) {
-          // Multi-day event (FullCalendar treats all-day 'end' as exclusive)
-          const [start, end] = h.date_range.split(" to ");
-          const startDate = new Date(start.trim());
-          const endInclusive = new Date(end.trim());
+        const range = h.date_range || h.dateRange;
+        if (range) {
+          // Multi-day event (support "to" or "-" separators). End is exclusive for all-day.
+          let parts = String(range).includes(" to ") ? String(range).split(" to ") : String(range).split("-");
+          if (parts.length >= 2) {
+            const startDate = new Date(parts[0].trim());
+            const endInclusive = new Date(parts[1].trim());
           const endExclusive = new Date(endInclusive);
           endExclusive.setDate(endExclusive.getDate() + 1); // make inclusive visible
           return {
@@ -88,6 +104,7 @@ export default function DashboardPage() {
               description: h.description
             }
           };
+          }
         } else if (h.date) {
           // Single day event
           return {
@@ -119,18 +136,52 @@ export default function DashboardPage() {
         }
       }));
 
-    // Add off-site entries
-    events.push(...(dashboardData?.data?.recent_off_sites || [])
-      .filter((o: any) => o.start_date && o.end_date)
-      .map((o: any) => ({
+    // Add off-site entries (separate My vs Team)
+    const myOffSites = (dashboardData?.data?.recent_off_sites || [])
+      .filter((o: any) => o.start_date && o.end_date);
+
+    events.push(...myOffSites.map((o: any) => {
+      const start = new Date(o.start_date);
+      const endInclusive = new Date(o.end_date);
+      const endExclusive = new Date(endInclusive);
+      endExclusive.setDate(endExclusive.getDate() + 1);
+      return ({
         title: `${o.title}`,
-        start: new Date(o.start_date),
-        end: new Date(o.end_date),
-        color: "#f97316",
+        start,
+        end: endExclusive,
+        allDay: true,
+        color: "#fb923c", // My Off-site
         extendedProps: {
-          type: 'offsite'
+          type: 'offsite',
+          isCurrentUser: true,
         }
-      })));
+      });
+    }));
+
+    const isManagerOrAbove = (roleStr === "Manager") || (roleStr === "HR") || (roleStr === "Admin") || (roleStr === "God");
+    if (isManagerOrAbove) {
+      const teamOff = (teamOffSites?.data || [])
+        .filter((o: any) => o.start_date && o.end_date)
+        .filter((o: any) => String(o.user_id) !== String(userId)); // exclude mine to avoid dupes
+
+      events.push(...teamOff.map((o: any) => {
+        const start = new Date(o.start_date);
+        const endInclusive = new Date(o.end_date);
+        const endExclusive = new Date(endInclusive);
+        endExclusive.setDate(endExclusive.getDate() + 1);
+        return ({
+          title: `${o.user?.name ? o.user.name + ' - ' : ''}${o.title}`,
+          start,
+          end: endExclusive,
+          allDay: true,
+          color: "#f97316", // Team Off-site
+          extendedProps: {
+            type: 'offsite',
+            isCurrentUser: false,
+          }
+        });
+      }));
+    }
 
     // Add birthdays - show for multiple years to make them appear as repeating events
     const currentYear = new Date().getFullYear();
@@ -164,90 +215,215 @@ export default function DashboardPage() {
         return birthdays;
       }));
 
-    // Add leaves with grouping for Admin/HR users - only approved leaves
-    const leaves = (dashboardData?.data?.recent_leaves || []).filter((leave: any) => leave.status === 'approved');
-    
-    if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
-      // Group leaves by date
-      const groupedLeaves = groupLeavesByDate(leaves);
-      
-      Object.entries(groupedLeaves).forEach(([date, dayLeaves]) => {
-        // Check if current user is in this group
-        const currentUserInGroup = dayLeaves.some((leave: any) => String(leave.user_id) === String(userId));
-        
-        if (dayLeaves.length === 1) {
-          // Single leave - show normally
-          const leave = dayLeaves[0];
-          const isCurrentUser = String(leave.user_id) === String(userId);
+    // Add leaves with grouping by day for privileged roles; personal multi-day bars for employees
+    const leavesRecent = (dashboardData?.data?.recent_leaves || []).filter((leave: any) => leave.status === 'approved');
+    const leavesTeam = (teamLeaves?.data || []).filter((leave: any) => leave.status === 'approved');
+
+    // Merge and de-duplicate by id
+    const leavesById: Record<string, any> = {};
+    [...leavesRecent, ...leavesTeam].forEach((lv: any) => {
+      if (lv && (lv.id != null)) leavesById[String(lv.id)] = lv;
+    });
+
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const monthEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+    const overlapsMonth = (from: Date, to: Date) => !(to < monthStart || from > monthEnd);
+
+    const isPrivileged = roleStr === "Manager" || roleStr === "HR" || roleStr === "Admin" || roleStr === "God";
+
+    if (isPrivileged) {
+      // Group team leaves by day
+      const byDate: Record<string, any[]> = {};
+      Object.values(leavesById).forEach((l: any) => {
+        const start = new Date(l.from_date || l.from);
+        const endInclusive = new Date(l.to_date || l.to);
+        if (!overlapsMonth(start, endInclusive)) return;
+        // iterate through each date in range
+        const cur = new Date(Math.max(start.getTime(), monthStart.getTime()));
+        const last = new Date(Math.min(endInclusive.getTime(), monthEnd.getTime()));
+        for (let d = new Date(cur); d <= last; d.setDate(d.getDate() + 1)) {
+          const key = d.toISOString().split('T')[0];
+          if (!byDate[key]) byDate[key] = [];
+          byDate[key].push(l);
+        }
+      });
+
+      Object.entries(byDate).forEach(([dateKey, dayLeaves]) => {
+        const date = new Date(dateKey);
+        const endExclusive = new Date(date);
+        endExclusive.setDate(endExclusive.getDate() + 1);
+        const currentUserInGroup = dayLeaves.some((l: any) => String(l.user_id) === String(userId));
+
+        if (dayLeaves.length > 1) {
+          // Grouped event with count and employee list
           events.push({
-            title: `${leave.user?.name || 'Employee'} - ${leave.type}`,
-            start: new Date(date),
-            end: new Date(date),
-            color: isCurrentUser ? "#10b981" : "#6366f1", // Green for current user, indigo for others
+            title: `${dayLeaves.length} employees on leave`,
+            start: date,
+            end: endExclusive,
+            allDay: true,
+            color: "#6366f1",
+            extendedProps: {
+              type: 'leave',
+              employees: dayLeaves.map((l: any) => ({
+                name: l.user?.name || 'Employee',
+                type: l.type,
+                status: l.status,
+                reason: l.reason,
+              })),
+              count: dayLeaves.length,
+              hasCurrentUser: currentUserInGroup,
+            },
+          });
+        } else {
+          // Single leave for that day
+          const l = dayLeaves[0];
+          const isCurrentUser = String(l.user_id) === String(userId);
+          events.push({
+            title: `${l.user?.name || (isCurrentUser ? 'You' : 'Employee')} - ${l.type}`,
+            start: date,
+            end: endExclusive,
+            allDay: true,
+            color: "#6366f1",
             extendedProps: {
               type: 'leave',
               employees: [{
-                name: leave.user?.name || 'Employee',
-                type: leave.type,
-                status: leave.status,
-                reason: leave.reason
+                name: l.user?.name || (isCurrentUser ? 'You' : 'Employee'),
+                type: l.type,
+                status: l.status,
+                reason: l.reason,
               }],
               count: 1,
-              isCurrentUser
-            }
-          });
-        } else {
-          // Multiple leaves - show grouped
-          const color = currentUserInGroup ? "#10b981" : "#6366f1"; // Green if current user is in group, indigo otherwise
-          events.push({
-            title: `${dayLeaves.length} employees on leave`,
-            start: new Date(date),
-            end: new Date(date),
-            color,
-            extendedProps: {
-              type: 'leave',
-              employees: dayLeaves.map((leave: any) => ({
-                name: leave.user?.name || 'Employee',
-                type: leave.type,
-                status: leave.status,
-                reason: leave.reason
-              })),
-              count: dayLeaves.length,
-              hasCurrentUser: currentUserInGroup
-            }
+              isCurrentUser,
+            },
           });
         }
       });
     } else {
-      // Regular employees - show only their own approved leaves
-      
-      const myLeaves = leaves.filter((l: any) => String(l.user_id) === String(userId));
-      
-      events.push(...myLeaves.map((l: any) => {
+      // Regular employee: show own leaves as multi-day bars
+      Object.values(leavesById).forEach((l: any) => {
+        const isCurrentUser = String(l.user_id) === String(userId);
+        if (!isCurrentUser) return;
         const start = new Date(l.from_date || l.from);
         const endInclusive = new Date(l.to_date || l.to);
+        if (!overlapsMonth(start, endInclusive)) return;
         const endExclusive = new Date(endInclusive);
-        endExclusive.setDate(endExclusive.getDate() + 1); // make all-day event inclusive
-        return ({
+        endExclusive.setDate(endExclusive.getDate() + 1);
+        events.push({
           title: l.type,
           start,
           end: endExclusive,
           allDay: true,
-          color: "#10b981", // Green for current user's leaves
+          color: "#10b981",
           extendedProps: {
             type: 'leave',
             employees: [{
               name: l.user?.name || 'You',
               type: l.type,
               status: l.status,
-              reason: l.reason
+              reason: l.reason,
             }],
             count: 1,
-            isCurrentUser: true
-          }
+            isCurrentUser: true,
+          },
         });
-      }));
+      });
     }
+
+    // Ensure at least one sample for each legend category in the current month
+    const now = new Date(monthStart);
+
+    const isInCurrentMonth = (d: Date | string) => {
+      const dt = d instanceof Date ? d : new Date(d);
+      return dt >= monthStart && dt <= monthEnd;
+    };
+
+    const hasTypeInMonth = (type: string, predicate?: (e: any) => boolean) =>
+      events.some((e) => {
+        const matchesType = e.extendedProps?.type === type;
+        const inMonth = isInCurrentMonth(e.start);
+        const ok = predicate ? predicate(e) : true;
+        return matchesType && inMonth && ok;
+      });
+
+    // Choose distinct days for samples to avoid overlap
+    const dayFor = (offset: number) => new Date(now.getFullYear(), now.getMonth(), Math.min(1 + offset, monthEnd.getDate()));
+
+    const maybePushSample = (
+      condition: boolean,
+      sample: { title: string; color: string; type: string; dayOffset: number; extra?: any }
+    ) => {
+      if (!condition) {
+        const start = dayFor(sample.dayOffset);
+        const endExclusive = new Date(start);
+        endExclusive.setDate(endExclusive.getDate() + 1);
+        events.push({
+          title: sample.title,
+          start,
+          end: endExclusive,
+          allDay: true,
+          color: sample.color,
+          extendedProps: { type: sample.type, __sample: true, ...(sample.extra || {}) },
+        });
+      }
+    };
+
+    // Samples based on legend and role
+    const isPrivilegedSamples = userRole === "HR" || userRole === "Admin" || userRole === "God" || userRole === "Manager";
+
+    if (isPrivilegedSamples) {
+      // Only Team Leaves sample for privileged users
+      maybePushSample(
+        hasTypeInMonth('leave'),
+        { title: 'Team Leave (sample)', color: '#6366f1', type: 'leave', dayOffset: 1 }
+      );
+    } else {
+      // Only your leaves for employees
+      maybePushSample(
+        hasTypeInMonth('leave', (e) => e.extendedProps?.isCurrentUser === true),
+        { title: 'Your Leave (sample)', color: '#10b981', type: 'leave', dayOffset: 0, extra: { isCurrentUser: true } }
+      );
+    }
+
+    // Off-site samples
+    if (isPrivilegedSamples) {
+      maybePushSample(
+        hasTypeInMonth('offsite', (e) => e.color === '#fb923c'),
+        { title: 'My Off-site (sample)', color: '#fb923c', type: 'offsite', dayOffset: 5 }
+      );
+      maybePushSample(
+        hasTypeInMonth('offsite', (e) => e.color === '#f97316'),
+        { title: 'Team Off-site (sample)', color: '#f97316', type: 'offsite', dayOffset: 6 }
+      );
+    } else {
+      maybePushSample(
+        hasTypeInMonth('offsite'),
+        { title: 'Off-site (sample)', color: '#f97316', type: 'offsite', dayOffset: 5 }
+      );
+    }
+
+    // Holidays
+    maybePushSample(
+      hasTypeInMonth('holiday'),
+      { title: 'Holiday (sample)', color: '#ef4444', type: 'holiday', dayOffset: 2 }
+    );
+
+    // Events
+    maybePushSample(
+      hasTypeInMonth('event'),
+      { title: 'Event (sample)', color: '#ec4899', type: 'event', dayOffset: 3 }
+    );
+
+    // Notices
+    maybePushSample(
+      hasTypeInMonth('notice'),
+      { title: 'Notice (sample)', color: '#8b5cf6', type: 'notice', dayOffset: 4 }
+    );
+
+    // Birthdays
+    maybePushSample(
+      hasTypeInMonth('birthday'),
+      { title: 'Birthday (sample)', color: '#06b6d4', type: 'birthday', dayOffset: 6 }
+    );
 
     return events;
   };

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
-import { Organization, PlatformStats, getPlatformStats, getOrganizations, getOrganizationDetails, updateOrganization, deleteOrganization, uploadOrganizationLogo } from "@/lib/api";
+import { Organization, PlatformStats, getPlatformStats, getOrganizations, getOrganizationDetails, updateOrganization, deleteOrganization, uploadOrganizationLogo, createOrganization, isAuthenticated, getCurrentUser } from "@/lib/api";
 
 interface CreateOrgRequest {
   name: string;
@@ -21,6 +22,23 @@ interface CreateOrgRequest {
 }
 
 export default function GodDashboard() {
+  const router = useRouter();
+  
+  // Check authentication and role on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (!isAuthenticated()) {
+        router.push("/signin");
+        return;
+      }
+      const user = getCurrentUser();
+      if (user?.role !== "God") {
+        router.push("/dashboard");
+        return;
+      }
+    }
+  }, [router]);
+
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -43,6 +61,8 @@ export default function GodDashboard() {
     is_active: true,
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploadingOrgId, setUploadingOrgId] = useState<number | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch platform statistics
@@ -68,20 +88,20 @@ export default function GodDashboard() {
   });
 
 
-  // Create organization mutation
+  // Create organization mutation - using the API function
   const createOrgMutation = useMutation({
     mutationFn: async (orgData: CreateOrgRequest) => {
-      const token = localStorage.getItem("token");
-      const response = await fetch("/api/god/organizations", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(orgData),
-      });
-      if (!response.ok) throw new Error("Failed to create organization");
-      return response.json();
+      // Check authentication before making request
+      if (!isAuthenticated()) {
+        throw new Error("You must be logged in to create an organization. Please log in first.");
+      }
+      const user = getCurrentUser();
+      if (user?.role !== "God") {
+        throw new Error("Only God users can create organizations.");
+      }
+      
+      // Use the API function which handles authentication properly
+      return await createOrganization(orgData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["god-organizations"] });
@@ -93,6 +113,10 @@ export default function GodDashboard() {
         description: "",
         admin_user: { username: "", email: "", password: "", name: "" },
       });
+    },
+    onError: (error: Error) => {
+      console.error("Failed to create organization:", error);
+      // Error will be displayed in the UI via mutation.error
     },
   });
 
@@ -124,10 +148,24 @@ export default function GodDashboard() {
 
   // Upload logo mutation
   const uploadLogoMutation = useMutation({
-    mutationFn: ({ orgId, file }: { orgId: string; file: File }) => uploadOrganizationLogo(orgId, file),
-    onSuccess: () => {
+    mutationFn: ({ orgId, file }: { orgId: string; file: File }) => {
+      setUploadingOrgId(parseInt(orgId));
+      setUploadSuccess(null);
+      return uploadOrganizationLogo(orgId, file);
+    },
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["god-organizations"] });
       setLogoFile(null);
+      setUploadSuccess(parseInt(variables.orgId));
+      setUploadingOrgId(null);
+      // Clear success message after 3 seconds
+      setTimeout(() => setUploadSuccess(null), 3000);
+      console.log("Logo uploaded successfully:", data.logo_url);
+    },
+    onError: (error: Error) => {
+      console.error("Failed to upload logo:", error);
+      setLogoFile(null);
+      setUploadingOrgId(null);
     },
   });
 
@@ -425,6 +463,18 @@ export default function GodDashboard() {
               </div>
             </div>
 
+            {createOrgMutation.error && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <p className="text-red-800 dark:text-red-200 text-sm font-medium">
+                  Error: {createOrgMutation.error.message}
+                </p>
+                {createOrgMutation.error.message.includes("log in") && (
+                  <p className="text-red-600 dark:text-red-300 text-xs mt-1">
+                    Please log out and log back in, or refresh the page.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex gap-3 pt-4">
               <Button
                 type="submit"
@@ -497,41 +547,83 @@ export default function GodDashboard() {
                 </div>
               </div>
               
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleViewOrg(org)}
-                >
-                  View Details
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEditOrg(org)}
-                >
-                  Edit
-                </Button>
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        uploadLogoMutation.mutate({ orgId: org.id.toString(), file });
-                      }
-                    }}
-                  />
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={uploadLogoMutation.isPending}
+                    onClick={() => handleViewOrg(org)}
                   >
-                    {uploadLogoMutation.isPending ? "Uploading..." : "Upload Logo"}
+                    View Details
                   </Button>
-                </label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEditOrg(org)}
+                  >
+                    Edit
+                  </Button>
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      id={`logo-upload-${org.id}`}
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/svg+xml,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          // Validate file size (5MB max)
+                          if (file.size > 5 * 1024 * 1024) {
+                            alert("File size too large. Maximum size is 5MB.");
+                            return;
+                          }
+                          // Validate file type
+                          const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp'];
+                          if (!validTypes.includes(file.type)) {
+                            alert("Invalid file type. Please upload an image file (JPG, PNG, GIF, SVG, or WebP).");
+                            return;
+                          }
+                          uploadLogoMutation.mutate({ orgId: org.id.toString(), file });
+                        }
+                        // Reset input so same file can be selected again
+                        e.target.value = '';
+                      }}
+                      disabled={uploadLogoMutation.isPending && uploadingOrgId === org.id}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={uploadLogoMutation.isPending && uploadingOrgId === org.id}
+                      onClick={() => document.getElementById(`logo-upload-${org.id}`)?.click()}
+                    >
+                      {uploadLogoMutation.isPending && uploadingOrgId === org.id ? (
+                        <span className="flex items-center gap-2">
+                          <span className="animate-spin">⏳</span>
+                          Uploading...
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          📷 Upload Logo
+                        </span>
+                      )}
+                    </Button>
+                  </label>
+                </div>
+                {uploadLogoMutation.error && uploadingOrgId === org.id && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 text-xs">
+                    <p className="text-red-800 dark:text-red-200">
+                      Upload failed: {uploadLogoMutation.error.message}
+                    </p>
+                  </div>
+                )}
+                {uploadSuccess === org.id && (
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-2 text-xs">
+                    <p className="text-green-800 dark:text-green-200">
+                      ✓ Logo uploaded successfully!
+                    </p>
+                  </div>
+                )}
               </div>
             </Card>
           </div>
@@ -566,6 +658,22 @@ export default function GodDashboard() {
             </div>
 
             <div className="space-y-6">
+              {/* Logo Display */}
+              {selectedOrg.organization.logo && (
+                <div className="flex justify-center mb-4">
+                  <img 
+                    src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${selectedOrg.organization.logo}`} 
+                    alt={`${selectedOrg.organization.name} logo`}
+                    className="w-32 h-32 rounded-lg object-cover border-2 border-gray-200 dark:border-gray-700 shadow-lg"
+                    onError={(e) => {
+                      // Hide broken images
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+              
               {/* Basic Information */}
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">

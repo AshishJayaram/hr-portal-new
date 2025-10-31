@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"net/http"
-	"strconv"
-	"time"
+    "net/http"
+    "strconv"
+    "time"
 
-	"hr-portal-backend/internal/services"
+    "hr-portal-backend/internal/models"
+    "hr-portal-backend/internal/services"
 
-	"github.com/gin-gonic/gin"
+    "github.com/gin-gonic/gin"
 )
 
 // OffSiteHandler handles off-site-related HTTP requests
@@ -245,4 +246,62 @@ func (h *OffSiteHandler) GetOffSitesByDateRange(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": offSites})
+}
+
+// ExportTeamOffSites handles GET /api/off-sites/export?month=YYYY-MM
+// Exports monthwise team/off-site entries for HR/Admin/God (org-wide) or manager team as CSV
+func (h *OffSiteHandler) ExportTeamOffSites(c *gin.Context) {
+    organizationID := c.GetString("organization_id")
+    userID := c.GetString("user_id")
+    role := c.GetString("role")
+
+    month := c.Query("month")
+    if month == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "month is required in format YYYY-MM"})
+        return
+    }
+    start, err := time.Parse("2006-01", month)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid month format. Use YYYY-MM"})
+        return
+    }
+    end := start.AddDate(0, 1, -1)
+
+    filters := map[string]interface{}{}
+    // Retrieve data
+    var offSites []models.OffSite
+    if role == "HR" || role == "Admin" || role == "God" {
+        list, err := h.offSiteService.ListOffSites(organizationID, filters)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list off-sites"})
+            return
+        }
+        // Filter overlaps
+        for _, o := range list {
+            if !o.EndDate.Before(start) && !o.StartDate.After(end) {
+                offSites = append(offSites, o)
+            }
+        }
+    } else {
+        list, err := h.offSiteService.ListManagerOffSites(userID, organizationID, filters)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list team off-sites"})
+            return
+        }
+        for _, o := range list {
+            if !o.EndDate.Before(start) && !o.StartDate.After(end) {
+                offSites = append(offSites, o)
+            }
+        }
+    }
+
+    c.Header("Content-Type", "text/csv")
+    c.Header("Content-Disposition", "attachment; filename=team-offsites-"+start.Format("2006-01")+".csv")
+    w := c.Writer
+    _, _ = w.Write([]byte("Employee,Title,Type,Start Date,End Date,Status,Description\n"))
+    for _, o := range offSites {
+        userName := o.User.Name
+        line := userName + "," + o.Title + "," + o.Type + "," + o.StartDate.Format("2006-01-02") + "," + o.EndDate.Format("2006-01-02") + "," + o.Status + "," + o.Description + "\n"
+        _, _ = w.Write([]byte(line))
+    }
 }

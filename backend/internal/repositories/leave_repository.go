@@ -461,6 +461,14 @@ func (r *leaveRepository) buildQuery(query *gorm.DB, filters map[string]interfac
 			query = query.Where("from_date >= ?", value)
 		case "to_date":
 			query = query.Where("to_date <= ?", value)
+        case "overlaps_range":
+            // Expect value to be a [2]time.Time or []time.Time{start, end}
+            if rng, ok := value.([]time.Time); ok && len(rng) == 2 {
+                start := rng[0]
+                end := rng[1]
+                // Overlap condition: leave.to_date >= start AND leave.from_date <= end
+                query = query.Where("to_date >= ? AND from_date <= ?", start, end)
+            }
 		}
 	}
 	return query

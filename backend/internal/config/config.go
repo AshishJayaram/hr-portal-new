@@ -41,6 +41,7 @@ type DatabaseConfig struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
+    SQLitePath      string
 }
 
 // RedisConfig holds Redis-related configuration
@@ -153,6 +154,7 @@ func Load() (*Config, error) {
 			MaxOpenConns:    viper.GetInt("DB_MAX_OPEN_CONNS"),
 			MaxIdleConns:    viper.GetInt("DB_MAX_IDLE_CONNS"),
 			ConnMaxLifetime: viper.GetDuration("DB_CONN_MAX_LIFETIME"),
+            SQLitePath:      viper.GetString("SQLITE_DB_PATH"),
 		},
 		Redis: RedisConfig{
 			Host:     viper.GetString("REDIS_HOST"),
@@ -220,6 +222,8 @@ func setDefaults() {
 	viper.SetDefault("DB_MAX_OPEN_CONNS", 25)
 	viper.SetDefault("DB_MAX_IDLE_CONNS", 25)
 	viper.SetDefault("DB_CONN_MAX_LIFETIME", "5m")
+    // Default SQLite DB path: consistent when running from repo root or backend dir
+    viper.SetDefault("SQLITE_DB_PATH", "./backend/hr_portal.db")
 
 	// Redis defaults
 	viper.SetDefault("REDIS_HOST", "localhost")
@@ -279,6 +283,7 @@ func bindEnvVars() {
 	viper.BindEnv("DB_MAX_OPEN_CONNS")
 	viper.BindEnv("DB_MAX_IDLE_CONNS")
 	viper.BindEnv("DB_CONN_MAX_LIFETIME")
+    viper.BindEnv("SQLITE_DB_PATH")
 
 	// Redis
 	viper.BindEnv("REDIS_HOST")

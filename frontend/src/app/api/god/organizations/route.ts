@@ -43,14 +43,24 @@ export async function POST(request: Request) {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     const authHeader = request.headers.get('authorization');
-    const body = await request.json();
     
     if (!authHeader) {
       return NextResponse.json(
-        { error: { message: 'Authorization header required' } },
+        { error: { message: 'Authorization header required. Please log in first.' } },
         { status: 401 }
       );
     }
+    
+    // Check if token is not "Bearer null" or empty
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token || token === 'null' || token === 'undefined') {
+      return NextResponse.json(
+        { error: { message: 'Invalid or missing authentication token. Please log in again.' } },
+        { status: 401 }
+      );
+    }
+    
+    const body = await request.json();
     
     const response = await fetch(`${backendUrl}/api/god/organizations`, {
       method: 'POST',

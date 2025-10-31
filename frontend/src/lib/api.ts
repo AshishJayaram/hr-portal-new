@@ -663,6 +663,47 @@ export const editLeave = (id: string, body: {
     body: JSON.stringify(body),
   });
 
+// -------------------- Exports (CSV) --------------------
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  let organizationId = typeof window !== "undefined" ? localStorage.getItem("organizationId") : null;
+  if (!organizationId && typeof window !== "undefined") {
+    const user = getCurrentUser();
+    organizationId = user?.organization_id ? String(user.organization_id) : null;
+  }
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(organizationId ? { "X-Organization-ID": organizationId } : {}),
+  };
+}
+
+export async function exportTeamLeavesCSV(month: string): Promise<Blob> {
+  const res = await fetch(`${API_URL}/api/leaves/export?month=${encodeURIComponent(month)}`, {
+    method: 'GET',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to export team leaves');
+  return await res.blob();
+}
+
+export async function exportTeamBalancesCSV(asOf: string): Promise<Blob> {
+  const res = await fetch(`${API_URL}/api/leaves/balances/export?as_of=${encodeURIComponent(asOf)}`, {
+    method: 'GET',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to export team balances');
+  return await res.blob();
+}
+
+export async function exportTeamOffSitesCSV(month: string): Promise<Blob> {
+  const res = await fetch(`${API_URL}/api/off-sites/export?month=${encodeURIComponent(month)}`, {
+    method: 'GET',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to export team off-sites');
+  return await res.blob();
+}
+
 // -------------------- Documents --------------------
 export const getDocuments = (params?: Record<string, string>) =>
   fetcher<any>(`/documents?${new URLSearchParams(params || {}).toString()}`).then((raw) => {

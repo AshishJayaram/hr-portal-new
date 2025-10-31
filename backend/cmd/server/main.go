@@ -222,6 +222,8 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		leaves.Use(middleware.OrganizationRequired())
 		{
 			leaves.GET("", handlers.Leave.ListLeaves)
+			leaves.GET("/export", middleware.RoleRequired("HR", "Admin", "God"), handlers.Leave.ExportTeamLeaves)
+			leaves.GET("/balances/export", middleware.RoleRequired("HR", "Admin", "God"), handlers.Leave.ExportTeamBalances)
 			leaves.POST("", handlers.Leave.ApplyLeave)
 			leaves.POST("/calculate-spillover", handlers.Leave.CalculateSpillover)
 			leaves.GET("/team-balances", handlers.Leave.GetTeamLeaveBalances)
@@ -375,6 +377,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 		offSites.Use(middleware.OrganizationRequired())
 		{
 			offSites.GET("", handlers.OffSite.ListOffSites)
+			offSites.GET("/export", middleware.RoleRequired("HR", "Admin", "God"), handlers.OffSite.ExportTeamOffSites)
 			offSites.POST("", handlers.OffSite.CreateOffSite)
 			offSites.GET("/:id", handlers.OffSite.GetOffSite)
 			offSites.PATCH("/:id", handlers.OffSite.UpdateOffSite)

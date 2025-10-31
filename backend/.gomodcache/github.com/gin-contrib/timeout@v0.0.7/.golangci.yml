@@ -1,0 +1,58 @@
+linters:
+  enable-all: false
+  disable-all: true
+  fast: false
+  enable:
+    - bodyclose
+    - depguard
+    - dogsled
+    - dupl
+    - errcheck
+    - exportloopref
+    - exhaustive
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - goimports
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+    - gofumpt
+
+linters-settings:
+  depguard:
+    rules:
+      Main:
+        files:
+          - $all
+          - "!$test"
+        allow:
+          - $gostd
+          - github.com/gin-gonic/gin
+      Test:
+        files:
+          - $test
+        allow:
+          - $gostd
+          - github.com/gin-gonic/gin
+          - github.com/stretchr/testify
+
+run:
+  timeout: 3m

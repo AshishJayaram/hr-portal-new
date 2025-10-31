@@ -9,6 +9,7 @@ import {
   deleteOffSite,
   getCurrentUser,
   canManageOffSites,
+  exportTeamOffSitesCSV,
 } from "@/lib/api";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
@@ -25,6 +26,7 @@ import { motion } from "framer-motion";
 
 export default function OffSitePage() {
   const user = getCurrentUser();
+  const [exportMonth, setExportMonth] = useState<string>(new Date().toISOString().slice(0,7));
   const userId = user?.id || "u1";
   const [offSites, setOffSites] = useState<any[]>([]);
   const [filteredOffSites, setFilteredOffSites] = useState<any[]>([]);
@@ -196,11 +198,45 @@ export default function OffSitePage() {
           <Tabs
             tabs={[
               { id: 'my-offsites', label: 'My Off-sites' },
-              { id: 'team-offsites', label: 'Team Off-sites' }
+              { id: 'team-offsites', label: 'Team Off-site' }
             ]}
             activeTab={activeTab}
             onTabChange={(tabId) => setActiveTab(tabId as 'my-offsites' | 'team-offsites')}
           />
+        </Card>
+      )}
+
+      {/* Export controls for HR/Admin on Team Off-sites */}
+      {canViewTeamOffSites && activeTab === 'team-offsites' && (
+        <Card>
+          <div className="flex flex-col md:flex-row md:items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm text-secondary mb-1">Off-sites Month</label>
+              <input type="month" value={exportMonth} onChange={(e) => setExportMonth(e.target.value)} className="w-full rounded-md border bg-transparent p-2" />
+            </div>
+            <div>
+              <Button
+                onClick={async () => {
+                  try {
+                    const blob = await exportTeamOffSitesCSV(exportMonth);
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `team-offsites-${exportMonth}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                  } catch (e:any) {
+                    // eslint-disable-next-line no-console
+                    console.error(e);
+                  }
+                }}
+              >
+                Download Team Off-sites (CSV)
+              </Button>
+            </div>
+          </div>
         </Card>
       )}
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/services"
@@ -19,13 +20,15 @@ type LeaveHandler struct {
 	service      services.LeaveService
 	lopService   services.LOPService
 	auditService services.AuditService
+    userService  services.UserService
 }
 
-func NewLeaveHandler(service services.LeaveService, lopService services.LOPService, auditService services.AuditService) *LeaveHandler {
+func NewLeaveHandler(service services.LeaveService, lopService services.LOPService, auditService services.AuditService, userService services.UserService) *LeaveHandler {
 	return &LeaveHandler{
 		service:      service,
 		lopService:   lopService,
 		auditService: auditService,
+        userService:  userService,
 	}
 }
 
@@ -513,4 +516,164 @@ func (h *LeaveHandler) EditLeave(c *gin.Context) {
 	}).Info("Leave request edited")
 
 	c.JSON(http.StatusOK, gin.H{"message": "Leave request updated successfully and reverted to pending state", "leave": updatedLeave})
+}
+
+// ExportTeamLeaves handles GET /api/leaves/export
+// Exports monthwise approved leaves for team (manager) or entire org (HR/Admin/God) as CSV
+func (h *LeaveHandler) ExportTeamLeaves(c *gin.Context) {
+    organizationID := c.GetString("organization_id")
+    userID := c.GetString("user_id")
+    role := c.GetString("role")
+
+    month := c.Query("month") // YYYY-MM
+    if month == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "month is required in format YYYY-MM"})
+        return
+    }
+    start, err := time.Parse("2006-01", month)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid month format. Use YYYY-MM"})
+        return
+    }
+    // End of month inclusive
+    end := start.AddDate(0, 1, -1)
+
+    filters := map[string]interface{}{
+        "status":          "approved",
+        "overlaps_range":  []time.Time{start, end},
+    }
+
+    var leaves []models.Leave
+    if role == "HR" || role == "Admin" || role == "God" {
+        // Org-wide
+        list, err := h.service.ListLeaves(organizationID, filters)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+        leaves = list
+    } else {
+        // Manager team (recursive)
+        list, err := h.service.GetTeamLeavesRecursive(userID, organizationID, filters)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+        leaves = list
+    }
+
+    // Build CSV
+    c.Header("Content-Type", "text/csv")
+    filename := fmt.Sprintf("team-leaves-%s.csv", start.Format("2006-01"))
+    c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+
+    w := c.Writer
+    // Header row
+    _, _ = w.Write([]byte("Employee,Type,Status,From Date,To Date,Days,Reason,Approved At\n"))
+    for _, l := range leaves {
+        name := l.User.Name
+        typ := l.Type
+        status := l.Status
+        from := l.FromDate.Format("2006-01-02")
+        to := l.ToDate.Format("2006-01-02")
+        days := fmt.Sprintf("%d", int(l.Days))
+        reason := strings.ReplaceAll(l.Reason, ",", " ")
+        approvedAt := ""
+        if l.ApprovedAt != nil {
+            approvedAt = l.ApprovedAt.Format("2006-01-02")
+        }
+        line := fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s\n", name, typ, status, from, to, days, reason, approvedAt)
+        _, _ = w.Write([]byte(line))
+    }
+}
+
+// ExportTeamBalances handles GET /api/leaves/balances/export?as_of=YYYY-MM-DD
+// Exports team leave balances as of a selected date as CSV
+func (h *LeaveHandler) ExportTeamBalances(c *gin.Context) {
+    organizationID := c.GetString("organization_id")
+    userID := c.GetString("user_id")
+    role := c.GetString("role")
+
+    asOfStr := c.Query("as_of")
+    if asOfStr == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "as_of is required in format YYYY-MM-DD"})
+        return
+    }
+    asOf, err := time.Parse("2006-01-02", asOfStr)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid as_of format. Use YYYY-MM-DD"})
+        return
+    }
+
+    // Determine user scope
+    var users []models.User
+    if role == "HR" || role == "Admin" || role == "God" {
+        users, err = h.userService.ListUsers(organizationID, map[string]interface{}{})
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list users"})
+            return
+        }
+    } else {
+        // Get subordinate users recursively via service repository helpers
+        // Fallback: get team leaves to extract user IDs
+        teamLeaves, err := h.service.GetTeamLeavesRecursive(userID, organizationID, map[string]interface{}{})
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+        userSet := map[uint]bool{}
+        for _, l := range teamLeaves {
+            userSet[l.UserID] = true
+        }
+        for uid := range userSet {
+            users = append(users, models.User{BaseModel: models.BaseModel{ID: uid}})
+        }
+    }
+
+    // For each user, compute balances as of date by summing approved leaves up to as_of
+    // and pairing against allocations for current year
+    // currentYear := asOf.Year() // not used
+    // Access repos via service to fetch allocations; if not possible directly, compute from leaves only
+    // We'll compute used days per category by querying leaves filtered by to_date <= as_of
+
+    // Build rows: User, Category, Total, Used(as of), Remaining
+    type row struct{ user, category string; total, used, remaining int }
+    var rows []row
+
+    for _, u := range users {
+        uidStr := strconv.FormatUint(uint64(u.ID), 10)
+        // Get allocations via leave balance call (current data)
+        balances, _ := h.service.GetLeaveBalance(uidStr)
+
+        // Compute used as of
+        usedByCategory := map[string]int{}
+        leaves, _ := h.service.ListLeaves(organizationID, map[string]interface{}{
+            "user_id": uidStr,
+            "status":  "approved",
+            "to_date": asOf,
+        })
+        for _, l := range leaves {
+            catID := strconv.FormatUint(uint64(l.CategoryID), 10)
+            usedByCategory[catID] += int(l.Days)
+        }
+
+        // Merge into rows
+        for _, b := range balances {
+            used := usedByCategory[b.CategoryID]
+            remaining := b.TotalDays - used
+            if remaining < 0 {
+                remaining = 0
+            }
+            rows = append(rows, row{user: u.Name, category: b.CategoryName, total: b.TotalDays, used: used, remaining: remaining})
+        }
+    }
+
+    c.Header("Content-Type", "text/csv")
+    c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=team-balances-%s.csv", asOf.Format("2006-01-02")))
+    w := c.Writer
+    _, _ = w.Write([]byte("Employee,Category,Total Days,Used (as of),Remaining\n"))
+    for _, r := range rows {
+        line := fmt.Sprintf("%s,%s,%d,%d,%d\n", strings.ReplaceAll(r.user, ",", " "), strings.ReplaceAll(r.category, ",", " "), r.total, r.used, r.remaining)
+        _, _ = w.Write([]byte(line))
+    }
 }
