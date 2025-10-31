@@ -19,13 +19,15 @@ type LeaveHandler struct {
 	service      services.LeaveService
 	lopService   services.LOPService
 	auditService services.AuditService
+	userService  services.UserService
 }
 
-func NewLeaveHandler(service services.LeaveService, lopService services.LOPService, auditService services.AuditService) *LeaveHandler {
+func NewLeaveHandler(service services.LeaveService, lopService services.LOPService, auditService services.AuditService, userService services.UserService) *LeaveHandler {
 	return &LeaveHandler{
 		service:      service,
 		lopService:   lopService,
 		auditService: auditService,
+		userService:  userService,
 	}
 }
 
@@ -141,7 +143,7 @@ func (h *LeaveHandler) ListLeaves(c *gin.Context) {
 // ApplyLeave handles POST /api/leaves
 func (h *LeaveHandler) ApplyLeave(c *gin.Context) {
 	// Get user ID and organization ID from context (set by auth middleware)
-	userID, exists := c.Get("user_id")
+	currentUserID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
@@ -153,6 +155,11 @@ func (h *LeaveHandler) ApplyLeave(c *gin.Context) {
 		return
 	}
 
+	userRole, exists := c.Get("user_role")
+	if !exists {
+		userRole = ""
+	}
+
 	var req services.ApplyLeaveRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -160,9 +167,35 @@ func (h *LeaveHandler) ApplyLeave(c *gin.Context) {
 		return
 	}
 
-	// Set user ID and organization ID from context
-	req.UserID = userID.(string)
+	// Set organization ID from context
 	req.OrganizationID = orgID.(string)
+
+	// Check if user is applying on behalf of someone else
+	// HR and Admin can apply on behalf of employees
+	isHRorAdmin := userRole == "HR" || userRole == "Admin" || userRole == "God"
+
+	// If request includes user_id and current user is HR/Admin, use the provided user_id
+	// Otherwise, use the current user's ID
+	if req.UserID != "" && isHRorAdmin {
+		// Validate that the target user is in the same organization
+		targetUser, err := h.userService.GetUser(req.UserID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID: " + err.Error()})
+			return
+		}
+
+		// Verify target user is in the same organization
+		if fmt.Sprintf("%d", targetUser.OrganizationID) != orgID.(string) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Cannot apply leave for user in different organization"})
+			return
+		}
+
+		// Use the provided user ID (HR/Admin applying on behalf of employee)
+		// req.UserID is already set from the request body
+	} else {
+		// Regular employee applying for themselves, or invalid user_id provided
+		req.UserID = currentUserID.(string)
+	}
 
 	// Map leave type to category ID
 	// TODO: This should be dynamic based on leave categories in the database
@@ -352,7 +385,7 @@ func (h *LeaveHandler) ApproveLeave(c *gin.Context) {
 	leaveIDStr := strconv.FormatUint(uint64(approvedLeave.ID), 10)
 	changeSummary := fmt.Sprintf("Leave approved: %s from %s to %s", approvedLeave.Type, approvedLeave.FromDate.Format("2006-01-02"), approvedLeave.ToDate.Format("2006-01-02"))
 	if err := h.auditService.LogLeaveChange(orgIDStr, leaveIDStr, userID.(string), "APPROVE", changeSummary, c.Request); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
+		// Failed to log audit
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": approvedLeave, "message": "Leave approved successfully"})
@@ -407,7 +440,7 @@ func (h *LeaveHandler) RejectLeave(c *gin.Context) {
 	leaveIDStr := strconv.FormatUint(uint64(rejectedLeave.ID), 10)
 	changeSummary := fmt.Sprintf("Leave rejected: %s from %s to %s (Reason: %s)", rejectedLeave.Type, rejectedLeave.FromDate.Format("2006-01-02"), rejectedLeave.ToDate.Format("2006-01-02"), req.Reason)
 	if err := h.auditService.LogLeaveChange(orgIDStr, leaveIDStr, userID.(string), "REJECT", changeSummary, c.Request); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
+		// Failed to log audit
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": rejectedLeave, "message": "Leave rejected successfully"})

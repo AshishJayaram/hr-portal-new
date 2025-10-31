@@ -424,8 +424,9 @@ type Reimbursement struct {
 // Feedback represents bug reports and feedback from users
 type Feedback struct {
 	BaseModel
-	UserID         uint       `json:"user_id" gorm:"not null;index"`
+	UserID         *uint      `json:"user_id" gorm:"index"` // Nullable to support anonymous feedback
 	OrganizationID uint       `json:"organization_id" gorm:"not null;index"`
+	IsAnonymous    bool       `json:"is_anonymous" gorm:"default:false"` // Flag for anonymous submissions
 	Title          string     `json:"title" gorm:"not null"`
 	Description    string     `json:"description" gorm:"not null"`
 	Type           string     `json:"type" gorm:"not null;check:type IN ('bug','feature','improvement','other')"`
@@ -437,7 +438,7 @@ type Feedback struct {
 	ResolvedBy     *uint      `json:"resolved_by" gorm:"index"`
 
 	// Relationships
-	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	User         *User        `json:"user,omitempty" gorm:"foreignKey:UserID"`
 	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
 	Assignee     *User        `json:"assignee,omitempty" gorm:"foreignKey:AssignedTo"`
 	Resolver     *User        `json:"resolver,omitempty" gorm:"foreignKey:ResolvedBy"`
@@ -527,4 +528,29 @@ type AuditLog struct {
 func (la *LeaveAllocation) BeforeUpdate(tx *gorm.DB) error {
 	la.RemainingDays = la.TotalDays - la.UsedDays
 	return nil
+}
+
+// PasswordResetToken represents a password reset token
+type PasswordResetToken struct {
+	BaseModel
+	UserID    uint      `json:"user_id" gorm:"not null;index"`
+	Token     string    `json:"token" gorm:"not null;uniqueIndex;size:255"`
+	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
+	Used      bool      `json:"used" gorm:"default:false"`
+
+	// Relationships
+	User User `json:"user,omitempty" gorm:"foreignKey:UserID"`
+}
+
+// OTPToken represents an OTP token for email-based login
+type OTPToken struct {
+	BaseModel
+	UserID    uint      `json:"user_id" gorm:"not null;index"`
+	Email     string    `json:"email" gorm:"not null;index"`
+	OTP       string    `json:"otp" gorm:"not null;size:6"`
+	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
+	Used      bool      `json:"used" gorm:"default:false"`
+
+	// Relationships
+	User User `json:"user,omitempty" gorm:"foreignKey:UserID"`
 }

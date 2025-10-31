@@ -31,6 +31,11 @@ func Initialize(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// Enable foreign keys for SQLite (required for CASCADE deletes)
+	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
+		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
+	}
+
 	// Configure connection pool
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -73,6 +78,9 @@ func migrate(db *gorm.DB) error {
 		&models.EmployeePrivateDocument{},
 		&models.DocumentAcknowledgment{},
 		&models.KRA{},
+		&models.Feedback{},
+		&models.PasswordResetToken{},
+		&models.OTPToken{},
 	)
 
 	if err != nil {
@@ -82,7 +90,7 @@ func migrate(db *gorm.DB) error {
 	// One-time backfill: assign dummy birthdays where missing (SQLite syntax)
 	if err := db.Exec(`UPDATE users SET birthday = DATE('1970-01-01','+' || (abs(random()) % 18250) || ' days') WHERE birthday IS NULL`).Error; err != nil {
 		// Non-fatal; log and continue
-		fmt.Printf("birthday backfill failed: %v\n", err)
+		// Birthday backfill failed
 	}
 
 	// Create indexes for better performance

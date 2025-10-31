@@ -61,84 +61,465 @@ export default function DashboardPage() {
     return grouped;
   };
 
+  // Helper to create all-day leave event with exclusive end for proper multi-day visibility
+  const createLeaveEvent = (leave: any, isCurrentUser: boolean, title: string, employees: any[], count: number) => {
+    const startDate = new Date(leave.from_date || leave.from);
+    const endDate = new Date(leave.to_date || leave.to);
+    
+    // For all-day events, FullCalendar treats 'end' as exclusive
+    // So we add 1 day to make the end date inclusive and visible for multi-day leaves
+    const endExclusive = new Date(endDate);
+    endExclusive.setDate(endExclusive.getDate() + 1);
+    
+    return {
+      title,
+      start: startDate,
+      end: endExclusive,
+      allDay: true,
+      color: isCurrentUser ? "#10b981" : "#6366f1",
+      extendedProps: {
+        type: 'leave',
+        employees,
+        count,
+        isCurrentUser,
+        hasCurrentUser: isCurrentUser
+      }
+    };
+  };
+
+  // Helper to get date key for grouping
+  const getDateKey = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
+
+  // Helper to create daywise grouped events
+  // Groups leaves and off-sites separately when multiple occur on the same day
+  // Removes individual events when they're part of a grouped event
+  const createDaywiseGroupedEvents = (
+    allEvents: any[],
+    groupedEventsByDate: Map<string, any[]>
+  ): any[] => {
+    const finalEvents: any[] = [];
+    const processedEventIds = new Set<string>();
+    const processedDates = new Set<string>();
+    
+    // Track dates that have grouped events (so we can exclude individual events on those dates)
+    const datesWithGroupedLeaves = new Set<string>();
+    const datesWithGroupedOffsites = new Set<string>();
+    const datesWithGroupedHolidays = new Set<string>();
+
+    // Process each date that has events
+    groupedEventsByDate.forEach((dayEvents, dateKey) => {
+      if (processedDates.has(dateKey)) return;
+      
+      // Group by type - keep leaves, off-sites (my vs team), and holidays separate
+      const leaves = dayEvents.filter(e => e.extendedProps?.type === 'leave');
+      const holidays = dayEvents.filter(e => e.extendedProps?.type === 'holiday');
+      const myOffsites = dayEvents.filter(e => e.extendedProps?.type === 'offsite' && e.extendedProps?.isMyOffSite === true);
+      const teamOffsites = dayEvents.filter(e => e.extendedProps?.type === 'offsite' && e.extendedProps?.isMyOffSite !== true);
+      const otherEvents = dayEvents.filter(e => 
+        e.extendedProps?.type !== 'leave' && 
+        e.extendedProps?.type !== 'holiday' && 
+        e.extendedProps?.type !== 'offsite'
+      );
+
+      const day = new Date(dateKey + 'T00:00:00');
+      const dayEnd = new Date(day.getTime() + 24 * 60 * 60 * 1000);
+      
+      // Group LEAVES separately - if more than one leave on this day, group them
+      if (leaves.length > 1) {
+        const eventId = `grouped-leave-${dateKey}`;
+        if (!processedEventIds.has(eventId)) {
+          processedEventIds.add(eventId);
+          datesWithGroupedLeaves.add(dateKey); // Mark this date as having grouped leaves
+          
+          // Collect all unique employees from all leaves on this day
+          const allEmployees = leaves.flatMap(e => e.extendedProps?.employees || []);
+          // Remove duplicates by name and type
+          const uniqueEmployees = Array.from(
+            new Map(allEmployees.map((emp: any) => [`${emp.name}-${emp.type}`, emp])).values()
+          );
+          
+          finalEvents.push({
+            title: `${leaves.length} employees on leave`,
+            start: day,
+            end: dayEnd,
+            allDay: true,
+            color: "#6366f1",
+            extendedProps: {
+              type: 'leave',
+              employees: uniqueEmployees,
+              count: leaves.length,
+              grouped: true
+            }
+          });
+          // Mark ALL individual leaves for this day as processed (so they don't show individually)
+          leaves.forEach(e => {
+            const eId = `${getDateKey(new Date(e.start))}-${e.title}`;
+            processedEventIds.add(eId);
+            // Also mark by date to exclude from multi-day events on this date
+            const dateId = `${getDateKey(new Date(e.start))}-leave-${e.title}`;
+            processedEventIds.add(dateId);
+          });
+        }
+      } else if (leaves.length === 1) {
+        // Single leave - show individually (only if not part of a grouped day)
+        if (!datesWithGroupedLeaves.has(dateKey)) {
+          const eventId = `${getDateKey(new Date(leaves[0].start))}-${leaves[0].title}`;
+          if (!processedEventIds.has(eventId)) {
+            processedEventIds.add(eventId);
+            finalEvents.push(leaves[0]);
+          }
+        }
+      }
+      
+      // Group HOLIDAYS if multiple on same day
+      if (holidays.length > 1) {
+        const eventId = `grouped-holiday-${dateKey}`;
+        if (!processedEventIds.has(eventId)) {
+          processedEventIds.add(eventId);
+          datesWithGroupedHolidays.add(dateKey);
+          finalEvents.push({
+            title: `${holidays.length} holidays/events`,
+            start: day,
+            end: dayEnd,
+            allDay: true,
+            color: "#ef4444",
+            extendedProps: {
+              type: 'holiday',
+              holidays: holidays.map(e => ({ 
+                title: e.title, 
+                type: e.extendedProps?.type || 'holiday',
+                description: e.extendedProps?.description 
+              })),
+              count: holidays.length,
+              grouped: true
+            }
+          });
+          holidays.forEach(e => {
+            const eId = `${getDateKey(new Date(e.start))}-${e.title}`;
+            processedEventIds.add(eId);
+          });
+        }
+      } else if (holidays.length === 1) {
+        if (!datesWithGroupedHolidays.has(dateKey)) {
+          const eventId = `${getDateKey(new Date(holidays[0].start))}-${holidays[0].title}`;
+          if (!processedEventIds.has(eventId)) {
+            processedEventIds.add(eventId);
+            finalEvents.push(holidays[0]);
+          }
+        }
+      }
+      
+      // Group MY OFF-SITES separately - if more than one of my off-sites on this day, group them
+      if (myOffsites.length > 1) {
+        const eventId = `grouped-my-offsite-${dateKey}`;
+        if (!processedEventIds.has(eventId)) {
+          processedEventIds.add(eventId);
+          datesWithGroupedOffsites.add(dateKey); // Mark this date as having grouped off-sites
+          
+          // Collect all unique my off-sites from this day
+          const allMyOffsites = myOffsites.map(e => ({
+            title: e.title,
+            user: e.extendedProps?.user || e.extendedProps?.originalOffSite?.user,
+            originalOffSite: e.extendedProps?.originalOffSite
+          }));
+          
+          finalEvents.push({
+            title: `${myOffsites.length} of my off-site entries`,
+            start: day,
+            end: dayEnd,
+            allDay: true,
+            color: "#f97316", // Orange for my off-sites
+            extendedProps: {
+              type: 'offsite',
+              offSiteType: 'my-offsite',
+              offsites: allMyOffsites,
+              count: myOffsites.length,
+              grouped: true,
+              isMyOffSite: true
+            }
+          });
+          // Mark ALL individual my off-sites for this day as processed
+          myOffsites.forEach(e => {
+            const eId = `${getDateKey(new Date(e.start))}-${e.title}`;
+            processedEventIds.add(eId);
+            const dateId = `${getDateKey(new Date(e.start))}-my-offsite-${e.title}`;
+            processedEventIds.add(dateId);
+          });
+        }
+      } else if (myOffsites.length === 1) {
+        // Single my off-site - show individually (only if not part of a grouped day)
+        if (!datesWithGroupedOffsites.has(dateKey)) {
+          const eventId = `${getDateKey(new Date(myOffsites[0].start))}-${myOffsites[0].title}`;
+          if (!processedEventIds.has(eventId)) {
+            processedEventIds.add(eventId);
+            finalEvents.push(myOffsites[0]);
+          }
+        }
+      }
+      
+      // Group TEAM OFF-SITES separately - if more than one team off-site on this day, group them
+      if (teamOffsites.length > 1) {
+        const eventId = `grouped-team-offsite-${dateKey}`;
+        if (!processedEventIds.has(eventId)) {
+          processedEventIds.add(eventId);
+          datesWithGroupedOffsites.add(dateKey); // Mark this date as having grouped off-sites
+          
+          // Collect all unique team off-sites from this day
+          const allTeamOffsites = teamOffsites.map(e => ({
+            title: e.title,
+            user: e.extendedProps?.user || e.extendedProps?.originalOffSite?.user,
+            originalOffSite: e.extendedProps?.originalOffSite
+          }));
+          
+          finalEvents.push({
+            title: `${teamOffsites.length} team off-site entries`,
+            start: day,
+            end: dayEnd,
+            allDay: true,
+            color: "#e91e63", // Dark Pink for team off-sites
+            extendedProps: {
+              type: 'offsite',
+              offSiteType: 'team-offsite',
+              offsites: allTeamOffsites,
+              count: teamOffsites.length,
+              grouped: true,
+              isMyOffSite: false
+            }
+          });
+          // Mark ALL individual team off-sites for this day as processed
+          teamOffsites.forEach(e => {
+            const eId = `${getDateKey(new Date(e.start))}-${e.title}`;
+            processedEventIds.add(eId);
+            const dateId = `${getDateKey(new Date(e.start))}-team-offsite-${e.title}`;
+            processedEventIds.add(dateId);
+          });
+        }
+      } else if (teamOffsites.length === 1) {
+        // Single team off-site - show individually (only if not part of a grouped day)
+        if (!datesWithGroupedOffsites.has(dateKey)) {
+          const eventId = `${getDateKey(new Date(teamOffsites[0].start))}-${teamOffsites[0].title}`;
+          if (!processedEventIds.has(eventId)) {
+            processedEventIds.add(eventId);
+            finalEvents.push(teamOffsites[0]);
+          }
+        }
+      }
+      
+      // Add other events (birthdays, etc.)
+      otherEvents.forEach(event => {
+        const eventId = `${getDateKey(new Date(event.start))}-${event.title}`;
+        if (!processedEventIds.has(eventId)) {
+          processedEventIds.add(eventId);
+          finalEvents.push(event);
+        }
+      });
+      
+      processedDates.add(dateKey);
+    });
+
+    // Multi-day events are now broken down into day-wise events above
+    // So we don't need to add them back as spanning events
+    // All events (leaves, off-sites, holidays) are now day-wise and handled by grouping logic
+
+    return finalEvents;
+  };
+
   // Create calendar events with grouping for Admin/HR users
   const createCalendarEvents = () => {
-    const events: any[] = [];
+    const allEvents: any[] = [];
+    const groupedEventsByDate = new Map<string, any[]>();
     
+    // Process holidays with robust multi-day parsing
+    const holidays = dashboardData?.data?.upcoming_holidays || [];
     
-    // Add holidays
-    events.push(...(dashboardData?.data?.upcoming_holidays || [])
-      .filter((h: any) => h.isCalendarEvent !== false)
-      .map((h: any) => {
-        if (h.date_range) {
+    holidays
+      .filter((h: any) => {
+        // Include if isCalendarEvent is true, undefined, or null (default to true)
+        const isCalendarEvent = h.isCalendarEvent !== false;
+        return isCalendarEvent;
+      })
+      .forEach((h: any) => {
+        const range = h.date_range || h.dateRange;
+        let event: any = null;
+        
+        // Try to parse multi-day event first
+        if (range && String(range).trim() !== '') {
           // Multi-day event (FullCalendar treats all-day 'end' as exclusive)
-          const [start, end] = h.date_range.split(" to ");
-          const startDate = new Date(start.trim());
-          const endInclusive = new Date(end.trim());
-          const endExclusive = new Date(endInclusive);
-          endExclusive.setDate(endExclusive.getDate() + 1); // make inclusive visible
-          return {
-            title: h.name || h.title,
-            start: startDate,
-            end: endExclusive,
-            allDay: true,
-            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
-            extendedProps: {
-              type: h.type || 'holiday',
-              description: h.description
+          // Support both "YYYY-MM-DD to YYYY-MM-DD" and "YYYY-MM-DD - YYYY-MM-DD" formats
+          const rangeStr = String(range).trim();
+          let parts: string[] = [];
+          
+          if (rangeStr.includes(" to ")) {
+            parts = rangeStr.split(" to ");
+          } else if (rangeStr.includes(" - ")) {
+            parts = rangeStr.split(" - ");
+          }
+          
+          if (parts.length >= 2) {
+            try {
+              const startStr = parts[0].trim();
+              const endStr = parts[1].trim();
+              const startDate = new Date(startStr);
+              const endInclusive = new Date(endStr);
+              
+              // Validate dates
+              if (!isNaN(startDate.getTime()) && !isNaN(endInclusive.getTime())) {
+                const endExclusive = new Date(endInclusive);
+                endExclusive.setDate(endExclusive.getDate() + 1); // make inclusive visible
+                event = {
+                  title: h.name || h.title,
+                  start: startDate,
+                  end: endExclusive,
+                  allDay: true,
+                  color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
+                  extendedProps: {
+                    type: h.type || 'holiday',
+                    description: h.description,
+                    originalHoliday: h
+                  }
+                };              }
+            } catch (e) {
+              // Error parsing date range for holiday
             }
-          };
-        } else if (h.date) {
-          // Single day event
-          return {
-            title: h.name || h.title,
-            start: new Date(h.date),
-            end: new Date(new Date(h.date).getTime() + 24*60*60*1000), // exclusive end for single all-day
-            allDay: true,
-            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
-            extendedProps: {
-              type: h.type || 'holiday',
-              description: h.description
-            }
-          };
-        } else {
-          // Holiday without specific date (like "Christmas Vacation")
-          // Show it on today's date as a special event
-          const today = new Date();
-          return {
-            title: h.name || h.title,
-            start: today,
-            end: today,
-            color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
-            extendedProps: {
-              type: h.type || 'holiday',
-              description: h.description,
-              noSpecificDate: true
-            }
-          };
+          }
         }
-      }));
+        
+        // Try single date if no range or range parsing failed
+        if (!event && h.date) {
+          try {
+            const dateStr = typeof h.date === 'string' ? h.date : (h.date instanceof Date ? h.date.toISOString().split('T')[0] : String(h.date));
+            const holidayDate = new Date(dateStr);
+            
+            if (!isNaN(holidayDate.getTime())) {
+              event = {
+                title: h.name || h.title,
+                start: holidayDate,
+                end: new Date(holidayDate.getTime() + 24*60*60*1000), // exclusive end for single all-day
+                allDay: true,
+                color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
+                extendedProps: {
+                  type: h.type || 'holiday',
+                  description: h.description,
+                  originalHoliday: h
+                }
+              };            }
+          } catch (e) {
+            // Error parsing date for holiday
+          }
+        }
+        
+        // Holiday couldn't be processed (no event created)
+        
+        if (event) {
+          // Break down multi-day holidays into day-wise events (similar to leaves)
+          // This allows proper grouping when multiple holidays occur on the same day
+          const start = new Date(event.start);
+          const end = event.end ? new Date(event.end) : start;
+          const isMultiDay = Math.abs(end.getTime() - start.getTime()) > 24 * 60 * 60 * 1000;
+          
+          if (isMultiDay) {
+            // Break down into day-wise events
+            for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+              const dayKey = getDateKey(d);
+              const dayEnd = new Date(d);
+              dayEnd.setDate(dayEnd.getDate() + 1);
+              
+              // Create a day-wise event for this specific day
+              const dayEvent = {
+                title: event.title,
+                start: new Date(d),
+                end: dayEnd,
+                allDay: true,
+                color: event.color,
+                extendedProps: {
+                  type: event.extendedProps.type,
+                  description: event.extendedProps.description,
+                  originalHoliday: event.extendedProps.originalHoliday
+                }
+              };
+              
+              allEvents.push(dayEvent);
+              
+              // Add to grouped map for this specific day
+              if (!groupedEventsByDate.has(dayKey)) {
+                groupedEventsByDate.set(dayKey, []);
+              }
+              groupedEventsByDate.get(dayKey)!.push(dayEvent);
+            }
+          } else {
+            // Single-day holiday - add as is
+            allEvents.push(event);
+            
+            // Add to grouped map for this day
+            const dateKey = getDateKey(start);
+            if (!groupedEventsByDate.has(dateKey)) {
+              groupedEventsByDate.set(dateKey, []);
+            }
+            groupedEventsByDate.get(dateKey)!.push(event);
+          }
+        }
+      });
 
-    // Add off-site entries
-    events.push(...(dashboardData?.data?.recent_off_sites || [])
-      .filter((o: any) => o.start_date && o.end_date)
-      .map((o: any) => ({
-        title: `${o.title}`,
-        start: new Date(o.start_date),
-        end: new Date(o.end_date),
-        color: "#f97316",
-        extendedProps: {
-          type: 'offsite'
+    // Add off-site entries - break down into day-wise events
+    // Separate "My Off-site" from "Team Off-site" with different colors
+    // Backend already filters: HR/Admin/God see all organization off-sites, employees see only their own
+    const offSites = dashboardData?.data?.recent_off_sites || [];
+    offSites
+      .filter((o: any) => o.start_date && o.end_date) // Only filter out invalid entries (missing dates)
+      .forEach((o: any) => {
+        const start = new Date(o.start_date);
+        const endInclusive = new Date(o.end_date);
+        const endExclusive = new Date(endInclusive);
+        endExclusive.setDate(endExclusive.getDate() + 1);
+        
+        // Check if this is the current user's off-site or a team member's
+        const isMyOffSite = String(o.user_id || o.user?.id) === String(userId);
+        const offSiteType = isMyOffSite ? 'my-offsite' : 'team-offsite';
+        const color = isMyOffSite ? "#f97316" : "#e91e63"; // Orange for my off-site, Dark Pink for team off-site
+        const title = isMyOffSite 
+          ? `My Off-site: ${o.title}`
+          : `${o.user?.name || 'Employee'}: ${o.title}`;
+        
+        // Break down into day-wise events (one per day) instead of a single spanning event
+        for (let d = new Date(start); d < endExclusive; d.setDate(d.getDate() + 1)) {
+          const dayKey = getDateKey(d);
+          const dayEnd = new Date(d);
+          dayEnd.setDate(dayEnd.getDate() + 1);
+          
+          // Create a day-wise event for this specific day
+          const dayEvent = {
+            title,
+            start: new Date(d),
+            end: dayEnd,
+            allDay: true,
+            color,
+            extendedProps: {
+              type: 'offsite',
+              offSiteType, // 'my-offsite' or 'team-offsite'
+              originalOffSite: o,
+              user: o.user,
+              isMyOffSite
+            }
+          };
+          
+          allEvents.push(dayEvent);
+          
+          // Add to grouped map for this specific day
+          if (!groupedEventsByDate.has(dayKey)) {
+            groupedEventsByDate.set(dayKey, []);
+          }
+          groupedEventsByDate.get(dayKey)!.push(dayEvent);
         }
-      })));
+      });
 
     // Add birthdays - show for multiple years to make them appear as repeating events
     const currentYear = new Date().getFullYear();
-    events.push(...(dashboardData?.data?.user_birthdays || [])
+    (dashboardData?.data?.user_birthdays || [])
       .filter((b: any) => b.birthday_visible)
-      .flatMap((b: any) => {
+      .forEach((b: any) => {
         const birthdayDate = new Date(b.birthday);
-        const birthdays = [];
 
         // Show birthdays for current year and next 2 years
         for (let yearOffset = 0; yearOffset < 3; yearOffset++) {
@@ -149,100 +530,98 @@ export default function DashboardPage() {
             continue; // Skip past birthdays in current year
           }
 
-          birthdays.push({
+          const event = {
             title: `🎂 ${b.name}'s Birthday`,
             start: birthdayThisYear,
-            end: birthdayThisYear,
+            end: new Date(birthdayThisYear.getTime() + 24 * 60 * 60 * 1000),
+            allDay: true,
             color: "#06b6d4", // Cyan color for birthdays
             extendedProps: {
               type: 'birthday',
               description: `${b.name}'s birthday`
             }
-          });
-        }
-
-        return birthdays;
-      }));
-
-    // Add leaves with grouping for Admin/HR users - only approved leaves
-    const leaves = (dashboardData?.data?.recent_leaves || []).filter((leave: any) => leave.status === 'approved');
-    
-    if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
-      // Group leaves by date
-      const groupedLeaves = groupLeavesByDate(leaves);
-      
-      Object.entries(groupedLeaves).forEach(([date, dayLeaves]) => {
-        // Check if current user is in this group
-        const currentUserInGroup = dayLeaves.some((leave: any) => String(leave.user_id) === String(userId));
-        
-        if (dayLeaves.length === 1) {
-          // Single leave - show normally
-          const leave = dayLeaves[0];
-          const isCurrentUser = String(leave.user_id) === String(userId);
-          events.push({
-            title: `${leave.user?.name || 'Employee'} - ${leave.type}`,
-            start: new Date(date),
-            end: new Date(date),
-            color: isCurrentUser ? "#10b981" : "#6366f1", // Green for current user, indigo for others
-            extendedProps: {
-              type: 'leave',
-              employees: [{
-                name: leave.user?.name || 'Employee',
-                type: leave.type,
-                status: leave.status,
-                reason: leave.reason
-              }],
-              count: 1,
-              isCurrentUser
-            }
-          });
-        } else {
-          // Multiple leaves - show grouped
-          const color = currentUserInGroup ? "#10b981" : "#6366f1"; // Green if current user is in group, indigo otherwise
-          events.push({
-            title: `${dayLeaves.length} employees on leave`,
-            start: new Date(date),
-            end: new Date(date),
-            color,
-            extendedProps: {
-              type: 'leave',
-              employees: dayLeaves.map((leave: any) => ({
-                name: leave.user?.name || 'Employee',
-                type: leave.type,
-                status: leave.status,
-                reason: leave.reason
-              })),
-              count: dayLeaves.length,
-              hasCurrentUser: currentUserInGroup
-            }
-          });
+          };
+          allEvents.push(event);
+          
+          const dateKey = getDateKey(birthdayThisYear);
+          if (!groupedEventsByDate.has(dateKey)) {
+            groupedEventsByDate.set(dateKey, []);
+          }
+          groupedEventsByDate.get(dateKey)!.push(event);
         }
       });
-    } else {
-      // Regular employees - show only their own approved leaves
+
+    // Process leaves
+    // Backend already filters: HR/Admin/God get all organization leaves, employees get only their own
+    const leaves = (dashboardData?.data?.recent_leaves || []).filter((leave: any) => leave.status === 'approved');
+    // Frontend double-check: ensure HR/Admin/God see all, employees see only their own
+    const leavesToProcess = userRole === "HR" || userRole === "Admin" || userRole === "God" 
+      ? leaves  // HR/Admin/God: use all leaves from backend (already filtered to org-wide)
+      : leaves.filter((l: any) => String(l.user_id) === String(userId)); // Employees: only their own
+    
+    // Create unique leave events
+    const leaveMap = new Map<string, any>();
+    leavesToProcess.forEach((leave: any) => {
+      const key = `${leave.user_id}-${leave.from_date || leave.from}-${leave.to_date || leave.to}`;
+      if (!leaveMap.has(key)) {
+        leaveMap.set(key, leave);
+      }
+    });
+    
+    // Break down multi-day leaves into day-wise events for proper grouping
+    leaveMap.forEach((leave: any) => {
+      const isCurrentUser = String(leave.user_id) === String(userId);
+      const title = userRole === "HR" || userRole === "Admin" || userRole === "God"
+        ? `${leave.user?.name || 'Employee'} - ${leave.type}`
+        : leave.type;
+      const employees = [{
+        name: leave.user?.name || 'Employee',
+        type: leave.type,
+        status: leave.status,
+        reason: leave.reason
+      }];
       
-      const myLeaves = leaves.filter((l: any) => String(l.user_id) === String(userId));
+      // Get the date range for this leave
+      const startDate = new Date(leave.from_date || leave.from);
+      const endDate = new Date(leave.to_date || leave.to);
+      const endExclusive = new Date(endDate);
+      endExclusive.setDate(endExclusive.getDate() + 1); // Exclusive end for calendar
       
-      events.push(...myLeaves.map((l: any) => ({
-          title: l.type,
-          start: new Date(l.from_date || l.from),
-          end: new Date(l.to_date || l.to),
-          color: "#10b981", // Green for current user's leaves
+      // Break down into day-wise events (one per day) instead of a single spanning event
+      for (let d = new Date(startDate); d < endExclusive; d.setDate(d.getDate() + 1)) {
+        const dayKey = getDateKey(d);
+        const dayEnd = new Date(d);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+        
+        // Create a day-wise event for this specific day
+        const dayEvent = {
+          title,
+          start: new Date(d),
+          end: dayEnd,
+          allDay: true,
+          color: isCurrentUser ? "#10b981" : "#6366f1",
           extendedProps: {
             type: 'leave',
-            employees: [{
-              name: l.user?.name || 'You',
-              type: l.type,
-              status: l.status,
-              reason: l.reason
-            }],
+            employees,
             count: 1,
-            isCurrentUser: true
+            isCurrentUser,
+            hasCurrentUser: isCurrentUser,
+            originalLeave: leave // Store original leave for reference
           }
-        })));
-    }
+        };
+        
+        allEvents.push(dayEvent);
+        
+        // Add to grouped map for this specific day
+        if (!groupedEventsByDate.has(dayKey)) {
+          groupedEventsByDate.set(dayKey, []);
+        }
+        groupedEventsByDate.get(dayKey)!.push(dayEvent);
+      }
+    });
 
-    return events;
+    // Create daywise grouped events
+    return createDaywiseGroupedEvents(allEvents, groupedEventsByDate);
   };
 
   return (
@@ -316,71 +695,134 @@ export default function DashboardPage() {
         <h2 id="events-notices-heading" className="sr-only">Upcoming Events & Notices</h2>
         <Card title="Upcoming Events & Notices">
         <div className="space-y-3">
-          
-          {(dashboardData?.data?.upcoming_holidays || [])
-            .filter((h: any) => {
-              // Include notices without dates, and dated events that are today or future
-              if (!h.date && h.type === 'notice') return true;
-              if (!h.date) return false;
-              const eventDate = new Date(h.date);
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              return eventDate >= today;
-            })
-            .sort((a: any, b: any) => {
-              // Notices without dates go first, then sort by date
-              if (!a.date && !b.date) return 0;
-              if (!a.date) return -1;
-              if (!b.date) return 1;
-              return new Date(a.date).getTime() - new Date(b.date).getTime();
-            })
-            .slice(0, 3)
-            .map((event: any) => (
-              <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
-                <div className="text-lg">
-                  {event.type === 'event' ? "📅" : event.type === 'notice' ? "📢" : "🎊"}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium text-primary">{event.name || event.title}</h4>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      event.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
-                      event.type === 'event' ? 'bg-amber-500/20 text-amber-400' :
-                      'bg-purple-500/20 text-purple-400'
-                    }`}>
-                      {event.type || 'holiday'}
-                    </span>
-                  </div>
-                  {event.date ? (
-                    <p className="text-sm text-secondary">
-                      {new Date(event.date).toLocaleDateString('en-US', { 
-                        weekday: 'short',
-                        month: 'short', 
-                        day: 'numeric' 
-                      })}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-secondary">📢 Ongoing Notice</p>
-                  )}
-                  {event.description && (
-                    <p className="text-sm text-gray-400 mt-1">{event.description}</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          {(dashboardData?.data?.upcoming_holidays || []).filter((h: any) => {
-            // Include notices without dates, and dated events that are today or future
-            if (!h.date && h.type === 'notice') return true;
-            if (!h.date) return false;
-            const eventDate = new Date(h.date);
+          {(() => {
+            const holidays = dashboardData?.data?.upcoming_holidays || [];
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            return eventDate >= today;
-          }).length === 0 && (
-            <div className="text-center text-gray-400 py-4">
-              No upcoming events or notices
-            </div>
-          )}
+
+            // Process and filter events
+            const processedEvents = holidays
+              .filter((h: any) => {
+                // Check for notices without dates
+                if (!h.date && !h.date_range && !h.dateRange && h.type === 'notice') return true;
+                
+                // Check single-day events
+                if (h.date) {
+                  const eventDate = new Date(h.date);
+                  eventDate.setHours(0, 0, 0, 0);
+                  return eventDate >= today;
+                }
+                
+                // Check multi-day events (handle both camelCase and snake_case)
+                const dateRange = h.date_range || h.dateRange;
+                if (dateRange) {
+                  const parts = dateRange.split(' to ');
+                  if (parts.length === 2) {
+                    const endDate = new Date(parts[1].trim());
+                    endDate.setHours(0, 0, 0, 0);
+                    // Include if the event ends today or later
+                    return endDate >= today;
+                  }
+                }
+                
+                return false;
+              })
+              // Deduplicate by ID (in case backend returns duplicates)
+              .reduce((acc: any[], event: any) => {
+                if (!acc.find((e: any) => e.id === event.id)) {
+                  acc.push(event);
+                }
+                return acc;
+              }, [])
+              .sort((a: any, b: any) => {
+                // Notices without dates go first, then sort by start date
+                const getStartDate = (event: any) => {
+                  if (event.date) return new Date(event.date);
+                  const dateRange = event.date_range || event.dateRange;
+                  if (dateRange) {
+                    const parts = dateRange.split(' to ');
+                    if (parts.length === 2) {
+                      return new Date(parts[0].trim());
+                    }
+                  }
+                  return new Date(0); // Put no-date events at the end
+                };
+
+                const dateA = getStartDate(a);
+                const dateB = getStartDate(b);
+                
+                if (dateA.getTime() === 0 && dateB.getTime() === 0) return 0;
+                if (dateA.getTime() === 0) return 1;
+                if (dateB.getTime() === 0) return -1;
+                
+                return dateA.getTime() - dateB.getTime();
+              })
+              .slice(0, 3);
+
+            return processedEvents.length > 0 ? (
+              processedEvents.map((event: any) => {
+                const dateRange = event.date_range || event.dateRange;
+                const isMultiDay = !!dateRange && dateRange.includes(' to ');
+
+                return (
+                  <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                    <div className="text-lg">
+                      {event.type === 'event' ? "📅" : event.type === 'notice' ? "📢" : "🎊"}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium text-primary">{event.name || event.title}</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          event.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
+                          event.type === 'event' ? 'bg-amber-500/20 text-amber-400' :
+                          'bg-purple-500/20 text-purple-400'
+                        }`}>
+                          {event.type || 'holiday'}
+                        </span>
+                      </div>
+                      {isMultiDay ? (
+                        <p className="text-sm text-secondary">
+                          {(() => {
+                            const parts = dateRange.split(' to ');
+                            if (parts.length === 2) {
+                              const startDate = new Date(parts[0].trim());
+                              const endDate = new Date(parts[1].trim());
+                              return `${startDate.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })} - ${endDate.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                year: startDate.getFullYear() !== endDate.getFullYear() ? 'numeric' : undefined
+                              })}`;
+                            }
+                            return dateRange;
+                          })()}
+                        </p>
+                      ) : event.date ? (
+                        <p className="text-sm text-secondary">
+                          {new Date(event.date).toLocaleDateString('en-US', { 
+                            weekday: 'short',
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-secondary">📢 Ongoing Notice</p>
+                      )}
+                      {event.description && (
+                        <p className="text-sm text-gray-400 mt-1">{event.description}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center text-gray-400 py-4">
+                No upcoming events or notices
+              </div>
+            );
+          })()}
         </div>
         <div className="mt-4 pt-4 border-t border-white/10">
           <Link href="/holidays" className="text-sm text-indigo-400 hover:text-indigo-300">

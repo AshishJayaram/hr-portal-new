@@ -12,6 +12,7 @@ import (
 
 // NotificationService interface for sending notifications
 type NotificationService interface {
+	SendEmail(to, subject, body string) error
 	SendLeaveRequestNotification(leave *models.Leave, recipient *models.User, notificationType string) error
 	SendDocumentUploadNotification(document *models.Document, recipient *models.User) error
 	SendSalarySlipUploadNotification(salarySlip *models.SalarySlip, recipient *models.User) error
@@ -20,6 +21,7 @@ type NotificationService interface {
 	SendReimbursementNotification(reimbursement *models.Reimbursement, recipient *models.User, notificationType string) error
 	SendHolidayNotification(holiday *models.Holiday, recipient *models.User) error
 	SendBirthdayNotification(user *models.User, recipient *models.User, notificationType string) error
+	SendWelcomeEmail(user *models.User, senderName string) error
 }
 
 // notificationService implements NotificationService interface
@@ -67,12 +69,10 @@ func (s *notificationService) SendLeaveRequestNotification(leave *models.Leave, 
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
-		fmt.Printf("Failed to send email notification: %v\n", err)
 	}
 
 	// Send WhatsApp notification (placeholder - implement actual WhatsApp Business API)
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
-		fmt.Printf("Failed to send WhatsApp notification: %v\n", err)
 	}
 
 	return nil
@@ -87,12 +87,10 @@ func (s *notificationService) SendDocumentUploadNotification(document *models.Do
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
-		fmt.Printf("Failed to send email notification: %v\n", err)
 	}
 
 	// Send WhatsApp notification
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
-		fmt.Printf("Failed to send WhatsApp notification: %v\n", err)
 	}
 
 	return nil
@@ -106,19 +104,17 @@ func (s *notificationService) SendSalarySlipUploadNotification(salarySlip *model
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
-		fmt.Printf("Failed to send email notification: %v\n", err)
 	}
 
 	// Send WhatsApp notification
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
-		fmt.Printf("Failed to send WhatsApp notification: %v\n", err)
 	}
 
 	return nil
 }
 
-// sendEmail sends email notification
-func (s *notificationService) sendEmail(to, subject, body string) error {
+// SendEmail sends email notification (public method for interface)
+func (s *notificationService) SendEmail(to, subject, body string) error {
 	// Get SMTP configuration from environment variables
 	smtpHost := os.Getenv("SMTP_HOST")
 	smtpPort := os.Getenv("SMTP_PORT")
@@ -127,7 +123,6 @@ func (s *notificationService) sendEmail(to, subject, body string) error {
 	fromEmail := os.Getenv("FROM_EMAIL")
 
 	if smtpHost == "" || smtpPort == "" || smtpUser == "" || smtpPass == "" || fromEmail == "" {
-		fmt.Println("SMTP configuration not found, skipping email notification")
 		return nil
 	}
 
@@ -141,8 +136,12 @@ func (s *notificationService) sendEmail(to, subject, body string) error {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
-	fmt.Printf("Email notification sent to %s\n", to)
 	return nil
+}
+
+// sendEmail is an alias for SendEmail for internal use
+func (s *notificationService) sendEmail(to, subject, body string) error {
+	return s.SendEmail(to, subject, body)
 }
 
 // sendWhatsApp sends WhatsApp notification (placeholder implementation)
@@ -152,7 +151,6 @@ func (s *notificationService) sendWhatsApp(phone, message string) error {
 	// For now, we'll just log the message
 
 	if phone == "" {
-		fmt.Println("No phone number provided, skipping WhatsApp notification")
 		return nil
 	}
 
@@ -162,8 +160,6 @@ func (s *notificationService) sendWhatsApp(phone, message string) error {
 	phone = strings.ReplaceAll(phone, " ", "")
 	phone = strings.ReplaceAll(phone, "(", "")
 	phone = strings.ReplaceAll(phone, ")", "")
-
-	fmt.Printf("WhatsApp notification would be sent to %s: %s\n", phone, message)
 
 	// TODO: Implement actual WhatsApp Business API integration
 	// Example with Twilio WhatsApp API:
@@ -203,12 +199,10 @@ func (s *notificationService) SendKRANotification(kra *models.KRA, recipient *mo
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
-		fmt.Printf("Failed to send KRA email notification: %v\n", err)
 	}
 
 	// Send WhatsApp notification
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
-		fmt.Printf("Failed to send KRA WhatsApp notification: %v\n", err)
 	}
 
 	return nil
@@ -237,12 +231,10 @@ func (s *notificationService) SendOffSiteNotification(offSite *models.OffSite, r
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
-		fmt.Printf("Failed to send off-site email notification: %v\n", err)
 	}
 
 	// Send WhatsApp notification
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
-		fmt.Printf("Failed to send off-site WhatsApp notification: %v\n", err)
 	}
 
 	return nil
@@ -269,12 +261,10 @@ func (s *notificationService) SendReimbursementNotification(reimbursement *model
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
-		fmt.Printf("Failed to send reimbursement email notification: %v\n", err)
 	}
 
 	// Send WhatsApp notification
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
-		fmt.Printf("Failed to send reimbursement WhatsApp notification: %v\n", err)
 	}
 
 	return nil
@@ -288,12 +278,10 @@ func (s *notificationService) SendHolidayNotification(holiday *models.Holiday, r
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
-		fmt.Printf("Failed to send holiday email notification: %v\n", err)
 	}
 
 	// Send WhatsApp notification
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
-		fmt.Printf("Failed to send holiday WhatsApp notification: %v\n", err)
 	}
 
 	return nil
@@ -320,12 +308,67 @@ func (s *notificationService) SendBirthdayNotification(user *models.User, recipi
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
-		fmt.Printf("Failed to send birthday email notification: %v\n", err)
 	}
 
 	// Send WhatsApp notification
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
-		fmt.Printf("Failed to send birthday WhatsApp notification: %v\n", err)
+	}
+
+	return nil
+}
+
+// SendWelcomeEmail sends a welcome email to newly created users
+func (s *notificationService) SendWelcomeEmail(user *models.User, senderName string) error {
+	subject := fmt.Sprintf("Welcome to HR Portal - %s", senderName)
+
+	// Build welcome message
+	message := fmt.Sprintf(
+		"Dear %s,\n\n"+
+			"Welcome to the HR Portal! We're excited to have you on board.\n\n"+
+			"Your account has been successfully created with the following details:\n\n"+
+			"Username: %s\n"+
+			"Email: %s\n"+
+			"Role: %s\n"+
+			"Department: %s\n",
+		user.Name,
+		user.Username,
+		user.Email,
+		user.Role,
+		user.Department,
+	)
+
+	// Add designation if available
+	if user.Designation != "" {
+		message += fmt.Sprintf("Designation: %s\n", user.Designation)
+	}
+
+	// Add joining date if available
+	if user.JoiningDate != nil {
+		message += fmt.Sprintf("Joining Date: %s\n", user.JoiningDate.Format("January 2, 2006"))
+	}
+
+	message += "\nYou can now log in to the HR Portal using your username and password.\n\n"
+
+	// Add role-specific information
+	if user.Role == "Admin" || user.Role == "HR" {
+		message += "As an administrator, you have access to manage users, leave requests, documents, and other administrative functions.\n\n"
+	} else {
+		message += "You can access your leave balances, submit leave requests, view documents, and manage your profile.\n\n"
+	}
+
+	message += "If you have any questions or need assistance, please don't hesitate to reach out to the HR team.\n\n" +
+		"Best regards,\n" +
+		senderName
+
+	// Send email notification
+	if err := s.sendEmail(user.Email, subject, message); err != nil {
+		return fmt.Errorf("failed to send welcome email: %w", err)
+	}
+
+	// Send WhatsApp notification (optional)
+	if user.Phone != "" {
+		if err := s.sendWhatsApp(user.Phone, message); err != nil {
+		}
 	}
 
 	return nil

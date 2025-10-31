@@ -28,6 +28,8 @@ export default function AddEmployeePage() {
     department: "HR",
     role: "Employee",
     manager_id: "",
+    joining_date: "",
+    birthday: "",
   });
   const [managerQuery, setManagerQuery] = useState("");
   const [selectedManagerName, setSelectedManagerName] = useState("");
@@ -77,6 +79,8 @@ export default function AddEmployeePage() {
         role: toCanonicalRole(body.role),
         manager_id: body.manager_id ? String(body.manager_id) : undefined, // Convert to string
         ctc: Number(ctcData.annualCTC) || 0, // Include CTC in initial user creation
+        joining_date: body.joining_date || undefined,
+        birthday: body.birthday || undefined,
       });
       
       // Create leave allocations for the new user
@@ -197,7 +201,29 @@ export default function AddEmployeePage() {
               <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
               <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} placeholder="e.g., Software Engineer, Manager" />
               <Input label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
-              <Select label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} options={[{ value: "Employee", label: "Employee" },{ value: "HR", label: "HR" }]} />
+              <Select 
+                label="Role" 
+                value={form.role} 
+                onChange={(e) => setForm({ ...form, role: e.target.value })} 
+                options={[
+                  { value: "Employee", label: "Employee" },
+                  { value: "HR", label: "HR" },
+                  { value: "Admin", label: "Admin" },
+                  { value: "Manager", label: "Manager" }
+                ]} 
+              />
+              <Input 
+                label="Joining Date" 
+                type="date"
+                value={form.joining_date} 
+                onChange={(e) => setForm({ ...form, joining_date: e.target.value })} 
+              />
+              <Input 
+                label="Birthday" 
+                type="date"
+                value={form.birthday} 
+                onChange={(e) => setForm({ ...form, birthday: e.target.value })} 
+              />
             </div>
             <div>
               <label className="block text-sm mb-2">Manager (search and select)</label>

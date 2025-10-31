@@ -24,12 +24,26 @@ func NewDashboardHandler(dashboardService services.DashboardService) *DashboardH
 func (h *DashboardHandler) GetStats(c *gin.Context) {
 	organizationID := c.GetString("organization_id")
 	userID := c.GetString("user_id")
-	userRole := c.GetString("role") // Changed from "user_role" to "role"
+	userRole := c.GetString("user_role") // Middleware sets "user_role", not "role"
+
+	// Log for debugging
+	if organizationID == "" || userID == "" || userRole == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Missing required context values",
+			"details": gin.H{
+				"organization_id": organizationID,
+				"user_id":         userID,
+				"user_role":       userRole,
+			},
+		})
+		return
+	}
 
 	stats, err := h.dashboardService.GetStats(organizationID, userID, userRole)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get dashboard statistics",
+			"error":   "Failed to get dashboard statistics",
+			"details": err.Error(),
 		})
 		return
 	}

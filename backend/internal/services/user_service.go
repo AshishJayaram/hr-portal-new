@@ -17,21 +17,23 @@ type userService struct {
 	organizationRepo    repositories.OrganizationRepository
 	leaveAllocationRepo repositories.LeaveAllocationRepository
 	auditService        AuditService
+	notificationService NotificationService
 }
 
 // NewUserService creates a new user service
-func NewUserService(userRepo repositories.UserRepository, organizationRepo repositories.OrganizationRepository, leaveAllocationRepo repositories.LeaveAllocationRepository, auditService AuditService) UserService {
+func NewUserService(userRepo repositories.UserRepository, organizationRepo repositories.OrganizationRepository, leaveAllocationRepo repositories.LeaveAllocationRepository, auditService AuditService, notificationService NotificationService) UserService {
 	return &userService{
 		userRepo:            userRepo,
 		organizationRepo:    organizationRepo,
 		leaveAllocationRepo: leaveAllocationRepo,
 		auditService:        auditService,
+		notificationService: notificationService,
 	}
 }
 
 func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (*models.User, error) {
-	// Validate organization exists
-	_, err := s.organizationRepo.GetByID(req.OrganizationID)
+	// Validate organization exists and get organization details
+	org, err := s.organizationRepo.GetByID(req.OrganizationID)
 	if err != nil {
 		return nil, fmt.Errorf("organization not found: %w", err)
 	}
@@ -120,7 +122,6 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 	// Create default leave allocations for the new user
 	if err := s.createDefaultLeaveAllocations(user); err != nil {
 		// Log the error but don't fail user creation
-		fmt.Printf("Warning: Failed to create leave allocations for user %s: %v\n", user.Username, err)
 	}
 
 	// Log audit entry for user creation
@@ -138,8 +139,21 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 
 	// Log the user creation
 	if err := s.auditService.LogUserChange(orgIDStr, userIDStr, changedBy, "CREATE", nil, user, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
+
+	// Send welcome email
+	go func() {
+		// Determine sender name based on role
+		var senderName string
+		if req.Role == "Admin" || req.Role == "HR" {
+			senderName = "The AA HR Team"
+		} else {
+			senderName = org.Name
+		}
+
+		if err := s.notificationService.SendWelcomeEmail(user, senderName); err != nil {
+		}
+	}()
 
 	return user, nil
 }
@@ -340,7 +354,6 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 
 		// Log the user change (ignore any errors for now)
 		if err := s.auditService.LogUserChange(orgID, id, changedBy, "UPDATE", &oldUser, user, httpReq); err != nil {
-			fmt.Printf("Failed to log audit: %v\n", err)
 		}
 	}
 
@@ -382,7 +395,6 @@ func (s *userService) DeleteUser(id string, httpReq *http.Request) error {
 
 	// Log the user deletion
 	if err := s.auditService.LogUserChange(orgID, id, changedBy, "DELETE", user, nil, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	return nil
@@ -458,7 +470,6 @@ func (s *userService) createDefaultLeaveAllocations(user *models.User) error {
 
 		// Create the allocation directly using the repository
 		if err := s.leaveAllocationRepo.Create(allocation); err != nil {
-			fmt.Printf("Failed to create leave allocation %s for user %s: %v\n", alloc.categoryName, user.Username, err)
 			// Continue with other allocations even if one fails
 		}
 	}
@@ -546,7 +557,6 @@ func (s *userService) handleManagerChangeWithReportTransfer(userID string, oldMa
 		// Update the subordinate's manager
 		subordinate.ManagerID = newManagerID
 		if err := s.userRepo.Update(&subordinate); err != nil {
-			fmt.Printf("Warning: Failed to transfer subordinate %s: %v\n", subordinate.Username, err)
 			continue
 		}
 
@@ -572,10 +582,8 @@ func (s *userService) handleManagerChangeWithReportTransfer(userID string, oldMa
 
 		// Log the subordinate transfer
 		if err := s.auditService.LogUserChange(subordinateOrgID, subordinateID, changedBy, "UPDATE", &oldSubordinate, &subordinate, httpReq); err != nil {
-			fmt.Printf("Failed to log audit for subordinate transfer: %v\n", err)
 		}
 	}
 
-	fmt.Printf("Successfully transferred %d subordinates from user %s\n", len(subordinates), userID)
 	return nil
 }

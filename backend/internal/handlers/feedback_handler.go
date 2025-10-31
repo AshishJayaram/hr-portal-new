@@ -18,8 +18,32 @@ func NewFeedbackHandler(service *services.FeedbackService) *FeedbackHandler {
 }
 
 func (h *FeedbackHandler) CreateFeedback(c *gin.Context) {
-	userID := c.GetUint("user_id")
-	organizationID := c.GetUint("organization_id")
+	// Get organization_id (required)
+	orgIDStr, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id: organization not found"})
+		return
+	}
+
+	orgIDUint, err := strconv.ParseUint(orgIDStr.(string), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id format"})
+		return
+	}
+	organizationID := uint(orgIDUint)
+
+	// Get user_id (optional for anonymous feedback)
+	var userID *uint
+	var isAnonymous bool
+
+	userIDStr, exists := c.Get("user_id")
+	if exists {
+		userIDUint, err := strconv.ParseUint(userIDStr.(string), 10, 32)
+		if err == nil {
+			uid := uint(userIDUint)
+			userID = &uid
+		}
+	}
 
 	// Check if this is a multipart form (with images) or JSON request
 	contentType := c.GetHeader("Content-Type")
@@ -31,6 +55,7 @@ func (h *FeedbackHandler) CreateFeedback(c *gin.Context) {
 			Description string `json:"description" binding:"required"`
 			Type        string `json:"type" binding:"required,oneof=bug feature improvement other"`
 			Priority    string `json:"priority" binding:"omitempty,oneof=low medium high critical"`
+			IsAnonymous bool   `json:"is_anonymous"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -43,9 +68,21 @@ func (h *FeedbackHandler) CreateFeedback(c *gin.Context) {
 			req.Priority = "medium"
 		}
 
-		feedback, err := h.service.CreateFeedback(userID, organizationID, req.Title, req.Description, req.Type, req.Priority)
+		// If anonymous, clear userID
+		if req.IsAnonymous {
+			userID = nil
+			isAnonymous = true
+		}
+
+		feedback, err := h.service.CreateFeedback(userID, organizationID, req.Title, req.Description, req.Type, req.Priority, isAnonymous)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Ensure ID is included in response
+		if feedback.ID == 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate feedback ID"})
 			return
 		}
 
@@ -58,6 +95,7 @@ func (h *FeedbackHandler) CreateFeedback(c *gin.Context) {
 	description := c.PostForm("description")
 	feedbackType := c.PostForm("type")
 	priority := c.PostForm("priority")
+	isAnonymousStr := c.PostForm("is_anonymous")
 
 	if title == "" || description == "" || feedbackType == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
@@ -69,6 +107,12 @@ func (h *FeedbackHandler) CreateFeedback(c *gin.Context) {
 		priority = "medium"
 	}
 
+	// Check if anonymous
+	if isAnonymousStr == "true" || isAnonymousStr == "1" {
+		userID = nil
+		isAnonymous = true
+	}
+
 	// Get uploaded images
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -78,9 +122,15 @@ func (h *FeedbackHandler) CreateFeedback(c *gin.Context) {
 
 	images := form.File["images"]
 
-	feedback, err := h.service.CreateFeedbackWithImages(userID, organizationID, title, description, feedbackType, priority, images, c.SaveUploadedFile)
+	feedback, err := h.service.CreateFeedbackWithImages(userID, organizationID, title, description, feedbackType, priority, isAnonymous, images, c.SaveUploadedFile)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Ensure ID is included in response
+	if feedback.ID == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate feedback ID"})
 		return
 	}
 
@@ -88,7 +138,18 @@ func (h *FeedbackHandler) CreateFeedback(c *gin.Context) {
 }
 
 func (h *FeedbackHandler) GetFeedback(c *gin.Context) {
-	organizationID := c.GetUint("organization_id")
+	orgIDStr, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id: organization not found"})
+		return
+	}
+	orgIDUint, err := strconv.ParseUint(orgIDStr.(string), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id format"})
+		return
+	}
+	organizationID := uint(orgIDUint)
+
 	status := c.Query("status")
 	feedbackType := c.Query("type")
 
@@ -103,6 +164,40 @@ func (h *FeedbackHandler) GetFeedback(c *gin.Context) {
 	}
 
 	feedback, err := h.service.GetFeedback(organizationID, statusPtr, typePtr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": feedback})
+}
+
+func (h *FeedbackHandler) GetArchivedFeedback(c *gin.Context) {
+	orgIDStr, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id: organization not found"})
+		return
+	}
+	orgIDUint, err := strconv.ParseUint(orgIDStr.(string), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id format"})
+		return
+	}
+	organizationID := uint(orgIDUint)
+
+	status := c.Query("status")
+	var statusPtr *string
+	if status != "" {
+		statusPtr = &status
+	}
+
+	feedbackType := c.Query("type")
+	var typePtr *string
+	if feedbackType != "" {
+		typePtr = &feedbackType
+	}
+
+	feedback, err := h.service.GetArchivedFeedback(organizationID, statusPtr, typePtr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -147,7 +242,18 @@ func (h *FeedbackHandler) UpdateFeedbackStatus(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetUint("user_id")
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id: user not authenticated"})
+		return
+	}
+	userIDUint, err := strconv.ParseUint(userIDStr.(string), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id format"})
+		return
+	}
+	userID := uint(userIDUint)
+
 	var resolvedBy *uint
 	if req.Status == "resolved" || req.Status == "closed" {
 		resolvedBy = &userID
@@ -179,8 +285,57 @@ func (h *FeedbackHandler) DeleteFeedback(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Feedback deleted successfully"})
 }
 
+func (h *FeedbackHandler) ArchiveFeedback(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	err = h.service.ArchiveFeedback(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Feedback archived successfully"})
+}
+
+func (h *FeedbackHandler) DeleteAllFeedback(c *gin.Context) {
+	orgIDStr, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id: organization not found"})
+		return
+	}
+	orgIDUint, err := strconv.ParseUint(orgIDStr.(string), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id format"})
+		return
+	}
+	organizationID := uint(orgIDUint)
+
+	err = h.service.DeleteAllFeedback(organizationID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "All feedback deleted successfully"})
+}
+
 func (h *FeedbackHandler) GetFeedbackStats(c *gin.Context) {
-	organizationID := c.GetUint("organization_id")
+	orgIDStr, exists := c.Get("organization_id")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id: organization not found"})
+		return
+	}
+	orgIDUint, err := strconv.ParseUint(orgIDStr.(string), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid organization_id format"})
+		return
+	}
+	organizationID := uint(orgIDUint)
 
 	stats, err := h.service.GetFeedbackStats(organizationID)
 	if err != nil {

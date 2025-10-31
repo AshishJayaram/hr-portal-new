@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-export const dynamic = 'force-static';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
@@ -63,6 +64,38 @@ export async function POST(request: Request) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Feedback API route error:', error);
+    return NextResponse.json(
+      { error: { message: 'Internal server error' } },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    // Forward the request to the backend API to delete all feedback
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    
+    const response = await fetch(`${backendUrl}/api/feedback`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': request.headers.get('Authorization') || '',
+        'X-Organization-ID': request.headers.get('X-Organization-ID') || '',
+      },
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: { message: data.error || 'Failed to delete all feedback' } },
+        { status: response.status }
+      );
+    }
+    
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Feedback delete all API route error:', error);
     return NextResponse.json(
       { error: { message: 'Internal server error' } },
       { status: 500 }

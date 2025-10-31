@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -90,4 +91,15 @@ func ValidatePasswordStrength(password string) error {
 	}
 
 	return nil
+}
+
+// GenerateOTP generates a 6-digit OTP
+func GenerateOTP() (string, error) {
+	bytes := make([]byte, 3)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	// Generate a 6-digit number between 100000 and 999999
+	otpNum := 100000 + (int(bytes[0])<<16|int(bytes[1])<<8|int(bytes[2]))%900000
+	return fmt.Sprintf("%06d", otpNum), nil
 }

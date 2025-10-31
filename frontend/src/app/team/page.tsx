@@ -169,10 +169,6 @@ export default function TeamPage() {
               <span className="font-medium text-primary dark:text-gray-100 truncate">
                 {node.user.name}
               </span>
-              {getRoleIcon(node.user.role)}
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(node.user.role)}`}>
-                {node.user.role}
-              </span>
               {isManager && (
                 <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                   Manager
@@ -287,14 +283,6 @@ export default function TeamPage() {
                 </div>
                 
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    {getRoleIcon(selectedUser.role)}
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Role:</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(selectedUser.role)}`}>
-                      {selectedUser.role}
-                    </span>
-                  </div>
-                  
                   {selectedUser.department && (
                     <div className="flex items-center gap-2">
                       <Building className="h-4 w-4 text-gray-500" />

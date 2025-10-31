@@ -226,7 +226,15 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
 
     const errorData = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
-    const message = typeof (errorData?.error) === 'string' ? errorData.error : (errorData?.error?.message || `API error ${res.status}`);
+    // Handle both error formats: {"error": "msg"} and {"error": {"message": "msg"}}
+    let message = `API error ${res.status}`;
+    if (errorData?.error) {
+      if (typeof errorData.error === 'string') {
+        message = errorData.error;
+      } else if (errorData.error?.message) {
+        message = errorData.error.message;
+      }
+    }
     throw new Error(message);
   }
   return res.json();
@@ -298,6 +306,38 @@ export const logout = () =>
     method: "POST",
   });
 
+export const sendOTP = async (email: string): Promise<ApiResponse<{ message: string }>> => {
+  const response = await fetcher<ApiResponse<{ message: string }>>("/auth/send-otp", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+  return response;
+};
+
+export const verifyOTP = async (email: string, otp: string): Promise<ApiResponse<{ user: User; token: string; organizationId: string }>> => {
+  const response = await fetcher<ApiResponse<{ user: User; token: string; organizationId: string }>>("/auth/verify-otp", {
+    method: "POST",
+    body: JSON.stringify({ email, otp }),
+  });
+  return response;
+};
+
+export const forgotPassword = async (email: string, resetURL?: string): Promise<ApiResponse<{ message: string }>> => {
+  const response = await fetcher<ApiResponse<{ message: string }>>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email, reset_url: resetURL }),
+  });
+  return response;
+};
+
+export const resetPassword = async (token: string, newPassword: string): Promise<ApiResponse<{ message: string }>> => {
+  const response = await fetcher<ApiResponse<{ message: string }>>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  return response;
+};
+
 // -------------------- Users --------------------
 export const getUsers = (params?: Record<string, string>) =>
   fetcher<any>(`/users?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
@@ -333,7 +373,7 @@ export const getUser = (id: string) =>
   }).catch(() => ({ data: [][0] } as ApiResponse<User>));
 
 export const createUser = (body: Partial<User> & any) => {
-  // Support backend schema: { username, password, name, email, role, department, manager_id }
+  // Support backend schema: { username, password, name, email, role, department, manager_id, joining_date, birthday }
   const hasRaw = body?.username || body?.password || typeof body?.manager_id !== 'undefined';
   const payload = hasRaw
     ? {
@@ -346,6 +386,8 @@ export const createUser = (body: Partial<User> & any) => {
         manager_id: body.manager_id,
         designation: body.designation,
         ctc: body.ctc,
+        joining_date: body.joining_date || undefined,
+        birthday: body.birthday || undefined,
       }
     : {
         name: body.name,
@@ -353,6 +395,8 @@ export const createUser = (body: Partial<User> & any) => {
         role: body.role,
         department: body.department,
         managerId: body.managerId,
+        joining_date: body.joining_date || undefined,
+        birthday: body.birthday || undefined,
       };
   return fetcher<ApiResponse<User>>("/users", {
     method: "POST",
@@ -609,10 +653,11 @@ export const getLeavesPaginated = (params?: Record<string, string>) =>
 export const getLeave = (id: string) =>
   fetcher<ApiResponse<Leave>>(`/leaves/${id}`);
 
-export const applyLeave = (body: Partial<Leave> & { reason?: string }) =>
+export const applyLeave = (body: Partial<Leave> & { reason?: string; userId?: string }) =>
   fetcher<any>("/leaves", {
     method: "POST",
     body: JSON.stringify({
+      user_id: body.userId, // Include userId if provided (for HR/Admin applying on behalf)
       type: body.type,
       from_date: body.from ? new Date(body.from).toISOString() : body.from,
       to_date: body.to ? new Date(body.to).toISOString() : (body.from ? new Date(body.from).toISOString() : body.from),
@@ -832,8 +877,10 @@ export const createHoliday = (body: Partial<Holiday>) =>
     method: "POST",
     body: JSON.stringify({
       name: body.name,
-      // Send either date or dateRange based on whether the date contains " to "
-      ...(body.date && body.date.includes(' to ') ? { dateRange: body.date } : { date: body.date }),
+      // Prioritize dateRange, but also handle dates with " to " misrouted to date field
+      ...(body.dateRange ? { date_range: body.dateRange } :
+          (body.date && body.date.includes(' to ') ? { date_range: body.date } : 
+           body.date ? { date: body.date } : {})),
       type: body.type || 'holiday',
       description: body.description,
       isCalendarEvent: body.isCalendarEvent ?? true,
@@ -1352,6 +1399,11 @@ export const updateOrganization = async (id: number, orgData: {
   domain?: string;
   description?: string;
   is_active?: boolean;
+  admin_user?: {
+    username?: string;
+    email?: string;
+    name?: string;
+  };
 }): Promise<{ data: Organization; message: string }> => {
   const response = await fetcher<{ data: Organization; message: string }>(`/god/organizations/${id}`, {
     method: "PUT",
@@ -1482,10 +1534,72 @@ export const deletePrivateDocument = (docId: string) =>
 
 // -------------------- Feedback --------------------
 export const getFeedback = () =>
-  fetcher<any>('/feedback')
+  fetcher<any>('/feedback');
+
+export const getArchivedFeedback = () =>
+  fetcher<any>('/api/feedback/archived')
     .then((raw) => {
       const items = raw?.data || [];
-      return { data: items } as ApiResponse<any[]>;
+      
+      // Ensure consistent field mapping from backend to frontend (same as getFeedback)
+      const mappedItems = items.map((item: any) => {
+        // Properly extract user object with all its fields
+        const userObj = item.user || item.User || null;
+        let mappedUser = null;
+        
+        if (userObj && typeof userObj === 'object' && userObj !== null) {
+          // Check if it's an actual user object with data
+          const userId = userObj.id || userObj.ID || userObj.user_id || userObj.UserID;
+          const userName = userObj.name || userObj.Name || userObj.username || userObj.Username;
+          const userEmail = userObj.email || userObj.Email;
+          
+          if (userId || userName || userEmail) {
+            mappedUser = {
+              id: String(userId || ''),
+              name: String(userName || ''),
+              email: String(userEmail || ''),
+              username: String(userObj.username || userObj.Username || ''),
+            };
+          }
+        }
+        
+        // If user is still null but user_id exists, try alternative extraction
+        if (!mappedUser && (item.user_id || item.userId || item.UserID)) {
+          // Try alternative extraction - maybe user is nested differently
+          if (item.User && typeof item.User === 'object') {
+            const altUser = item.User;
+            mappedUser = {
+              id: String(altUser.id || altUser.ID || ''),
+              name: String(altUser.name || altUser.Name || altUser.username || altUser.Username || ''),
+              email: String(altUser.email || altUser.Email || ''),
+              username: String(altUser.username || altUser.Username || ''),
+            };
+          }
+        }
+        
+        // Handle anonymous feedback
+        if (item.is_anonymous || item.isAnonymous) {
+          mappedUser = null; // Clear user info for anonymous feedback
+        }
+
+        // Extract ID - handle numeric 0 as valid (though should never be 0 for auto-increment)
+        const itemId = item.id !== undefined && item.id !== null && item.id !== '' ? item.id : (item.ID !== undefined && item.ID !== null && item.ID !== '' ? item.ID : null);
+
+        return {
+          id: itemId ? String(itemId) : '', // Only convert to string if ID exists, otherwise empty string
+          title: item.title || item.Title || '',
+          description: item.description || item.Description || '',
+          type: item.type || item.Type || 'other',
+          priority: item.priority || item.Priority || 'medium',
+          status: item.status || item.Status || 'open',
+          created_at: item.created_at || item.createdAt || item.CreatedAt || item.Created_At || '',
+          updated_at: item.updated_at || item.updatedAt || item.UpdatedAt || '',
+          user: mappedUser,
+          user_id: item.user_id || item.userId || item.UserID || '',
+          is_anonymous: item.is_anonymous || item.isAnonymous || false,
+        };
+      });
+      return { data: mappedItems } as ApiResponse<any[]>;
     });
 
 export const getFeedbackStats = () =>
@@ -1494,6 +1608,33 @@ export const getFeedbackStats = () =>
 
 export const createFeedback = (data: FormData) =>
   uploadFile<any>('/feedback', data);
+
+export const updateFeedbackStatus = (id: string, status: string, resolution?: string) => {
+  const body: any = { status };
+  // Only include resolution if it's provided and not empty
+  if (resolution && resolution.trim() !== '') {
+    body.resolution = resolution;
+  }
+  return fetcher<any>(`/feedback/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+};
+
+export const archiveFeedback = (id: string) =>
+  fetcher<any>(`/api/feedback/${id}/archive`, {
+    method: 'POST',
+  });
+
+export const deleteFeedback = (id: string) =>
+  fetcher<any>(`/feedback/${id}`, {
+    method: 'DELETE',
+  });
+
+export const deleteAllFeedback = () =>
+  fetcher<any>(`/api/feedback`, {
+    method: 'DELETE',
+  });
 
 // -------------------- KRA (Key Result Areas) --------------------
 export interface KRA {

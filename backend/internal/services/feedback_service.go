@@ -20,10 +20,11 @@ func NewFeedbackService(repo *repositories.FeedbackRepository) *FeedbackService 
 	return &FeedbackService{repo: repo}
 }
 
-func (s *FeedbackService) CreateFeedback(userID, organizationID uint, title, description, feedbackType, priority string) (*models.Feedback, error) {
+func (s *FeedbackService) CreateFeedback(userID *uint, organizationID uint, title, description, feedbackType, priority string, isAnonymous bool) (*models.Feedback, error) {
 	feedback := &models.Feedback{
 		UserID:         userID,
 		OrganizationID: organizationID,
+		IsAnonymous:    isAnonymous,
 		Title:          title,
 		Description:    description,
 		Type:           feedbackType,
@@ -35,7 +36,13 @@ func (s *FeedbackService) CreateFeedback(userID, organizationID uint, title, des
 }
 
 func (s *FeedbackService) GetFeedback(organizationID uint, status *string, feedbackType *string) ([]models.Feedback, error) {
-	return s.repo.GetFeedback(organizationID, status, feedbackType)
+	// Get feedback excluding archived items (soft-deleted)
+	return s.repo.GetFeedback(organizationID, status, feedbackType, false)
+}
+
+func (s *FeedbackService) GetArchivedFeedback(organizationID uint, status *string, feedbackType *string) ([]models.Feedback, error) {
+	// Get feedback including only archived items (soft-deleted)
+	return s.repo.GetFeedback(organizationID, status, feedbackType, true)
 }
 
 func (s *FeedbackService) GetFeedbackByID(id uint) (*models.Feedback, error) {
@@ -50,14 +57,23 @@ func (s *FeedbackService) DeleteFeedback(id uint) error {
 	return s.repo.DeleteFeedback(id)
 }
 
+func (s *FeedbackService) ArchiveFeedback(id uint) error {
+	return s.repo.ArchiveFeedback(id)
+}
+
+func (s *FeedbackService) DeleteAllFeedback(organizationID uint) error {
+	return s.repo.DeleteAllFeedback(organizationID)
+}
+
 func (s *FeedbackService) GetFeedbackStats(organizationID uint) (map[string]int, error) {
 	return s.repo.GetFeedbackStats(organizationID)
 }
 
-func (s *FeedbackService) CreateFeedbackWithImages(userID, organizationID uint, title, description, feedbackType, priority string, images []*multipart.FileHeader, saveFile func(*multipart.FileHeader, string) error) (*models.Feedback, error) {
+func (s *FeedbackService) CreateFeedbackWithImages(userID *uint, organizationID uint, title, description, feedbackType, priority string, isAnonymous bool, images []*multipart.FileHeader, saveFile func(*multipart.FileHeader, string) error) (*models.Feedback, error) {
 	feedback := &models.Feedback{
 		UserID:         userID,
 		OrganizationID: organizationID,
+		IsAnonymous:    isAnonymous,
 		Title:          title,
 		Description:    description,
 		Type:           feedbackType,

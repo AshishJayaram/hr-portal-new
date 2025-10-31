@@ -59,6 +59,7 @@ export default function PayslipGeneratorModal({
   // LOP state
   const [lopDays, setLopDays] = useState(0);
   const [lopAmount, setLopAmount] = useState(0);
+  const [lopFixedAmountPerDay, setLopFixedAmountPerDay] = useState(1000);
 
   // Dynamic categories
   const [customEarnings, setCustomEarnings] = useState<DynamicCategory[]>([]);
@@ -275,14 +276,33 @@ export default function PayslipGeneratorModal({
         throw new Error(errorData.error || 'Failed to generate payslip');
       }
 
-      const data = await response.json();
+      // Get the PDF blob from response
+      const blob = await response.blob();
       
-      // Open the generated PDF
-      if (data.fileUrl) {
-        window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${data.fileUrl}`, '_blank');
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `payslip_${userId}_${month}_${year}.pdf`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
       }
       
-      toast.success("Payslip generated successfully!");
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Payslip generated and downloaded successfully!");
       onClose();
     } catch (error: any) {
       toast.error(error.message || "Failed to generate payslip");
@@ -672,6 +692,32 @@ export default function PayslipGeneratorModal({
               Loss of Pay (LOP)
             </h3>
             
+            {/* Show fixed amount input if method is FIXED_AMOUNT */}
+            {companySettings?.lop?.calculationMethod === 'FIXED_AMOUNT' && (
+              <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('lopFixedAmountPerDay')}`}>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Fixed Amount per Day (₹)
+                </label>
+                <Input
+                  type="number"
+                  value={lopFixedAmountPerDay}
+                  onChange={(e) => {
+                    const fixedAmount = parseFloat(e.target.value) || 1000;
+                    setLopFixedAmountPerDay(fixedAmount);
+                    // Recalculate LOP amount based on fixed amount
+                    if (lopDays > 0) {
+                      setLopAmount(lopDays * fixedAmount);
+                    }
+                    setHighlightedField('lopFixedAmountPerDay');
+                  }}
+                  placeholder="Fixed amount per day"
+                  min="0"
+                  step="1"
+                />
+                <p className="text-xs text-gray-500">Amount to deduct per LOP day</p>
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('lopDays')}`}>
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -683,9 +729,22 @@ export default function PayslipGeneratorModal({
                   onChange={(e) => {
                     const days = parseFloat(e.target.value) || 0;
                     setLopDays(days);
-                    // Auto-calculate LOP amount
-                    const perDaySalary = totals.grossEarnings / 30;
-                    setLopAmount(days * perDaySalary);
+                    // Auto-calculate LOP amount based on method
+                    if (companySettings?.lop?.calculationMethod === 'FIXED_AMOUNT') {
+                      // Fixed amount method
+                      setLopAmount(days * lopFixedAmountPerDay);
+                    } else if (companySettings?.lop?.calculationMethod === 'BASIC_BY_DAYS') {
+                      // Basic by days method
+                      const daysInMonth = companySettings?.lop?.defaultDaysInMonth || 30;
+                      const perDayBasic = basicSalary / daysInMonth;
+                      setLopAmount(days * perDayBasic);
+                    } else {
+                      // Default: NET_PAY_BY_DAYS
+                      const daysInMonth = companySettings?.lop?.defaultDaysInMonth || 30;
+                      const netPay = totals.grossEarnings - (pf + esi + professionalTax + tds + otherDeductions);
+                      const perDaySalary = netPay / daysInMonth;
+                      setLopAmount(days * perDaySalary);
+                    }
                     setHighlightedField('lopDays');
                   }}
                   placeholder="Number of LOP days"

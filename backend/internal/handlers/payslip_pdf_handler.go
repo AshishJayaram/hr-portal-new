@@ -34,17 +34,9 @@ func NewPayslipPDFHandler(
 }
 
 // GenerateCustomPayslipPDF handles custom payslip PDF generation with user-provided data
+// Note: Role check is handled by middleware.RoleRequired("HR", "Admin", "God") in routes
 func (h *PayslipPDFHandler) GenerateCustomPayslipPDF(c *gin.Context) {
 	organizationID := c.GetString("organization_id")
-	userRole := c.GetString("role")
-
-	// Only HR/Admin can generate payslip PDFs
-	if userRole != "HR" && userRole != "Admin" && userRole != "God" {
-		c.JSON(http.StatusForbidden, gin.H{
-			"error": "Only HR/Admin users can generate payslip PDFs",
-		})
-		return
-	}
 
 	// Define custom payslip data structure
 	type CustomPayslipData struct {
@@ -99,11 +91,50 @@ func (h *PayslipPDFHandler) GenerateCustomPayslipPDF(c *gin.Context) {
 		return
 	}
 
+	// Convert struct to map[string]interface{} for the service
+	payslipMap := make(map[string]interface{})
+	payslipMap["month"] = float64(payslipData.Month)
+	payslipMap["year"] = float64(payslipData.Year)
+	payslipMap["lopAmount"] = payslipData.LOPAmount
+	payslipMap["lopDays"] = payslipData.LOPDays
+	payslipMap["grossEarnings"] = payslipData.GrossEarnings
+	payslipMap["totalDeductions"] = payslipData.TotalDeductions
+	payslipMap["netPay"] = payslipData.NetPay
+
+	earningsMap := make(map[string]interface{})
+	earningsMap["basic"] = payslipData.Earnings.Basic
+	earningsMap["hra"] = payslipData.Earnings.HRA
+	earningsMap["specialAllowance"] = payslipData.Earnings.Special
+	earningsMap["other"] = payslipData.Earnings.Other
+	if len(payslipData.Earnings.Custom) > 0 {
+		customEarningsMap := make(map[string]interface{})
+		for k, v := range payslipData.Earnings.Custom {
+			customEarningsMap[k] = v
+		}
+		earningsMap["custom"] = customEarningsMap
+	}
+	payslipMap["earnings"] = earningsMap
+
+	deductionsMap := make(map[string]interface{})
+	deductionsMap["pf"] = payslipData.Deductions.PF
+	deductionsMap["esi"] = payslipData.Deductions.ESI
+	deductionsMap["professionalTax"] = payslipData.Deductions.ProfessionalTax
+	deductionsMap["tds"] = payslipData.Deductions.TDS
+	deductionsMap["other"] = payslipData.Deductions.Other
+	if len(payslipData.Deductions.Custom) > 0 {
+		customDeductionsMap := make(map[string]interface{})
+		for k, v := range payslipData.Deductions.Custom {
+			customDeductionsMap[k] = v
+		}
+		deductionsMap["custom"] = customDeductionsMap
+	}
+	payslipMap["deductions"] = deductionsMap
+
 	// Generate PDF with custom data
-	pdfBytes, err := h.payslipPDFService.GenerateCustomPayslipPDF(payslipData, user, companySettings)
+	pdfBytes, err := h.payslipPDFService.GenerateCustomPayslipPDF(payslipMap, user, companySettings)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to generate PDF",
+			"error": fmt.Sprintf("Failed to generate PDF: %v", err),
 		})
 		return
 	}
@@ -117,17 +148,9 @@ func (h *PayslipPDFHandler) GenerateCustomPayslipPDF(c *gin.Context) {
 }
 
 // GeneratePayslipPDF handles payslip PDF generation from existing salary slip
+// Note: Role check is handled by middleware.RoleRequired("HR", "Admin", "God") in routes
 func (h *PayslipPDFHandler) GeneratePayslipPDF(c *gin.Context) {
 	organizationID := c.GetString("organization_id")
-	userRole := c.GetString("role")
-
-	// Only HR/Admin can generate payslip PDFs
-	if userRole != "HR" && userRole != "Admin" && userRole != "God" {
-		c.JSON(http.StatusForbidden, gin.H{
-			"error": "Only HR/Admin users can generate payslip PDFs",
-		})
-		return
-	}
 
 	// Get salary slip ID from URL parameter
 	salarySlipIDStr := c.Param("id")

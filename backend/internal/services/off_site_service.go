@@ -118,7 +118,6 @@ func (s *offSiteService) CreateOffSite(req CreateOffSiteRequest, httpReq *http.R
 	changeSummary := fmt.Sprintf("Off-site entry created: %s from %s to %s",
 		offSite.Title, offSite.StartDate.Format("2006-01-02"), offSite.EndDate.Format("2006-01-02"))
 	if err := s.auditService.LogOffSiteChange(orgIDStr, offSiteIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	return offSiteWithRelations, nil
@@ -198,7 +197,6 @@ func (s *offSiteService) UpdateOffSite(id string, req UpdateOffSiteRequest, http
 	// Log the off-site update
 	changeSummary := fmt.Sprintf("Off-site entry updated: %s", offSite.Title)
 	if err := s.auditService.LogOffSiteChange(orgIDStr, offSiteIDStr, changedBy, "UPDATE", changeSummary, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	return offSite, nil
@@ -231,7 +229,6 @@ func (s *offSiteService) DeleteOffSite(id string, httpReq *http.Request) error {
 	// Log the off-site deletion
 	changeSummary := fmt.Sprintf("Off-site entry deleted: %s", offSite.Title)
 	if err := s.auditService.LogOffSiteChange(orgIDStr, offSiteIDStr, changedBy, "DELETE", changeSummary, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	return nil

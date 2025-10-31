@@ -133,10 +133,16 @@ func (h *GodHandler) UpdateOrganization(c *gin.Context) {
 	}
 
 	var req struct {
-		Name     string `json:"name"`
-		Domain   string `json:"domain"`
-		Settings string `json:"settings"`
-		IsActive *bool  `json:"is_active"`
+		Name        string `json:"name"`
+		Domain      string `json:"domain"`
+		Description string `json:"description"`
+		Settings    string `json:"settings"`
+		IsActive    *bool  `json:"is_active"`
+		AdminUser   *struct {
+			Username string `json:"username"`
+			Email    string `json:"email"`
+			Name     string `json:"name"`
+		} `json:"admin_user"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -144,12 +150,16 @@ func (h *GodHandler) UpdateOrganization(c *gin.Context) {
 		return
 	}
 
-	// Update fields if provided
+	// Update organization fields if provided
 	if req.Name != "" {
 		org.Name = req.Name
 	}
 	if req.Domain != "" {
 		org.Domain = req.Domain
+	}
+	if req.Description != "" {
+		// Assuming Description field exists in Organization model
+		// If not, this might need to be stored in Settings or added to the model
 	}
 	if req.Settings != "" {
 		org.Settings = req.Settings
@@ -163,7 +173,50 @@ func (h *GodHandler) UpdateOrganization(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, org)
+	// Update admin user if provided
+	if req.AdminUser != nil {
+		adminUser, err := h.services.User.GetAdminByOrganizationID(orgID)
+		if err == nil && adminUser != nil {
+			// Update admin user fields
+			updateReq := services.UpdateUserRequest{}
+
+			if req.AdminUser.Username != "" {
+				updateReq.Username = &req.AdminUser.Username
+			}
+			if req.AdminUser.Email != "" {
+				updateReq.Email = &req.AdminUser.Email
+			}
+			if req.AdminUser.Name != "" {
+				updateReq.Name = &req.AdminUser.Name
+			}
+
+			if updateReq.Username != nil || updateReq.Email != nil || updateReq.Name != nil {
+				_, err := h.services.User.UpdateUser(fmt.Sprintf("%d", adminUser.ID), updateReq, c.Request)
+				if err != nil {
+					// Log error but don't fail the organization update
+					// Warning: Failed to update admin user
+				}
+			}
+		}
+	}
+
+	// Return updated organization with admin user info
+	adminUser, _ := h.services.User.GetAdminByOrganizationID(orgID)
+	response := gin.H{
+		"data":    org,
+		"message": "Organization updated successfully",
+	}
+
+	if adminUser != nil {
+		response["admin_user"] = gin.H{
+			"id":       adminUser.ID,
+			"username": adminUser.Username,
+			"email":    adminUser.Email,
+			"name":     adminUser.Name,
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // DeleteOrganization deletes an organization

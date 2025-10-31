@@ -13,11 +13,40 @@ type CalendarEvent = {
   extendedProps?: {
     type?: string;
     description?: string;
+    offSiteType?: string;
+    originalHoliday?: {
+      name?: string;
+      title?: string;
+      type?: string;
+      description?: string;
+      [key: string]: any;
+    };
+    originalLeave?: {
+      user?: { name?: string; [key: string]: any };
+      type?: string;
+      [key: string]: any;
+    };
+    originalOffSite?: {
+      location?: string;
+      description?: string;
+      [key: string]: any;
+    };
     employees?: Array<{
       name: string;
       type: string;
       status: string;
       reason?: string;
+    }>;
+    holidays?: Array<{
+      title: string;
+      type?: string;
+      description?: string;
+    }>;
+    offsites?: Array<{
+      title: string;
+      type?: string;
+      description?: string;
+      originalOffSite?: { location?: string; description?: string; [key: string]: any };
     }>;
     count?: number;
     isCurrentUser?: boolean;
@@ -212,8 +241,14 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#f97316" }}></div>
-                <span className="text-xs text-gray-600 dark:text-gray-200">Off-site Work</span>
+                <span className="text-xs text-gray-600 dark:text-gray-200">My Off-site</span>
           </div>
+          {userRole === "HR" || userRole === "Admin" || userRole === "God" ? (
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: "#e91e63" }}></div>
+                  <span className="text-xs text-gray-600 dark:text-gray-200">Team Off-site</span>
+            </div>
+          ) : null}
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#06b6d4" }}></div>
                 <span className="text-xs text-gray-600 dark:text-gray-200">Birthdays</span>
@@ -244,14 +279,32 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
           }}
           eventDisplay="block"
           eventClick={(info) => {
-            const event = events.find(e =>
-              e.title === info.event.title &&
-              e.start.toString() === info.event.start?.toString()
-            );
-            if (event) {
+            // Find the matching event - use more flexible matching
+            const clickedEvent = info.event;
+            const event = events.find(e => {
+              // Match by title and start date, or use the event directly from FullCalendar
+              const eStart = e.start instanceof Date ? e.start : new Date(e.start);
+              const clickedStart = clickedEvent.start instanceof Date 
+                ? clickedEvent.start 
+                : clickedEvent.start ? new Date(clickedEvent.start) : null;
+              
+              if (!clickedStart) return false;
+              
+              return (
+                e.title === clickedEvent.title &&
+                eStart.getTime() === clickedStart.getTime()
+              );
+            }) || {
+              // Fallback: create event from FullCalendar's event data
+              title: clickedEvent.title,
+              start: clickedEvent.start || new Date(),
+              end: clickedEvent.end || undefined,
+              color: clickedEvent.backgroundColor,
+              extendedProps: clickedEvent.extendedProps || {}
+            } as CalendarEvent;
+            
               setSelectedEvent(event);
               setShowModal(true);
-            }
           }}
           themeSystem="standard"
         />
@@ -259,15 +312,15 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
 
       {/* Event Details Modal */}
       {showModal && selectedEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="text-lg font-semibold text-primary">
                 {selectedEvent.title}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="text-muted hover:text-primary transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -275,35 +328,97 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
               </button>
             </div>
             
-            <div className="space-y-3">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                <strong>Date:</strong> {selectedEvent.start instanceof Date 
-                  ? selectedEvent.start.toLocaleDateString() 
-                  : new Date(selectedEvent.start).toLocaleDateString()}
+            <div className="space-y-4">
+              {/* Date Range Information */}
+              <div className="bg-white/5 dark:bg-white/10 rounded-lg p-3 border border-card">
+                <div className="text-sm font-medium text-primary mb-2">
+                  Date Information
+                </div>
+                <div className="text-sm text-secondary">
+                  <div>
+                    <strong className="text-primary">Start:</strong> {selectedEvent.start instanceof Date 
+                      ? selectedEvent.start.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                      : new Date(selectedEvent.start).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </div>
+                  {selectedEvent.end && (
+                    <div className="mt-1">
+                      <strong className="text-primary">End:</strong> {selectedEvent.end instanceof Date 
+                        ? selectedEvent.end.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                        : new Date(selectedEvent.end).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </div>
+                  )}
+                  {selectedEvent.start && selectedEvent.end && (
+                    <div className="mt-1 text-xs text-muted">
+                      {(() => {
+                        const start = selectedEvent.start instanceof Date ? selectedEvent.start : new Date(selectedEvent.start);
+                        const end = selectedEvent.end instanceof Date ? selectedEvent.end : new Date(selectedEvent.end);
+                        const diffTime = Math.abs(end.getTime() - start.getTime());
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        return diffDays > 1 ? `${diffDays} days` : 'Single day';
+                      })()}
+                    </div>
+                  )}
+                </div>
               </div>
               
+              {/* Event Type Badge */}
+              {selectedEvent.extendedProps?.type && (
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 capitalize">
+                    {selectedEvent.extendedProps.type}
+                  </span>
+                  {selectedEvent.extendedProps?.offSiteType && (
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200">
+                      {selectedEvent.extendedProps.offSiteType === 'my-offsite' ? 'My Off-site' : 'Team Off-site'}
+                    </span>
+                  )}
+                  {selectedEvent.extendedProps?.isCurrentUser && (
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
+                      Your Event
+                    </span>
+                  )}
+                </div>
+              )}
+              
+              {/* Leave Details */}
               {selectedEvent.extendedProps?.employees && selectedEvent.extendedProps.employees.length > 0 ? (
                 <div>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  <div className="text-sm font-medium text-gray-900 dark:text-white mb-3">
                     {selectedEvent.extendedProps.count && selectedEvent.extendedProps.count > 1 
                       ? `${selectedEvent.extendedProps.count} employees on leave:`
-                      : 'Employee details:'
+                      : 'Leave Details:'
                     }
                   </div>
                   <div className="space-y-2">
-                    {selectedEvent.extendedProps.employees.map((employee, index) => (
-                      <div key={index} className="bg-gray-100 dark:bg-gray-600 rounded p-3 border border-gray-200 dark:border-gray-500">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-white">
+                    {selectedEvent.extendedProps.employees.map((employee: any, index: number) => (
+                      <div key={index} className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-900 dark:text-white text-base">
                               {employee.name}
                             </div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {employee.type} - {employee.status}
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs font-medium">
+                                {employee.type}
+                              </span>
+                              <span className={`ml-2 px-2 py-0.5 rounded text-xs font-medium ${
+                                employee.status === 'approved' 
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                                  : employee.status === 'pending'
+                                  ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+                              }`}>
+                                {employee.status}
+                              </span>
                             </div>
                             {employee.reason && (
-                              <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                Reason: {employee.reason}
+                              <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded border-l-4 border-blue-500">
+                                <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                  Reason:
+                                </div>
+                                <div className="text-sm text-gray-600 dark:text-gray-400">
+                                  {employee.reason}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -312,13 +427,265 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
                     ))}
                   </div>
                 </div>
-              ) : selectedEvent.extendedProps?.description ? (
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  <strong>Description:</strong> {selectedEvent.extendedProps.description}
+              ) : null}
+              
+              {/* Holiday/Event Details */}
+              {selectedEvent.extendedProps?.holidays && selectedEvent.extendedProps.holidays.length > 0 ? (
+                <div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    {(selectedEvent.extendedProps.count ?? 0) > 1 
+                      ? `${selectedEvent.extendedProps.count} holidays/events:`
+                      : 'Holiday/Event Details:'
+                    }
+                  </div>
+                  <div className="space-y-2">
+                    {selectedEvent.extendedProps.holidays.map((holiday: any, index: number) => (
+                      <div key={index} className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
+                        <div className="font-semibold text-gray-900 dark:text-white text-base mb-2">
+                          {holiday.title}
+                        </div>
+                        {holiday.type && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <span className="px-2 py-1 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs font-medium capitalize">
+                              {holiday.type}
+                            </span>
+                          </div>
+                        )}
+                        {holiday.description && (
+                          <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded">
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Description:
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {holiday.description}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ) : (
+              ) : null}
+              
+              {/* Off-site Details */}
+              {selectedEvent.extendedProps?.offsites && selectedEvent.extendedProps.offsites.length > 0 ? (
+                <div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    {(selectedEvent.extendedProps.count ?? 0) > 1 
+                      ? `${selectedEvent.extendedProps.count} off-site ${selectedEvent.extendedProps.offSiteType === 'my-offsite' ? 'entries (mine):' : 'entries (team):'}`
+                      : 'Off-site Details:'
+                    }
+                  </div>
+                  <div className="space-y-2">
+                    {selectedEvent.extendedProps.offsites.map((offsite: any, index: number) => (
+                      <div key={index} className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
+                        <div className="font-semibold text-gray-900 dark:text-white text-base mb-2">
+                          {offsite.title}
+                        </div>
+                        {offsite.user && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <strong>Employee:</strong> {offsite.user.name || 'Employee'}
+                            {offsite.user.email && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                                ({offsite.user.email})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {offsite.originalOffSite?.location && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                            <strong>Location:</strong> {offsite.originalOffSite.location}
+                          </div>
+                        )}
+                        {offsite.originalOffSite?.description && (
+                          <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded">
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Description:
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              {offsite.originalOffSite.description}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              
+              {/* Birthday Details */}
+              {selectedEvent.extendedProps?.type === 'birthday' ? (
+                <div className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
+                  <div className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+                    🎂 {selectedEvent.title.replace("'s Birthday", "")}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedEvent.extendedProps.description || `${selectedEvent.title.replace("'s Birthday", "")}'s birthday celebration`}
+                  </div>
+                </div>
+              ) : null}
+              
+              {/* Generic Description */}
+              {!selectedEvent.extendedProps?.employees && 
+               !selectedEvent.extendedProps?.holidays && 
+               !selectedEvent.extendedProps?.offsites && 
+               selectedEvent.extendedProps?.type !== 'birthday' &&
+               selectedEvent.extendedProps?.description && (
+                <div className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
+                  <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    Description:
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedEvent.extendedProps.description}
+                  </div>
+                </div>
+              )}
+              
+              {/* Original Holiday Info (for single holidays) */}
+              {selectedEvent.extendedProps?.originalHoliday && !selectedEvent.extendedProps?.holidays && (
+                <div className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
+                  <div className="font-semibold text-gray-900 dark:text-white text-base mb-2">
+                    {selectedEvent.extendedProps.originalHoliday.name || selectedEvent.title}
+                  </div>
+                  {selectedEvent.extendedProps.originalHoliday.type && (
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      <span className="px-2 py-1 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 text-xs font-medium capitalize">
+                        {selectedEvent.extendedProps.originalHoliday.type}
+                      </span>
+                    </div>
+                  )}
+                  {selectedEvent.extendedProps.originalHoliday.description && (
+                    <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded">
+                      <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Description:
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        {selectedEvent.extendedProps.originalHoliday.description}
+                      </div>
+                    </div>
+                  )}
+                  {(selectedEvent.extendedProps.originalHoliday.date || selectedEvent.extendedProps.originalHoliday.date_range) && (
+                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      {selectedEvent.extendedProps.originalHoliday.date_range 
+                        ? `Date Range: ${selectedEvent.extendedProps.originalHoliday.date_range}`
+                        : selectedEvent.extendedProps.originalHoliday.date 
+                        ? `Date: ${new Date(selectedEvent.extendedProps.originalHoliday.date).toLocaleDateString()}`
+                        : ''}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Original Leave Info (for single leaves) */}
+              {selectedEvent.extendedProps?.originalLeave && !selectedEvent.extendedProps?.employees && (
+                <div className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
+                  <div className="font-semibold text-gray-900 dark:text-white text-base mb-2">
+                    {selectedEvent.extendedProps.originalLeave.user?.name || 'Employee'} - {selectedEvent.extendedProps.originalLeave.type}
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs font-medium">
+                        {selectedEvent.extendedProps.originalLeave.type}
+                      </span>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        selectedEvent.extendedProps.originalLeave.status === 'approved' 
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200'
+                          : selectedEvent.extendedProps.originalLeave.status === 'pending'
+                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+                      }`}>
+                        {selectedEvent.extendedProps.originalLeave.status}
+                      </span>
+                    </div>
+                    {(selectedEvent.extendedProps.originalLeave.from_date || selectedEvent.extendedProps.originalLeave.from) && (
+                      <div className="text-gray-600 dark:text-gray-400">
+                        <strong>From:</strong> {new Date(selectedEvent.extendedProps.originalLeave.from_date || selectedEvent.extendedProps.originalLeave.from).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </div>
+                    )}
+                    {(selectedEvent.extendedProps.originalLeave.to_date || selectedEvent.extendedProps.originalLeave.to) && (
+                      <div className="text-gray-600 dark:text-gray-400">
+                        <strong>To:</strong> {new Date(selectedEvent.extendedProps.originalLeave.to_date || selectedEvent.extendedProps.originalLeave.to).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </div>
+                    )}
+                    {selectedEvent.extendedProps.originalLeave.reason && (
+                      <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded border-l-4 border-blue-500">
+                        <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Reason:
+                        </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  No additional details available.
+                          {selectedEvent.extendedProps.originalLeave.reason}
+                        </div>
+                      </div>
+                    )}
+                    {selectedEvent.extendedProps.originalLeave.days && (
+                      <div className="text-gray-600 dark:text-gray-400">
+                        <strong>Duration:</strong> {selectedEvent.extendedProps.originalLeave.days} day{selectedEvent.extendedProps.originalLeave.days !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Original Off-site Info (for single off-sites) */}
+              {selectedEvent.extendedProps?.originalOffSite && !selectedEvent.extendedProps?.offsites && (
+                <div className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
+                  <div className="font-semibold text-gray-900 dark:text-white text-base mb-2">
+                    {selectedEvent.extendedProps.originalOffSite.title}
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    {selectedEvent.extendedProps.originalOffSite.user && (
+                      <div className="text-gray-600 dark:text-gray-400">
+                        <strong>Employee:</strong> {selectedEvent.extendedProps.originalOffSite.user.name || 'Employee'}
+                        {selectedEvent.extendedProps.originalOffSite.user.email && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                            ({selectedEvent.extendedProps.originalOffSite.user.email})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {selectedEvent.extendedProps.originalOffSite.start_date && (
+                      <div className="text-gray-600 dark:text-gray-400">
+                        <strong>Start Date:</strong> {new Date(selectedEvent.extendedProps.originalOffSite.start_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </div>
+                    )}
+                    {selectedEvent.extendedProps.originalOffSite.end_date && (
+                      <div className="text-gray-600 dark:text-gray-400">
+                        <strong>End Date:</strong> {new Date(selectedEvent.extendedProps.originalOffSite.end_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </div>
+                    )}
+                    {selectedEvent.extendedProps.originalOffSite.location && (
+                      <div className="text-gray-600 dark:text-gray-400">
+                        <strong>Location:</strong> {selectedEvent.extendedProps.originalOffSite.location}
+                      </div>
+                    )}
+                    {selectedEvent.extendedProps.originalOffSite.description && (
+                      <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded">
+                        <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Description:
+                        </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {selectedEvent.extendedProps.originalOffSite.description}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Fallback if no extended props */}
+              {!selectedEvent.extendedProps?.employees && 
+               !selectedEvent.extendedProps?.holidays && 
+               !selectedEvent.extendedProps?.offsites && 
+               selectedEvent.extendedProps?.type !== 'birthday' &&
+               !selectedEvent.extendedProps?.description &&
+               !selectedEvent.extendedProps?.originalHoliday &&
+               !selectedEvent.extendedProps?.originalLeave &&
+               !selectedEvent.extendedProps?.originalOffSite && (
+                <div className="text-sm text-gray-600 dark:text-gray-400 text-center py-4">
+                  <p>No additional details available for this event.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                    Click on other events to see more information.
+                  </p>
                 </div>
               )}
             </div>

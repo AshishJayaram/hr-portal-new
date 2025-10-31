@@ -145,7 +145,6 @@ func (s *documentService) UploadDocument(req UploadDocumentRequest, httpReq *htt
 	// Log the document upload
 	changeSummary := fmt.Sprintf("Document '%s' uploaded for user", document.Title)
 	if err := s.auditService.LogDocumentChange(orgIDStr, documentIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	// Send notification to the user if it's a private document
@@ -175,7 +174,6 @@ func (s *documentService) DeleteDocument(id string, httpReq *http.Request) error
 	if document.FilePath != "" {
 		if err := os.Remove(document.FilePath); err != nil {
 			// Log error but continue with database deletion
-			fmt.Printf("Warning: Failed to delete file %s: %v\n", document.FilePath, err)
 		}
 	}
 
@@ -198,7 +196,6 @@ func (s *documentService) DeleteDocument(id string, httpReq *http.Request) error
 	// Log the document deletion
 	changeSummary := fmt.Sprintf("Document '%s' deleted", document.Title)
 	if err := s.auditService.LogDocumentChange(orgIDStr, id, changedBy, "DELETE", changeSummary, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	return nil
@@ -316,7 +313,6 @@ func (s *salarySlipService) AddSalarySlip(req UploadSalarySlipRequest, httpReq *
 	// Log the salary slip upload
 	changeSummary := fmt.Sprintf("Salary slip uploaded for %s (%d)", req.Month, req.Year)
 	if err := s.auditService.LogSalarySlipChange(orgIDStr, salarySlipIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	// Send notification to the user
@@ -693,12 +689,9 @@ func NewDashboardService(repos *repositories.Repositories) DashboardService {
 }
 
 func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*DashboardStatsResponse, error) {
-	fmt.Printf("DEBUG: GetStats called for org %s, user %s, role %s\n", organizationID, userID, userRole)
-
 	// Get total users count for the organization
 	var totalUsers int64
 	if err := s.repos.User.CountByOrganization(organizationID, &totalUsers); err != nil {
-		fmt.Printf("DEBUG: Error getting user count: %v\n", err)
 		return nil, fmt.Errorf("failed to get total users count: %w", err)
 	}
 
@@ -732,26 +725,66 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		return nil, fmt.Errorf("failed to get holidays: %w", err)
 	}
 
-	// Filter upcoming holidays (all future holidays and holidays without specific dates)
+	// Filter holidays for calendar (include wider range: past 3 months + all future months)
+	// This ensures holidays like "Christmas break" are visible even if in past months
 	upcomingHolidays := []models.Holiday{}
 	now := time.Now()
+	currentMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	// Include holidays from past 3 months to current month and all future
+	visibleRangeStart := currentMonthStart.AddDate(0, -3, 0)
+	currentMonthEnd := currentMonthStart.AddDate(0, 1, 0).Add(-time.Nanosecond)
 
 	for _, holiday := range holidays {
-		// Include holidays that are:
-		// 1. In the future (have a date and it's after now)
-		// 2. Have a date range (multi-day events)
-		// 3. Have no specific date (ongoing notices or general holidays)
+		// Include holidays that:
+		// 1. Are in the visible range (past 3 months to future)
+		// 2. Overlap with the visible range
+		// 3. Have no specific date (ongoing notices)
 		shouldInclude := false
 
-		if holiday.Date != nil && holiday.Date.After(now) {
-			// Future single-day holiday
-			shouldInclude = true
+		if holiday.Date != nil {
+			// Single-day holiday - include if it's in visible range or future
+			holidayDate := holiday.Date.Truncate(24 * time.Hour)
+			// Include if it's after the start of visible range or is in the future
+			if holidayDate.After(visibleRangeStart) || holidayDate.Equal(visibleRangeStart) || holidayDate.After(now) {
+				shouldInclude = true
+			}
 		} else if holiday.DateRange != nil && *holiday.DateRange != "" {
-			// Multi-day holiday - check if any part is in the future
-			// For now, include all date range holidays
-			shouldInclude = true
+			// Multi-day holiday - check if range overlaps with visible range
+			dateRangeStr := *holiday.DateRange
+			if strings.Contains(dateRangeStr, " to ") {
+				parts := strings.Split(dateRangeStr, " to ")
+				if len(parts) == 2 {
+					startDate, err := time.Parse("2006-01-02", strings.TrimSpace(parts[0]))
+					if err == nil {
+						endDate, err := time.Parse("2006-01-02", strings.TrimSpace(parts[1]))
+						if err == nil {
+							// Include if range overlaps with visible range or is in the future
+							// Range overlaps if: start <= month_end AND end >= visible_range_start
+							// OR if it's completely in the future
+							overlapsVisibleRange := startDate.Before(currentMonthEnd) && endDate.After(visibleRangeStart)
+							isCompletelyFuture := startDate.After(now)
+
+							if overlapsVisibleRange || isCompletelyFuture {
+								shouldInclude = true
+							}
+						} else {
+							// Include anyway to avoid missing holidays due to parse errors
+							shouldInclude = true
+						}
+					} else {
+						// Include anyway to avoid missing holidays due to parse errors
+						shouldInclude = true
+					}
+				} else {
+					// Include all date range holidays if format is unclear (to avoid missing holidays)
+					shouldInclude = true
+				}
+			} else {
+				// Include all date range holidays if format is unclear (to avoid missing holidays)
+				shouldInclude = true
+			}
 		} else if holiday.Date == nil && holiday.DateRange == nil {
-			// Holiday without specific date (like "Christmas Vacation")
+			// Holiday without specific date (like notices)
 			shouldInclude = true
 		}
 
@@ -778,9 +811,10 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		}
 	}
 
-	// Sort by created_at desc and limit to 10
-	if len(recentLeaves) > 10 {
-		recentLeaves = recentLeaves[:10]
+	// Sort by created_at desc and limit to 200 for calendar visibility (HR/Admin need to see all)
+	// Increased limit to show all organization leaves on calendar
+	if len(recentLeaves) > 200 {
+		recentLeaves = recentLeaves[:200]
 	}
 
 	// Get recent documents using the same logic as Documents page
@@ -826,17 +860,28 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		return nil, fmt.Errorf("failed to get leave balances: %w", err)
 	}
 
-	// Get recent off-site entries for the current user
-	recentOffSites, err := s.repos.OffSite.List(organizationID, map[string]interface{}{
-		"user_id": userID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get recent off-sites: %w", err)
+	// Get recent off-site entries - role-based access
+	var recentOffSites []models.OffSite
+	if userRole == "HR" || userRole == "Admin" || userRole == "God" {
+		// Admin/HR/God can see all off-sites in the organization
+		recentOffSites, err = s.repos.OffSite.List(organizationID, map[string]interface{}{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get all off-sites: %w", err)
+		}
+	} else {
+		// Regular employees can only see their own off-sites
+		recentOffSites, err = s.repos.OffSite.List(organizationID, map[string]interface{}{
+			"user_id": userID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get recent off-sites: %w", err)
+		}
 	}
 
-	// Sort by created_at desc and limit to 5
-	if len(recentOffSites) > 5 {
-		recentOffSites = recentOffSites[:5]
+	// Sort by created_at desc and limit to 200 for calendar visibility (HR/Admin need to see all)
+	// Increased limit to show all organization off-sites on calendar
+	if len(recentOffSites) > 200 {
+		recentOffSites = recentOffSites[:200]
 	}
 
 	// Get user birthdays for the organization
@@ -870,8 +915,6 @@ func (s *dashboardService) getLeaveBalances(organizationID, userID string) ([]Le
 	if err != nil {
 		return nil, fmt.Errorf("failed to get leave allocations: %w", err)
 	}
-
-	fmt.Printf("DEBUG: Found %d leave allocations for user %s\n", len(allocations), userID)
 
 	// Get approved leaves for the user
 	leaves, err := s.repos.Leave.List(organizationID, map[string]interface{}{
@@ -917,11 +960,8 @@ func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthd
 	// Get all users in the organization with birthdays
 	users, err := s.repos.User.List(organizationID, map[string]interface{}{})
 	if err != nil {
-		fmt.Printf("DEBUG: Error getting users for org %s: %v\n", organizationID, err)
 		return nil, fmt.Errorf("failed to get users: %w", err)
 	}
-
-	fmt.Printf("DEBUG: Found %d users in organization %s\n", len(users), organizationID)
 
 	var birthdays []UserBirthdayResponse
 	now := time.Now()
@@ -942,13 +982,13 @@ func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthd
 				birthdayThisYear = birthdayThisYear.AddDate(1, 0, 0)
 			}
 
-            // Include all visible birthdays; frontend will decide how many years to render
-            birthdays = append(birthdays, UserBirthdayResponse{
-                ID:              strconv.FormatUint(uint64(user.ID), 10),
-                Name:            user.Name,
-                Birthday:        user.Birthday.Format("2006-01-02"),
-                BirthdayVisible: user.BirthdayVisible,
-            })
+			// Include all visible birthdays; frontend will decide how many years to render
+			birthdays = append(birthdays, UserBirthdayResponse{
+				ID:              strconv.FormatUint(uint64(user.ID), 10),
+				Name:            user.Name,
+				Birthday:        user.Birthday.Format("2006-01-02"),
+				BirthdayVisible: user.BirthdayVisible,
+			})
 		}
 	}
 
@@ -970,10 +1010,10 @@ func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthd
 		return birthdayThisYearI.Before(birthdayThisYearJ)
 	})
 
-    // Limit to reasonable number to avoid payload bloat
-    if len(birthdays) > 100 {
-        birthdays = birthdays[:100]
-    }
+	// Limit to reasonable number to avoid payload bloat
+	if len(birthdays) > 100 {
+		birthdays = birthdays[:100]
+	}
 
 	return birthdays, nil
 }

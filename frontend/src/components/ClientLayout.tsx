@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import Providers from "./Providers";
 import AuthGuard from "./AuthGuard";
+import PageTransitionLoader from "./PageTransitionLoader";
 import { usePathname } from "next/navigation";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -15,6 +16,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <Providers>
+      <PageTransitionLoader />
       {isAuthPage ? (
         // Auth pages → no sidebar/topbar - let the page layout handle it
         <>{children}</>

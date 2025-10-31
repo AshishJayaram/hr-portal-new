@@ -15,6 +15,7 @@ export default function HolidaysPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [typeFilter, setTypeFilter] = useState<"all" | "holiday" | "event" | "notice">("all");
   const [formData, setFormData] = useState({
     name: "",
     startDate: "",
@@ -217,6 +218,67 @@ export default function HolidaysPage() {
         </div>
       </div>
 
+      {/* Type Filter */}
+      <div className="bg-white/5 dark:bg-white/10 rounded-lg p-4 border border-card">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-primary mr-2">Filter:</span>
+            <button
+              onClick={() => setTypeFilter("all")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                typeFilter === "all"
+                  ? "bg-indigo-500 text-white"
+                  : "bg-white/5 dark:bg-white/10 text-secondary hover:bg-white/10 dark:hover:bg-white/20"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setTypeFilter("holiday")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                typeFilter === "holiday"
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                  : "bg-white/5 dark:bg-white/10 text-secondary hover:bg-white/10 dark:hover:bg-white/20"
+              }`}
+            >
+              Holidays
+            </button>
+            <button
+              onClick={() => setTypeFilter("event")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                typeFilter === "event"
+                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                  : "bg-white/5 dark:bg-white/10 text-secondary hover:bg-white/10 dark:hover:bg-white/20"
+              }`}
+            >
+              Events
+            </button>
+            <button
+              onClick={() => setTypeFilter("notice")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                typeFilter === "notice"
+                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                  : "bg-white/5 dark:bg-white/10 text-secondary hover:bg-white/10 dark:hover:bg-white/20"
+              }`}
+            >
+              Notices
+            </button>
+          </div>
+          <div className="text-sm text-secondary">
+            {(() => {
+              const filteredCount = holidays.filter((holiday) => {
+                if (typeFilter === "all") return true;
+                return holiday.type === typeFilter;
+              }).length;
+              const totalCount = holidays.length;
+              return typeFilter === "all" 
+                ? `Showing all ${totalCount} items`
+                : `Showing ${filteredCount} of ${totalCount} items`;
+            })()}
+          </div>
+        </div>
+      </div>
+
       {(error || createHolidayMutation.error || updateHolidayMutation.error || deleteHolidayMutation.error) && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
           {error?.message ||
@@ -362,6 +424,10 @@ export default function HolidaysPage() {
 
       <div className="space-y-3">
         {holidays
+          .filter((holiday) => {
+            if (typeFilter === "all") return true;
+            return holiday.type === typeFilter;
+          })
           .sort((a, b) => {
             // Notices without dates go to the end
             const aDate = a.date || a.dateRange?.split(' to ')[0];

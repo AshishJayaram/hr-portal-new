@@ -193,6 +193,10 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			auth.POST("/logout", middleware.AuthRequired(cfg.JWT.Secret), handlers.Auth.Logout)
 			auth.POST("/refresh", handlers.Auth.RefreshToken)
 			auth.GET("/me", middleware.AuthRequired(cfg.JWT.Secret), handlers.Auth.GetCurrentUser)
+			auth.POST("/send-otp", handlers.Auth.SendOTP)
+			auth.POST("/verify-otp", handlers.Auth.VerifyOTP)
+			auth.POST("/forgot-password", handlers.Auth.ForgotPassword)
+			auth.POST("/reset-password", handlers.Auth.ResetPassword)
 		}
 
 		// User routes
@@ -406,8 +410,11 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			feedback.GET("", handlers.Feedback.GetFeedback)
 			feedback.POST("", handlers.Feedback.CreateFeedback)
 			feedback.GET("/stats", handlers.Feedback.GetFeedbackStats)
+			// Specific routes must come before parameterized routes
+			feedback.GET("/archived", handlers.Feedback.GetArchivedFeedback)
 			feedback.GET("/:id", handlers.Feedback.GetFeedbackByID)
 			feedback.PATCH("/:id", middleware.RoleRequired("HR", "Admin", "God"), handlers.Feedback.UpdateFeedbackStatus)
+			feedback.POST("/:id/archive", middleware.RoleRequired("HR", "Admin", "God"), handlers.Feedback.ArchiveFeedback)
 			feedback.DELETE("/:id", middleware.RoleRequired("HR", "Admin", "God"), handlers.Feedback.DeleteFeedback)
 		}
 

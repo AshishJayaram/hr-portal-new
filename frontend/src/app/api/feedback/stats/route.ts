@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-export const dynamic = 'force-static';
+
+// Allow dynamic requests to read headers (authentication)
+export const dynamic = 'force-dynamic';
 
 
 export async function GET(request: Request) {

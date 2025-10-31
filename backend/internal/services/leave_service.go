@@ -162,7 +162,6 @@ func (s *leaveService) ApplyLeave(req ApplyLeaveRequest, httpReq *http.Request) 
 	// Log the leave application
 	changeSummary := fmt.Sprintf("Leave application submitted: %s from %s to %s", leave.Type, leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"))
 	if err := s.auditService.LogLeaveChange(orgIDStr, leaveIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	// Send notification to manager
@@ -461,19 +460,41 @@ func (s *leaveService) GetPendingApprovals(managerID string) ([]models.Leave, er
 }
 
 func (s *leaveService) GetTeamLeaveBalances(managerID, organizationID string) (map[string][]LeaveBalanceResponse, error) {
-	// Get all subordinate user IDs recursively
+	// Get the current user to check their role
+	currentUser, err := s.userRepo.GetByID(managerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current user: %w", err)
+	}
+
+	var userIDs []uint
+
+	// If user is HR/Admin/God, get ALL users in the organization
+	// Otherwise, get only subordinates (reportees)
+	if currentUser.Role == "HR" || currentUser.Role == "Admin" || currentUser.Role == "God" {
+		// Get all users in the organization
+		allUsers, err := s.userRepo.List(organizationID, map[string]interface{}{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get organization users: %w", err)
+		}
+		// Extract user IDs
+		for _, user := range allUsers {
+			userIDs = append(userIDs, user.ID)
+		}
+	} else {
+		// Get subordinate user IDs recursively (for managers)
 	subordinateIDs, err := s.getAllSubordinateIDs(managerID, organizationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get subordinate IDs: %w", err)
+		}
+		userIDs = subordinateIDs
 	}
 
 	teamBalances := make(map[string][]LeaveBalanceResponse)
 
-	for _, userID := range subordinateIDs {
+	for _, userID := range userIDs {
 		balances, err := s.GetLeaveBalance(strconv.FormatUint(uint64(userID), 10))
 		if err != nil {
 			// Log error but continue with other users
-			fmt.Printf("Failed to get leave balance for user %d: %v\n", userID, err)
 			continue
 		}
 		teamBalances[strconv.FormatUint(uint64(userID), 10)] = balances

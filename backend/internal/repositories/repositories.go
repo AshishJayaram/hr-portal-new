@@ -32,6 +32,8 @@ type Repositories struct {
 	DocumentAcknowledgment  DocumentAcknowledgmentRepository
 	EmployeePrivateDocument EmployeePrivateDocumentRepository
 	KRA                     KRARepository
+	OTP                     OTPRepository
+	PasswordReset           PasswordResetRepository
 }
 
 // New creates a new instance of Repositories
@@ -55,6 +57,8 @@ func New(db *gorm.DB, rdb *redis.Client) *Repositories {
 		DocumentAcknowledgment:  NewDocumentAcknowledgmentRepository(db),
 		EmployeePrivateDocument: NewEmployeePrivateDocumentRepository(db, rdb),
 		KRA:                     NewKRARepository(db, rdb),
+		OTP:                     NewOTPRepository(db, rdb),
+		PasswordReset:           NewPasswordResetRepository(db, rdb),
 	}
 }
 
@@ -79,6 +83,7 @@ type UserRepository interface {
 	GetByEmail(email, organizationID string) (*models.User, error)
 	GetByUsername(username, organizationID string) (*models.User, error)
 	GetByUsernameAcrossOrgs(username string) (*models.User, error)
+	GetByEmailAcrossOrgs(email string) (*models.User, error)
 	List(organizationID string, filters map[string]interface{}) ([]models.User, error)
 	Update(user *models.User) error
 	Delete(id string) error
@@ -210,6 +215,24 @@ type AuditLogRepository interface {
 	GetByUser(userID string) ([]models.AuditLog, error)
 	Delete(organizationID string, olderThan time.Time) error
 	DeleteByEntity(entityType, entityID string) error
+}
+
+// OTPRepository interface for OTP token operations
+type OTPRepository interface {
+	Create(otp *models.OTPToken) error
+	GetByEmailAndOTP(email, otp string) (*models.OTPToken, error)
+	MarkAsUsed(otp string) error
+	DeleteExpiredOTPs() error
+	InvalidateUserOTPs(email string) error
+}
+
+// PasswordResetRepository interface for password reset token operations
+type PasswordResetRepository interface {
+	Create(token *models.PasswordResetToken) error
+	GetByToken(token string) (*models.PasswordResetToken, error)
+	MarkAsUsed(token string) error
+	DeleteExpiredTokens() error
+	InvalidateUserTokens(userID string) error
 }
 
 // Common query helpers

@@ -20,6 +20,7 @@ export default function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
   const [description, setDescription] = useState('');
   const [type, setType] = useState('bug');
   const [priority, setPriority] = useState('medium');
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [images, setImages] = useState<File[]>([]);
 
   const queryClient = useQueryClient();
@@ -30,6 +31,7 @@ export default function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
       description: string;
       type: string;
       priority: string;
+      isAnonymous: boolean;
       images: File[];
     }) => {
       const formData = new FormData();
@@ -37,6 +39,7 @@ export default function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
       formData.append('description', data.description);
       formData.append('type', data.type);
       formData.append('priority', data.priority);
+      formData.append('is_anonymous', data.isAnonymous ? 'true' : 'false');
       
       data.images.forEach((image) => {
         formData.append('images', image);
@@ -45,6 +48,9 @@ export default function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
       return await createFeedback(formData);
     },
     onSuccess: () => {
+      // Invalidate all feedback queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["feedback"] });
+      queryClient.invalidateQueries({ queryKey: ["god-feedback"] });
       toast.success("Feedback submitted successfully!");
       resetForm();
       onClose();
@@ -59,6 +65,7 @@ export default function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
     setDescription('');
     setType('bug');
     setPriority('medium');
+    setIsAnonymous(false);
     setImages([]);
   };
 
@@ -117,6 +124,7 @@ export default function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
       description,
       type,
       priority,
+      isAnonymous,
       images,
     });
   };
@@ -255,6 +263,19 @@ export default function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
                 ]}
               />
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="anonymous"
+              checked={isAnonymous}
+              onChange={(e) => setIsAnonymous(e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="anonymous" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Report anonymously (your identity will not be stored)
+            </label>
           </div>
 
           <div className="flex gap-3 pt-4">

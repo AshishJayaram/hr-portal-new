@@ -215,12 +215,10 @@ func (s *kraService) CreateKRA(req CreateKRARequest) (*models.KRA, error) {
 
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
 		// Log error but don't fail the operation
-		fmt.Printf("Failed to log audit entry: %v\n", err)
 	}
 
 	// Send notification to the user
 	if err := s.notificationService.SendKRANotification(kra, user, "created"); err != nil {
-		fmt.Printf("Failed to send KRA notification: %v\n", err)
 	}
 
 	return kra, nil
@@ -291,7 +289,6 @@ func (s *kraService) UpdateKRA(id string, req UpdateKRARequest) (*models.KRA, er
 	}
 
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
-		fmt.Printf("Failed to log audit entry: %v\n", err)
 	}
 
 	return kra, nil
@@ -362,7 +359,6 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 	}
 
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
-		fmt.Printf("Failed to log audit entry: %v\n", err)
 	}
 
 	return kra, nil
@@ -421,7 +417,6 @@ func (s *kraService) SelfAssessKRA(id string, req SelfAssessKRARequest) (*models
 	}
 
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
-		fmt.Printf("Failed to log audit entry: %v\n", err)
 	}
 
 	return kra, nil
@@ -457,7 +452,6 @@ func (s *kraService) DeleteKRA(id string) error {
 	}
 
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
-		fmt.Printf("Failed to log audit entry: %v\n", err)
 	}
 
 	return nil

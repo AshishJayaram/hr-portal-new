@@ -29,9 +29,15 @@ func NewPayslipPDFService(uploadDir string) PayslipPDFService {
 func (s *payslipPDFService) GeneratePayslipPDF(salarySlip *models.SalarySlip, user *models.User, companySettings *models.CompanySettings) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 
+	// Add first page
+	pdf.AddPage()
+
 	// Set margins
 	pdf.SetMargins(20, 20, 20)
 	pdf.SetAutoPageBreak(true, 20)
+
+	// Set default font
+	pdf.SetFont("Arial", "", 12)
 
 	// Company header
 	s.addCompanyHeader(pdf, companySettings, salarySlip)
@@ -88,31 +94,69 @@ func (s *payslipPDFService) GeneratePayslipPDF(salarySlip *models.SalarySlip, us
 func (s *payslipPDFService) GenerateCustomPayslipPDF(payslipData interface{}, user *models.User, companySettings *models.CompanySettings) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 
+	// Add first page
+	pdf.AddPage()
+
 	// Set margins
 	pdf.SetMargins(20, 20, 20)
 	pdf.SetAutoPageBreak(true, 20)
 
+	// Set font before adding content
+	pdf.SetFont("Arial", "", 12)
+
 	// Type assert the payslip data
 	data, ok := payslipData.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("invalid payslip data format")
+		return nil, fmt.Errorf("invalid payslip data format: expected map[string]interface{}, got %T", payslipData)
 	}
 
-	// Extract values from the data
-	month := int(data["month"].(float64))
-	year := int(data["year"].(float64))
-	lopAmount := data["lopAmount"].(float64)
+	// Extract values from the data with safe type assertions
+	var month, year int
+	var lopAmount float64
 
-	earnings := data["earnings"].(map[string]interface{})
-	deductions := data["deductions"].(map[string]interface{})
+	if m, ok := data["month"].(float64); ok {
+		month = int(m)
+	} else if m, ok := data["month"].(int); ok {
+		month = m
+	} else {
+		return nil, fmt.Errorf("invalid month value: %v (type: %T)", data["month"], data["month"])
+	}
+
+	if y, ok := data["year"].(float64); ok {
+		year = int(y)
+	} else if y, ok := data["year"].(int); ok {
+		year = y
+	} else {
+		return nil, fmt.Errorf("invalid year value: %v (type: %T)", data["year"], data["year"])
+	}
+
+	if l, ok := data["lopAmount"].(float64); ok {
+		lopAmount = l
+	} else if l, ok := data["lopAmount"].(int); ok {
+		lopAmount = float64(l)
+	}
+
+	var earnings map[string]interface{}
+	if e, ok := data["earnings"].(map[string]interface{}); ok {
+		earnings = e
+	} else {
+		return nil, fmt.Errorf("invalid earnings format: expected map[string]interface{}, got %T", data["earnings"])
+	}
+
+	var deductions map[string]interface{}
+	if d, ok := data["deductions"].(map[string]interface{}); ok {
+		deductions = d
+	} else {
+		return nil, fmt.Errorf("invalid deductions format: expected map[string]interface{}, got %T", data["deductions"])
+	}
 
 	// Company header
 	s.addCustomCompanyHeader(pdf, companySettings, month, year)
 
-	// Payslip title
-	pdf.Ln(10)
+	// Payslip title - continue from header position
+	pdf.SetXY(20, pdf.GetY()+5)
 	pdf.SetFont("Arial", "B", 18)
-	pdf.Cell(0, 10, "PAYSLIP")
+	pdf.Cell(170, 10, "PAYSLIP")
 	pdf.Ln(15)
 
 	// Employee information
@@ -130,90 +174,141 @@ func (s *payslipPDFService) GenerateCustomPayslipPDF(payslipData interface{}, us
 	// Footer with signatures
 	s.addSignaturesSection(pdf)
 
+	// Check for PDF errors before output
+	if pdf.Err() {
+		return nil, fmt.Errorf("PDF generation error: %v", pdf.Error())
+	}
+
 	// Generate PDF bytes
 	var buf []byte
 	bufWriter := &ByteBuffer{}
-	pdf.Output(bufWriter)
+	if err := pdf.Output(bufWriter); err != nil {
+		return nil, fmt.Errorf("failed to write PDF to buffer: %w", err)
+	}
 	buf = bufWriter.Bytes()
+
+	if len(buf) == 0 {
+		return nil, fmt.Errorf("generated PDF is empty - no content written")
+	}
 
 	return buf, nil
 }
 
 func (s *payslipPDFService) addCustomCompanyHeader(pdf *gofpdf.Fpdf, companySettings *models.CompanySettings, month, year int) {
-	// Company logo placeholder (left side)
+	// Start at top-left margin (20mm from left, 20mm from top)
 	pdf.SetXY(20, 20)
-	pdf.SetFont("Arial", "B", 14)
-	pdf.Cell(0, 8, "HR PORTAL")
-	pdf.Ln(6)
 
-	// Company details (right side)
+	// Company logo placeholder (left side)
+	companyName := "HR PORTAL"
+	if companySettings != nil && companySettings.Organization.Name != "" {
+		companyName = companySettings.Organization.Name
+	}
+	pdf.SetFont("Arial", "B", 14)
+	pdf.Cell(100, 8, companyName)
+
+	// Company details (right side) - absolute positioning
 	pdf.SetXY(120, 20)
 	pdf.SetFont("Arial", "", 10)
-	pdf.Cell(0, 5, "Pay Period: "+s.formatMonth(month, year))
-	pdf.Ln(5)
-	pdf.Cell(0, 5, "Payslip Date: "+time.Now().Format("2006-01-02"))
+	pdf.Cell(70, 5, "Pay Period: "+s.formatMonth(month, year))
+
+	pdf.SetXY(120, 27)
+	pdf.Cell(70, 5, "Payslip Date: "+time.Now().Format("2006-01-02"))
+
+	// Reset to left margin, below company name for next content
+	pdf.SetXY(20, 28)
 }
 
 func (s *payslipPDFService) addCustomEmployeeInfo(pdf *gofpdf.Fpdf, user *models.User, month, year int) {
+	if user == nil {
+		return
+	}
+
+	// Ensure we're at left margin
+	pdf.SetX(20)
+
 	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(0, 8, "Employee Information")
+	pdf.Cell(170, 8, "Employee Information")
 	pdf.Ln(10)
 
 	pdf.SetFont("Arial", "", 10)
+	pdf.SetX(20)
 	pdf.Cell(40, 6, "Employee ID:")
-	pdf.Cell(0, 6, strconv.FormatUint(uint64(user.ID), 10))
+	pdf.Cell(130, 6, strconv.FormatUint(uint64(user.ID), 10))
 	pdf.Ln(6)
 
+	pdf.SetX(20)
 	pdf.Cell(40, 6, "Name:")
-	pdf.Cell(0, 6, user.Name)
+	name := user.Name
+	if name == "" {
+		name = "N/A"
+	}
+	pdf.Cell(130, 6, name)
 	pdf.Ln(6)
 
+	pdf.SetX(20)
 	pdf.Cell(40, 6, "Department:")
-	pdf.Cell(0, 6, user.Department)
+	dept := user.Department
+	if dept == "" {
+		dept = "N/A"
+	}
+	pdf.Cell(130, 6, dept)
 	pdf.Ln(6)
 
+	pdf.SetX(20)
 	pdf.Cell(40, 6, "Designation:")
-	pdf.Cell(0, 6, user.Designation)
+	designation := user.Designation
+	if designation == "" {
+		designation = "N/A"
+	}
+	pdf.Cell(130, 6, designation)
 	pdf.Ln(10)
 }
 
 func (s *payslipPDFService) addCustomEarningsSection(pdf *gofpdf.Fpdf, earnings map[string]interface{}) {
+	// Ensure we're at left margin
+	pdf.SetX(20)
+
 	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(0, 8, "Earnings")
+	pdf.Cell(170, 8, "Earnings")
 	pdf.Ln(8)
 
 	pdf.SetFont("Arial", "", 10)
 
 	// Header
-	pdf.Cell(80, 8, "Component")
-	pdf.Cell(40, 8, "Amount")
+	pdf.SetX(20)
+	pdf.Cell(120, 8, "Component")
+	pdf.Cell(50, 8, "Amount")
 	pdf.Ln(8)
 
 	// Basic Salary
 	if basic, ok := earnings["basic"].(float64); ok && basic > 0 {
-		pdf.Cell(80, 6, "Basic Salary")
-		pdf.Cell(40, 6, s.formatCurrency(basic))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "Basic Salary")
+		pdf.Cell(50, 6, s.formatCurrency(basic))
 		pdf.Ln(6)
 	}
 
 	// HRA
 	if hra, ok := earnings["hra"].(float64); ok && hra > 0 {
-		pdf.Cell(80, 6, "HRA")
-		pdf.Cell(40, 6, s.formatCurrency(hra))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "HRA")
+		pdf.Cell(50, 6, s.formatCurrency(hra))
 		pdf.Ln(6)
 	}
 
 	// Special Allowance
 	if special, ok := earnings["specialAllowance"].(float64); ok && special > 0 {
-		pdf.Cell(80, 6, "Special Allowance")
-		pdf.Cell(40, 6, s.formatCurrency(special))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "Special Allowance")
+		pdf.Cell(50, 6, s.formatCurrency(special))
 		pdf.Ln(6)
 	}
 
 	// Other Allowances
 	if other, ok := earnings["other"].(float64); ok && other > 0 {
-		pdf.Cell(80, 6, "Other Allowances")
-		pdf.Cell(40, 6, s.formatCurrency(other))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "Other Allowances")
+		pdf.Cell(50, 6, s.formatCurrency(other))
 		pdf.Ln(6)
 	}
 
@@ -221,8 +316,9 @@ func (s *payslipPDFService) addCustomEarningsSection(pdf *gofpdf.Fpdf, earnings 
 	if custom, ok := earnings["custom"].(map[string]interface{}); ok {
 		for name, amount := range custom {
 			if amt, ok := amount.(float64); ok && amt > 0 {
-				pdf.Cell(80, 6, name)
-				pdf.Cell(40, 6, s.formatCurrency(amt))
+				pdf.SetX(20)
+				pdf.Cell(120, 6, name)
+				pdf.Cell(50, 6, s.formatCurrency(amt))
 				pdf.Ln(6)
 			}
 		}
@@ -244,56 +340,66 @@ func (s *payslipPDFService) addCustomEarningsSection(pdf *gofpdf.Fpdf, earnings 
 		}
 	}
 
+	pdf.SetX(20)
 	pdf.SetFont("Arial", "B", 10)
-	pdf.Cell(80, 6, "Total Earnings")
-	pdf.Cell(40, 6, s.formatCurrency(totalEarnings))
+	pdf.Cell(120, 6, "Total Earnings")
+	pdf.Cell(50, 6, s.formatCurrency(totalEarnings))
 	pdf.Ln(12)
 }
 
 func (s *payslipPDFService) addCustomDeductionsSection(pdf *gofpdf.Fpdf, deductions map[string]interface{}, lopAmount float64) {
+	// Ensure we're at left margin
+	pdf.SetX(20)
+
 	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(0, 8, "Deductions")
+	pdf.Cell(170, 8, "Deductions")
 	pdf.Ln(8)
 
 	pdf.SetFont("Arial", "", 10)
 
 	// Header
-	pdf.Cell(80, 8, "Component")
-	pdf.Cell(40, 8, "Amount")
+	pdf.SetX(20)
+	pdf.Cell(120, 8, "Component")
+	pdf.Cell(50, 8, "Amount")
 	pdf.Ln(8)
 
 	// PF
 	if pf, ok := deductions["pf"].(float64); ok && pf > 0 {
-		pdf.Cell(80, 6, "Provident Fund")
-		pdf.Cell(40, 6, s.formatCurrency(pf))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "Provident Fund")
+		pdf.Cell(50, 6, s.formatCurrency(pf))
 		pdf.Ln(6)
 	}
 
 	// ESI
 	if esi, ok := deductions["esi"].(float64); ok && esi > 0 {
-		pdf.Cell(80, 6, "ESI")
-		pdf.Cell(40, 6, s.formatCurrency(esi))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "ESI")
+		pdf.Cell(50, 6, s.formatCurrency(esi))
 		pdf.Ln(6)
 	}
 
 	// Professional Tax
 	if pt, ok := deductions["professionalTax"].(float64); ok && pt > 0 {
-		pdf.Cell(80, 6, "Professional Tax")
-		pdf.Cell(40, 6, s.formatCurrency(pt))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "Professional Tax")
+		pdf.Cell(50, 6, s.formatCurrency(pt))
 		pdf.Ln(6)
 	}
 
 	// TDS
 	if tds, ok := deductions["tds"].(float64); ok && tds > 0 {
-		pdf.Cell(80, 6, "TDS")
-		pdf.Cell(40, 6, s.formatCurrency(tds))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "TDS")
+		pdf.Cell(50, 6, s.formatCurrency(tds))
 		pdf.Ln(6)
 	}
 
 	// Other Deductions
 	if other, ok := deductions["other"].(float64); ok && other > 0 {
-		pdf.Cell(80, 6, "Other Deductions")
-		pdf.Cell(40, 6, s.formatCurrency(other))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "Other Deductions")
+		pdf.Cell(50, 6, s.formatCurrency(other))
 		pdf.Ln(6)
 	}
 
@@ -301,8 +407,9 @@ func (s *payslipPDFService) addCustomDeductionsSection(pdf *gofpdf.Fpdf, deducti
 	if custom, ok := deductions["custom"].(map[string]interface{}); ok {
 		for name, amount := range custom {
 			if amt, ok := amount.(float64); ok && amt > 0 {
-				pdf.Cell(80, 6, name)
-				pdf.Cell(40, 6, s.formatCurrency(amt))
+				pdf.SetX(20)
+				pdf.Cell(120, 6, name)
+				pdf.Cell(50, 6, s.formatCurrency(amt))
 				pdf.Ln(6)
 			}
 		}
@@ -310,8 +417,9 @@ func (s *payslipPDFService) addCustomDeductionsSection(pdf *gofpdf.Fpdf, deducti
 
 	// LOP
 	if lopAmount > 0 {
-		pdf.Cell(80, 6, "Loss of Pay (LOP)")
-		pdf.Cell(40, 6, s.formatCurrency(lopAmount))
+		pdf.SetX(20)
+		pdf.Cell(120, 6, "Loss of Pay (LOP)")
+		pdf.Cell(50, 6, s.formatCurrency(lopAmount))
 		pdf.Ln(8)
 	}
 
@@ -329,19 +437,23 @@ func (s *payslipPDFService) addCustomDeductionsSection(pdf *gofpdf.Fpdf, deducti
 		}
 	}
 
+	pdf.SetX(20)
 	pdf.SetFont("Arial", "B", 10)
-	pdf.Cell(80, 6, "Total Deductions")
-	pdf.Cell(40, 6, s.formatCurrency(totalDeductions))
+	pdf.Cell(120, 6, "Total Deductions")
+	pdf.Cell(50, 6, s.formatCurrency(totalDeductions))
 	pdf.Ln(12)
 }
 
 func (s *payslipPDFService) addCustomNetPaySection(pdf *gofpdf.Fpdf, data map[string]interface{}) {
+	// Ensure we're at left margin
+	pdf.SetX(20)
+
 	grossEarnings, _ := data["grossEarnings"].(float64)
 	totalDeductions, _ := data["totalDeductions"].(float64)
 	netPay := grossEarnings - totalDeductions
 
 	pdf.SetFont("Arial", "B", 14)
-	pdf.Cell(0, 10, "Net Pay: "+s.formatCurrency(netPay))
+	pdf.Cell(170, 10, "Net Pay: "+s.formatCurrency(netPay))
 	pdf.Ln(15)
 }
 
@@ -487,19 +599,21 @@ func (s *payslipPDFService) addNetPaySection(pdf *gofpdf.Fpdf, totalEarnings, ba
 }
 
 func (s *payslipPDFService) addSignaturesSection(pdf *gofpdf.Fpdf) {
-	// Employee signature
+	currentY := pdf.GetY()
+
+	// Employee signature (left side)
+	pdf.SetXY(20, currentY+10)
 	pdf.SetFont("Arial", "", 10)
 	pdf.Cell(80, 20, "Employee Signature:")
-	pdf.Ln(25)
 
-	// HR/Admin signature
-	pdf.SetXY(120, pdf.GetY()-25)
+	// HR/Admin signature (right side)
+	pdf.SetXY(120, currentY+10)
 	pdf.Cell(80, 20, "HR/Admin Signature:")
-	pdf.Ln(25)
 
-	// Generated date
+	// Generated date at bottom
+	pdf.SetXY(20, currentY+35)
 	pdf.SetFont("Arial", "I", 8)
-	pdf.Cell(0, 5, "Generated on: "+time.Now().Format("2006-01-02 15:04:05"))
+	pdf.Cell(170, 5, "Generated on: "+time.Now().Format("2006-01-02 15:04:05"))
 }
 
 func (s *payslipPDFService) formatCurrency(amount float64) string {

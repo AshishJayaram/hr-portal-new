@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"hr-portal-backend/internal/services"
@@ -149,5 +150,126 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"user": user,
+	})
+}
+
+// SendOTP handles OTP request for email login
+func (h *AuthHandler) SendOTP(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Valid email address is required",
+		})
+		return
+	}
+
+	err := h.authService.SendOTP(req.Email)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to send OTP")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to send OTP",
+		})
+		return
+	}
+
+	// Always return success to prevent email enumeration
+	c.JSON(http.StatusOK, gin.H{
+		"message": "If an account with that email exists, an OTP has been sent.",
+	})
+}
+
+// VerifyOTP handles OTP verification and login
+func (h *AuthHandler) VerifyOTP(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+		OTP   string `json:"otp" binding:"required,len=6"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Email and 6-digit OTP are required",
+		})
+		return
+	}
+
+	response, err := h.authService.VerifyOTP(req.Email, req.OTP)
+	if err != nil {
+		logrus.WithError(err).Error("OTP verification failed")
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// ForgotPassword handles forgot password request
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		ResetURL string `json:"reset_url"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Valid email address is required",
+		})
+		return
+	}
+
+	// Default reset URL if not provided
+	resetURL := req.ResetURL
+	if resetURL == "" {
+		frontendURL := c.GetHeader("Origin")
+		if frontendURL == "" {
+			frontendURL = "http://localhost:3000"
+		}
+		resetURL = fmt.Sprintf("%s/reset-password", frontendURL)
+	}
+
+	err := h.authService.ForgotPassword(req.Email, resetURL)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to process forgot password request")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to process password reset request",
+		})
+		return
+	}
+
+	// Always return success to prevent email enumeration
+	c.JSON(http.StatusOK, gin.H{
+		"message": "If an account with that email exists, a password reset link has been sent.",
+	})
+}
+
+// ResetPassword handles password reset
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req struct {
+		Token       string `json:"token" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=8"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Token and new password (minimum 8 characters) are required",
+		})
+		return
+	}
+
+	err := h.authService.ResetPassword(req.Token, req.NewPassword)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to reset password")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password reset successfully",
 	})
 }

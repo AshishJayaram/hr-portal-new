@@ -41,6 +41,11 @@ export default function GodDashboard() {
     domain: "",
     description: "",
     is_active: true,
+    admin_user: {
+      username: "",
+      email: "",
+      name: "",
+    },
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
@@ -146,15 +151,43 @@ export default function GodDashboard() {
     }
   };
 
-  const handleEditOrg = (org: Organization) => {
-    setSelectedOrg({ organization: org });
-    setEditForm({
-      name: org.name,
-      domain: org.domain,
-      description: org.description || "",
-      is_active: org.is_active,
-    });
-    setShowEditModal(true);
+  const handleEditOrg = async (org: Organization) => {
+    try {
+      // Fetch full organization details including admin_user
+      const orgDetails = await getOrganizationDetails(org.id);
+      setSelectedOrg(orgDetails);
+      setEditForm({
+        name: orgDetails.organization.name,
+        domain: orgDetails.organization.domain,
+        description: orgDetails.organization.description || "",
+        is_active: orgDetails.organization.is_active,
+        admin_user: orgDetails.admin_user ? {
+          username: orgDetails.admin_user.username || "",
+          email: orgDetails.admin_user.email || "",
+          name: orgDetails.admin_user.name || "",
+        } : {
+          username: "",
+          email: "",
+          name: "",
+        },
+      });
+      setShowEditModal(true);
+    } catch (error) {
+      // Fallback if details fetch fails
+      setSelectedOrg({ organization: org });
+      setEditForm({
+        name: org.name,
+        domain: org.domain,
+        description: org.description || "",
+        is_active: org.is_active,
+        admin_user: {
+          username: "",
+          email: "",
+          name: "",
+        },
+      });
+      setShowEditModal(true);
+    }
   };
 
   const handleUpdateOrg = (e: React.FormEvent) => {
@@ -769,6 +802,60 @@ export default function GodDashboard() {
                   Active Organization
                 </label>
               </div>
+
+              {/* Admin User Details Section */}
+              {selectedOrg?.admin_user && (
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+                    Admin User Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Username
+                      </label>
+                      <Input
+                        value={editForm.admin_user.username}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          admin_user: { ...editForm.admin_user, username: e.target.value }
+                        })}
+                        placeholder="admin_username"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Email
+                      </label>
+                      <Input
+                        type="email"
+                        value={editForm.admin_user.email}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          admin_user: { ...editForm.admin_user, email: e.target.value }
+                        })}
+                        placeholder="admin@example.com"
+                        required
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Full Name
+                      </label>
+                      <Input
+                        value={editForm.admin_user.name}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          admin_user: { ...editForm.admin_user, name: e.target.value }
+                        })}
+                        placeholder="Admin User Name"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <Button

@@ -7,7 +7,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import { getCompanySettings, updateCompanySettings, getLeaveCategories, createLeaveCategory, updateLeaveCategory, deleteLeaveCategory } from "@/lib/api";
-import { PayrollSettings, PayrollMode, defaultPayrollSettings, computePayslipFromCTC } from "@/lib/payroll";
+import { PayrollSettings, PayrollMode, defaultPayrollSettings, computePayslipFromCTC, ComponentSetting, calculateLOPAmount } from "@/lib/payroll";
 import RoleGuard from "@/components/RoleGuard";
 import { LeaveCategory } from "@/lib/api";
 import { toast } from "sonner";
@@ -277,21 +277,39 @@ export default function CompanySettingsPage() {
             <Card>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-green-600 dark:text-green-400">Earnings Configuration</h3>
-                <div className="text-sm text-gray-400">Configure all earnings components</div>
-              </div>
-              
-              {/* Standard Earnings */}
-              <div className="mb-6">
-                <h4 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Standard Earnings</h4>
-                <div className="text-center py-8 text-gray-400 text-sm">
-                  No predefined earnings components. Add your own earnings categories below.
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Import from Live Preview breakdown
+                    const standardEarnings = [
+                      { key: 'basic', label: 'Basic', mode: settings.earnings.basic.mode, value: settings.earnings.basic.value },
+                      { key: 'hra', label: 'HRA', mode: settings.earnings.hra.mode, value: settings.earnings.hra.value },
+                      { key: 'medical', label: 'Medical', mode: settings.earnings.medical.mode, value: settings.earnings.medical.value },
+                      { key: 'conveyance', label: 'Conveyance', mode: settings.earnings.conveyance.mode, value: settings.earnings.conveyance.value },
+                      { key: 'lta', label: 'LTA', mode: settings.earnings.lta.mode, value: settings.earnings.lta.value },
+                      { key: 'specialAllowance', label: 'Special Allowance', mode: settings.earnings.specialAllowance.mode, value: settings.earnings.specialAllowance.value },
+                    ];
+                    // Filter out earnings that already exist in customEarnings
+                    const existingKeys = new Set((settings.customEarnings || []).map(e => e.key));
+                    const newEarnings = standardEarnings.filter(e => !existingKeys.has(e.key));
+                    setSettings({
+                      ...settings,
+                      customEarnings: [...(settings.customEarnings || []), ...newEarnings]
+                    });
+                    toast.success(`Imported ${newEarnings.length} earnings from Live Preview`);
+                  }}
+                  className="flex items-center gap-2 text-green-600 border-green-500/30 hover:bg-green-500/10"
+                >
+                  <Plus className="h-4 w-4" />
+                  Import from Preview
+                </Button>
               </div>
 
-              {/* Custom Earnings */}
-              <div className="border-t border-green-500/20 pt-4">
+              {/* Combined Earnings List */}
+              <div className="mb-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-medium text-green-600 dark:text-green-400">Earnings Categories</h4>
+                  <h4 className="font-medium text-green-600 dark:text-green-400">All Earnings</h4>
                   <Button
                     variant="outline"
                     size="sm"
@@ -344,31 +362,124 @@ export default function CompanySettingsPage() {
                   </div>
                 </div>
 
-                {/* Existing Custom Earnings */}
+                {/* Combined Earnings List - Standard + Custom */}
                 <div className="space-y-2">
-                  {(settings.customEarnings || []).map((category) => (
-                    <div key={category.key} className="flex items-center justify-between p-2 rounded-lg bg-green-500/5 border border-green-500/10">
-                      <div>
-                        <div className="font-medium text-green-600 dark:text-green-400 text-sm">{category.label}</div>
-                        <div className="text-xs text-gray-400">
-                          {category.mode === 'FIXED' ? 'Fixed Amount' : 
-                           category.mode === 'PERCENT_OF_BASIC' ? '% of Basic Salary' : 
-                           '% of CTC'} {category.value ? `(${category.value}${category.mode.includes('PERCENT') ? '%' : ''})` : ''}
+                  {/* Standard Earnings */}
+                  {[
+                    { key: 'basic', label: 'Basic', setting: settings.earnings.basic },
+                    { key: 'hra', label: 'HRA', setting: settings.earnings.hra },
+                    { key: 'medical', label: 'Medical', setting: settings.earnings.medical },
+                    { key: 'conveyance', label: 'Conveyance', setting: settings.earnings.conveyance },
+                    { key: 'lta', label: 'LTA', setting: settings.earnings.lta },
+                    { key: 'specialAllowance', label: 'Special Allowance', setting: settings.earnings.specialAllowance },
+                  ].map((item) => {
+                    const isCustom = (settings.customEarnings || []).some(e => e.key === item.key);
+                    return (
+                      <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium text-green-600 dark:text-green-400 text-sm">{item.label}</span>
+                            {isCustom && <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">Custom</span>}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select
+                              value={item.setting.mode}
+                              onChange={(e) => setComponent((s) => s.earnings[item.key as keyof typeof s.earnings], 'mode', e.target.value)}
+                              options={[
+                                { value: 'FIXED', label: 'Fixed' },
+                                { value: 'PERCENT_OF_BASIC', label: '% Basic' },
+                                { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                                { value: 'REMAINDER', label: 'Remainder' },
+                              ]}
+                              className="text-xs"
+                            />
+                            <Input
+                              type="number"
+                              value={String(item.setting.value ?? '')}
+                              onChange={(e) => setComponent((s) => s.earnings[item.key as keyof typeof s.earnings], 'value', Number(e.target.value))}
+                              disabled={item.setting.mode === 'REMAINDER'}
+                              className="text-xs"
+                              placeholder="Value"
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            if (isCustom) {
+                              removeCustomEarning(item.key);
+                            } else {
+                              // Remove from standard earnings (reset to default)
+                              const defaults = defaultPayrollSettings.earnings[item.key as keyof typeof defaultPayrollSettings.earnings];
+                              setComponent((s) => s.earnings[item.key as keyof typeof s.earnings], 'mode', defaults.mode);
+                              setComponent((s) => s.earnings[item.key as keyof typeof s.earnings], 'value', defaults.value);
+                            }
+                          }}
+                          className="bg-red-600 hover:bg-red-700 ml-2"
+                          size="sm"
+                          title="Reset to default"
+                        >
+                          Reset
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Custom Earnings (excluding standard ones) */}
+                  {(settings.customEarnings || [])
+                    .filter(cat => !['basic', 'hra', 'medical', 'conveyance', 'lta', 'specialAllowance'].includes(cat.key))
+                    .map((category) => (
+                    <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-green-600 dark:text-green-400 text-sm">{category.label}</span>
+                          <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">Custom</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Select
+                            value={category.mode}
+                            onChange={(e) => {
+                              const updated = (settings.customEarnings || []).map(c => 
+                                c.key === category.key ? { ...c, mode: e.target.value as PayrollMode } : c
+                              );
+                              setSettings({ ...settings, customEarnings: updated });
+                            }}
+                            options={[
+                              { value: 'FIXED', label: 'Fixed' },
+                              { value: 'PERCENT_OF_BASIC', label: '% Basic' },
+                              { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                            ]}
+                            className="text-xs"
+                          />
+                          <Input
+                            type="number"
+                            value={String(category.value ?? '')}
+                            onChange={(e) => {
+                              const updated = (settings.customEarnings || []).map(c => 
+                                c.key === category.key ? { ...c, value: Number(e.target.value) } : c
+                              );
+                              setSettings({ ...settings, customEarnings: updated });
+                            }}
+                            className="text-xs"
+                            placeholder="Value"
+                          />
                         </div>
                       </div>
                       <Button
                         onClick={() => removeCustomEarning(category.key)}
-                        className="bg-red-600 hover:bg-red-700"
+                        className="bg-red-600 hover:bg-red-700 ml-2"
                         size="sm"
                       >
-                        Remove
+                        Delete
                       </Button>
                     </div>
                   ))}
-                  {(settings.customEarnings || []).length === 0 && (
+                  {[
+                    ...Object.keys(settings.earnings).filter(k => !['basic', 'hra', 'medical', 'conveyance', 'lta', 'specialAllowance'].includes(k)),
+                    ...(settings.customEarnings || []).filter(c => !['basic', 'hra', 'medical', 'conveyance', 'lta', 'specialAllowance'].includes(c.key)).map(c => c.key)
+                  ].length === 0 && (
                     <div className="text-center py-6 text-gray-400 text-sm">
-                      <div className="mb-2">No earnings categories configured yet</div>
-                      <div className="text-xs">Add categories like Basic Salary, HRA, Medical Allowance, etc.</div>
+                      <div className="mb-2">Standard earnings shown above</div>
+                      <div className="text-xs">Add custom categories as needed</div>
                     </div>
                   )}
                 </div>
@@ -379,21 +490,36 @@ export default function CompanySettingsPage() {
             <Card>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-red-600 dark:text-red-400">Deductions Configuration</h3>
-                <div className="text-sm text-gray-400">Configure all deduction components</div>
-              </div>
-              
-              {/* Standard Deductions */}
-              <div className="mb-6">
-                <h4 className="font-medium mb-3 text-gray-700 dark:text-gray-300">Standard Deductions</h4>
-                <div className="text-center py-8 text-gray-400 text-sm">
-                  No predefined deduction components. Add your own deduction categories below.
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Import from Live Preview breakdown
+                    const standardDeductions = [
+                      { key: 'employeePF', label: 'Employee PF', mode: settings.deductions.employeePF.mode, value: settings.deductions.employeePF.value },
+                      { key: 'professionalTax', label: 'Professional Tax', mode: settings.deductions.professionalTax.mode, value: settings.deductions.professionalTax.value },
+                      { key: 'esi', label: 'ESI', mode: settings.deductions.esi.mode, value: settings.deductions.esi.value },
+                    ];
+                    // Filter out deductions that already exist in customDeductions
+                    const existingKeys = new Set((settings.customDeductions || []).map(d => d.key));
+                    const newDeductions = standardDeductions.filter(d => !existingKeys.has(d.key));
+                    setSettings({
+                      ...settings,
+                      customDeductions: [...(settings.customDeductions || []), ...newDeductions]
+                    });
+                    toast.success(`Imported ${newDeductions.length} deductions from Live Preview`);
+                  }}
+                  className="flex items-center gap-2 text-red-600 border-red-500/30 hover:bg-red-500/10"
+                >
+                  <Plus className="h-4 w-4" />
+                  Import from Preview
+                </Button>
               </div>
 
-              {/* Custom Deductions */}
-              <div className="border-t border-red-500/20 pt-4">
+              {/* Combined Deductions List */}
+              <div className="mb-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-medium text-red-600 dark:text-red-400">Deductions Categories</h4>
+                  <h4 className="font-medium text-red-600 dark:text-red-400">All Deductions</h4>
                   <Button
                     variant="outline"
                     size="sm"
@@ -446,31 +572,197 @@ export default function CompanySettingsPage() {
                   </div>
                 </div>
 
-                {/* Existing Custom Deductions */}
+                {/* Combined Deductions List - Standard + Custom */}
                 <div className="space-y-2">
-                  {(settings.customDeductions || []).map((category) => (
-                    <div key={category.key} className="flex items-center justify-between p-2 rounded-lg bg-red-500/5 border border-red-500/10">
-                      <div>
-                        <div className="font-medium text-red-600 dark:text-red-400 text-sm">{category.label}</div>
-                        <div className="text-xs text-gray-400">
-                          {category.mode === 'FIXED' ? 'Fixed Amount' : 
-                           category.mode === 'PERCENT_OF_BASIC' ? '% of Basic Salary' : 
-                           '% of CTC'} {category.value ? `(${category.value}${category.mode.includes('PERCENT') ? '%' : ''})` : ''}
+                  {/* Standard Deductions */}
+                  {[
+                    { key: 'employeePF', label: 'Employee PF', setting: settings.deductions.employeePF, isSpecial: true },
+                    { key: 'professionalTax', label: 'Professional Tax', setting: settings.deductions.professionalTax },
+                    { key: 'esi', label: 'ESI', setting: settings.deductions.esi },
+                  ].map((item) => {
+                    const isCustom = (settings.customDeductions || []).some(d => d.key === item.key);
+                    return (
+                      <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium text-red-600 dark:text-red-400 text-sm">{item.label}</span>
+                            {isCustom && <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">Custom</span>}
+                            {item.key === 'employeePF' && settings.deductions.employeePF.capAt1800 && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400">Capped at ₹1800</span>
+                            )}
+                            {item.key === 'esi' && !settings.deductions.esiEnabled && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-gray-500/20 text-gray-400">Disabled</span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select
+                              value={item.setting.mode}
+                              onChange={(e) => {
+                                if (item.isSpecial && item.key === 'employeePF') {
+                                  setSettings({
+                                    ...settings,
+                                    deductions: {
+                                      ...settings.deductions,
+                                      employeePF: { ...settings.deductions.employeePF, mode: e.target.value as PayrollMode }
+                                    }
+                                  });
+                                } else {
+                                  setComponent((s) => s.deductions[item.key as keyof typeof s.deductions] as ComponentSetting, 'mode', e.target.value);
+                                }
+                              }}
+                              options={[
+                                { value: 'FIXED', label: 'Fixed' },
+                                { value: 'PERCENT_OF_BASIC', label: '% Basic' },
+                                { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                              ]}
+                              className="text-xs"
+                            />
+                            <Input
+                              type="number"
+                              value={String((item.setting as ComponentSetting).value ?? '')}
+                              onChange={(e) => {
+                                if (item.isSpecial && item.key === 'employeePF') {
+                                  setSettings({
+                                    ...settings,
+                                    deductions: {
+                                      ...settings.deductions,
+                                      employeePF: { ...settings.deductions.employeePF, value: Number(e.target.value) }
+                                    }
+                                  });
+                                } else {
+                                  setComponent((s) => s.deductions[item.key as keyof typeof s.deductions] as ComponentSetting, 'value', Number(e.target.value));
+                                }
+                              }}
+                              className="text-xs"
+                              placeholder="Value"
+                            />
+                          </div>
+                          {item.key === 'employeePF' && (
+                            <div className="mt-2">
+                              <label className="flex items-center gap-2 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={settings.deductions.employeePF.capAt1800 || false}
+                                  onChange={(e) => setSettings({
+                                    ...settings,
+                                    deductions: {
+                                      ...settings.deductions,
+                                      employeePF: { ...settings.deductions.employeePF, capAt1800: e.target.checked }
+                                    }
+                                  })}
+                                  className="rounded"
+                                />
+                                <span>Cap at ₹1800</span>
+                              </label>
+                            </div>
+                          )}
+                          {item.key === 'esi' && (
+                            <div className="mt-2">
+                              <label className="flex items-center gap-2 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={settings.deductions.esiEnabled || false}
+                                  onChange={(e) => setSettings({
+                                    ...settings,
+                                    deductions: {
+                                      ...settings.deductions,
+                                      esiEnabled: e.target.checked
+                                    }
+                                  })}
+                                  className="rounded"
+                                />
+                                <span>Enable ESI</span>
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          onClick={() => {
+                            if (isCustom) {
+                              removeCustomDeduction(item.key);
+                            } else {
+                              // Reset to default
+                              const defaults = defaultPayrollSettings.deductions[item.key as keyof typeof defaultPayrollSettings.deductions];
+                              if (item.key === 'employeePF') {
+                                setSettings({
+                                  ...settings,
+                                  deductions: {
+                                    ...settings.deductions,
+                                    employeePF: defaults as any
+                                  }
+                                });
+                              } else {
+                                setComponent((s) => s.deductions[item.key as keyof typeof s.deductions] as ComponentSetting, 'mode', (defaults as ComponentSetting).mode);
+                                setComponent((s) => s.deductions[item.key as keyof typeof s.deductions] as ComponentSetting, 'value', (defaults as ComponentSetting).value);
+                              }
+                            }
+                          }}
+                          className="bg-red-600 hover:bg-red-700 ml-2"
+                          size="sm"
+                          title="Reset to default"
+                        >
+                          Reset
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Custom Deductions (excluding standard ones) */}
+                  {(settings.customDeductions || [])
+                    .filter(cat => !['employeePF', 'professionalTax', 'esi'].includes(cat.key))
+                    .map((category) => (
+                    <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-red-600 dark:text-red-400 text-sm">{category.label}</span>
+                          <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">Custom</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Select
+                            value={category.mode}
+                            onChange={(e) => {
+                              const updated = (settings.customDeductions || []).map(c => 
+                                c.key === category.key ? { ...c, mode: e.target.value as PayrollMode } : c
+                              );
+                              setSettings({ ...settings, customDeductions: updated });
+                            }}
+                            options={[
+                              { value: 'FIXED', label: 'Fixed' },
+                              { value: 'PERCENT_OF_BASIC', label: '% Basic' },
+                              { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                            ]}
+                            className="text-xs"
+                          />
+                          <Input
+                            type="number"
+                            value={String(category.value ?? '')}
+                            onChange={(e) => {
+                              const updated = (settings.customDeductions || []).map(c => 
+                                c.key === category.key ? { ...c, value: Number(e.target.value) } : c
+                              );
+                              setSettings({ ...settings, customDeductions: updated });
+                            }}
+                            className="text-xs"
+                            placeholder="Value"
+                          />
                         </div>
                       </div>
                       <Button
                         onClick={() => removeCustomDeduction(category.key)}
-                        className="bg-red-600 hover:bg-red-700"
+                        className="bg-red-600 hover:bg-red-700 ml-2"
                         size="sm"
                       >
-                        Remove
+                        Delete
                       </Button>
                     </div>
                   ))}
-                  {(settings.customDeductions || []).length === 0 && (
+                  {[
+                    ...Object.keys(settings.deductions).filter(k => !['employeePF', 'professionalTax', 'esi', 'esiEnabled'].includes(k)),
+                    ...(settings.customDeductions || []).filter(c => !['employeePF', 'professionalTax', 'esi'].includes(c.key)).map(c => c.key)
+                  ].length === 0 && (
                     <div className="text-center py-6 text-gray-400 text-sm">
-                      <div className="mb-2">No deduction categories configured yet</div>
-                      <div className="text-xs">Add categories like Employee PF, Professional Tax, ESI, etc.</div>
+                      <div className="mb-2">Standard deductions shown above</div>
+                      <div className="text-xs">Add custom categories as needed</div>
                     </div>
                   )}
                 </div>
@@ -518,7 +810,32 @@ export default function CompanySettingsPage() {
                               settings.lop.calculationMethod === 'BASIC_BY_DAYS' ? 'Basic ÷ Days' : 'Fixed Amount'}</div>
                 <div>Days in Month: {settings.lop.defaultDaysInMonth}</div>
                 <div className="text-xs text-gray-400 mt-2">
-                  Example: For 1 LOP day with ₹50,000 net pay: ₹{(50000 / settings.lop.defaultDaysInMonth).toLocaleString('en-IN')}
+                  {(() => {
+                    // Use breakdown values for dynamic calculation
+                    const exampleNetPay = breakdown.totals.netPay || 50000;
+                    const exampleBasic = breakdown.earnings.basic || 25000;
+                    let lopAmount = 0;
+                    let calculationText = '';
+                    
+                    switch (settings.lop.calculationMethod) {
+                      case 'NET_PAY_BY_DAYS':
+                        lopAmount = calculateLOPAmount(1, exampleNetPay, exampleBasic, settings);
+                        calculationText = `For 1 LOP day with ₹${exampleNetPay.toLocaleString('en-IN')} net pay: ₹${lopAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                        break;
+                      case 'BASIC_BY_DAYS':
+                        lopAmount = calculateLOPAmount(1, exampleNetPay, exampleBasic, settings);
+                        calculationText = `For 1 LOP day with ₹${exampleBasic.toLocaleString('en-IN')} basic salary: ₹${lopAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                        break;
+                      case 'FIXED_AMOUNT':
+                        // Fixed amount is 1000 per day (from calculateLOPAmount function)
+                        lopAmount = calculateLOPAmount(1, exampleNetPay, exampleBasic, settings);
+                        calculationText = `For 1 LOP day (fixed amount): ₹${lopAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                        break;
+                      default:
+                        calculationText = `For 1 LOP day: Calculate based on selected method`;
+                    }
+                    return `Example: ${calculationText}`;
+                  })()}
                 </div>
               </div>
             </div>

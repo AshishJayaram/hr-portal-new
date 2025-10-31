@@ -43,6 +43,8 @@ function EditEmployeeForm({ id }: { id: string }) {
     joining_date: "",
     birthday: "",
   });
+  const [originalJoiningDate, setOriginalJoiningDate] = useState<string>("");
+  const [originalBirthday, setOriginalBirthday] = useState<string>("");
   const [transferReports, setTransferReports] = useState(false);
   const [originalManagerId, setOriginalManagerId] = useState("");
   const [managerQuery, setManagerQuery] = useState("");
@@ -103,6 +105,58 @@ function EditEmployeeForm({ id }: { id: string }) {
   useEffect(() => {
     if (user?.data) {
       const managerId = (user.data as any).managerId || (user.data as any).manager_id || "";
+      
+      // Helper function to parse and format date for input
+      const parseDateForInput = (dateValue: any): string => {
+        if (!dateValue) return "";
+        try {
+          const dateStr = String(dateValue).trim();
+          let date: Date;
+          if (dateStr.includes('T') || dateStr.includes(' ')) {
+            const cleanDateStr = dateStr.split(' ')[0].split('T')[0];
+            date = new Date(cleanDateStr + 'T00:00:00');
+          } else {
+            date = new Date(dateStr + 'T00:00:00');
+          }
+          if (isNaN(date.getTime())) {
+            return "";
+          }
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        } catch (e) {
+          return "";
+        }
+      };
+
+      // Helper function to format date for display
+      const formatDateForDisplay = (dateValue: any): string => {
+        if (!dateValue) return "";
+        try {
+          const dateStr = String(dateValue).trim();
+          let date: Date;
+          if (dateStr.includes('T') || dateStr.includes(' ')) {
+            const cleanDateStr = dateStr.split(' ')[0].split('T')[0];
+            date = new Date(cleanDateStr + 'T00:00:00');
+          } else {
+            date = new Date(dateStr + 'T00:00:00');
+          }
+          if (isNaN(date.getTime())) {
+            return "";
+          }
+          return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        } catch (e) {
+          return "";
+        }
+      };
+
+      const joiningDateInput = parseDateForInput(user.data.joining_date);
+      const birthdayInput = parseDateForInput(user.data.birthday);
+      
+      setOriginalJoiningDate(formatDateForDisplay(user.data.joining_date));
+      setOriginalBirthday(formatDateForDisplay(user.data.birthday));
+      
       setFormData({
         username: user.data.name || user.data.email || "",
         email: user.data.email || "",
@@ -111,68 +165,8 @@ function EditEmployeeForm({ id }: { id: string }) {
         department: user.data.department || "",
         manager_id: managerId,
         ctc: user.data.ctc || "",
-        joining_date: user.data.joining_date ? (() => {
-          try {
-            const dateStr = String(user.data.joining_date).trim();
-
-            // Handle different date formats
-            let date: Date;
-            if (dateStr.includes('T') || dateStr.includes(' ')) {
-              // Full timestamp format like "1983-11-13 00:00:00+00:00" or "1983-11-13T00:00:00Z"
-              const cleanDateStr = dateStr.split(' ')[0].split('T')[0]; // Extract just the date part
-              date = new Date(cleanDateStr + 'T00:00:00');
-            } else {
-              // Date-only format like "1998-11-20"
-              date = new Date(dateStr + 'T00:00:00');
-            }
-
-            if (isNaN(date.getTime())) {
-              console.error("Invalid joining date after parsing:", dateStr);
-              return "";
-            }
-
-            // Format as YYYY-MM-DD for HTML date input
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const formatted = `${year}-${month}-${day}`;
-            return formatted;
-          } catch (e) {
-            console.error("Error parsing joining date:", user.data.joining_date, e);
-            return "";
-          }
-        })() : "",
-        birthday: user.data.birthday ? (() => {
-          try {
-            const dateStr = String(user.data.birthday).trim();
-
-            // Handle different date formats
-            let date: Date;
-            if (dateStr.includes('T') || dateStr.includes(' ')) {
-              // Full timestamp format like "1983-11-13 00:00:00+00:00" or "1983-11-13T00:00:00Z"
-              const cleanDateStr = dateStr.split(' ')[0].split('T')[0]; // Extract just the date part
-              date = new Date(cleanDateStr + 'T00:00:00');
-            } else {
-              // Date-only format like "1998-11-20"
-              date = new Date(dateStr + 'T00:00:00');
-            }
-
-            if (isNaN(date.getTime())) {
-              console.error("Invalid birthday after parsing:", dateStr);
-              return "";
-            }
-
-            // Format as YYYY-MM-DD for HTML date input
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const formatted = `${year}-${month}-${day}`;
-            return formatted;
-          } catch (e) {
-            console.error("Error parsing birthday:", user.data.birthday, e);
-            return "";
-          }
-        })() : "",
+        joining_date: joiningDateInput,
+        birthday: birthdayInput,
       });
       
       // Store original manager ID for comparison
@@ -456,13 +450,17 @@ function EditEmployeeForm({ id }: { id: string }) {
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
             />
             <Input
-              label="Joining Date"
+              label={originalJoiningDate 
+                ? `Joining Date (Current: ${originalJoiningDate})`
+                : "Joining Date"}
               type="date"
               value={formData.joining_date}
               onChange={(e) => setFormData({ ...formData, joining_date: e.target.value })}
             />
             <Input
-              label="Birthday"
+              label={originalBirthday 
+                ? `Birthday (Current: ${originalBirthday})`
+                : "Birthday"}
               type="date"
               value={formData.birthday}
               onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}

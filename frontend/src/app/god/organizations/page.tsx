@@ -18,6 +18,11 @@ export default function OrganizationsManagement() {
     domain: "",
     description: "",
     is_active: true,
+    admin_user: {
+      username: "",
+      email: "",
+      name: "",
+    },
   });
   const queryClient = useQueryClient();
 
@@ -61,15 +66,43 @@ export default function OrganizationsManagement() {
     }
   };
 
-  const handleEditOrg = (org: Organization) => {
-    setSelectedOrg({ organization: org });
-    setEditForm({
-      name: org.name,
-      domain: org.domain,
-      description: org.description || "",
-      is_active: org.is_active,
-    });
-    setShowEditModal(true);
+  const handleEditOrg = async (org: Organization) => {
+    try {
+      // Fetch full organization details including admin_user
+      const orgDetails = await getOrganizationDetails(org.id);
+      setSelectedOrg(orgDetails);
+      setEditForm({
+        name: orgDetails.organization.name,
+        domain: orgDetails.organization.domain,
+        description: orgDetails.organization.description || "",
+        is_active: orgDetails.organization.is_active,
+        admin_user: orgDetails.admin_user ? {
+          username: orgDetails.admin_user.username || "",
+          email: orgDetails.admin_user.email || "",
+          name: orgDetails.admin_user.name || "",
+        } : {
+          username: "",
+          email: "",
+          name: "",
+        },
+      });
+      setShowEditModal(true);
+    } catch (error) {
+      // Fallback if details fetch fails
+      setSelectedOrg({ organization: org });
+      setEditForm({
+        name: org.name,
+        domain: org.domain,
+        description: org.description || "",
+        is_active: org.is_active,
+        admin_user: {
+          username: "",
+          email: "",
+          name: "",
+        },
+      });
+      setShowEditModal(true);
+    }
   };
 
   const handleUpdateOrg = (e: React.FormEvent) => {
@@ -347,71 +380,131 @@ export default function OrganizationsManagement() {
 
       {/* Edit Organization Modal */}
       {showEditModal && selectedOrg && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <h2 className="text-2xl font-bold text-primary">
                 Edit Organization
               </h2>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="text-muted hover:text-primary transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleUpdateOrg} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Organization Name
-                  </label>
-                  <Input
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    placeholder="Tech Corp"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Domain
-                  </label>
-                  <Input
-                    value={editForm.domain}
-                    onChange={(e) => setEditForm({ ...editForm, domain: e.target.value })}
-                    placeholder="techcorp.com"
-                    required
-                  />
-                </div>
-              </div>
-              
+            <form onSubmit={handleUpdateOrg} className="space-y-6">
+              {/* Organization Details Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  placeholder="A leading technology company..."
-                  rows={3}
-                />
+                <h3 className="text-lg font-semibold mb-4 text-primary">
+                  Organization Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-primary mb-2">
+                      Organization Name
+                    </label>
+                    <Input
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      placeholder="Tech Corp"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-primary mb-2">
+                      Domain
+                    </label>
+                    <Input
+                      value={editForm.domain}
+                      onChange={(e) => setEditForm({ ...editForm, domain: e.target.value })}
+                      placeholder="techcorp.com"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-primary mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    className="w-full p-3 border border-card bg-card text-primary placeholder:text-secondary rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-white/20 dark:bg-white/10 dark:text-white"
+                    placeholder="A leading technology company..."
+                    rows={3}
+                  />
+                </div>
+
+                <div className="mt-4 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={editForm.is_active}
+                    onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
+                    className="mr-2 rounded"
+                  />
+                  <label htmlFor="is_active" className="text-sm font-medium text-primary">
+                    Active Organization
+                  </label>
+                </div>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="is_active"
-                  checked={editForm.is_active}
-                  onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
-                  className="mr-2"
-                />
-                <label htmlFor="is_active" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Active Organization
-                </label>
-              </div>
+              {/* Admin User Details Section */}
+              {selectedOrg?.admin_user && (
+                <div className="border-t border-card pt-6">
+                  <h3 className="text-lg font-semibold mb-4 text-primary">
+                    Admin User Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-primary mb-2">
+                        Username
+                      </label>
+                      <Input
+                        value={editForm.admin_user.username}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          admin_user: { ...editForm.admin_user, username: e.target.value }
+                        })}
+                        placeholder="admin_username"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-primary mb-2">
+                        Email
+                      </label>
+                      <Input
+                        type="email"
+                        value={editForm.admin_user.email}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          admin_user: { ...editForm.admin_user, email: e.target.value }
+                        })}
+                        placeholder="admin@example.com"
+                        required
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-primary mb-2">
+                        Full Name
+                      </label>
+                      <Input
+                        value={editForm.admin_user.name}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          admin_user: { ...editForm.admin_user, name: e.target.value }
+                        })}
+                        placeholder="Admin User Name"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <Button

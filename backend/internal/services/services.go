@@ -46,8 +46,8 @@ func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb 
 	auditService := NewAuditService(repos.AuditLog, repos.User)
 
 	return &Services{
-		User:                    NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, auditService),
-		Auth:                    NewAuthService(repos.User, repos.Organization, cfg.JWT),
+		User:                    NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, auditService, NewNotificationService()),
+		Auth:                    NewAuthService(repos.User, repos.Organization, repos.OTP, repos.PasswordReset, cfg.JWT, NewNotificationService()),
 		Leave:                   NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService, NewNotificationService()),
 		LeaveCategory:           NewLeaveCategoryService(repos.LeaveCategory),
 		LeaveAllocation:         NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory, repos.User),
@@ -93,6 +93,10 @@ type AuthService interface {
 	RefreshToken(refreshToken string) (*LoginResponse, error)
 	ValidateToken(token string) (*utils.JWTClaims, error)
 	GetUserByID(userID string) (*models.User, error)
+	SendOTP(email string) error
+	VerifyOTP(email, otp string) (*LoginResponse, error)
+	ForgotPassword(email string, resetURL string) error
+	ResetPassword(token, newPassword string) error
 }
 
 // OrganizationService interface for organization business logic

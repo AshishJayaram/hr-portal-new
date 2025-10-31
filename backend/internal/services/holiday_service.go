@@ -40,21 +40,25 @@ func (s *holidayService) CreateHoliday(req CreateHolidayRequest, httpReq *http.R
 		Color:           req.Color,
 	}
 
-	// Parse date if provided
-	if req.Date != "" {
-		// Single date
-		parsedDate, err := time.Parse("2006-01-02", req.Date)
-		if err != nil {
-			return nil, fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
-		}
-		holiday.Date = &parsedDate
-	}
-
-	// Parse date range if provided
+	// Prioritize dateRange, but also handle misrouted dates with ' to '
+	// If DateRange is provided, use it directly
 	if req.DateRange != "" {
 		holiday.DateRange = &req.DateRange
-		// Clear single date if date range is provided
 		holiday.Date = nil
+	} else if req.Date != "" {
+		// Check if Date contains ' to ' - treat as dateRange
+		if strings.Contains(req.Date, " to ") {
+			holiday.DateRange = &req.Date
+			holiday.Date = nil
+		} else {
+			// Single date
+			parsedDate, err := time.Parse("2006-01-02", req.Date)
+			if err != nil {
+				return nil, fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)
+			}
+			holiday.Date = &parsedDate
+			holiday.DateRange = nil
+		}
 	}
 
 	if err := s.repo.Create(holiday); err != nil {
@@ -83,7 +87,6 @@ func (s *holidayService) CreateHoliday(req CreateHolidayRequest, httpReq *http.R
 		ChangedBy:      changedBy,
 		ChangeSummary:  changeSummary,
 	}, httpReq); err != nil {
-		fmt.Printf("Failed to log audit: %v\n", err)
 	}
 
 	return holiday, nil
@@ -195,13 +198,11 @@ func (s *holidayService) GetUpcomingHolidaysAndEvents(organizationID string, lim
 	// Filter upcoming holidays and events
 	upcoming := []models.Holiday{}
 	now := time.Now()
-	fmt.Printf("DEBUG: Current time: %v\n", now)
 
 	for _, holiday := range allHolidays {
 		shouldInclude := false
 
 		if holiday.Date != nil {
-			fmt.Printf("DEBUG: Holiday %s has date %v, after now: %v\n", holiday.Name, holiday.Date, holiday.Date.After(now))
 			if holiday.Date.After(now) {
 				// Future single-day holiday/event
 				shouldInclude = true
@@ -210,13 +211,11 @@ func (s *holidayService) GetUpcomingHolidaysAndEvents(organizationID string, lim
 			// Multi-day holiday/event - check if any part is in the future
 			// Parse the date range to check if it's upcoming
 			dateRangeStr := *holiday.DateRange
-			fmt.Printf("DEBUG: Holiday %s has date range %s\n", holiday.Name, dateRangeStr)
 			if strings.Contains(dateRangeStr, " to ") {
 				parts := strings.Split(dateRangeStr, " to ")
 				if len(parts) == 2 {
 					startDate, err := time.Parse("2006-01-02", strings.TrimSpace(parts[0]))
 					if err == nil {
-						fmt.Printf("DEBUG: Parsed start date %v, after now: %v\n", startDate, startDate.After(now))
 						if startDate.After(now) {
 							shouldInclude = true
 						}

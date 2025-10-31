@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSalarySlips, getSalarySlip, addSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument, getDocuments, downloadPayslipPDF, uploadPrivateDocument, getPrivateDocumentsByUser, deletePrivateDocument } from "@/lib/api";
 import { useFilteredUsers, useUserName } from "@/hooks/useUsersCache";
@@ -69,6 +69,75 @@ export default function SalarySlipsPage() {
 
   // Use global users cache
   const { users: allUsers } = useFilteredUsers();
+  
+  // Get user IDs from salary slips (memoized at top level)
+  const usersWithSalarySlips = useMemo(() => {
+    return new Set((data?.data || []).map((s: any) => String(s.userId)));
+  }, [data?.data]);
+  
+  // Fetch private documents for users who don't have salary slips
+  // This helps identify users who should appear in the list even without salary slips
+  const { data: allPrivateDocs } = useQuery({
+    queryKey: ["all-private-docs", Array.from(usersWithSalarySlips).sort().join(',')],
+    queryFn: async () => {
+      if (!canManageSalarySlips() || !allUsers || allUsers.length === 0) {
+        return { data: {} };
+      }
+      // Only check users who don't have salary slips (optimization)
+      const userIdsWithoutSlips = allUsers
+        .map((u: any) => String(u.id))
+        .filter((uid: string) => !usersWithSalarySlips.has(uid))
+        .slice(0, 50); // Limit to 50 to avoid too many requests
+      
+      if (userIdsWithoutSlips.length === 0) {
+        return { data: {} };
+      }
+      
+      // Fetch private documents for users without salary slips in parallel
+      const promises = userIdsWithoutSlips.map((uid: string) => 
+        getPrivateDocumentsByUser(uid).catch(() => ({ data: [] }))
+      );
+      const results = await Promise.all(promises);
+      
+      // Map user IDs to their private documents
+      const userDocsMap: Record<string, any[]> = {};
+      userIdsWithoutSlips.forEach((uid: string, index: number) => {
+        if (index < results.length && results[index]?.data?.length > 0) {
+          userDocsMap[uid] = results[index].data;
+        }
+      });
+      
+      return { data: userDocsMap };
+    },
+    enabled: canManageSalarySlips() && allUsers && allUsers.length > 0,
+    staleTime: 120000, // Cache for 2 minutes
+  });
+
+  // Get all relevant user IDs (users with salary slips OR private documents) - memoized at top level
+  const allRelevantUserIds = useMemo(() => {
+    // Get user IDs from salary slips
+    const usersWithSalarySlipsSet = new Set((data?.data || []).map((s: any) => String(s.userId)));
+    
+    // Get user IDs who have private documents but no salary slips
+    const usersWithPrivateDocs = new Set<string>();
+    if (allPrivateDocs?.data) {
+      const docsData = allPrivateDocs.data;
+      if (typeof docsData === 'object' && !Array.isArray(docsData)) {
+        const docsMap = docsData as Record<string, any[]>;
+        Object.keys(docsMap).forEach((uid: string) => {
+          const userDocs = docsMap[uid];
+          if (Array.isArray(userDocs) && userDocs.length > 0) {
+            usersWithPrivateDocs.add(uid);
+          }
+        });
+      }
+    }
+    
+    // Combine both sets
+    const allRelevantUserIdsSet = new Set([...usersWithSalarySlipsSet, ...usersWithPrivateDocs]);
+    
+    return Array.from(allRelevantUserIdsSet);
+  }, [data?.data, allPrivateDocs?.data]);
 
   const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
   const { data: companySettings } = useQuery({
@@ -672,7 +741,7 @@ export default function SalarySlipsPage() {
         {canManageSalarySlips() ? (
           <div className="space-y-4">
             {/* Group by employee */}
-            {[...new Set((data?.data || []).map((s: any) => s.userId))].map((uid) => (
+            {allRelevantUserIds.map((uid: string) => (
               <details 
                 key={uid} 
                 className="rounded-lg border border-white/10 bg-white/5"
@@ -681,7 +750,10 @@ export default function SalarySlipsPage() {
                 <summary 
                   className="list-none p-4 cursor-pointer flex items-center justify-between"
                 >
-                   <span className="font-semibold">{allUsers.find((u: any) => String(u.id) === String(uid))?.name || `Employee`} (ID: {uid})</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold">{allUsers.find((u: any) => String(u.id) === String(uid))?.name || `Employee`} (ID: {uid})</span>
+                    <PrivateDocumentsIndicator userId={String(uid)} />
+                  </div>
                   <span className="text-xs text-gray-400">
                     Click to expand/collapse
                   </span>
@@ -690,52 +762,59 @@ export default function SalarySlipsPage() {
                   {/* Dynamic Salary Breakdown Section */}
                   <EmployeeSalaryBreakdown userId={String(uid)} companySettings={companySettings?.data} />
 
-       {/* Employee-specific Year Filter */}
-       <div className="flex items-center gap-2">
-         <label htmlFor={`year-select-${uid}`} className="text-sm text-gray-400">Filter by Year:</label>
-         <select
-           id={`year-select-${uid}`}
-           value={employeeYears[String(uid)] || ""}
-           onChange={(e) => {
-             const newYear = e.target.value ? Number(e.target.value) : null;
-             setEmployeeYears(prev => ({
-               ...prev,
-               [String(uid)]: newYear
-             }));
-           }}
-           className="px-3 py-1 rounded bg-white/10 border border-white/20 text-sm"
-         >
-           <option value="">All Years</option>
-           {[...new Set((data?.data || [])
-             .filter((s: any) => s.userId === uid)
-             .map((s: any) => s.year)
-             .sort((a: number, b: number) => b - a) // Sort years in descending order
-           )].map(year => (
-             <option key={year} value={year}>{year}</option>
-           ))}
-         </select>
-                    </div>
+       {/* Employee-specific Year Filter - only show if user has salary slips */}
+       {(data?.data || []).filter((s: any) => s.userId === uid).length > 0 && (
+         <div className="flex items-center gap-2">
+           <label htmlFor={`year-select-${uid}`} className="text-sm text-gray-400">Filter by Year:</label>
+           <select
+             id={`year-select-${uid}`}
+             value={employeeYears[String(uid)] || ""}
+             onChange={(e) => {
+               const newYear = e.target.value ? Number(e.target.value) : null;
+               setEmployeeYears(prev => ({
+                 ...prev,
+                 [String(uid)]: newYear
+               }));
+             }}
+             className="px-3 py-1 rounded bg-white/10 border border-white/20 text-sm"
+           >
+             <option value="">All Years</option>
+             {[...new Set((data?.data || [])
+               .filter((s: any) => s.userId === uid)
+               .map((s: any) => s.year)
+               .sort((a: number, b: number) => b - a) // Sort years in descending order
+             )].map(year => (
+               <option key={year} value={year}>{year}</option>
+             ))}
+           </select>
+         </div>
+       )}
 
                   {/* Salary Slips Table */}
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="text-left text-gray-400">
-                        <tr>
-                          <th className="py-2">Month</th>
-                          <th className="py-2">Year</th>
-                          <th className="py-2">Uploaded</th>
-                          <th className="py-2">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-             {(data?.data || []).filter((s: any) => {
-               if (s.userId !== uid) return false;
-               const employeeYear = employeeYears[String(uid)];
-               if (employeeYear !== null && employeeYear !== undefined) {
-                 return s.year === employeeYear;
-               }
-               return true;
-             }).map((s: any) => (
+                    {(data?.data || []).filter((s: any) => s.userId === uid).length === 0 ? (
+                      <div className="text-sm text-gray-400 text-center py-4">
+                        No salary slips uploaded for this employee.
+                      </div>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <thead className="text-left text-gray-400">
+                          <tr>
+                            <th className="py-2">Month</th>
+                            <th className="py-2">Year</th>
+                            <th className="py-2">Uploaded</th>
+                            <th className="py-2">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+               {(data?.data || []).filter((s: any) => {
+                 if (s.userId !== uid) return false;
+                 const employeeYear = employeeYears[String(uid)];
+                 if (employeeYear !== null && employeeYear !== undefined) {
+                   return s.year === employeeYear;
+                 }
+                 return true;
+               }).map((s: any) => (
                           <tr key={s.id} className="border-t border-white/10">
                             <td className="py-2">{new Date(s.year, s.month - 1).toLocaleDateString('en-US', { month: 'long' })}</td>
                             <td className="py-2">{s.year}</td>
@@ -837,8 +916,9 @@ export default function SalarySlipsPage() {
                             </td>
                           </tr>
                         ))}
-                      </tbody>
-                    </table>
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                   {/* Private Documents for this employee */}
                   <div className="mt-6">
@@ -1045,6 +1125,32 @@ export default function SalarySlipsPage() {
         companySettings={companySettings?.data}
       />
     </div>
+  );
+}
+
+function PrivateDocumentsIndicator({ userId }: { userId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["private-docs", userId, "indicator"],
+    queryFn: () => getPrivateDocumentsByUser(userId),
+    retry: 1,
+    staleTime: 60000, // Cache for 1 minute
+  });
+  
+  if (isLoading) return null;
+  
+  const docs = data?.data || [];
+  const hasDocuments = docs.length > 0;
+  
+  if (!hasDocuments) return null;
+  
+  return (
+    <span 
+      className="px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1"
+      title={`${docs.length} private document${docs.length !== 1 ? 's' : ''} uploaded`}
+    >
+      <span>🔒</span>
+      <span>{docs.length} Private Doc{docs.length !== 1 ? 's' : ''}</span>
+    </span>
   );
 }
 

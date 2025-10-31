@@ -7,6 +7,10 @@ import { calculateLeaveDays } from "../lib/leaveUtils";
 import { toast } from "sonner";
 
 export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApplyForField = false }: { bankHolidays?: any[], forUserId?: string, showApplyForField?: boolean }) {
+  const queryClient = useQueryClient();
+  const currentUser = getCurrentUser();
+  const canApplyForOthers = hasRole(["HR", "Admin"]);
+
   const [type, setType] = useState<string>("");
   const [reason, setReason] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -14,11 +18,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
   const [startHalf, setStartHalf] = useState<"FULL" | "AM" | "PM">("FULL");
   const [endHalf, setEndHalf] = useState<"FULL" | "AM" | "PM">("FULL");
   const [calculatedDays, setCalculatedDays] = useState(0);
-  const [selectedUserId, setSelectedUserId] = useState(forUserId || "");
-
-  const queryClient = useQueryClient();
-  const currentUser = getCurrentUser();
-  const canApplyForOthers = hasRole(["HR", "Admin"]);
+  const [selectedUserId, setSelectedUserId] = useState(forUserId || currentUser?.id || "");
 
   // Fetch users if HR/Admin
   const { data: users } = useQuery({
@@ -129,19 +129,24 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
       return;
     }
     
+    // Only send userId if:
+    // 1. We're applying on behalf (showApplyForField is true) AND selectedUserId is set
+    // 2. selectedUserId is different from current user's ID
+    const shouldSendUserId = showApplyForField && selectedUserId && selectedUserId !== currentUser?.id;
+    
     mutation.mutate({
       type: type as any, // Type comes from dynamic leave categories
       reason,
       from: startDate,
       to: endDate || startDate,
-      userId: selectedUserId || currentUser?.id,
+      ...(shouldSendUserId ? { userId: selectedUserId } : {}),
     });
   };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-card dark:bg-white/10 dark:border-white/10">
       <form onSubmit={handleSubmit} className="px-6 pt-6 pb-6 space-y-4">
-        {/* Employee Selection for HR/Admin - Only show when explicitly requested */}
+        {/* Employee Selection for HR/Admin - Show when showApplyForField is true */}
         {canApplyForOthers && showApplyForField && (
           <div className="space-y-2">
             <label className="block text-sm mb-1 text-primary">Apply Leave For</label>

@@ -48,6 +48,15 @@ export default function LeavesPage() {
   const [showApplyForm, setShowApplyForm] = useState(false);
   const [showApplyOnBehalfForm, setShowApplyOnBehalfForm] = useState(false);
   const [teamBalanceSearch, setTeamBalanceSearch] = useState("");
+  const [expandedTeamCards, setExpandedTeamCards] = useState<Set<string>>(new Set());
+
+  const toggleTeamCard = (userId: string) => {
+    setExpandedTeamCards(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId); else next.add(userId);
+      return next;
+    });
+  };
   const [selectedTeamMember, setSelectedTeamMember] = useState<string | null>(null);
   const [teamBalancesPage, setTeamBalancesPage] = useState(1);
   const [teamBalancesPerPage] = useState(6);
@@ -313,26 +322,6 @@ export default function LeavesPage() {
             </Card>
           </RoleGuard>
 
-          {/* Apply Leave on Behalf Modal */}
-          {showApplyOnBehalfForm && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Apply Leave on Behalf of Employee</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowApplyOnBehalfForm(false)}
-                    className="h-10 w-10 p-0 text-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                  >
-                    ×
-                  </Button>
-                </div>
-                <ApplyLeaveForm showApplyForField={true} />
-              </Card>
-            </div>
-          )}
-
           {/* Search and Filters */}
           <SearchFilter
             onSearch={handleSearch}
@@ -562,6 +551,16 @@ export default function LeavesPage() {
               <h1 className="text-3xl font-bold text-primary">Team Leaves</h1>
               <p className="text-secondary mt-1">Manage your team's leave requests and view leave balances</p>
             </div>
+            {canApprove && (
+              <Button
+                size="sm"
+                onClick={() => setShowApplyOnBehalfForm(true)}
+                className="flex items-center gap-2 self-start md:self-auto"
+              >
+                <Plus className="h-4 w-4" />
+                Apply Leave on Behalf
+              </Button>
+            )}
           </div>
 
           {/* Team Leave Requests List - NEW */}
@@ -770,6 +769,7 @@ export default function LeavesPage() {
               </div>
             </div>
           ) : teamBalances?.data && Object.keys(teamBalances.data).length > 0 ? (
+            <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {Object.entries(teamBalances.data)
                 .filter(([userId]) => {
@@ -777,6 +777,7 @@ export default function LeavesPage() {
                   const name = (user?.name || '').toLowerCase();
                   return !teamBalanceSearch || name.includes(teamBalanceSearch.toLowerCase());
                 })
+                .slice((teamBalancesPage-1)*teamBalancesPerPage, teamBalancesPage*teamBalancesPerPage)
                 .map(([userId, balances], idx) => {
                 const user = usersData?.find(u => u.id === userId);
                 const userName = user?.name || 'Unknown User';
@@ -789,16 +790,22 @@ export default function LeavesPage() {
                     transition={{ delay: idx * 0.1 }}
                     className="bg-card border border-card rounded-lg p-4 hover:bg-white/70 dark:hover:bg-white/5 hover:shadow-md transition-shadow"
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                        {userName.charAt(0).toUpperCase()}
+                    <button type="button" onClick={() => toggleTeamCard(userId)} className="w-full flex items-center justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                          {userName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-primary dark:text-white truncate">{userName}</h3>
+                          <p className="text-sm text-secondary dark:text-gray-300 truncate">{user?.role || 'Employee'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-primary dark:text-white">{userName}</h3>
-                        <p className="text-sm text-secondary dark:text-gray-300">{user?.role || 'Employee'}</p>
-                      </div>
-                    </div>
+                      <svg className={`h-5 w-5 text-gray-500 dark:text-gray-400 transition-transform flex-shrink-0 ${expandedTeamCards.has(userId) ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd"/>
+                      </svg>
+                    </button>
 
+                    {expandedTeamCards.has(userId) && (
                     <div className="space-y-2">
                       {(balances as any[]).map((balance, balanceIdx) => {
                         const type = balance.category_name || balance.type || 'Leave';
@@ -827,10 +834,40 @@ export default function LeavesPage() {
                         );
                       })}
                     </div>
+                    )}
                   </motion.div>
                 );
               })}
             </div>
+            {/* Pagination for Team Balances */}
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-card">
+              <div className="text-sm text-secondary dark:text-gray-300">
+                Page {teamBalancesPage}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTeamBalancesPage(Math.max(1, teamBalancesPage - 1))}
+                  disabled={teamBalancesPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTeamBalancesPage(teamBalancesPage + 1)}
+                  disabled={Object.entries(teamBalances.data).filter(([userId]) => {
+                    const user = usersData?.find(u => u.id === userId);
+                    const name = (user?.name || '').toLowerCase();
+                    return !teamBalanceSearch || name.includes(teamBalanceSearch.toLowerCase());
+                  }).length <= teamBalancesPage * teamBalancesPerPage}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+            </>
           ) : (
             <div className="text-center py-8">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -845,6 +882,26 @@ export default function LeavesPage() {
         </div>
       )}
 
+
+      {/* Apply Leave on Behalf Modal - Global, accessible from all tabs */}
+      {showApplyOnBehalfForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-primary">Apply Leave on Behalf of Employee</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowApplyOnBehalfForm(false)}
+                className="h-10 w-10 p-0 text-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                ×
+              </Button>
+            </div>
+            <ApplyLeaveForm showApplyForField={true} />
+          </Card>
+        </div>
+      )}
 
       {/* Edit Leave Modal */}
       {editingLeave && (

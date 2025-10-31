@@ -102,6 +102,18 @@ func (r *userRepository) GetByUsername(username, organizationID string) (*models
 	return &user, nil
 }
 
+// GetByEmailAcrossOrgs finds a user by email across all organizations
+func (r *userRepository) GetByEmailAcrossOrgs(email string) (*models.User, error) {
+	var user models.User
+	if err := r.db.Where("email = ?", email).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+	return &user, nil
+}
+
 // GetByUsernameAcrossOrgs finds a user by username across all organizations
 func (r *userRepository) GetByUsernameAcrossOrgs(username string) (*models.User, error) {
 	var user models.User

@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"fmt"
 	"hr-portal-backend/internal/models"
 	"time"
 
@@ -16,14 +17,50 @@ func NewFeedbackRepository(db *gorm.DB) *FeedbackRepository {
 }
 
 func (r *FeedbackRepository) CreateFeedback(feedback *models.Feedback) (*models.Feedback, error) {
-	err := r.DB.Create(feedback).Error
-	return feedback, err
+	// GORM automatically populates feedback.ID after Create
+	if err := r.DB.Create(feedback).Error; err != nil {
+		return nil, fmt.Errorf("failed to create feedback: %w", err)
+	}
+
+	// Verify ID was generated (should always be > 0)
+	if feedback.ID == 0 {
+		return nil, fmt.Errorf("failed to generate feedback ID")
+	}
+
+	// Reload with relationships to ensure complete data (ID is guaranteed to exist)
+	var createdFeedback models.Feedback
+	query := r.DB.Preload("Organization").Preload("Assignee").Preload("Resolver")
+
+	// Only preload User if user_id is not null
+	if feedback.UserID != nil {
+		query = query.Preload("User")
+	}
+
+	if err := query.First(&createdFeedback, feedback.ID).Error; err != nil {
+		// If reload fails, return the feedback anyway (ID is already set by Create)
+		return feedback, nil
+	}
+
+	// Ensure ID is set in response
+	createdFeedback.ID = feedback.ID
+	return &createdFeedback, nil
 }
 
-func (r *FeedbackRepository) GetFeedback(organizationID uint, status *string, feedbackType *string) ([]models.Feedback, error) {
+func (r *FeedbackRepository) GetFeedback(organizationID uint, status *string, feedbackType *string, includeArchived bool) ([]models.Feedback, error) {
 	var feedback []models.Feedback
-	query := r.DB.Preload("User").Preload("Assignee").Preload("Resolver").
+	baseQuery := r.DB.Preload("User").Preload("Organization").Preload("Assignee").Preload("Resolver").
 		Where("organization_id = ?", organizationID)
+
+	// If including archived, use Unscoped() to include soft-deleted records and filter for deleted_at IS NOT NULL
+	// If not including archived, GORM's Find() will automatically exclude soft-deleted items (deleted_at IS NULL)
+	var query *gorm.DB
+	if includeArchived {
+		// Use Unscoped() to query soft-deleted records, then filter for only archived items
+		query = baseQuery.Unscoped().Where("deleted_at IS NOT NULL")
+	} else {
+		// Regular query - GORM automatically excludes soft-deleted items
+		query = baseQuery.Where("deleted_at IS NULL")
+	}
 
 	if status != nil {
 		query = query.Where("status = ?", *status)
@@ -39,14 +76,28 @@ func (r *FeedbackRepository) GetFeedback(organizationID uint, status *string, fe
 
 func (r *FeedbackRepository) GetFeedbackByID(id uint) (*models.Feedback, error) {
 	var feedback models.Feedback
-	err := r.DB.Preload("User").Preload("Assignee").Preload("Resolver").
+	err := r.DB.Preload("User").Preload("Organization").Preload("Assignee").Preload("Resolver").
 		First(&feedback, id).Error
 	return &feedback, err
 }
 
 func (r *FeedbackRepository) UpdateFeedback(feedback *models.Feedback) (*models.Feedback, error) {
-	err := r.DB.Save(feedback).Error
-	return feedback, err
+	// Ensure ID is set before update
+	if feedback.ID == 0 {
+		return nil, fmt.Errorf("feedback ID is required for update")
+	}
+
+	if err := r.DB.Save(feedback).Error; err != nil {
+		return nil, err
+	}
+
+	// Reload to ensure all fields including relationships are properly populated
+	var updatedFeedback models.Feedback
+	if err := r.DB.Preload("User").Preload("Organization").Preload("Assignee").Preload("Resolver").First(&updatedFeedback, feedback.ID).Error; err != nil {
+		// If reload fails, return the original feedback
+		return feedback, nil
+	}
+	return &updatedFeedback, nil
 }
 
 func (r *FeedbackRepository) UpdateFeedbackStatus(id uint, status string, assignedTo *uint, resolution *string, resolvedBy *uint) error {
@@ -72,7 +123,18 @@ func (r *FeedbackRepository) UpdateFeedbackStatus(id uint, status string, assign
 }
 
 func (r *FeedbackRepository) DeleteFeedback(id uint) error {
+	// Hard delete - permanently remove from database
+	return r.DB.Unscoped().Delete(&models.Feedback{}, id).Error
+}
+
+func (r *FeedbackRepository) ArchiveFeedback(id uint) error {
+	// Soft delete - set deleted_at timestamp
 	return r.DB.Delete(&models.Feedback{}, id).Error
+}
+
+func (r *FeedbackRepository) DeleteAllFeedback(organizationID uint) error {
+	// Hard delete all feedback for an organization - permanently remove from database
+	return r.DB.Unscoped().Where("organization_id = ?", organizationID).Delete(&models.Feedback{}).Error
 }
 
 func (r *FeedbackRepository) GetFeedbackStats(organizationID uint) (map[string]int, error) {
