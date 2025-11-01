@@ -137,8 +137,13 @@ If emails are not being sent, check:
 - **Cause**: SMTP server requires secure connection
 - **Solution**: Ensure using port 587 (TLS) or 465 (SSL)
 
-### Debug Mode
-To enable debug logging, set:
+### Production Mode
+For production deployments, ensure:
+```bash
+GIN_MODE=release
+```
+
+For development, you can use:
 ```bash
 GIN_MODE=debug
 ```

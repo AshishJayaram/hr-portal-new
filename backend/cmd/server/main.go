@@ -91,11 +91,6 @@ func main() {
 	// Initialize services
 	services := services.New(repos, cfg, db, nil)
 
-	// Add dummy audit logs for testing (only if no logs exist) - using demo organization for now
-	services.Audit.AddDummyLogs("4")
-	// Also add logs for organization 1 to test filtering
-	services.Audit.AddDummyLogs("1")
-
 	// Initialize handlers
 	handlers := handlers.New(services, repos, cfg)
 
@@ -231,8 +226,9 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			leaves.GET("/team-balances", handlers.Leave.GetTeamLeaveBalances)
 			leaves.GET("/:id", handlers.Leave.GetLeave)
 			leaves.PATCH("/:id", handlers.Leave.UpdateLeave)
-			leaves.POST("/:id/approve", middleware.RoleRequired("HR", "Admin", "God"), handlers.Leave.ApproveLeave)
-			leaves.POST("/:id/reject", middleware.RoleRequired("HR", "Admin", "God"), handlers.Leave.RejectLeave)
+			// Note: Authorization is checked in the handler itself (HR/Admin/God OR manager of the leave requester)
+			leaves.POST("/:id/approve", handlers.Leave.ApproveLeave)
+			leaves.POST("/:id/reject", handlers.Leave.RejectLeave)
 			leaves.PUT("/:id/edit", handlers.Leave.EditLeave)
 			leaves.POST("/:id/cancel", handlers.Leave.CancelLeave)
 			leaves.GET("/balance/:user_id", handlers.Leave.GetLeaveBalance)

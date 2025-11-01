@@ -112,15 +112,17 @@ export default function DashboardPage() {
     groupedEventsByDate.forEach((dayEvents, dateKey) => {
       if (processedDates.has(dateKey)) return;
       
-      // Group by type - keep leaves, off-sites (my vs team), and holidays separate
+      // Group by type - keep leaves, off-sites (my vs team), holidays, and birthdays separate
       const leaves = dayEvents.filter(e => e.extendedProps?.type === 'leave');
       const holidays = dayEvents.filter(e => e.extendedProps?.type === 'holiday');
+      const birthdays = dayEvents.filter(e => e.extendedProps?.type === 'birthday');
       const myOffsites = dayEvents.filter(e => e.extendedProps?.type === 'offsite' && e.extendedProps?.isMyOffSite === true);
       const teamOffsites = dayEvents.filter(e => e.extendedProps?.type === 'offsite' && e.extendedProps?.isMyOffSite !== true);
       const otherEvents = dayEvents.filter(e => 
         e.extendedProps?.type !== 'leave' && 
         e.extendedProps?.type !== 'holiday' && 
-        e.extendedProps?.type !== 'offsite'
+        e.extendedProps?.type !== 'offsite' &&
+        e.extendedProps?.type !== 'birthday'
       );
 
       const day = new Date(dateKey + 'T00:00:00');
@@ -267,11 +269,16 @@ export default function DashboardPage() {
           datesWithGroupedOffsites.add(dateKey); // Mark this date as having grouped off-sites
           
           // Collect all unique team off-sites from this day
-          const allTeamOffsites = teamOffsites.map(e => ({
-            title: e.title,
-            user: e.extendedProps?.user || e.extendedProps?.originalOffSite?.user,
-            originalOffSite: e.extendedProps?.originalOffSite
-          }));
+          const allTeamOffsites = teamOffsites.map(e => {
+            const originalOffSite = e.extendedProps?.originalOffSite || {};
+            const user = e.extendedProps?.user || originalOffSite.user || {};
+            // Ensure we have user info - if user object exists but name is missing, try to preserve the object
+            return {
+              title: e.title || originalOffSite.title,
+              user: user && (user.name || user.email || user.id) ? user : originalOffSite.user || {},
+              originalOffSite: originalOffSite
+            };
+          });
           
           finalEvents.push({
             title: `${teamOffsites.length} team off-site entries`,
@@ -307,7 +314,20 @@ export default function DashboardPage() {
         }
       }
       
-      // Add other events (birthdays, etc.)
+      // Group BIRTHDAYS - if multiple birthdays on same day, they're already grouped in allEvents
+      // Just add the grouped or single birthday event
+      if (birthdays.length > 0) {
+        // Birthdays are already grouped when created, so we just need to add them
+        birthdays.forEach(birthday => {
+          const eventId = `${getDateKey(new Date(birthday.start))}-${birthday.title}`;
+          if (!processedEventIds.has(eventId)) {
+            processedEventIds.add(eventId);
+            finalEvents.push(birthday);
+          }
+        });
+      }
+      
+      // Add other events (non-birthday, non-leave, non-holiday, non-offsite)
       otherEvents.forEach(event => {
         const eventId = `${getDateKey(new Date(event.start))}-${event.title}`;
         if (!processedEventIds.has(eventId)) {
@@ -514,15 +534,17 @@ export default function DashboardPage() {
         }
       });
 
-    // Add birthdays - show for multiple years to make them appear as repeating events
+    // Add birthdays - group multiple birthdays on the same day
     const currentYear = new Date().getFullYear();
+    const birthdaysByDate = new Map<string, any[]>();
+    
     (dashboardData?.data?.user_birthdays || [])
       .filter((b: any) => b.birthday_visible)
       .forEach((b: any) => {
         const birthdayDate = new Date(b.birthday);
 
-        // Show birthdays for current year and next 2 years
-        for (let yearOffset = 0; yearOffset < 3; yearOffset++) {
+        // Show birthdays for current year and next 5 years
+        for (let yearOffset = 0; yearOffset < 6; yearOffset++) {
           const birthdayThisYear = new Date(currentYear + yearOffset, birthdayDate.getMonth(), birthdayDate.getDate());
 
           // Only show if the birthday hasn't passed in the current year (for current year only)
@@ -530,26 +552,72 @@ export default function DashboardPage() {
             continue; // Skip past birthdays in current year
           }
 
-          const event = {
-            title: `🎂 ${b.name}'s Birthday`,
-            start: birthdayThisYear,
-            end: new Date(birthdayThisYear.getTime() + 24 * 60 * 60 * 1000),
-            allDay: true,
-            color: "#06b6d4", // Cyan color for birthdays
-            extendedProps: {
-              type: 'birthday',
-              description: `${b.name}'s birthday`
-            }
-          };
-          allEvents.push(event);
-          
           const dateKey = getDateKey(birthdayThisYear);
-          if (!groupedEventsByDate.has(dateKey)) {
-            groupedEventsByDate.set(dateKey, []);
+          if (!birthdaysByDate.has(dateKey)) {
+            birthdaysByDate.set(dateKey, []);
           }
-          groupedEventsByDate.get(dateKey)!.push(event);
+          birthdaysByDate.get(dateKey)!.push({
+            name: b.name,
+            birthday: b.birthday,
+            date: birthdayThisYear
+          });
         }
       });
+
+    // Create grouped birthday events
+    birthdaysByDate.forEach((birthdays, dateKey) => {
+      const date = new Date(dateKey);
+      const endExclusive = new Date(date);
+      endExclusive.setDate(endExclusive.getDate() + 1);
+
+      if (birthdays.length > 1) {
+        // Multiple birthdays on the same day - group them
+        const event = {
+          title: `🎂 ${birthdays.length} birthdays`,
+          start: date,
+          end: endExclusive,
+          allDay: true,
+          color: "#06b6d4", // Cyan color for birthdays
+          extendedProps: {
+            type: 'birthday',
+            birthdays: birthdays.map(b => ({
+              name: b.name,
+              birthday: b.birthday,
+              description: `${b.name}'s birthday`
+            })),
+            count: birthdays.length,
+            grouped: true
+          }
+        };
+        allEvents.push(event);
+      } else {
+        // Single birthday - show individually
+        const b = birthdays[0];
+        const event = {
+          title: `🎂 ${b.name}'s Birthday`,
+          start: date,
+          end: endExclusive,
+          allDay: true,
+          color: "#06b6d4", // Cyan color for birthdays
+          extendedProps: {
+            type: 'birthday',
+            birthdays: [{
+              name: b.name,
+              birthday: b.birthday,
+              description: `${b.name}'s birthday`
+            }],
+            count: 1
+          }
+        };
+        allEvents.push(event);
+      }
+
+      // Add to grouped events map for daywise grouping
+      if (!groupedEventsByDate.has(dateKey)) {
+        groupedEventsByDate.set(dateKey, []);
+      }
+      groupedEventsByDate.get(dateKey)!.push(allEvents[allEvents.length - 1]);
+    });
 
     // Process leaves
     // Backend already filters: HR/Admin/God get all organization leaves, employees get only their own

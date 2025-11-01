@@ -27,11 +27,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      const resetURL = typeof window !== 'undefined' 
-        ? `${window.location.origin}/reset-password`
-        : "http://localhost:3000/reset-password";
-      
-      await forgotPassword(email, resetURL);
+      await forgotPassword(email);
       setSuccess(true);
     } catch (err: any) {
       console.error("Forgot password error:", err);
@@ -68,13 +64,21 @@ export default function ForgotPasswordPage() {
             isDarkMode ? "bg-green-500/20 border border-green-500/30" : "bg-green-100 border border-green-300"
           }`}>
             <p className={`text-sm ${isDarkMode ? "text-green-400" : "text-green-700"}`}>
-              If an account with that email exists, a password reset link has been sent to your email address.
-              Please check your inbox and follow the instructions to reset your password.
+              If an account with that email exists, a password reset OTP has been sent to your email address.
+              Please check your inbox and use the OTP to reset your password.
             </p>
-            <div className="mt-4">
+            <div className="mt-4 space-y-2">
+              <Link 
+                href={`/reset-password?email=${encodeURIComponent(email)}`}
+                className={`block text-center text-sm font-medium ${
+                  isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700"
+                }`}
+              >
+                Continue to Reset Password →
+              </Link>
               <Link 
                 href="/signin"
-                className={`text-sm underline ${isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700"}`}
+                className={`block text-center text-sm underline ${isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700"}`}
               >
                 Back to Sign In
               </Link>
@@ -83,7 +87,7 @@ export default function ForgotPasswordPage() {
         ) : (
           <>
             <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-              Enter your email address and we'll send you a link to reset your password.
+              Enter your email address and we'll send you an OTP to reset your password.
             </p>
             
             <input
@@ -115,10 +119,10 @@ export default function ForgotPasswordPage() {
               {isLoading ? (
                 <div className="flex items-center justify-center">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Sending...
+                  Sending OTP...
                 </div>
               ) : (
-                "Send Reset Link"
+                "Send OTP"
               )}
             </button>
             
@@ -136,4 +140,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-

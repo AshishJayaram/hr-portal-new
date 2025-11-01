@@ -131,7 +131,13 @@ func (r *userRepository) GetByUsernameAcrossOrgs(username string) (*models.User,
 }
 
 func (r *userRepository) List(organizationID string, filters map[string]interface{}) ([]models.User, error) {
-	query := r.db.Where("organization_id = ?", organizationID)
+	// Convert string organizationID to uint for proper comparison
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	query := r.db.Where("organization_id = ?", uint(orgIDUint))
 	query = r.buildQuery(query, filters)
 
 	var users []models.User
@@ -168,10 +174,26 @@ func (r *userRepository) Delete(id string) error {
 }
 
 func (r *userRepository) IsSubordinate(organizationID, managerID, subordinateID string) (bool, error) {
+	// Convert string IDs to uint for proper comparison
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return false, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	managerIDUint, err := strconv.ParseUint(managerID, 10, 32)
+	if err != nil {
+		return false, fmt.Errorf("invalid manager ID: %w", err)
+	}
+
+	subordinateIDUint, err := strconv.ParseUint(subordinateID, 10, 32)
+	if err != nil {
+		return false, fmt.Errorf("invalid subordinate ID: %w", err)
+	}
+
 	var count int64
-	err := r.db.Model(&models.User{}).
+	err = r.db.Model(&models.User{}).
 		Where("organization_id = ? AND id = ? AND manager_id = ?",
-			organizationID, subordinateID, managerID).
+			uint(orgIDUint), uint(subordinateIDUint), uint(managerIDUint)).
 		Count(&count).Error
 
 	if err != nil {
@@ -183,8 +205,20 @@ func (r *userRepository) IsSubordinate(organizationID, managerID, subordinateID 
 
 func (r *userRepository) GetSubordinates(organizationID, managerID string) ([]models.User, error) {
 	var subordinates []models.User
+
+	// Convert string IDs to uint for proper comparison
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	managerIDUint, err := strconv.ParseUint(managerID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid manager ID: %w", err)
+	}
+
 	if err := r.db.Where("organization_id = ? AND manager_id = ?",
-		organizationID, managerID).Find(&subordinates).Error; err != nil {
+		uint(orgIDUint), uint(managerIDUint)).Find(&subordinates).Error; err != nil {
 		return nil, fmt.Errorf("failed to get subordinates: %w", err)
 	}
 

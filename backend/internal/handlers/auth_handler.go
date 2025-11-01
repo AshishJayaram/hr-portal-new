@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"hr-portal-backend/internal/services"
@@ -207,11 +206,10 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// ForgotPassword handles forgot password request
+// ForgotPassword handles forgot password request - sends OTP
 func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 	var req struct {
-		Email    string `json:"email" binding:"required,email"`
-		ResetURL string `json:"reset_url"`
+		Email string `json:"email" binding:"required,email"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -221,17 +219,7 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	// Default reset URL if not provided
-	resetURL := req.ResetURL
-	if resetURL == "" {
-		frontendURL := c.GetHeader("Origin")
-		if frontendURL == "" {
-			frontendURL = "http://localhost:3000"
-		}
-		resetURL = fmt.Sprintf("%s/reset-password", frontendURL)
-	}
-
-	err := h.authService.ForgotPassword(req.Email, resetURL)
+	err := h.authService.ForgotPassword(req.Email)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to process forgot password request")
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -242,25 +230,26 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 
 	// Always return success to prevent email enumeration
 	c.JSON(http.StatusOK, gin.H{
-		"message": "If an account with that email exists, a password reset link has been sent.",
+		"message": "If an account with that email exists, a password reset OTP has been sent.",
 	})
 }
 
-// ResetPassword handles password reset
+// ResetPassword handles password reset with OTP
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	var req struct {
-		Token       string `json:"token" binding:"required"`
+		Email       string `json:"email" binding:"required,email"`
+		OTP         string `json:"otp" binding:"required,len=6"`
 		NewPassword string `json:"new_password" binding:"required,min=8"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Token and new password (minimum 8 characters) are required",
+			"error": "Email, 6-digit OTP, and new password (minimum 8 characters) are required",
 		})
 		return
 	}
 
-	err := h.authService.ResetPassword(req.Token, req.NewPassword)
+	err := h.authService.ResetPasswordWithOTP(req.Email, req.OTP, req.NewPassword)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to reset password")
 		c.JSON(http.StatusBadRequest, gin.H{

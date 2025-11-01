@@ -16,16 +16,18 @@ type userService struct {
 	userRepo            repositories.UserRepository
 	organizationRepo    repositories.OrganizationRepository
 	leaveAllocationRepo repositories.LeaveAllocationRepository
+	leaveCategoryRepo   repositories.LeaveCategoryRepository
 	auditService        AuditService
 	notificationService NotificationService
 }
 
 // NewUserService creates a new user service
-func NewUserService(userRepo repositories.UserRepository, organizationRepo repositories.OrganizationRepository, leaveAllocationRepo repositories.LeaveAllocationRepository, auditService AuditService, notificationService NotificationService) UserService {
+func NewUserService(userRepo repositories.UserRepository, organizationRepo repositories.OrganizationRepository, leaveAllocationRepo repositories.LeaveAllocationRepository, leaveCategoryRepo repositories.LeaveCategoryRepository, auditService AuditService, notificationService NotificationService) UserService {
 	return &userService{
 		userRepo:            userRepo,
 		organizationRepo:    organizationRepo,
 		leaveAllocationRepo: leaveAllocationRepo,
+		leaveCategoryRepo:   leaveCategoryRepo,
 		auditService:        auditService,
 		notificationService: notificationService,
 	}
@@ -119,10 +121,9 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Create default leave allocations for the new user
-	if err := s.createDefaultLeaveAllocations(user); err != nil {
-		// Log the error but don't fail user creation
-	}
+	// Note: Leave allocations are created by the frontend after user creation
+	// to ensure proper category ID matching. Default allocations are not created
+	// automatically to avoid conflicts with user-selected allocations.
 
 	// Log audit entry for user creation
 	orgIDStr := strconv.FormatUint(uint64(user.OrganizationID), 10)
@@ -441,36 +442,38 @@ func (s *userService) GetSubordinates(organizationID, managerID string) ([]model
 }
 
 // createDefaultLeaveAllocations creates default leave allocations for a new user
+// based on active leave categories in the organization
 func (s *userService) createDefaultLeaveAllocations(user *models.User) error {
-	// Create default allocations based on common leave types
 	currentYear := time.Now().Year()
+	orgIDStr := strconv.FormatUint(uint64(user.OrganizationID), 10)
 
-	// Default leave allocations (these should ideally come from organization settings)
-	defaultAllocations := []struct {
-		categoryName string
-		totalDays    int
-	}{
-		{"Sick Leave", 12},
-		{"Casual Leave", 12},
-		{"Professional Leave", 5},
-		{"Annual Leave", 21},
+	// Get all active leave categories for the organization
+	categories, err := s.leaveCategoryRepo.List(orgIDStr)
+	if err != nil {
+		// If we can't fetch categories, that's okay - allocations can be added manually
+		return fmt.Errorf("failed to fetch leave categories: %w", err)
 	}
 
-	// Create allocations for each default category
-	for _, alloc := range defaultAllocations {
+	// Create allocations for each active category using their default days
+	for _, category := range categories {
+		if !category.IsActive || category.DefaultDays <= 0 {
+			continue // Skip inactive categories or categories with no default days
+		}
+
 		allocation := &models.LeaveAllocation{
 			UserID:         user.ID,
 			OrganizationID: user.OrganizationID,
-			CategoryName:   alloc.categoryName,
-			TotalDays:      alloc.totalDays,
+			CategoryID:     category.ID,
+			CategoryName:   category.Name,
+			TotalDays:      category.DefaultDays,
 			UsedDays:       0,
-			RemainingDays:  alloc.totalDays,
+			RemainingDays:  category.DefaultDays,
 			Year:           currentYear,
 		}
 
-		// Create the allocation directly using the repository
+		// Create the allocation using the repository
 		if err := s.leaveAllocationRepo.Create(allocation); err != nil {
-			// Continue with other allocations even if one fails
+			// Error creating allocation - continue with other allocations
 		}
 	}
 

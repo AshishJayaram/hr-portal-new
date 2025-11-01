@@ -68,12 +68,57 @@ export default function LeavesPage() {
   // Check if user can approve leaves (HR, Admin, God)
   const canApprove = canApproveLeaves();
   
-  // Check if user can view team leave balances (HR, Admin, God, or Employee with reports)
-  const canViewTeamBalances = canApprove || userRole === "Employee";
+  // Use global users cache for checking if user is a manager
+  const { users: usersData } = useFilteredUsers();
+
+  // Check if current user is a manager (has subordinates)
+  // Anyone with subordinates is considered a manager, regardless of role
+  const isManager = useMemo(() => {
+    if (canApprove) return true; // HR, Admin, God are always managers
+    
+    const users = usersData || [];
+    const currentUserId = String(userId);
+    
+    // Debug logging in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Manager Detection]', {
+        currentUserId,
+        usersCount: users.length,
+        usersWithManager: users.filter((u: any) => u.manager_id != null).map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          manager_id: u.manager_id,
+          matches: String(u.manager_id) === currentUserId
+        })),
+        isManager: users.some((u: any) => {
+          const managerId = u.manager_id;
+          if (managerId === null || managerId === undefined) return false;
+          return String(managerId) === currentUserId;
+        })
+      });
+    }
+    
+    // Check if any user has this user as their manager
+    // This works for any role - if you have subordinates, you're a manager
+    // Handle both number and string formats for manager_id
+    return users.some((u: any) => {
+      const managerId = u.manager_id;
+      if (managerId === null || managerId === undefined) return false;
+      // Convert both to strings for comparison
+      return String(managerId) === currentUserId;
+    });
+  }, [canApprove, usersData, userId]);
+  
+  // Check if user can view team leave balances (HR, Admin, God, or anyone who has subordinates)
+  const canViewTeamBalances = canApprove || isManager;
+  
+  // Check if user can approve/reject leaves (HR, Admin, God, or managers with subordinates)
+  // Note: canApproveLeaves is also imported from api.ts, so we use canApproveTeamLeaves here
+  const canApproveTeamLeaves = canApprove || isManager;
   
 
   // Fetch leave requests - different scope based on active tab
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error: leavesError } = useQuery({
     queryKey: ["leaves", activeTab, userId, currentPage, perPage],
     queryFn: () => {
       const params: Record<string, string> = {
@@ -93,6 +138,7 @@ export default function LeavesPage() {
     enabled: true, // Always enable the query
     refetchOnWindowFocus: false, // Reduce unnecessary refetches
     staleTime: 30000, // Cache for 30 seconds
+    retry: 1, // Retry once on failure
   });
 
   // Fetch leave balance
@@ -109,15 +155,18 @@ export default function LeavesPage() {
     staleTime: 60000, // Cache for 1 minute
   });
 
-  // Use global users cache for displaying names in team leave balances
-  const { users: usersData } = useFilteredUsers();
-
   useEffect(() => {
-    if (data?.data) {
-      setLeaves(data.data);
-      setFilteredLeaves(data.data);
+    if (data) {
+      setLeaves(data.data || []);
+      setFilteredLeaves(data.data || []);
       setTotalPages(data.total_pages || 1);
       setTotal(data.total || 0);
+    } else {
+      // Handle initial state or error case
+      setLeaves([]);
+      setFilteredLeaves([]);
+      setTotalPages(1);
+      setTotal(0);
     }
   }, [data]);
 
@@ -261,6 +310,12 @@ export default function LeavesPage() {
   };
 
   if (isLoading || loadingBalance) return <Loader />;
+
+  // Show error if there's an issue fetching leaves (but don't block the page if we have cached data)
+  const hasError = leavesError && !data;
+  if (hasError) {
+    console.error("Error loading leaves:", leavesError);
+  }
 
   return (
     <div className="space-y-6">
@@ -438,8 +493,8 @@ export default function LeavesPage() {
                                 </Button>
                               </>
                             )}
-                            {/* HR/Admin can approve/reject team leaves */}
-                            {activeTab === 'team-leaves' && canApprove && (
+                            {/* HR/Admin/Managers can approve/reject team leaves */}
+                            {activeTab === 'team-leaves' && canApproveTeamLeaves && (
                               <>
                                 <Button
                                   size="sm"
@@ -478,8 +533,15 @@ export default function LeavesPage() {
                   <Calendar className="h-12 w-12 text-gray-500 dark:text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-300 mb-2">No leave requests found</h3>
                   <p className="text-gray-600 dark:text-gray-300">
-                    {leaves.length === 0 ? "No leave requests yet." : "Try adjusting your search or filters."}
+                    {leaves.length === 0 
+                      ? "You haven't applied for any leaves yet. Use the 'Apply for Leave' form above to submit a leave request. Your leave balances are shown in the card above." 
+                      : "Try adjusting your search or filters."}
                   </p>
+                  {hasError && (
+                    <p className="text-red-400 text-sm mt-2">
+                      There was an error loading your leave requests. Please refresh the page.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -551,7 +613,7 @@ export default function LeavesPage() {
               <h1 className="text-3xl font-bold text-primary">Team Leaves</h1>
               <p className="text-secondary mt-1">Manage your team's leave requests and view leave balances</p>
             </div>
-            {canApprove && (
+            {canApproveTeamLeaves && (
               <Button
                 size="sm"
                 onClick={() => setShowApplyOnBehalfForm(true)}
@@ -619,7 +681,7 @@ export default function LeavesPage() {
                       </div>
                     </div>
 
-                    {canApprove && leave.status === "pending" && (
+                    {canApproveTeamLeaves && leave.status === "pending" && (
                       <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
                         <Button
                           size="sm"

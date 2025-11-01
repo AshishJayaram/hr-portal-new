@@ -926,8 +926,14 @@ func (s *dashboardService) getLeaveBalances(organizationID, userID string) ([]Le
 	}
 
 	// Calculate balances
+	// Filter out allocations with category_id = 0 (invalid/unassigned categories)
 	var balances []LeaveBalanceResponse
 	for _, allocation := range allocations {
+		// Skip allocations with invalid category ID (0)
+		if allocation.CategoryID == 0 {
+			continue
+		}
+
 		// Calculate used days for this category
 		usedDays := 0
 		for _, leave := range leaves {

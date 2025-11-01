@@ -46,7 +46,7 @@ func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb 
 	auditService := NewAuditService(repos.AuditLog, repos.User)
 
 	return &Services{
-		User:                    NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, auditService, NewNotificationService()),
+		User:                    NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, repos.LeaveCategory, auditService, NewNotificationService()),
 		Auth:                    NewAuthService(repos.User, repos.Organization, repos.OTP, repos.PasswordReset, cfg.JWT, NewNotificationService()),
 		Leave:                   NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService, NewNotificationService()),
 		LeaveCategory:           NewLeaveCategoryService(repos.LeaveCategory),
@@ -61,7 +61,7 @@ func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb 
 		Audit:                   auditService,
 		Notification:            NewNotificationService(),
 		OffSite:                 NewOffSiteService(repos.OffSite, repos.User, auditService),
-		Reimbursement:           NewReimbursementService(repos.Reimbursement, repos.User),
+		Reimbursement:           NewReimbursementService(repos.Reimbursement, repos.User, NewNotificationService()),
 		Feedback:                NewFeedbackService(repos.Feedback),
 		EmployeeGrowth:          NewEmployeeGrowthService(repos.EmployeeGrowth),
 		DocumentAcknowledgment:  NewDocumentAcknowledgmentService(repos.DocumentAcknowledgment),
@@ -95,8 +95,8 @@ type AuthService interface {
 	GetUserByID(userID string) (*models.User, error)
 	SendOTP(email string) error
 	VerifyOTP(email, otp string) (*LoginResponse, error)
-	ForgotPassword(email string, resetURL string) error
-	ResetPassword(token, newPassword string) error
+	ForgotPassword(email string) error
+	ResetPasswordWithOTP(email, otp, newPassword string) error
 }
 
 // OrganizationService interface for organization business logic

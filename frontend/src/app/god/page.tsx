@@ -174,19 +174,19 @@ export default function GodDashboard() {
       setShowEditModal(true);
     } catch (error) {
       // Fallback if details fetch fails
-      setSelectedOrg({ organization: org });
-      setEditForm({
-        name: org.name,
-        domain: org.domain,
-        description: org.description || "",
-        is_active: org.is_active,
+    setSelectedOrg({ organization: org });
+    setEditForm({
+      name: org.name,
+      domain: org.domain,
+      description: org.description || "",
+      is_active: org.is_active,
         admin_user: {
           username: "",
           email: "",
           name: "",
         },
-      });
-      setShowEditModal(true);
+    });
+    setShowEditModal(true);
     }
   };
 

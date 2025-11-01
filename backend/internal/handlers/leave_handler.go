@@ -14,20 +14,31 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// LeaveHandler handles leave-related HTTP requests
-type LeaveHandler struct {
-	service      services.LeaveService
-	lopService   services.LOPService
-	auditService services.AuditService
-	userService  services.UserService
+// Helper function to get category names for error messages
+func getCategoryNames(categories []models.LeaveCategory) []string {
+	names := make([]string, 0, len(categories))
+	for _, cat := range categories {
+		names = append(names, cat.Name)
+	}
+	return names
 }
 
-func NewLeaveHandler(service services.LeaveService, lopService services.LOPService, auditService services.AuditService, userService services.UserService) *LeaveHandler {
+// LeaveHandler handles leave-related HTTP requests
+type LeaveHandler struct {
+	service         services.LeaveService
+	lopService      services.LOPService
+	auditService    services.AuditService
+	userService     services.UserService
+	categoryService services.LeaveCategoryService
+}
+
+func NewLeaveHandler(service services.LeaveService, lopService services.LOPService, auditService services.AuditService, userService services.UserService, categoryService services.LeaveCategoryService) *LeaveHandler {
 	return &LeaveHandler{
-		service:      service,
-		lopService:   lopService,
-		auditService: auditService,
-		userService:  userService,
+		service:         service,
+		lopService:      lopService,
+		auditService:    auditService,
+		userService:     userService,
+		categoryService: categoryService,
 	}
 }
 
@@ -197,22 +208,73 @@ func (h *LeaveHandler) ApplyLeave(c *gin.Context) {
 		req.UserID = currentUserID.(string)
 	}
 
-	// Map leave type to category ID
-	// TODO: This should be dynamic based on leave categories in the database
-	categoryIDMap := map[string]string{
-		"Casual Leave":       "2",
-		"Sick Leave":         "5",
-		"Professional Leave": "6",
-		"Test Category":      "1",
-		"LOP":                "0", // LOP doesn't need a specific category
+	// Map leave type to category ID - dynamically lookup from database
+	// First, try to find category by name (handles variations like "Casual" vs "Casual Leave")
+	var categoryID string
+	if req.Type == "LOP" {
+		// LOP doesn't need a specific category
+		categoryID = "0"
+	} else {
+		// Get all categories for the organization
+		orgIDStr := fmt.Sprintf("%v", orgID)
+		categories, err := h.categoryService.ListCategories(orgIDStr)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch leave categories: %v", err)})
+			return
+		}
+
+		// Try exact match first (case-insensitive)
+		var foundCategory *models.LeaveCategory
+		for i := range categories {
+			if strings.EqualFold(strings.TrimSpace(categories[i].Name), strings.TrimSpace(req.Type)) {
+				foundCategory = &categories[i]
+				break
+			}
+		}
+
+		// If not found, try partial match (e.g., "Casual" matches "Casual Leave")
+		if foundCategory == nil {
+			reqTypeLower := strings.ToLower(strings.TrimSpace(req.Type))
+			for i := range categories {
+				catNameLower := strings.ToLower(strings.TrimSpace(categories[i].Name))
+				// Check if request type is contained in category name or vice versa
+				if strings.Contains(catNameLower, reqTypeLower) || strings.Contains(reqTypeLower, catNameLower) {
+					foundCategory = &categories[i]
+					break
+				}
+			}
+		}
+
+		if foundCategory != nil {
+			categoryID = strconv.FormatUint(uint64(foundCategory.ID), 10)
+		} else {
+			// Fallback to hardcoded map for backwards compatibility
+			categoryIDMap := map[string]string{
+				"Casual Leave":       "2",
+				"Casual":             "2",
+				"Sick Leave":         "5",
+				"Sick":               "5",
+				"Professional Leave": "6",
+				"Professional":       "6",
+				"Test Category":      "1",
+			}
+
+			if mappedID, exists := categoryIDMap[req.Type]; exists {
+				categoryID = mappedID
+			} else {
+				// Provide helpful error message with available categories
+				availableNames := getCategoryNames(categories)
+				if len(availableNames) == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid leave type: %s. No active categories found for this organization.", req.Type)})
+				} else {
+					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid leave type: %s. Available categories: %v", req.Type, availableNames)})
+				}
+				return
+			}
+		}
 	}
 
-	if categoryID, exists := categoryIDMap[req.Type]; exists {
-		req.CategoryID = categoryID
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid leave type"})
-		return
-	}
+	req.CategoryID = categoryID
 
 	leave, err := h.service.ApplyLeave(req, c.Request)
 	if err != nil {
@@ -373,6 +435,49 @@ func (h *LeaveHandler) ApproveLeave(c *gin.Context) {
 		return
 	}
 
+	// Authorization check: Only HR/Admin/God or the leave requester's manager can approve
+	userRole, _ := c.Get("user_role")
+	loggedInUserRole := ""
+	if role, ok := userRole.(string); ok {
+		loggedInUserRole = role
+	}
+
+	isHRorAdmin := loggedInUserRole == "HR" || loggedInUserRole == "Admin" || loggedInUserRole == "God"
+
+	// Check if user is manager of the leave requester
+	// Convert userID from context (string) to uint for comparison
+	userIDUint, err := strconv.ParseUint(userID.(string), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	// Debug: Check if User is loaded
+	if leave.User.ID == 0 {
+		logrus.Warn("Leave.User not loaded properly, attempting to reload")
+		// Try to reload the user if not loaded
+		leaveUser, err := h.userService.GetUser(strconv.FormatUint(uint64(leave.UserID), 10))
+		if err == nil {
+			leave.User = *leaveUser
+		}
+	}
+
+	isManager := leave.User.ManagerID != nil && *leave.User.ManagerID == uint(userIDUint)
+
+	if !isHRorAdmin && !isManager {
+		// Debug: Log the authorization check
+		logrus.WithFields(logrus.Fields{
+			"loggedInUserID":     userID,
+			"loggedInUserRole":   loggedInUserRole,
+			"leaveUserID":        leave.UserID,
+			"leaveUserManagerID": leave.User.ManagerID,
+			"isHRorAdmin":        isHRorAdmin,
+			"isManager":          isManager,
+		}).Warn("Leave approval authorization check failed")
+		c.JSON(http.StatusForbidden, gin.H{"error": "You are not authorized to approve this leave request"})
+		return
+	}
+
 	// Approve the leave
 	approvedLeave, err := h.service.ApproveLeave(leaveID, userID.(string))
 	if err != nil {
@@ -425,6 +530,39 @@ func (h *LeaveHandler) RejectLeave(c *gin.Context) {
 	// Check if leave is in pending status
 	if leave.Status != "pending" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Only pending leaves can be rejected"})
+		return
+	}
+
+	// Authorization check: Only HR/Admin/God or the leave requester's manager can reject
+	userRole, _ := c.Get("user_role")
+	loggedInUserRole := ""
+	if role, ok := userRole.(string); ok {
+		loggedInUserRole = role
+	}
+
+	isHRorAdmin := loggedInUserRole == "HR" || loggedInUserRole == "Admin" || loggedInUserRole == "God"
+
+	// Check if user is manager of the leave requester
+	// Convert userID from context (string) to uint for comparison
+	userIDUint, err := strconv.ParseUint(userID.(string), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	isManager := leave.User.ManagerID != nil && *leave.User.ManagerID == uint(userIDUint)
+
+	if !isHRorAdmin && !isManager {
+		// Debug: Log the authorization check
+		logrus.WithFields(logrus.Fields{
+			"loggedInUserID":     userID,
+			"loggedInUserRole":   loggedInUserRole,
+			"leaveUserID":        leave.UserID,
+			"leaveUserManagerID": leave.User.ManagerID,
+			"isHRorAdmin":        isHRorAdmin,
+			"isManager":          isManager,
+		}).Warn("Leave rejection authorization check failed")
+		c.JSON(http.StatusForbidden, gin.H{"error": "You are not authorized to reject this leave request"})
 		return
 	}
 

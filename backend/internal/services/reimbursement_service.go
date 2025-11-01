@@ -12,14 +12,16 @@ import (
 )
 
 type ReimbursementService struct {
-	repo     *repositories.ReimbursementRepository
-	userRepo repositories.UserRepository
+	repo                *repositories.ReimbursementRepository
+	userRepo            repositories.UserRepository
+	notificationService NotificationService
 }
 
-func NewReimbursementService(repo *repositories.ReimbursementRepository, userRepo repositories.UserRepository) *ReimbursementService {
+func NewReimbursementService(repo *repositories.ReimbursementRepository, userRepo repositories.UserRepository, notificationService NotificationService) *ReimbursementService {
 	return &ReimbursementService{
-		repo:     repo,
-		userRepo: userRepo,
+		repo:                repo,
+		userRepo:            userRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -74,6 +76,28 @@ func (s *ReimbursementService) CreateReimbursement(userID, organizationID uint, 
 	if err := tx.Commit().Error; err != nil {
 		return nil, err
 	}
+
+	// Load user information for notification
+	user, err := s.userRepo.GetByID(fmt.Sprintf("%d", userID))
+	if err == nil && user != nil {
+		reimbursement.User = *user
+	}
+
+	// Send notification to all HR users in the organization
+	go func() {
+		orgIDStr := fmt.Sprintf("%d", organizationID)
+		allUsers, err := s.userRepo.List(orgIDStr, map[string]interface{}{})
+		if err == nil {
+			for _, hrUser := range allUsers {
+				// Send notification to HR and Admin users
+				if hrUser.Role == "HR" || hrUser.Role == "Admin" || hrUser.Role == "God" {
+					if err := s.notificationService.SendReimbursementNotification(reimbursement, &hrUser, "submitted"); err != nil {
+						// Error sending notification - non-critical, continue
+					}
+				}
+			}
+		}
+	}()
 
 	return reimbursement, nil
 }

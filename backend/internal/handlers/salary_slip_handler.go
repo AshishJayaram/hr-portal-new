@@ -51,7 +51,19 @@ func (h *SalarySlipHandler) ListSalarySlips(c *gin.Context) {
 	}
 
 	// Add fileUrl to each salary slip for frontend consumption
-	baseURL := "http://localhost:8080" // TODO: Make this configurable
+	proto := c.Request.Header.Get("X-Forwarded-Proto")
+	if proto == "" {
+		if c.Request.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	host := c.Request.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = c.Request.Host
+	}
+	baseURL := fmt.Sprintf("%s://%s", proto, host)
 	for i := range salarySlips {
 		salarySlips[i].FileUrl = fmt.Sprintf("%s/api/files/salary-slips/%d", baseURL, salarySlips[i].ID)
 	}

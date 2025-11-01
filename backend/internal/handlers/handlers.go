@@ -37,7 +37,7 @@ func New(services *services.Services, repos *repositories.Repositories, cfg *con
 		Auth:                   NewAuthHandler(services.Auth),
 		User:                   NewUserHandler(services.User),
 		Team:                   NewTeamHandler(services.User),
-        Leave:                  NewLeaveHandler(services.Leave, services.LOP, services.Audit, services.User),
+		Leave:                  NewLeaveHandler(services.Leave, services.LOP, services.Audit, services.User, services.LeaveCategory),
 		LeaveCategory:          NewLeaveCategoryHandler(services.LeaveCategory),
 		LeaveAllocation:        NewLeaveAllocationHandler(services.LeaveAllocation),
 		Document:               NewDocumentHandler(services.Document),

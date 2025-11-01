@@ -23,9 +23,12 @@ func (r *leaveAllocationRepository) Create(allocation *models.LeaveAllocation) e
 
 func (r *leaveAllocationRepository) GetByID(id string) (*models.LeaveAllocation, error) {
 	var allocation models.LeaveAllocation
-	if err := r.db.Preload("User").Preload("Category").Where("id = ?", id).First(&allocation).Error; err != nil {
+	// Don't use Preload for Category to avoid errors if category was deleted
+	// Only preload User which should always exist
+	if err := r.db.Preload("User").Where("id = ?", id).First(&allocation).Error; err != nil {
 		return nil, fmt.Errorf("leave allocation not found: %w", err)
 	}
+	// Category may be nil if it was deleted - that's okay, don't fail
 	return &allocation, nil
 }
 
@@ -58,9 +61,24 @@ func (r *leaveAllocationRepository) List(organizationID string, filters map[stri
 }
 
 func (r *leaveAllocationRepository) Update(allocation *models.LeaveAllocation) error {
-	if err := r.db.Save(allocation).Error; err != nil {
-		return fmt.Errorf("failed to update leave allocation: %w", err)
+	// Update only specific fields to avoid relationship update issues
+	// GORM will automatically update the updated_at timestamp
+	result := r.db.Model(allocation).
+		Where("id = ?", allocation.ID).
+		Updates(map[string]interface{}{
+			"total_days":     allocation.TotalDays,
+			"used_days":      allocation.UsedDays,
+			"remaining_days": allocation.RemainingDays,
+		})
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to update leave allocation: %w", result.Error)
 	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("leave allocation not found or no changes made")
+	}
+
 	return nil
 }
 

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"hr-portal-backend/internal/services"
 
@@ -254,21 +256,49 @@ func (h *DocumentHandler) ServeDocumentFile(c *gin.Context) {
 		return
 	}
 
-	// Check if file exists on disk
-	if _, err := os.Stat(document.FilePath); os.IsNotExist(err) {
+	// Handle file path resolution - check multiple possible locations
+	filePath := document.FilePath
+
+	// If path doesn't start with '/', make it relative to current working directory
+	if !strings.HasPrefix(filePath, "/") && !strings.HasPrefix(filePath, "./") {
+		filePath = filepath.Join(".", filePath)
+	}
+
+	// Try multiple path variations (similar to salary slips)
+	possiblePaths := []string{
+		filePath,
+		filepath.Join(".", document.FilePath),
+		filepath.Join("./uploads", "documents", filepath.Base(document.FilePath)),
+		document.FilePath, // Try original path as-is
+	}
+
+	var actualFilePath string
+	var fileExists bool
+
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			actualFilePath = path
+			fileExists = true
+			break
+		}
+	}
+
+	if !fileExists {
 		c.JSON(http.StatusNotFound, gin.H{
-			"error": "File not found on disk",
+			"error":   "File not found on disk",
+			"details": fmt.Sprintf("Tried paths: %v", possiblePaths),
 		})
 		return
 	}
 
-	// Set headers for file download
+	// Set headers for file viewing/download
 	c.Header("Content-Type", document.MimeType)
-	c.Header("Content-Disposition", "inline; filename=\""+document.FileName+"\"")
+	c.Header("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"", document.FileName))
 	c.Header("Access-Control-Allow-Origin", "*")
 	c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
 	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+	c.Header("Cache-Control", "private, max-age=3600")
 
-	// Serve the file
-	c.File(document.FilePath)
+	// Serve the file using the actual found path
+	c.File(actualFilePath)
 }

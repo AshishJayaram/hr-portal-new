@@ -4,6 +4,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction"; // for click/hover support
 import { useState, useEffect } from "react";
+import { useFilteredUsers } from "@/hooks/useUsersCache";
 
 type CalendarEvent = {
   title: string;
@@ -48,15 +49,44 @@ type CalendarEvent = {
       description?: string;
       originalOffSite?: { location?: string; description?: string; [key: string]: any };
     }>;
+    birthdays?: Array<{
+      name: string;
+      birthday: string;
+      description?: string;
+    }>;
     count?: number;
     isCurrentUser?: boolean;
     hasCurrentUser?: boolean;
+    grouped?: boolean;
   };
 };
 
 export default function Calendar({ events, userRole }: { events: CalendarEvent[]; userRole?: string }) {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const { users: usersData } = useFilteredUsers();
+  
+  // Helper to get user name by ID - tries multiple approaches
+  const getUserNameById = (userId: string | number | undefined | null): string | null => {
+    if (!userId || !usersData || !Array.isArray(usersData)) return null;
+    const userIdStr = String(userId);
+    // Try exact match first
+    const user: any = usersData.find((u: any) => {
+      if (!u) return false;
+      const id = String(u.id || u.ID || '');
+      return id === userIdStr;
+    });
+    if (!user) return null;
+    // Try name first
+    if (user.name) return user.name;
+    // Try username as fallback (using any type to avoid TS errors)
+    if (user.username) return user.username;
+    // Try email as last resort - extract name part before @
+    if (user.email && typeof user.email === 'string') {
+      return user.email.split('@')[0];
+    }
+    return null;
+  };
 
   // Force calendar to respect our theme system
   useEffect(() => {
@@ -477,38 +507,90 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
                     }
                   </div>
                   <div className="space-y-2">
-                    {selectedEvent.extendedProps.offsites.map((offsite: any, index: number) => (
-                      <div key={index} className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
-                        <div className="font-semibold text-gray-900 dark:text-white text-base mb-2">
-                          {offsite.title}
-                        </div>
-                        {offsite.user && (
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                            <strong>Employee:</strong> {offsite.user.name || 'Employee'}
-                            {offsite.user.email && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                                ({offsite.user.email})
-                              </span>
-                            )}
+                    {selectedEvent.extendedProps.offsites.map((offsite: any, index: number) => {
+                      // Extract user ID first
+                      const userId = offsite.user?.id 
+                        || offsite.originalOffSite?.user?.id
+                        || offsite.originalOffSite?.user_id
+                        || offsite.user_id;
+                      
+                      // Extract user name from multiple possible locations - always prefer name over User ID
+                      let userName = offsite.user?.name 
+                        || offsite.originalOffSite?.user?.name 
+                        || offsite.originalOffSite?.user_name
+                        || (userId ? getUserNameById(userId) : null)
+                        || null;
+                      let userEmail = offsite.user?.email 
+                        || offsite.originalOffSite?.user?.email;
+                      
+                      // If no name but email exists, use email as display name
+                      if (!userName && userEmail) {
+                        userName = userEmail;
+                      }
+                      
+                      // Also try to get email from users cache if not found
+                      if (!userEmail && userId) {
+                        const userFromCache: any = usersData?.find((u: any) => String(u.id) === String(userId));
+                        if (userFromCache?.email) {
+                          userEmail = userFromCache.email;
+                          // If we still don't have a name, use email
+                          if (!userName && userEmail) {
+                            userName = userEmail;
+                          }
+                        }
+                      }
+                      const location = offsite.originalOffSite?.location 
+                        || offsite.location;
+                      const description = offsite.originalOffSite?.description 
+                        || offsite.description;
+                      const startDate = offsite.originalOffSite?.start_date 
+                        || offsite.start_date;
+                      const endDate = offsite.originalOffSite?.end_date 
+                        || offsite.end_date;
+                      
+                      return (
+                        <div key={index} className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
+                          <div className="font-semibold text-gray-900 dark:text-white text-base mb-2">
+                            {offsite.title || offsite.originalOffSite?.title}
                           </div>
-                        )}
-                        {offsite.originalOffSite?.location && (
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                            <strong>Location:</strong> {offsite.originalOffSite.location}
-                          </div>
-                        )}
-                        {offsite.originalOffSite?.description && (
-                          <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded">
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                              Description:
+                          {(userName || userEmail) && (
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              <strong>Employee:</strong> {userName || userEmail}
+                              {userEmail && userName && userName !== userEmail && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                                  ({userEmail})
+                                </span>
+                              )}
                             </div>
+                          )}
+                          {startDate && endDate && (
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                              <strong>Start Date:</strong> {new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </div>
+                          )}
+                          {endDate && (
                             <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {offsite.originalOffSite.description}
+                              <strong>End Date:</strong> {new Date(endDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                          {location && (
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                              <strong>Location:</strong> {location}
+                            </div>
+                          )}
+                          {description && (
+                            <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded">
+                              <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Description:
+                              </div>
+                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                                {description}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
@@ -517,11 +599,28 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
               {selectedEvent.extendedProps?.type === 'birthday' ? (
                 <div className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 border border-gray-200 dark:border-gray-500">
                   <div className="text-base font-semibold text-gray-900 dark:text-white mb-2">
-                    🎂 {selectedEvent.title.replace("'s Birthday", "")}
+                    🎂 {selectedEvent.extendedProps?.grouped || (selectedEvent.extendedProps?.count && selectedEvent.extendedProps.count > 1)
+                      ? `${selectedEvent.extendedProps.count || selectedEvent.extendedProps?.birthdays?.length || 0} Birthdays` 
+                      : selectedEvent.title.replace("🎂 ", "").replace("'s Birthday", "")}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {selectedEvent.extendedProps.description || `${selectedEvent.title.replace("'s Birthday", "")}'s birthday celebration`}
-                  </div>
+                  {selectedEvent.extendedProps?.birthdays && selectedEvent.extendedProps.birthdays.length > 1 ? (
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Birthday celebrants:
+                      </div>
+                      {selectedEvent.extendedProps.birthdays.map((birthday: any, index: number) => (
+                        <div key={index} className="text-sm text-gray-600 dark:text-gray-400 pl-2 border-l-2 border-cyan-500">
+                          🎂 {birthday.name}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      {selectedEvent.extendedProps?.birthdays?.[0]?.description || 
+                       selectedEvent.extendedProps?.description || 
+                       `${selectedEvent.title.replace("🎂 ", "").replace("'s Birthday", "")}'s birthday celebration`}
+                    </div>
+                  )}
                 </div>
               ) : null}
               
@@ -633,16 +732,27 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
                     {selectedEvent.extendedProps.originalOffSite.title}
                   </div>
                   <div className="space-y-2 text-sm">
-                    {selectedEvent.extendedProps.originalOffSite.user && (
-                      <div className="text-gray-600 dark:text-gray-400">
-                        <strong>Employee:</strong> {selectedEvent.extendedProps.originalOffSite.user.name || 'Employee'}
-                        {selectedEvent.extendedProps.originalOffSite.user.email && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                            ({selectedEvent.extendedProps.originalOffSite.user.email})
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {/* Extract user name from multiple possible locations - always prefer name over User ID */}
+                    {(() => {
+                      const offSite = selectedEvent.extendedProps.originalOffSite;
+                      const userId = offSite.user?.id || offSite.user_id;
+                      const userName = offSite.user?.name 
+                        || offSite.user_name
+                        || (userId ? getUserNameById(userId) : null)
+                        || null;
+                      const userEmail = offSite.user?.email;
+                      
+                      return userName ? (
+                        <div className="text-gray-600 dark:text-gray-400">
+                          <strong>Employee:</strong> {userName}
+                          {userEmail && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                              ({userEmail})
+                            </span>
+                          )}
+                        </div>
+                      ) : null;
+                    })()}
                     {selectedEvent.extendedProps.originalOffSite.start_date && (
                       <div className="text-gray-600 dark:text-gray-400">
                         <strong>Start Date:</strong> {new Date(selectedEvent.extendedProps.originalOffSite.start_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}

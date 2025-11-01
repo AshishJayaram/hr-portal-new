@@ -221,6 +221,26 @@ func (s *kraService) CreateKRA(req CreateKRARequest) (*models.KRA, error) {
 	if err := s.notificationService.SendKRANotification(kra, user, "created"); err != nil {
 	}
 
+	// Send notification to manager if they are the direct manager (only immediate reportee)
+	// Only notify if creator is not the direct manager (to avoid duplicate notifications)
+	if user.ManagerID != nil {
+		managerIDStr := strconv.FormatUint(uint64(*user.ManagerID), 10)
+		setByStr := strconv.FormatUint(uint64(setByUint), 10)
+
+		// Only notify manager if they didn't create the KRA themselves
+		if managerIDStr != setByStr {
+			manager, err := s.userRepo.GetByID(managerIDStr)
+			if err == nil && manager != nil {
+				// Send notification about new KRA assignment to their reportee
+				kraWithUser := *kra
+				kraWithUser.User = *user
+				if err := s.notificationService.SendKRANotification(&kraWithUser, manager, "assigned_to_reportee"); err != nil {
+					// Log error but don't fail
+				}
+			}
+		}
+	}
+
 	return kra, nil
 }
 
@@ -361,6 +381,11 @@ func (s *kraService) EvaluateKRA(id string, req EvaluateKRARequest) (*models.KRA
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
 	}
 
+	// Send notification to the employee
+	if err := s.notificationService.SendKRANotification(kra, ownerUser, "evaluated"); err != nil {
+		// Log error but don't fail
+	}
+
 	return kra, nil
 }
 
@@ -417,6 +442,24 @@ func (s *kraService) SelfAssessKRA(id string, req SelfAssessKRARequest) (*models
 	}
 
 	if err := s.auditService.LogAction(auditReq, nil); err != nil {
+	}
+
+	// Get the employee (owner of the KRA) to check manager
+	ownerUser, err := s.userRepo.GetByID(req.EmployeeRatedBy)
+	if err == nil && ownerUser != nil {
+		// Send notification to manager if they are the direct manager (only immediate reportee)
+		if ownerUser.ManagerID != nil {
+			managerIDStr := strconv.FormatUint(uint64(*ownerUser.ManagerID), 10)
+			manager, err := s.userRepo.GetByID(managerIDStr)
+			if err == nil && manager != nil {
+				// Send notification about employee self-assessment
+				kraWithUser := *kra
+				kraWithUser.User = *ownerUser
+				if err := s.notificationService.SendKRANotification(&kraWithUser, manager, "reportee_self_assessed"); err != nil {
+					// Log error but don't fail
+				}
+			}
+		}
 	}
 
 	return kra, nil

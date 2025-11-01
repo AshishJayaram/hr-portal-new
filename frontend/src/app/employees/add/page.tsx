@@ -7,7 +7,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { createUser, toCanonicalRole, getUsers, getLeaveCategories, createLeaveAllocation, updateUser } from "@/lib/api";
+import { createUser, toCanonicalRole, getUsers, getLeaveCategories, createLeaveAllocation, updateUser, getCurrentUser } from "@/lib/api";
 import { getCompanySettings } from "@/lib/api";
 import { computePayslipFromCTC } from "@/lib/payroll";
 import { useRouter } from "next/navigation";
@@ -19,6 +19,8 @@ import { formatCurrency, getDefaultCurrency } from "@/lib/currency";
 export default function AddEmployeePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.role === "Admin" || currentUser?.role === "God";
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -65,7 +67,7 @@ export default function AddEmployeePage() {
   };
   const backFromLeaves = () => setActiveTab('details');
   const backFromCTC = () => setActiveTab('leaves');
-  const createEmployee = () => mutation.mutate({ ...form, leaveAllocations });
+  const createEmployee = () => mutation.mutate({ ...form, leaveAllocations, leaveApplicable });
 
   const mutation = useMutation({
     mutationFn: async (body: any) => {
@@ -86,20 +88,34 @@ export default function AddEmployeePage() {
       // Create leave allocations for the new user
       if (user.data?.id && leaveCategories?.data) {
         const currentYear = new Date().getFullYear();
-        const allocationPromises = Object.entries(body.leaveAllocations || {}).map(([categoryId, days]) => {
+        const allocationErrors: string[] = [];
+        const allocationPromises = Object.entries(body.leaveAllocations || {}).map(async ([categoryId, days]) => {
           const category = leaveCategories.data.find(c => c.id === categoryId);
           const isApplicable = body.leaveApplicable?.[categoryId] || false;
-          if (category && isApplicable && Number(days) >= 0) {
-            return createLeaveAllocation(user.data.id, {
-              categoryId,
-              categoryName: category.name,
-              totalDays: Number(days),
-              year: currentYear,
-            });
+          if (category && isApplicable && Number(days) > 0) {
+            try {
+              // Ensure user ID is converted to string (backend expects string)
+              const userIdStr = String(user.data?.id || '');
+              if (!userIdStr) {
+                throw new Error('User ID is missing');
+              }
+              await createLeaveAllocation(userIdStr, {
+                categoryId,
+                categoryName: category.name,
+                totalDays: Number(days),
+                year: currentYear,
+              });
+            } catch (error: any) {
+              const errorMsg = error?.message || 'Unknown error';
+              allocationErrors.push(`${category.name}: ${errorMsg}`);
+            }
           }
-          return Promise.resolve();
         });
         await Promise.all(allocationPromises);
+        
+        if (allocationErrors.length > 0) {
+          toast.warning(`Employee created, but ${allocationErrors.length} leave allocation(s) failed.`);
+        }
       }
       
       return user;
@@ -208,7 +224,7 @@ export default function AddEmployeePage() {
                 options={[
                   { value: "Employee", label: "Employee" },
                   { value: "HR", label: "HR" },
-                  { value: "Admin", label: "Admin" },
+                  ...(isAdmin ? [{ value: "Admin", label: "Admin" }] : []),
                   { value: "Manager", label: "Manager" }
                 ]} 
               />
@@ -521,35 +537,56 @@ function CTCAddManager({
                 )}
               </div>
               <div className="space-y-2">
-                <div className="font-semibold text-primary">Earnings</div>
+                <div className="font-semibold">Earnings</div>
                 {Object.entries(breakdown.earnings).map(([k, v]) => (
                   <div key={k} className="flex justify-between text-sm">
                     <span className="capitalize">{k}</span>
-                    <span>₹{v.toLocaleString('en-IN')}</span>
+                    <span>{formatCurrency(v, getDefaultCurrency())}</span>
                   </div>
                 ))}
-                <div className="flex justify-between text-sm border-t border-card pt-2">
+                <div className="flex justify-between text-sm border-t border-white/10 pt-2">
                   <span>Total</span>
-                  <span>₹{breakdown.totals.totalEarnings.toLocaleString('en-IN')}</span>
+                  <span>{formatCurrency(breakdown.totals.totalEarnings, getDefaultCurrency())}</span>
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="font-semibold text-primary">Deductions</div>
-                <div className="flex justify-between text-sm">
-                  <span>Employee PF</span>
-                  <span>₹{breakdown.deductions.empPF.toLocaleString('en-IN')}</span>
+              <div className="space-y-4">
+                <div>
+                  <div className="font-semibold mb-1">Deductions</div>
+                  <div className="flex justify-between text-sm">
+                    <span>Employee PF</span>
+                    <span>{formatCurrency(breakdown.deductions.empPF, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Professional Tax</span>
+                    <span>{formatCurrency(breakdown.deductions.professionalTax, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>ESI</span>
+                    <span>{formatCurrency(breakdown.deductions.esi, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-white/10 pt-2">
+                    <span>Total</span>
+                    <span>{formatCurrency(breakdown.totals.totalDeductions, getDefaultCurrency())}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Professional Tax</span>
-                  <span>₹{breakdown.deductions.professionalTax.toLocaleString('en-IN')}</span>
+                <div>
+                  <div className="font-semibold mb-1">Employer PF</div>
+                  <div className="flex justify-between text-sm">
+                    <span>Total PF</span>
+                    <span>{formatCurrency(breakdown.employer.totalPF, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>EPS</span>
+                    <span>{formatCurrency(breakdown.employer.eps, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>EPF</span>
+                    <span>{formatCurrency(breakdown.employer.epf, getDefaultCurrency())}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>ESI</span>
-                  <span>₹{breakdown.deductions.esi.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-primary border-t border-card pt-2">
+                <div className="flex justify-between font-semibold">
                   <span>Net Pay</span>
-                  <span className="text-emerald-600 dark:text-emerald-400">₹{breakdown.totals.netPay.toLocaleString('en-IN')}</span>
+                  <span>{formatCurrency(breakdown.totals.netPay, getDefaultCurrency())}</span>
                 </div>
               </div>
             </div>

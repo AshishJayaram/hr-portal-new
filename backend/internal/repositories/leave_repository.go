@@ -24,8 +24,17 @@ func (r *leaveRepository) Create(leave *models.Leave) error {
 
 func (r *leaveRepository) GetByID(id string) (*models.Leave, error) {
 	var leave models.Leave
-	if err := r.db.Preload("User").Preload("Category").Where("id = ?", id).First(&leave).Error; err != nil {
+	// First load the leave to check CategoryID
+	if err := r.db.Preload("User").Where("id = ?", id).First(&leave).Error; err != nil {
 		return nil, fmt.Errorf("leave not found: %w", err)
+	}
+	// Only preload Category if CategoryID is not 0 (LOP leaves have CategoryID=0)
+	if leave.CategoryID != 0 {
+		var category models.LeaveCategory
+		if err := r.db.Where("id = ?", leave.CategoryID).First(&category).Error; err == nil {
+			leave.Category = category
+		}
+		// If category not found, leave Category empty (don't fail)
 	}
 	return &leave, nil
 }
@@ -39,12 +48,23 @@ func (r *leaveRepository) List(organizationID string, filters map[string]interfa
 		return nil, fmt.Errorf("invalid organization ID: %w", err)
 	}
 
-	query := r.db.Preload("User").Preload("Category").Where("organization_id = ?", uint(orgIDUint))
+	// Load leaves without Category preload to avoid issues with CategoryID=0 (LOP)
+	query := r.db.Preload("User").Where("organization_id = ?", uint(orgIDUint))
 	query = r.buildQuery(query, filters)
 	query = query.Order("created_at DESC")
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to list leaves: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 	return leaves, nil
 }
@@ -71,13 +91,23 @@ func (r *leaveRepository) ListPaginated(organizationID string, filters map[strin
 	// Calculate offset
 	offset := (page - 1) * perPage
 
-	// Build paginated query with preloads
-	query := r.db.Preload("User").Preload("Category").Where("organization_id = ?", uint(orgIDUint))
+	// Build paginated query without Category preload to avoid issues with CategoryID=0 (LOP)
+	query := r.db.Preload("User").Where("organization_id = ?", uint(orgIDUint))
 	query = r.buildQuery(query, filters)
 	query = query.Offset(offset).Limit(perPage).Order("created_at DESC")
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to list paginated leaves: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 
 	return leaves, total, nil
@@ -106,21 +136,41 @@ func (r *leaveRepository) GetByUserID(userID string, filters map[string]interfac
 		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
 
-	query := r.db.Preload("User").Preload("Category").Where("user_id = ?", uint(userIDUint))
+	query := r.db.Preload("User").Where("user_id = ?", uint(userIDUint))
 	query = r.buildQuery(query, filters)
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to get user leaves: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 	return leaves, nil
 }
 
 func (r *leaveRepository) GetPendingApprovals(managerID string) ([]models.Leave, error) {
 	var leaves []models.Leave
-	if err := r.db.Preload("User").Preload("Category").
+	if err := r.db.Preload("User").
 		Where("status = ? AND approver_id = ?", "pending", managerID).
 		Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to get pending approvals: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 	return leaves, nil
 }
@@ -198,14 +248,14 @@ func (r *leaveRepository) CountApprovedByOrganization(organizationID string, cou
 	if err != nil {
 		return fmt.Errorf("invalid organization ID: %w", err)
 	}
-	
+
 	// Get current month's start and end dates
 	now := time.Now()
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	endOfMonth := startOfMonth.AddDate(0, 1, -1).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	
+
 	if err := r.db.Model(&models.Leave{}).
-		Where("organization_id = ? AND status = ? AND approved_at >= ? AND approved_at <= ?", 
+		Where("organization_id = ? AND status = ? AND approved_at >= ? AND approved_at <= ?",
 			uint(orgIDUint), "approved", startOfMonth, endOfMonth).
 		Count(count).Error; err != nil {
 		return fmt.Errorf("failed to count approved leaves by organization for this month: %w", err)
@@ -224,10 +274,20 @@ func (r *leaveRepository) GetUserLeaves(userID string, year int) ([]models.Leave
 		return nil, fmt.Errorf("invalid user ID: %w", err)
 	}
 
-	if err := r.db.Preload("User").Preload("Category").
+	if err := r.db.Preload("User").
 		Where("user_id = ? AND from_date >= ? AND to_date <= ?", uint(userIDUint), startOfYear, endOfYear).
 		Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to get user leaves: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 	return leaves, nil
 }
@@ -249,7 +309,7 @@ func (r *leaveRepository) GetTeamLeaves(managerID string, organizationID string,
 	}
 
 	// Build query to get leaves for all subordinates of the manager
-	query := r.db.Preload("User").Preload("Category").
+	query := r.db.Preload("User").
 		Joins("JOIN users ON leaves.user_id = users.id").
 		Where("users.manager_id = ? AND leaves.organization_id = ?", uint(managerIDUint), uint(orgIDUint))
 
@@ -259,6 +319,16 @@ func (r *leaveRepository) GetTeamLeaves(managerID string, organizationID string,
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to get team leaves: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 	return leaves, nil
 }
@@ -296,8 +366,8 @@ func (r *leaveRepository) GetTeamLeavesPaginated(managerID string, organizationI
 	// Calculate offset
 	offset := (page - 1) * perPage
 
-	// Build paginated query with preloads
-	query := r.db.Preload("User").Preload("Category").
+	// Build paginated query without Category preload to avoid issues with CategoryID=0 (LOP)
+	query := r.db.Preload("User").
 		Joins("JOIN users ON leaves.user_id = users.id").
 		Where("users.manager_id = ? AND leaves.organization_id = ?", uint(managerIDUint), uint(orgIDUint))
 
@@ -307,6 +377,16 @@ func (r *leaveRepository) GetTeamLeavesPaginated(managerID string, organizationI
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to get paginated team leaves: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 
 	return leaves, total, nil
@@ -339,7 +419,7 @@ func (r *leaveRepository) GetTeamLeavesRecursive(managerID string, organizationI
 	}
 
 	// Build query to get leaves for all subordinates
-	query := r.db.Preload("User").Preload("Category").
+	query := r.db.Preload("User").
 		Where("user_id IN ? AND organization_id = ?", subordinateIDs, uint(orgIDUint))
 
 	// Apply additional filters
@@ -348,6 +428,16 @@ func (r *leaveRepository) GetTeamLeavesRecursive(managerID string, organizationI
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to get team leaves: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 	return leaves, nil
 }
@@ -394,8 +484,8 @@ func (r *leaveRepository) GetTeamLeavesRecursivePaginated(managerID string, orga
 	// Calculate offset
 	offset := (page - 1) * perPage
 
-	// Build paginated query with preloads
-	query := r.db.Preload("User").Preload("Category").
+	// Build paginated query without Category preload to avoid issues with CategoryID=0 (LOP)
+	query := r.db.Preload("User").
 		Where("user_id IN ? AND organization_id = ?", subordinateIDs, uint(orgIDUint))
 
 	// Apply additional filters
@@ -404,6 +494,16 @@ func (r *leaveRepository) GetTeamLeavesRecursivePaginated(managerID string, orga
 
 	if err := query.Find(&leaves).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to get paginated team leaves: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 
 	return leaves, total, nil
@@ -478,13 +578,23 @@ func (r *leaveRepository) FindOverlappingLeaves(userID string, fromDate, toDate 
 	// Find overlapping leaves: existing from_date <= new to_date AND new from_date <= existing to_date
 	// This covers all overlap scenarios (partial overlap, complete overlap, etc.)
 	// Exclude cancelled/rejected leaves as they don't represent actual time off
-	if err := r.db.Preload("Category").Where(
+	if err := r.db.Where(
 		"user_id = ? AND status IN ('pending', 'approved') AND "+
 			"from_date <= ? AND to_date >= ?",
 		uint(userIDUint),
 		toDate, fromDate,
 	).Find(&leaves).Error; err != nil {
 		return nil, fmt.Errorf("failed to find overlapping leaves: %w", err)
+	}
+
+	// Manually load categories only for non-LOP leaves (CategoryID != 0)
+	for i := range leaves {
+		if leaves[i].CategoryID != 0 {
+			var category models.LeaveCategory
+			if err := r.db.Where("id = ?", leaves[i].CategoryID).First(&category).Error; err == nil {
+				leaves[i].Category = category
+			}
+		}
 	}
 
 	return leaves, nil

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -28,11 +27,9 @@ func (h *AuditHandler) GetAuditLogs(c *gin.Context) {
 	organizationID := c.GetString("organization_id")
 	userRole := c.GetString("user_role")
 
-	// Debug logging
 	logrus.WithFields(logrus.Fields{
 		"organization_id": organizationID,
 		"user_role":       userRole,
-		"role_type":       fmt.Sprintf("%T", userRole),
 	}).Info("Audit logs access attempt")
 
 	// Only Admin, HR, and God roles can view audit logs

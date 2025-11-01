@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"fmt"
+	"strconv"
 
 	"hr-portal-backend/internal/models"
 )
@@ -28,7 +29,19 @@ func (r *leaveCategoryRepository) GetByID(id string) (*models.LeaveCategory, err
 
 func (r *leaveCategoryRepository) List(organizationID string) ([]models.LeaveCategory, error) {
 	var categories []models.LeaveCategory
-	if err := r.db.Where("organization_id = ? AND is_active = ?", organizationID, 1).Find(&categories).Error; err != nil {
+
+	// Convert organization ID to uint for database query
+	orgIDUint, err := strconv.ParseUint(organizationID, 10, 32)
+	if err != nil {
+		// If conversion fails, try querying with string directly (for UUID or other formats)
+		if err := r.db.Where("organization_id = ? AND is_active = ?", organizationID, 1).Find(&categories).Error; err != nil {
+			return nil, fmt.Errorf("failed to list leave categories: %w", err)
+		}
+		return categories, nil
+	}
+
+	// Use uint for query
+	if err := r.db.Where("organization_id = ? AND is_active = ?", uint(orgIDUint), 1).Find(&categories).Error; err != nil {
 		return nil, fmt.Errorf("failed to list leave categories: %w", err)
 	}
 	return categories, nil

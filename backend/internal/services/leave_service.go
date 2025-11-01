@@ -8,6 +8,8 @@ import (
 
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
+
+	"github.com/sirupsen/logrus"
 )
 
 // leaveService implements LeaveService interface
@@ -147,6 +149,13 @@ func (s *leaveService) ApplyLeave(req ApplyLeaveRequest, httpReq *http.Request) 
 		return nil, fmt.Errorf("failed to create leave: %w", err)
 	}
 
+	// Load user to get manager ID for notification
+	user, err := s.userRepo.GetByID(req.UserID)
+	if err != nil {
+		// Log error but don't fail leave creation
+		fmt.Printf("Failed to load user for notification: %v\n", err)
+	}
+
 	// Log audit entry for leave application
 	orgIDStr := strconv.FormatUint(uint64(leave.OrganizationID), 10)
 	leaveIDStr := strconv.FormatUint(uint64(leave.ID), 10)
@@ -164,20 +173,105 @@ func (s *leaveService) ApplyLeave(req ApplyLeaveRequest, httpReq *http.Request) 
 	if err := s.auditService.LogLeaveChange(orgIDStr, leaveIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
 	}
 
-	// Send notification to manager
-	if leave.User.ManagerID != nil {
-		manager, err := s.userRepo.GetByID(strconv.FormatUint(uint64(*leave.User.ManagerID), 10))
-		if err == nil && manager != nil {
-			// Load the category for the notification
-			if leave.Category.Name == "" {
-				category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(leave.CategoryID), 10))
-				if category != nil {
-					leave.Category = *category
-				}
+	// Send notification to manager asynchronously (don't block the API response)
+	go func() {
+		// Reload user if not already loaded
+		if user == nil {
+			loadedUser, err := s.userRepo.GetByID(req.UserID)
+			if err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"user_id":  req.UserID,
+					"leave_id": leave.ID,
+				}).Warn("Failed to load user for leave notification")
+				return // Skip notification if user can't be loaded
 			}
-			s.notificationService.SendLeaveRequestNotification(leave, manager, "applied")
+			user = loadedUser
 		}
-	}
+
+		// Check if user has a manager assigned
+		if user == nil {
+			logrus.WithFields(logrus.Fields{
+				"user_id":  req.UserID,
+				"leave_id": leave.ID,
+			}).Warn("User is nil, cannot send leave notification")
+			return
+		}
+
+		if user.ManagerID == nil {
+			logrus.WithFields(logrus.Fields{
+				"user_id":   req.UserID,
+				"user_name": user.Name,
+				"leave_id":  leave.ID,
+			}).Info("User has no manager assigned, skipping leave notification")
+			return
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"user_id":    req.UserID,
+			"user_name":  user.Name,
+			"manager_id": *user.ManagerID,
+			"leave_id":   leave.ID,
+		}).Info("Attempting to send leave notification to manager")
+
+		manager, err := s.userRepo.GetByID(strconv.FormatUint(uint64(*user.ManagerID), 10))
+		if err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"user_id":    req.UserID,
+				"manager_id": *user.ManagerID,
+				"leave_id":   leave.ID,
+			}).Error("Failed to load manager for leave notification")
+			return
+		}
+
+		if manager == nil {
+			logrus.WithFields(logrus.Fields{
+				"user_id":    req.UserID,
+				"manager_id": *user.ManagerID,
+				"leave_id":   leave.ID,
+			}).Warn("Manager not found for leave notification")
+			return
+		}
+
+		// Prepare leave object with user info for notification
+		leaveWithUser := *leave
+		leaveWithUser.User = *user
+
+		// Load the category for the notification (skip for LOP leaves where CategoryID=0)
+		if leave.CategoryID != 0 && leave.Category.Name == "" {
+			category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(leave.CategoryID), 10))
+			if category != nil {
+				leaveWithUser.Category = *category
+			}
+		}
+		// For LOP leaves, set a default category name if needed
+		if leave.Type == "LOP" && leaveWithUser.Category.Name == "" {
+			leaveWithUser.Category = models.LeaveCategory{
+				Name: "Loss of Pay",
+			}
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"manager_email": manager.Email,
+			"manager_name":  manager.Name,
+			"manager_id":    manager.ID,
+			"leave_id":      leave.ID,
+			"applicant":     user.Name,
+		}).Info("Sending leave request notification email to manager")
+
+		if err := s.notificationService.SendLeaveRequestNotification(&leaveWithUser, manager, "applied"); err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"manager_email": manager.Email,
+				"manager_id":    manager.ID,
+				"leave_id":      leave.ID,
+			}).Error("Failed to send leave request notification")
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"manager_email": manager.Email,
+				"manager_id":    manager.ID,
+				"leave_id":      leave.ID,
+			}).Info("Leave request notification sent successfully")
+		}
+	}()
 
 	return leave, nil
 }
@@ -395,17 +489,25 @@ func (s *leaveService) ApproveLeave(id, approverID string) (*models.Leave, error
 		return nil, err
 	}
 
-	// Send notification to employee
-	if updatedLeave.User.Name != "" {
-		// Load the category for the notification
-		if updatedLeave.Category.Name == "" {
-			category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(updatedLeave.CategoryID), 10))
-			if category != nil {
-				updatedLeave.Category = *category
+	// Send notification to employee asynchronously (don't block the API response)
+	go func() {
+		if updatedLeave.User.Name != "" {
+			// Load the category for the notification (skip for LOP leaves where CategoryID=0)
+			if updatedLeave.CategoryID != 0 && updatedLeave.Category.Name == "" {
+				category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(updatedLeave.CategoryID), 10))
+				if category != nil {
+					updatedLeave.Category = *category
+				}
 			}
+			// For LOP leaves, set a default category name if needed
+			if updatedLeave.Type == "LOP" && updatedLeave.Category.Name == "" {
+				updatedLeave.Category = models.LeaveCategory{
+					Name: "Loss of Pay",
+				}
+			}
+			s.notificationService.SendLeaveRequestNotification(updatedLeave, &updatedLeave.User, "approved")
 		}
-		s.notificationService.SendLeaveRequestNotification(updatedLeave, &updatedLeave.User, "approved")
-	}
+	}()
 
 	return updatedLeave, nil
 }
@@ -436,17 +538,25 @@ func (s *leaveService) RejectLeave(id, rejecterID, reason string) (*models.Leave
 		return nil, err
 	}
 
-	// Send notification to employee
-	if updatedLeave.User.Name != "" {
-		// Load the category for the notification
-		if updatedLeave.Category.Name == "" {
-			category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(updatedLeave.CategoryID), 10))
-			if category != nil {
-				updatedLeave.Category = *category
+	// Send notification to employee asynchronously (don't block the API response)
+	go func() {
+		if updatedLeave.User.Name != "" {
+			// Load the category for the notification (skip for LOP leaves where CategoryID=0)
+			if updatedLeave.CategoryID != 0 && updatedLeave.Category.Name == "" {
+				category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(updatedLeave.CategoryID), 10))
+				if category != nil {
+					updatedLeave.Category = *category
+				}
 			}
+			// For LOP leaves, set a default category name if needed
+			if updatedLeave.Type == "LOP" && updatedLeave.Category.Name == "" {
+				updatedLeave.Category = models.LeaveCategory{
+					Name: "Loss of Pay",
+				}
+			}
+			s.notificationService.SendLeaveRequestNotification(updatedLeave, &updatedLeave.User, "rejected")
 		}
-		s.notificationService.SendLeaveRequestNotification(updatedLeave, &updatedLeave.User, "rejected")
-	}
+	}()
 
 	return updatedLeave, nil
 }
@@ -482,9 +592,9 @@ func (s *leaveService) GetTeamLeaveBalances(managerID, organizationID string) (m
 		}
 	} else {
 		// Get subordinate user IDs recursively (for managers)
-	subordinateIDs, err := s.getAllSubordinateIDs(managerID, organizationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get subordinate IDs: %w", err)
+		subordinateIDs, err := s.getAllSubordinateIDs(managerID, organizationID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get subordinate IDs: %w", err)
 		}
 		userIDs = subordinateIDs
 	}
@@ -537,8 +647,14 @@ func (s *leaveService) GetLeaveBalance(userID string) ([]LeaveBalanceResponse, e
 	}
 
 	// Calculate balance for each category using allocation's used_days
+	// Filter out allocations with category_id = 0 (invalid/unassigned categories)
 	var balances []LeaveBalanceResponse
 	for _, allocation := range allocations {
+		// Skip allocations with invalid category ID (0)
+		if allocation.CategoryID == 0 {
+			continue
+		}
+
 		balance := LeaveBalanceResponse{
 			CategoryID:    fmt.Sprintf("%d", allocation.CategoryID),
 			CategoryName:  allocation.CategoryName,
@@ -583,7 +699,34 @@ func (s *leaveService) CancelLeave(id, userID string) (*models.Leave, error) {
 
 	// No need to update leave balance for cancelled leaves as they were never deducted
 
-	return leave, nil
+	// Get the updated leave with relationships for notification
+	updatedLeave, err := s.leaveRepo.GetByID(id)
+	if err != nil {
+		// If we can't get the updated leave, just return the cancelled leave
+		return leave, nil
+	}
+
+	// Send notification to employee asynchronously (don't block the API response)
+	go func() {
+		if updatedLeave.User.Name != "" {
+			// Load the category for the notification (skip for LOP leaves where CategoryID=0)
+			if updatedLeave.CategoryID != 0 && updatedLeave.Category.Name == "" {
+				category, _ := s.leaveCategoryRepo.GetByID(strconv.FormatUint(uint64(updatedLeave.CategoryID), 10))
+				if category != nil {
+					updatedLeave.Category = *category
+				}
+			}
+			// For LOP leaves, set a default category name if needed
+			if updatedLeave.Type == "LOP" && updatedLeave.Category.Name == "" {
+				updatedLeave.Category = models.LeaveCategory{
+					Name: "Loss of Pay",
+				}
+			}
+			s.notificationService.SendLeaveRequestNotification(updatedLeave, &updatedLeave.User, "cancelled")
+		}
+	}()
+
+	return updatedLeave, nil
 }
 
 // leaveCategoryService implements LeaveCategoryService interface
@@ -770,40 +913,70 @@ func (s *leaveAllocationService) UpdateAllocation(id string, req UpdateLeaveAllo
 	// Get existing allocation
 	allocation, err := s.allocationRepo.GetByID(id)
 	if err != nil {
-		return nil, fmt.Errorf("allocation not found")
+		return nil, fmt.Errorf("allocation not found: %w", err)
 	}
 
-	// Validate that the category still exists and is active
-	category, err := s.categoryRepo.GetByID(strconv.FormatUint(uint64(allocation.CategoryID), 10))
-	if err != nil {
-		return nil, fmt.Errorf("leave category not found: %w", err)
-	}
-	if !category.IsActive {
-		return nil, fmt.Errorf("leave category is not active")
-	}
+	// Determine final values for total_days and used_days
+	finalTotalDays := allocation.TotalDays
+	finalUsedDays := allocation.UsedDays
 
-	// Update fields
 	if req.TotalDays != nil {
-		// Validate that total days doesn't exceed category maximum
-		if *req.TotalDays > category.MaxDaysPerYear {
-			return nil, fmt.Errorf("total days (%d) exceeds the maximum allowed for this category (%d days)", *req.TotalDays, category.MaxDaysPerYear)
-		}
-		allocation.TotalDays = *req.TotalDays
+		finalTotalDays = *req.TotalDays
 	}
+
 	if req.UsedDays != nil {
-		allocation.UsedDays = *req.UsedDays
+		finalUsedDays = *req.UsedDays
 	}
 
-	// Recalculate remaining days
-	allocation.RemainingDays = allocation.TotalDays - allocation.UsedDays
+	// Validate: total days must be non-negative
+	if finalTotalDays < 0 {
+		return nil, fmt.Errorf("total days cannot be negative")
+	}
 
-	// Save updated allocation
+	// Validate: used days must be non-negative
+	if finalUsedDays < 0 {
+		return nil, fmt.Errorf("used days cannot be negative")
+	}
+
+	// Validate: used days cannot exceed total days
+	if finalUsedDays > finalTotalDays {
+		return nil, fmt.Errorf("used days (%d) cannot exceed total days (%d)", finalUsedDays, finalTotalDays)
+	}
+
+	// Calculate remaining days
+	finalRemainingDays := finalTotalDays - finalUsedDays
+
+	// Optional: Validate against category maximum if category exists (don't fail if category doesn't exist)
+	// Only validate if total_days is being changed
+	if req.TotalDays != nil && *req.TotalDays != allocation.TotalDays {
+		category, err := s.categoryRepo.GetByID(strconv.FormatUint(uint64(allocation.CategoryID), 10))
+		if err == nil && category != nil && category.IsActive {
+			if finalTotalDays > category.MaxDaysPerYear {
+				return nil, fmt.Errorf("total days (%d) exceeds the maximum allowed for this category (%d days)", finalTotalDays, category.MaxDaysPerYear)
+			}
+		}
+		// Silently ignore category lookup errors - category may have been deleted
+	}
+
+	// Update the allocation fields
+	allocation.TotalDays = finalTotalDays
+	allocation.UsedDays = finalUsedDays
+	allocation.RemainingDays = finalRemainingDays
+
+	// Save updated allocation using repository method
 	err = s.allocationRepo.Update(allocation)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update allocation: %v", err)
+		return nil, fmt.Errorf("failed to update allocation: %w", err)
 	}
 
-	return allocation, nil
+	// Reload the allocation to get updated_at timestamp
+	updatedAllocation, err := s.allocationRepo.GetByID(strconv.FormatUint(uint64(allocation.ID), 10))
+	if err != nil {
+		// If reload fails, return the allocation we updated (it was saved successfully)
+		return allocation, nil
+	}
+
+	return updatedAllocation, nil
 }
 
 func (s *leaveAllocationService) DeleteAllocation(id string) error {

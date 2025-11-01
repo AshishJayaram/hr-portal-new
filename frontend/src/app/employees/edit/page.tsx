@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUser, updateUser, toCanonicalRole, getCompanySettings, getLeaveCategories, getLeaveAllocations, updateLeaveAllocation, createLeaveAllocation, deleteLeaveAllocation, getLeaveBalance } from "@/lib/api";
+import { getUser, updateUser, toCanonicalRole, getCompanySettings, getLeaveCategories, getLeaveAllocations, updateLeaveAllocation, createLeaveAllocation, deleteLeaveAllocation, getLeaveBalance, getLeaves } from "@/lib/api";
 import { useFilteredUsers } from "@/hooks/useUsersCache";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useMemo, Suspense } from "react";
@@ -195,17 +195,31 @@ function EditEmployeeForm({ id }: { id: string }) {
       const allocations: Record<string, number> = {};
       const applicable: Record<string, boolean> = {};
       
-      currentAllocations.data.forEach((allocation: LeaveAllocation) => {
-        allocations[allocation.categoryId] = allocation.totalDays;
-        applicable[allocation.categoryId] = allocation.totalDays > 0;
-      });
+      // Create a set of active category IDs for filtering
+      const activeCategoryIds = new Set(
+        leaveCategories.data
+          .filter((cat: LeaveCategory) => cat.isActive)
+          .map((cat: LeaveCategory) => cat.id)
+      );
       
-      // Set default applicable state for categories not yet allocated
-      leaveCategories.data.forEach((category: LeaveCategory) => {
-        if (!(category.id in applicable)) {
-          applicable[category.id] = false;
+      // Only initialize allocations for categories that still exist and are active
+      currentAllocations.data.forEach((allocation: LeaveAllocation) => {
+        const categoryId = String(allocation.categoryId);
+        // Only include if category still exists and is active
+        if (activeCategoryIds.has(categoryId)) {
+          allocations[categoryId] = allocation.totalDays;
+          applicable[categoryId] = allocation.totalDays > 0;
         }
       });
+      
+      // Set default applicable state for active categories not yet allocated
+      leaveCategories.data
+        .filter((category: LeaveCategory) => category.isActive)
+        .forEach((category: LeaveCategory) => {
+          if (!(category.id in applicable)) {
+            applicable[category.id] = false;
+          }
+        });
       
       setLeaveAllocations(allocations);
       setLeaveApplicable(applicable);
@@ -242,18 +256,66 @@ function EditEmployeeForm({ id }: { id: string }) {
       const currentYear = new Date().getFullYear();
       const promises: Promise<any>[] = [];
       
+      // Create a set of active category IDs for filtering
+      const activeCategoryIds = new Set(
+        leaveCategories.data
+          .filter((cat: LeaveCategory) => cat.isActive)
+          .map((cat: LeaveCategory) => cat.id)
+      );
+      
+      // Track processed categories to avoid duplicates
+      const processedCategories = new Set<string>();
+      
+      // First, clean up orphaned allocations (allocations for categories that no longer exist or are inactive)
+      // These are allocations in the database for categories that have been deleted or deactivated
+      currentAllocationsData.forEach((allocation: LeaveAllocation) => {
+        const allocationCategoryId = String(allocation.categoryId);
+        const category = leaveCategories.data.find((c: LeaveCategory) => c.id === allocationCategoryId);
+        
+        // If category doesn't exist or is inactive, delete the orphaned allocation
+        if (!category || !category.isActive) {
+          promises.push(deleteLeaveAllocation(id, allocation.id).catch(() => {
+            // Failed to delete orphaned allocation - continue with other operations
+          }));
+        }
+      });
+      
       // Update existing allocations or create new ones
+      // Only process allocations for categories that currently exist and are active
       Object.entries(leaveAllocations).forEach(([categoryId, days]) => {
+        // Skip if category doesn't exist or is not active
+        if (!activeCategoryIds.has(categoryId)) {
+          return;
+        }
+        
+        // Skip if already processed
+        if (processedCategories.has(categoryId)) {
+          return;
+        }
+        processedCategories.add(categoryId);
+        
         const isApplicable = leaveApplicable[categoryId];
         const existingAllocation = currentAllocationsData.find(
-          (a: LeaveAllocation) => a.categoryId === categoryId && a.year === currentYear
+          (a: LeaveAllocation) => String(a.categoryId) === String(categoryId) && a.year === currentYear
         );
         
-        // Processing category
+        // Verify the category for the existing allocation still exists and is active
+        const categoryForExistingAllocation = existingAllocation 
+          ? leaveCategories.data.find((c: LeaveCategory) => c.id === String(existingAllocation.categoryId))
+          : null;
         
         if (existingAllocation) {
+          // If the category for this allocation no longer exists or is inactive, delete the allocation
+          if (!categoryForExistingAllocation || !categoryForExistingAllocation.isActive) {
+            // Delete allocation for deleted/inactive category
+            promises.push(deleteLeaveAllocation(id, existingAllocation.id).catch(() => {
+              // Failed to delete allocation - continue with other operations
+            }));
+            return; // Skip processing this allocation further
+          }
+          
+          // Existing allocation found - UPDATE only
           if (isApplicable && Number(days) > 0) {
-            // Update existing allocation
             // Update existing allocation
             promises.push(updateLeaveAllocation(id, existingAllocation.id, {
               totalDays: Number(days),
@@ -261,14 +323,12 @@ function EditEmployeeForm({ id }: { id: string }) {
             }));
           } else {
             // Delete allocation if not applicable or days is 0
-            // Delete allocation
             promises.push(deleteLeaveAllocation(id, existingAllocation.id));
           }
         } else if (isApplicable && Number(days) > 0) {
-          // Create new allocation
+          // No existing allocation - CREATE only
           const category = leaveCategories.data.find((c: LeaveCategory) => c.id === categoryId);
-          if (category) {
-            // Create new allocation
+          if (category && category.isActive) {
             promises.push(createLeaveAllocation(id, {
               categoryId,
               categoryName: category.name,
@@ -281,16 +341,29 @@ function EditEmployeeForm({ id }: { id: string }) {
         }
       });
       
-      await Promise.all(promises);
+      // Execute all promises and collect any errors
+      const results = await Promise.allSettled(promises);
+      
+      // Check for errors
+      const errors = results
+        .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+        .map(result => result.reason?.message || result.reason?.error?.message || String(result.reason) || 'Unknown error');
+      
+      if (errors.length > 0) {
+        // If some operations failed, throw an error with details
+        throw new Error(errors.join('; '));
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leave-allocations", id] });
       queryClient.invalidateQueries({ queryKey: ["leave-balance", id] });
       queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
+      queryClient.invalidateQueries({ queryKey: ["approved-leaves-raw", id] });
       toast.success("Leave allocations updated successfully");
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to update leave allocations");
+      const errorMessage = error?.message || error?.error?.message || "Failed to update leave allocations";
+      toast.error(errorMessage);
     },
   });
 
@@ -581,6 +654,8 @@ function EditEmployeeForm({ id }: { id: string }) {
         <div className="space-y-6">
           <LeaveBalanceManager
             leaveBalance={leaveBalance?.data || []}
+            userId={id}
+            currentAllocations={currentAllocations?.data || []}
           />
           <LeaveAllocationManager
             categories={leaveCategories?.data || []}
@@ -755,14 +830,57 @@ function LeaveAllocationManager({
   );
 }
 
-function LeaveBalanceManager({ leaveBalance }: { leaveBalance: any[] }) {
+function LeaveBalanceManager({ leaveBalance, userId, currentAllocations }: { leaveBalance: any[]; userId?: string; currentAllocations?: LeaveAllocation[] }) {
+  // Check if there are any allocated leaves
+  const hasAllocations = currentAllocations && currentAllocations.length > 0 && currentAllocations.some(a => (a.totalDays || 0) > 0);
+  
+  // Fetch approved leaves directly from API to get raw days field
+  const { data: approvedLeavesRaw } = useQuery({
+    queryKey: ["approved-leaves-raw", userId],
+    queryFn: async () => {
+      if (!userId) return { data: [] };
+      const params = new URLSearchParams({ userId, status: "approved" });
+      const response = await fetch(`/api/leaves?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'X-Organization-ID': localStorage.getItem('organizationId') || '',
+        },
+      });
+      const raw = await response.json();
+      return raw?.data || raw || [];
+    },
+    enabled: !!userId,
+    staleTime: 60000,
+  });
+  
+  // Filter for LOP leaves and calculate total LOP days from raw API response
+  const lopLeaves = Array.isArray(approvedLeavesRaw) ? approvedLeavesRaw.filter((leave: any) => {
+    const leaveType = leave.type || leave.Type || '';
+    return String(leaveType).toUpperCase() === 'LOP';
+  }) : [];
+  
+  // Calculate total LOP days from approved LOP leaves
+  const totalLOPDays = lopLeaves.reduce((sum: number, leave: any) => {
+    // Access days from raw API response
+    const days = leave.days || leave.Days || 0;
+    const daysNum = typeof days === 'number' ? days : parseFloat(String(days)) || 0;
+    return sum + daysNum;
+  }, 0);
+
   return (
     <Card>
       <h3 className="text-lg font-semibold mb-4">Current Leave Balance</h3>
-      {leaveBalance.length === 0 ? (
+      {leaveBalance.length === 0 && !hasAllocations ? (
         <div className="text-center py-8 text-gray-400">
-          <p>No leave balance data available</p>
-          <p className="text-sm mt-2">Leave allocations need to be set up first</p>
+          <p className="text-lg font-medium mb-2">No leaves allocated</p>
+          {totalLOPDays > 0 && (
+            <p className="text-sm mt-2">
+              LOPs taken: <span className="font-semibold text-yellow-600 dark:text-yellow-400">{totalLOPDays} day{totalLOPDays !== 1 ? 's' : ''}</span>
+            </p>
+          )}
+          {totalLOPDays === 0 && (
+            <p className="text-sm mt-2">Leave allocations need to be set up first</p>
+          )}
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -892,35 +1010,56 @@ function CTCManager({
                 )}
               </div>
               <div className="space-y-2">
-                <div className="font-semibold text-primary">Earnings</div>
+                <div className="font-semibold">Earnings</div>
                 {Object.entries(breakdown.earnings).map(([k, v]) => (
                   <div key={k} className="flex justify-between text-sm">
                     <span className="capitalize">{k}</span>
-                    <span>₹{v.toLocaleString('en-IN')}</span>
+                    <span>{formatCurrency(v, getDefaultCurrency())}</span>
                   </div>
                 ))}
-                <div className="flex justify-between text-sm border-t border-card pt-2">
+                <div className="flex justify-between text-sm border-t border-white/10 pt-2">
                   <span>Total</span>
-                  <span>₹{breakdown.totals.totalEarnings.toLocaleString('en-IN')}</span>
+                  <span>{formatCurrency(breakdown.totals.totalEarnings, getDefaultCurrency())}</span>
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="font-semibold text-primary">Deductions</div>
-                <div className="flex justify-between text-sm">
-                  <span>Employee PF</span>
-                  <span>₹{breakdown.deductions.empPF.toLocaleString('en-IN')}</span>
+              <div className="space-y-4">
+                <div>
+                  <div className="font-semibold mb-1">Deductions</div>
+                  <div className="flex justify-between text-sm">
+                    <span>Employee PF</span>
+                    <span>{formatCurrency(breakdown.deductions.empPF, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Professional Tax</span>
+                    <span>{formatCurrency(breakdown.deductions.professionalTax, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>ESI</span>
+                    <span>{formatCurrency(breakdown.deductions.esi, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-white/10 pt-2">
+                    <span>Total</span>
+                    <span>{formatCurrency(breakdown.totals.totalDeductions, getDefaultCurrency())}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Professional Tax</span>
-                  <span>₹{breakdown.deductions.professionalTax.toLocaleString('en-IN')}</span>
+                <div>
+                  <div className="font-semibold mb-1">Employer PF</div>
+                  <div className="flex justify-between text-sm">
+                    <span>Total PF</span>
+                    <span>{formatCurrency(breakdown.employer.totalPF, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>EPS</span>
+                    <span>{formatCurrency(breakdown.employer.eps, getDefaultCurrency())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>EPF</span>
+                    <span>{formatCurrency(breakdown.employer.epf, getDefaultCurrency())}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>ESI</span>
-                  <span>₹{breakdown.deductions.esi.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-primary border-t border-card pt-2">
+                <div className="flex justify-between font-semibold">
                   <span>Net Pay</span>
-                  <span className="text-green-600 dark:text-green-400">₹{breakdown.totals.netPay.toLocaleString('en-IN')}</span>
+                  <span>{formatCurrency(breakdown.totals.netPay, getDefaultCurrency())}</span>
                 </div>
               </div>
             </div>

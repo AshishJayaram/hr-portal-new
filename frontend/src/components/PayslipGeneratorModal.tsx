@@ -799,6 +799,7 @@ export default function PayslipGeneratorModal({
           <Button
             onClick={handleGeneratePayslip}
             loading={isLoading}
+            disabled={true}
           >
             Generate Payslip PDF
           </Button>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { toCanonicalRole, sendOTP, verifyOTP } from "@/lib/api";
+import { toCanonicalRole, sendOTP, verifyOTP, forgotPassword, resetPassword } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -18,6 +18,15 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordOTP, setForgotPasswordOTP] = useState("");
+  const [forgotPasswordOTPSent, setForgotPasswordOTPSent] = useState(false);
+  const [showPasswordResetForm, setShowPasswordResetForm] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -148,6 +157,78 @@ export default function SignInPage() {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setForgotPasswordLoading(true);
+
+    try {
+      await forgotPassword(forgotPasswordEmail);
+      setSuccess("If an account with that email exists, a password reset OTP has been sent to your email address.");
+      setForgotPasswordOTPSent(true);
+      setShowPasswordResetForm(true);
+      setForgotPasswordOTP("");
+    } catch (err: any) {
+      console.error("Forgot password error:", err);
+      if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Failed to send password reset OTP. Please try again.");
+      }
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    
+    // Validate passwords match
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    // Validate password length
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    setResetPasswordLoading(true);
+
+    try {
+      await resetPassword(forgotPasswordEmail, forgotPasswordOTP, newPassword);
+      setSuccess("Password reset successfully! Redirecting to login...");
+      // Reset all states
+      setTimeout(() => {
+        setShowForgotPassword(false);
+        setForgotPasswordEmail("");
+        setForgotPasswordOTP("");
+        setForgotPasswordOTPSent(false);
+        setShowPasswordResetForm(false);
+        setNewPassword("");
+        setConfirmPassword("");
+        setError("");
+        setSuccess("");
+        router.push("/signin");
+      }, 2000);
+    } catch (err: any) {
+      console.error("Reset password error:", err);
+      if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Failed to reset password. Please try again.");
+      }
+    } finally {
+      setResetPasswordLoading(false);
     }
   };
 
@@ -291,14 +372,186 @@ export default function SignInPage() {
           )}
         </button>
 
-        {loginMode === "password" && (
+        {loginMode === "password" && !showForgotPassword && (
           <div className="text-center">
-            <Link 
-              href="/forgot-password"
+            <button
+              type="button"
+              onClick={() => {
+                setShowForgotPassword(true);
+                setError("");
+                setSuccess("");
+                setForgotPasswordEmail("");
+              }}
               className={`text-sm underline ${isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700"}`}
             >
               Forgot Password?
-            </Link>
+            </button>
+          </div>
+        )}
+
+        {showForgotPassword && (
+          <div className={`p-4 rounded-lg border ${isDarkMode ? "bg-white/10 border-white/20" : "bg-indigo-50 border-indigo-200"}`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-gray-800"}`}>
+                Reset Password
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotPasswordEmail("");
+                  setForgotPasswordOTP("");
+                  setForgotPasswordOTPSent(false);
+                  setShowPasswordResetForm(false);
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setError("");
+                  setSuccess("");
+                }}
+                className={`text-lg ${isDarkMode ? "text-white/70 hover:text-white" : "text-gray-600 hover:text-gray-800"}`}
+              >
+                ×
+              </button>
+            </div>
+
+            {!forgotPasswordOTPSent && !showPasswordResetForm ? (
+              <>
+                <p className={`text-xs mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  Enter your email address and we'll send you an OTP to reset your password.
+                </p>
+                <form onSubmit={handleForgotPassword} className="space-y-3">
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    required
+                    className={`w-full p-2 rounded text-sm focus:outline-none focus:ring-2 ${
+                      isDarkMode 
+                        ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
+                        : "bg-white text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
+                    }`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={forgotPasswordLoading}
+                    className={`w-full p-2 rounded text-sm font-medium shadow transition-shadow ${
+                      forgotPasswordLoading 
+                        ? "bg-gray-500 cursor-not-allowed" 
+                        : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-lg"
+                    }`}
+                  >
+                    {forgotPasswordLoading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Sending...
+                      </div>
+                    ) : (
+                      "Send Reset OTP"
+                    )}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <p className={`text-xs mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  Enter the OTP sent to your email and your new password below.
+                </p>
+                <form onSubmit={handleResetPassword} className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Enter 6-digit OTP"
+                    value={forgotPasswordOTP}
+                    onChange={(e) => setForgotPasswordOTP(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    maxLength={6}
+                    required
+                    className={`w-full p-2 rounded text-sm focus:outline-none focus:ring-2 ${
+                      isDarkMode 
+                        ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
+                        : "bg-white text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
+                    }`}
+                  />
+                  <input
+                    type="password"
+                    placeholder="New Password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    className={`w-full p-2 rounded text-sm focus:outline-none focus:ring-2 ${
+                      isDarkMode 
+                        ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
+                        : "bg-white text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
+                    }`}
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm New Password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    className={`w-full p-2 rounded text-sm focus:outline-none focus:ring-2 ${
+                      isDarkMode 
+                        ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
+                        : "bg-white text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
+                    }`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={resetPasswordLoading}
+                    className={`w-full p-2 rounded text-sm font-medium shadow transition-shadow ${
+                      resetPasswordLoading 
+                        ? "bg-gray-500 cursor-not-allowed" 
+                        : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-lg"
+                    }`}
+                  >
+                    {resetPasswordLoading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Resetting...
+                      </div>
+                    ) : (
+                      "Reset Password"
+                    )}
+                  </button>
+                </form>
+                <div className="mt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotPasswordOTPSent(false);
+                      setForgotPasswordOTP("");
+                      setShowPasswordResetForm(false);
+                      setSuccess("");
+                    }}
+                    className={`text-xs underline ${isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700"}`}
+                  >
+                    Resend OTP
+                  </button>
+                </div>
+              </>
+            )}
+
+            <div className="mt-2 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotPasswordEmail("");
+                  setForgotPasswordOTP("");
+                  setForgotPasswordOTPSent(false);
+                  setShowPasswordResetForm(false);
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setError("");
+                  setSuccess("");
+                }}
+                className={`text-xs underline ${isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700"}`}
+              >
+                Back to Sign In
+              </button>
+            </div>
           </div>
         )}
 

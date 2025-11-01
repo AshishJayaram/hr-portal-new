@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"hr-portal-backend/internal/models"
+
+	"github.com/sirupsen/logrus"
 )
 
 // NotificationService interface for sending notifications
@@ -52,23 +54,98 @@ func (s *notificationService) SendLeaveRequestNotification(leave *models.Leave, 
 	switch notificationType {
 	case "applied":
 		subject = fmt.Sprintf("Leave Request Submitted - %s", categoryName)
-		message = fmt.Sprintf("Dear %s,\n\n%s has submitted a %s leave request from %s to %s.\n\nReason: %s\n\nPlease review and take appropriate action.\n\nBest regards,\nHR Portal System",
+
+		// Format days with half-day information
+		var daysText string
+		if leave.StartHalf != "FULL" || leave.EndHalf != "FULL" {
+			if leave.StartHalf != "FULL" && leave.EndHalf != "FULL" {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s and %s)", leave.Days, leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"))
+			} else if leave.StartHalf != "FULL" {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s)", leave.Days, leave.FromDate.Format("2006-01-02"))
+			} else {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s)", leave.Days, leave.ToDate.Format("2006-01-02"))
+			}
+		} else {
+			daysText = fmt.Sprintf("%.1f day(s)", leave.Days)
+		}
+
+		message = fmt.Sprintf("Dear %s,\n\n%s has submitted a %s leave request:\n\n• From: %s\n• To: %s\n• Number of Days: %s\n• Reason: %s\n\nPlease review and take appropriate action.\n\nBest regards,\nHR Portal System",
 			recipient.Name, applicantName, categoryName,
-			leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"), leave.Reason)
+			leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"), daysText, leave.Reason)
 	case "approved":
 		subject = fmt.Sprintf("Leave Request Approved - %s", categoryName)
-		message = fmt.Sprintf("Dear %s,\n\nYour %s leave request from %s to %s has been approved.\n\nReason: %s\n\nBest regards,\nHR Portal System",
+
+		// Format days with half-day information
+		var daysText string
+		if leave.StartHalf != "FULL" || leave.EndHalf != "FULL" {
+			if leave.StartHalf != "FULL" && leave.EndHalf != "FULL" {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s and %s)", leave.Days, leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"))
+			} else if leave.StartHalf != "FULL" {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s)", leave.Days, leave.FromDate.Format("2006-01-02"))
+			} else {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s)", leave.Days, leave.ToDate.Format("2006-01-02"))
+			}
+		} else {
+			daysText = fmt.Sprintf("%.1f day(s)", leave.Days)
+		}
+
+		message = fmt.Sprintf("Dear %s,\n\nYour %s leave request has been approved:\n\n• From: %s\n• To: %s\n• Number of Days: %s\n• Reason: %s\n\nBest regards,\nHR Portal System",
 			recipient.Name, categoryName,
-			leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"), leave.Reason)
+			leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"), daysText, leave.Reason)
 	case "rejected":
 		subject = fmt.Sprintf("Leave Request Rejected - %s", categoryName)
-		message = fmt.Sprintf("Dear %s,\n\nYour %s leave request from %s to %s has been rejected.\n\nReason: %s\n\nBest regards,\nHR Portal System",
+		rejectionReasonText := ""
+		if leave.RejectionReason != nil && *leave.RejectionReason != "" {
+			rejectionReasonText = fmt.Sprintf("\n\nRejection Reason: %s", *leave.RejectionReason)
+		}
+
+		// Format days with half-day information
+		var daysText string
+		if leave.StartHalf != "FULL" || leave.EndHalf != "FULL" {
+			if leave.StartHalf != "FULL" && leave.EndHalf != "FULL" {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s and %s)", leave.Days, leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"))
+			} else if leave.StartHalf != "FULL" {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s)", leave.Days, leave.FromDate.Format("2006-01-02"))
+			} else {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s)", leave.Days, leave.ToDate.Format("2006-01-02"))
+			}
+		} else {
+			daysText = fmt.Sprintf("%.1f day(s)", leave.Days)
+		}
+
+		message = fmt.Sprintf("Dear %s,\n\nYour %s leave request has been rejected:%s\n\n• From: %s\n• To: %s\n• Number of Days: %s\n• Original Reason: %s\n\nBest regards,\nHR Portal System",
+			recipient.Name, categoryName, rejectionReasonText,
+			leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"), daysText, leave.Reason)
+	case "cancelled":
+		subject = fmt.Sprintf("Leave Request Cancelled - %s", categoryName)
+
+		// Format days with half-day information
+		var daysText string
+		if leave.StartHalf != "FULL" || leave.EndHalf != "FULL" {
+			if leave.StartHalf != "FULL" && leave.EndHalf != "FULL" {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s and %s)", leave.Days, leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"))
+			} else if leave.StartHalf != "FULL" {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s)", leave.Days, leave.FromDate.Format("2006-01-02"))
+			} else {
+				daysText = fmt.Sprintf("%.1f days (Half day on %s)", leave.Days, leave.ToDate.Format("2006-01-02"))
+			}
+		} else {
+			daysText = fmt.Sprintf("%.1f day(s)", leave.Days)
+		}
+
+		message = fmt.Sprintf("Dear %s,\n\nYour %s leave request has been cancelled:\n\n• From: %s\n• To: %s\n• Number of Days: %s\n• Reason: %s\n\nBest regards,\nHR Portal System",
 			recipient.Name, categoryName,
-			leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"), leave.Reason)
+			leave.FromDate.Format("2006-01-02"), leave.ToDate.Format("2006-01-02"), daysText, leave.Reason)
 	}
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"recipient":    recipient.Email,
+			"recipient_id": recipient.ID,
+			"leave_id":     leave.ID,
+			"applicant":    leave.User.Name,
+		}).Error("Failed to send leave request notification email")
 	}
 
 	// Send WhatsApp notification (placeholder - implement actual WhatsApp Business API)
@@ -87,6 +164,11 @@ func (s *notificationService) SendDocumentUploadNotification(document *models.Do
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"recipient":    recipient.Email,
+			"recipient_id": recipient.ID,
+			"document_id":  document.ID,
+		}).Error("Failed to send document upload notification email")
 	}
 
 	// Send WhatsApp notification
@@ -104,6 +186,11 @@ func (s *notificationService) SendSalarySlipUploadNotification(salarySlip *model
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"recipient":      recipient.Email,
+			"recipient_id":   recipient.ID,
+			"salary_slip_id": salarySlip.ID,
+		}).Error("Failed to send salary slip upload notification email")
 	}
 
 	// Send WhatsApp notification
@@ -123,7 +210,12 @@ func (s *notificationService) SendEmail(to, subject, body string) error {
 	fromEmail := os.Getenv("FROM_EMAIL")
 
 	if smtpHost == "" || smtpPort == "" || smtpUser == "" || smtpPass == "" || fromEmail == "" {
-		return nil
+		logrus.WithFields(logrus.Fields{
+			"to":              to,
+			"subject":         subject,
+			"smtp_configured": smtpHost != "" && smtpPort != "" && smtpUser != "" && smtpPass != "" && fromEmail != "",
+		}).Warn("Email not sent: SMTP configuration is incomplete")
+		return fmt.Errorf("SMTP configuration is incomplete - check environment variables: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, FROM_EMAIL")
 	}
 
 	// Create message
@@ -133,8 +225,19 @@ func (s *notificationService) SendEmail(to, subject, body string) error {
 	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
 	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, fromEmail, []string{to}, []byte(msg))
 	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"to":        to,
+			"subject":   subject,
+			"smtp_host": smtpHost,
+			"smtp_port": smtpPort,
+		}).Error("Failed to send email via SMTP")
 		return fmt.Errorf("failed to send email: %w", err)
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"to":      to,
+		"subject": subject,
+	}).Info("Email notification sent successfully")
 
 	return nil
 }
@@ -182,6 +285,13 @@ func (s *notificationService) sendWhatsApp(phone, message string) error {
 // SendKRANotification sends notification for KRA updates
 func (s *notificationService) SendKRANotification(kra *models.KRA, recipient *models.User, notificationType string) error {
 	var subject, message string
+
+	// Get employee name for manager notifications
+	employeeName := "Employee"
+	if kra.User.Name != "" {
+		employeeName = kra.User.Name
+	}
+
 	switch notificationType {
 	case "created":
 		subject = fmt.Sprintf("New KRA Assigned - %s", kra.Title)
@@ -189,16 +299,53 @@ func (s *notificationService) SendKRANotification(kra *models.KRA, recipient *mo
 			recipient.Name, kra.Title, kra.Year, kra.Description, kra.TargetValue, kra.MeasurementUnit, kra.Weight)
 	case "evaluated":
 		subject = fmt.Sprintf("KRA Evaluated - %s", kra.Title)
+		actualValue := "N/A"
+		if kra.ActualValue != nil {
+			actualValue = *kra.ActualValue
+		}
+		rating := 0.0
+		if kra.Rating != nil {
+			rating = *kra.Rating
+		}
+		comments := "No comments provided"
+		if kra.Comments != nil && *kra.Comments != "" {
+			comments = *kra.Comments
+		}
 		message = fmt.Sprintf("Dear %s,\n\nYour KRA '%s' for %d has been evaluated.\n\nActual Value: %s %s\nRating: %.1f/5\nComments: %s\n\nPlease review the evaluation and provide your feedback.\n\nBest regards,\nHR Portal System",
-			recipient.Name, kra.Title, kra.Year, kra.ActualValue, kra.MeasurementUnit, kra.Rating, kra.Comments)
+			recipient.Name, kra.Title, kra.Year, actualValue, kra.MeasurementUnit, rating, comments)
 	case "due_reminder":
 		subject = fmt.Sprintf("KRA Evaluation Due Soon - %s", kra.Title)
 		message = fmt.Sprintf("Dear %s,\n\nYour KRA '%s' for %d is due for evaluation soon.\n\nPlease complete your self-assessment and submit it for review.\n\nBest regards,\nHR Portal System",
 			recipient.Name, kra.Title, kra.Year)
+	case "assigned_to_reportee":
+		subject = fmt.Sprintf("KRA Assigned to Your Reportee - %s", kra.Title)
+		message = fmt.Sprintf("Dear %s,\n\nA new KRA '%s' has been assigned to your direct reportee %s for %d.\n\n• Employee: %s\n• Description: %s\n• Target Value: %s %s\n• Weight: %.1f%%\n\nPlease review and provide guidance as needed.\n\nBest regards,\nHR Portal System",
+			recipient.Name, kra.Title, employeeName, kra.Year, employeeName, kra.Description, kra.TargetValue, kra.MeasurementUnit, kra.Weight)
+	case "reportee_self_assessed":
+		subject = fmt.Sprintf("Reportee Self-Assessment Completed - %s", kra.Title)
+		employeeActualValue := "N/A"
+		if kra.EmployeeActualValue != nil {
+			employeeActualValue = *kra.EmployeeActualValue
+		}
+		employeeRating := 0.0
+		if kra.EmployeeRating != nil {
+			employeeRating = *kra.EmployeeRating
+		}
+		employeeComments := "No comments provided"
+		if kra.EmployeeComments != nil && *kra.EmployeeComments != "" {
+			employeeComments = *kra.EmployeeComments
+		}
+		message = fmt.Sprintf("Dear %s,\n\nYour direct reportee %s has completed self-assessment for KRA '%s' (%d):\n\n• Employee: %s\n• Employee's Actual Value: %s %s\n• Employee's Self-Rating: %.1f/5\n• Employee's Comments: %s\n\nPlease review and evaluate the KRA.\n\nBest regards,\nHR Portal System",
+			recipient.Name, employeeName, kra.Title, kra.Year, employeeName, employeeActualValue, kra.MeasurementUnit, employeeRating, employeeComments)
 	}
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"recipient":    recipient.Email,
+			"recipient_id": recipient.ID,
+			"kra_id":       kra.ID,
+		}).Error("Failed to send KRA notification email")
 	}
 
 	// Send WhatsApp notification
@@ -231,6 +378,11 @@ func (s *notificationService) SendOffSiteNotification(offSite *models.OffSite, r
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"recipient":    recipient.Email,
+			"recipient_id": recipient.ID,
+			"offsite_id":   offSite.ID,
+		}).Error("Failed to send off-site notification email")
 	}
 
 	// Send WhatsApp notification
@@ -261,6 +413,11 @@ func (s *notificationService) SendReimbursementNotification(reimbursement *model
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"recipient":        recipient.Email,
+			"recipient_id":     recipient.ID,
+			"reimbursement_id": reimbursement.ID,
+		}).Error("Failed to send reimbursement notification email")
 	}
 
 	// Send WhatsApp notification
@@ -278,6 +435,11 @@ func (s *notificationService) SendHolidayNotification(holiday *models.Holiday, r
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"recipient":    recipient.Email,
+			"recipient_id": recipient.ID,
+			"holiday_id":   holiday.ID,
+		}).Error("Failed to send holiday notification email")
 	}
 
 	// Send WhatsApp notification
@@ -308,6 +470,12 @@ func (s *notificationService) SendBirthdayNotification(user *models.User, recipi
 
 	// Send email notification
 	if err := s.sendEmail(recipient.Email, subject, message); err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"recipient":         recipient.Email,
+			"recipient_id":      recipient.ID,
+			"birthday_user_id":  user.ID,
+			"notification_type": notificationType,
+		}).Error("Failed to send birthday notification email")
 	}
 
 	// Send WhatsApp notification
@@ -362,6 +530,11 @@ func (s *notificationService) SendWelcomeEmail(user *models.User, senderName str
 
 	// Send email notification
 	if err := s.sendEmail(user.Email, subject, message); err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"recipient":     user.Email,
+			"recipient_id":  user.ID,
+			"user_username": user.Username,
+		}).Error("Failed to send welcome email")
 		return fmt.Errorf("failed to send welcome email: %w", err)
 	}
 

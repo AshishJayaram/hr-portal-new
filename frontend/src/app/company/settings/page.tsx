@@ -72,8 +72,6 @@ export default function CompanySettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["leave-allocations"] });
       queryClient.invalidateQueries({ queryKey: ["leave-balance"] });
       toast.success("Leave category added successfully!");
-      // Refresh the page to show updated data
-      setTimeout(() => window.location.reload(), 1000);
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to add leave category");
@@ -180,6 +178,39 @@ export default function CompanySettingsPage() {
     };
     delete updatedSettings.deductions[key];
     setSettings(updatedSettings);
+  };
+
+  const deleteEarningCategory = (key: string) => {
+    // Remove from earnings object
+    const updatedEarnings = { ...settings.earnings };
+    delete updatedEarnings[key];
+    
+    // Remove from customEarnings array if present
+    const updatedCustomEarnings = (settings.customEarnings || []).filter(cat => cat.key !== key);
+    
+    setSettings({
+      ...settings,
+      earnings: updatedEarnings,
+      customEarnings: updatedCustomEarnings
+    });
+  };
+
+  const deleteDeductionCategory = (key: string) => {
+    // Skip special deduction fields that shouldn't be deleted
+    if (key === 'esiEnabled') return;
+    
+    // Remove from deductions object
+    const updatedDeductions = { ...settings.deductions };
+    delete updatedDeductions[key];
+    
+    // Remove from customDeductions array if present
+    const updatedCustomDeductions = (settings.customDeductions || []).filter(cat => cat.key !== key);
+    
+    setSettings({
+      ...settings,
+      deductions: updatedDeductions,
+      customDeductions: updatedCustomDeductions
+    });
   };
 
   if (isLoading || categoriesLoading) return <div className="p-6">Loading...</div>;
@@ -306,10 +337,10 @@ export default function CompanySettingsPage() {
                 </Button>
               </div>
 
-              {/* Combined Earnings List */}
+              {/* Earning Categories List */}
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-medium text-green-600 dark:text-green-400">All Earnings</h4>
+                  <h4 className="font-medium text-green-600 dark:text-green-400">Earning Categories</h4>
                   <Button
                     variant="outline"
                     size="sm"
@@ -343,6 +374,7 @@ export default function CompanySettingsPage() {
                         { value: 'FIXED', label: 'Fixed' },
                         { value: 'PERCENT_OF_BASIC', label: '% Basic' },
                         { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                        { value: 'REMAINDER', label: 'Remainder' },
                       ]}
                       className="text-sm"
                     />
@@ -362,9 +394,8 @@ export default function CompanySettingsPage() {
                   </div>
                 </div>
 
-                {/* Combined Earnings List - Standard + Custom */}
+                {/* Earning Categories List */}
                 <div className="space-y-2">
-                  {/* Standard Earnings */}
                   {[
                     { key: 'basic', label: 'Basic', setting: settings.earnings.basic },
                     { key: 'hra', label: 'HRA', setting: settings.earnings.hra },
@@ -379,7 +410,6 @@ export default function CompanySettingsPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="font-medium text-green-600 dark:text-green-400 text-sm">{item.label}</span>
-                            {isCustom && <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">Custom</span>}
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <Select
@@ -403,28 +433,39 @@ export default function CompanySettingsPage() {
                             />
                           </div>
                         </div>
-                        <Button
-                          onClick={() => {
-                            if (isCustom) {
-                              removeCustomEarning(item.key);
-                            } else {
-                              // Remove from standard earnings (reset to default)
+                        <div className="flex gap-2 ml-2">
+                          <Button
+                            onClick={() => {
+                              // Reset to default
                               const defaults = defaultPayrollSettings.earnings[item.key as keyof typeof defaultPayrollSettings.earnings];
                               setComponent((s) => s.earnings[item.key as keyof typeof s.earnings], 'mode', defaults.mode);
                               setComponent((s) => s.earnings[item.key as keyof typeof s.earnings], 'value', defaults.value);
-                            }
-                          }}
-                          className="bg-red-600 hover:bg-red-700 ml-2"
-                          size="sm"
-                          title="Reset to default"
-                        >
-                          Reset
-                        </Button>
+                            }}
+                            variant="outline"
+                            size="sm"
+                            title="Reset to default"
+                            className="text-xs"
+                          >
+                            Reset
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete "${item.label}"? This will remove it from all calculations.`)) {
+                                deleteEarningCategory(item.key);
+                              }
+                            }}
+                            className="bg-red-600 hover:bg-red-700"
+                            size="sm"
+                            title="Delete category"
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}
                   
-                  {/* Custom Earnings (excluding standard ones) */}
+                  {/* Additional Earning Categories */}
                   {(settings.customEarnings || [])
                     .filter(cat => !['basic', 'hra', 'medical', 'conveyance', 'lta', 'specialAllowance'].includes(cat.key))
                     .map((category) => (
@@ -432,7 +473,6 @@ export default function CompanySettingsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="font-medium text-green-600 dark:text-green-400 text-sm">{category.label}</span>
-                          <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">Custom</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Select
@@ -447,6 +487,7 @@ export default function CompanySettingsPage() {
                               { value: 'FIXED', label: 'Fixed' },
                               { value: 'PERCENT_OF_BASIC', label: '% Basic' },
                               { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                              { value: 'REMAINDER', label: 'Remainder' },
                             ]}
                             className="text-xs"
                           />
@@ -459,15 +500,21 @@ export default function CompanySettingsPage() {
                               );
                               setSettings({ ...settings, customEarnings: updated });
                             }}
+                            disabled={category.mode === 'REMAINDER'}
                             className="text-xs"
                             placeholder="Value"
                           />
                         </div>
                       </div>
                       <Button
-                        onClick={() => removeCustomEarning(category.key)}
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete "${category.label}"? This will remove it from all calculations.`)) {
+                            deleteEarningCategory(category.key);
+                          }
+                        }}
                         className="bg-red-600 hover:bg-red-700 ml-2"
                         size="sm"
+                        title="Delete category"
                       >
                         Delete
                       </Button>
@@ -478,8 +525,8 @@ export default function CompanySettingsPage() {
                     ...(settings.customEarnings || []).filter(c => !['basic', 'hra', 'medical', 'conveyance', 'lta', 'specialAllowance'].includes(c.key)).map(c => c.key)
                   ].length === 0 && (
                     <div className="text-center py-6 text-gray-400 text-sm">
-                      <div className="mb-2">Standard earnings shown above</div>
-                      <div className="text-xs">Add custom categories as needed</div>
+                      <div className="mb-2">Earning categories shown above</div>
+                      <div className="text-xs">Add more categories as needed</div>
                     </div>
                   )}
                 </div>
@@ -516,10 +563,10 @@ export default function CompanySettingsPage() {
                 </Button>
               </div>
 
-              {/* Combined Deductions List */}
+              {/* Deduction Categories List */}
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-medium text-red-600 dark:text-red-400">All Deductions</h4>
+                  <h4 className="font-medium text-red-600 dark:text-red-400">Deduction Categories</h4>
                   <Button
                     variant="outline"
                     size="sm"
@@ -553,6 +600,7 @@ export default function CompanySettingsPage() {
                         { value: 'FIXED', label: 'Fixed' },
                         { value: 'PERCENT_OF_BASIC', label: '% Basic' },
                         { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                        { value: 'REMAINDER', label: 'Remainder' },
                       ]}
                       className="text-sm"
                     />
@@ -572,9 +620,8 @@ export default function CompanySettingsPage() {
                   </div>
                 </div>
 
-                {/* Combined Deductions List - Standard + Custom */}
+                {/* Deduction Categories List */}
                 <div className="space-y-2">
-                  {/* Standard Deductions */}
                   {[
                     { key: 'employeePF', label: 'Employee PF', setting: settings.deductions.employeePF, isSpecial: true },
                     { key: 'professionalTax', label: 'Professional Tax', setting: settings.deductions.professionalTax },
@@ -586,7 +633,6 @@ export default function CompanySettingsPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="font-medium text-red-600 dark:text-red-400 text-sm">{item.label}</span>
-                            {isCustom && <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">Custom</span>}
                             {item.key === 'employeePF' && settings.deductions.employeePF.capAt1800 && (
                               <span className="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400">Capped at ₹1800</span>
                             )}
@@ -614,6 +660,7 @@ export default function CompanySettingsPage() {
                                 { value: 'FIXED', label: 'Fixed' },
                                 { value: 'PERCENT_OF_BASIC', label: '% Basic' },
                                 { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                                { value: 'REMAINDER', label: 'Remainder' },
                               ]}
                               className="text-xs"
                             />
@@ -633,6 +680,7 @@ export default function CompanySettingsPage() {
                                   setComponent((s) => s.deductions[item.key as keyof typeof s.deductions] as ComponentSetting, 'value', Number(e.target.value));
                                 }
                               }}
+                              disabled={(item.setting as ComponentSetting).mode === 'REMAINDER'}
                               className="text-xs"
                               placeholder="Value"
                             />
@@ -676,11 +724,9 @@ export default function CompanySettingsPage() {
                             </div>
                           )}
                         </div>
-                        <Button
-                          onClick={() => {
-                            if (isCustom) {
-                              removeCustomDeduction(item.key);
-                            } else {
+                        <div className="flex gap-2 ml-2">
+                          <Button
+                            onClick={() => {
                               // Reset to default
                               const defaults = defaultPayrollSettings.deductions[item.key as keyof typeof defaultPayrollSettings.deductions];
                               if (item.key === 'employeePF') {
@@ -695,19 +741,32 @@ export default function CompanySettingsPage() {
                                 setComponent((s) => s.deductions[item.key as keyof typeof s.deductions] as ComponentSetting, 'mode', (defaults as ComponentSetting).mode);
                                 setComponent((s) => s.deductions[item.key as keyof typeof s.deductions] as ComponentSetting, 'value', (defaults as ComponentSetting).value);
                               }
-                            }
-                          }}
-                          className="bg-red-600 hover:bg-red-700 ml-2"
-                          size="sm"
-                          title="Reset to default"
-                        >
-                          Reset
-                        </Button>
+                            }}
+                            variant="outline"
+                            size="sm"
+                            title="Reset to default"
+                            className="text-xs"
+                          >
+                            Reset
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete "${item.label}"? This will remove it from all calculations.`)) {
+                                deleteDeductionCategory(item.key);
+                              }
+                            }}
+                            className="bg-red-600 hover:bg-red-700"
+                            size="sm"
+                            title="Delete category"
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}
                   
-                  {/* Custom Deductions (excluding standard ones) */}
+                  {/* Additional Deduction Categories */}
                   {(settings.customDeductions || [])
                     .filter(cat => !['employeePF', 'professionalTax', 'esi'].includes(cat.key))
                     .map((category) => (
@@ -715,7 +774,6 @@ export default function CompanySettingsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="font-medium text-red-600 dark:text-red-400 text-sm">{category.label}</span>
-                          <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">Custom</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Select
@@ -730,6 +788,7 @@ export default function CompanySettingsPage() {
                               { value: 'FIXED', label: 'Fixed' },
                               { value: 'PERCENT_OF_BASIC', label: '% Basic' },
                               { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                              { value: 'REMAINDER', label: 'Remainder' },
                             ]}
                             className="text-xs"
                           />
@@ -742,15 +801,21 @@ export default function CompanySettingsPage() {
                               );
                               setSettings({ ...settings, customDeductions: updated });
                             }}
+                            disabled={category.mode === 'REMAINDER'}
                             className="text-xs"
                             placeholder="Value"
                           />
                         </div>
                       </div>
                       <Button
-                        onClick={() => removeCustomDeduction(category.key)}
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete "${category.label}"? This will remove it from all calculations.`)) {
+                            deleteDeductionCategory(category.key);
+                          }
+                        }}
                         className="bg-red-600 hover:bg-red-700 ml-2"
                         size="sm"
+                        title="Delete category"
                       >
                         Delete
                       </Button>
@@ -761,14 +826,137 @@ export default function CompanySettingsPage() {
                     ...(settings.customDeductions || []).filter(c => !['employeePF', 'professionalTax', 'esi'].includes(c.key)).map(c => c.key)
                   ].length === 0 && (
                     <div className="text-center py-6 text-gray-400 text-sm">
-                      <div className="mb-2">Standard deductions shown above</div>
-                      <div className="text-xs">Add custom categories as needed</div>
+                      <div className="mb-2">Deduction categories shown above</div>
+                      <div className="text-xs">Add more categories as needed</div>
                     </div>
                   )}
                 </div>
               </div>
             </Card>
           </div>
+
+          {/* Employer PF Configuration */}
+          <Card>
+            <h3 className="text-xl font-semibold mb-4 text-blue-600 dark:text-blue-400">Employer PF Configuration</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Configure employer contribution to Provident Fund (PF). Employer PF is part of CTC and includes EPS (Employee Pension Scheme) and EPF (Employee Provident Fund).
+            </p>
+            
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                  Employer PF Percentage of Basic
+                </label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    value={String(settings.employerPF.employerPFPercentOfBasic)}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      setSettings({
+                        ...settings,
+                        employerPF: {
+                          ...settings.employerPF,
+                          employerPFPercentOfBasic: value
+                        }
+                      });
+                    }}
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-gray-400">%</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Total employer PF contribution (typically 12% of basic salary)
+                </p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                  EPS Percentage of Basic
+                </label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    value={String(settings.employerPF.epsPercentOfBasic)}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      setSettings({
+                        ...settings,
+                        employerPF: {
+                          ...settings.employerPF,
+                          epsPercentOfBasic: value
+                        }
+                      });
+                    }}
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-gray-400">%</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Employee Pension Scheme contribution (typically 8.33% of basic salary)
+                </p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                  EPS Cap Amount
+                </label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    value={String(settings.employerPF.epsCap)}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      setSettings({
+                        ...settings,
+                        employerPF: {
+                          ...settings.employerPF,
+                          epsCap: value
+                        }
+                      });
+                    }}
+                    min="0"
+                    step="1"
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-gray-400">₹</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Maximum EPS contribution (typically ₹1,250 per month)
+                </p>
+              </div>
+
+              <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <h4 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">Calculation Preview</h4>
+                <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                  <div>
+                    Employer PF Total: ₹{breakdown.employer.totalPF.toLocaleString('en-IN', { maximumFractionDigits: 2 })} 
+                    <span className="text-xs text-gray-400 ml-2">
+                      ({settings.employerPF.employerPFPercentOfBasic}% of Basic: ₹{breakdown.earnings.basic.toLocaleString('en-IN')})
+                    </span>
+                  </div>
+                  <div>
+                    EPS: ₹{breakdown.employer.eps.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    <span className="text-xs text-gray-400 ml-2">
+                      (min of {settings.employerPF.epsPercentOfBasic}% of Basic or ₹{settings.employerPF.epsCap.toLocaleString('en-IN')})
+                    </span>
+                  </div>
+                  <div>
+                    EPF: ₹{breakdown.employer.epf.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    <span className="text-xs text-gray-400 ml-2">
+                      (Total PF - EPS)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
 
           {/* LOP Settings */}
           <Card>

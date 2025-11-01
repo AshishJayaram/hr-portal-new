@@ -9,6 +9,8 @@ import (
 	"hr-portal-backend/internal/models"
 	"hr-portal-backend/internal/repositories"
 	"hr-portal-backend/internal/utils"
+
+	"github.com/sirupsen/logrus"
 )
 
 // authService implements AuthService interface
@@ -296,8 +298,8 @@ func (s *authService) VerifyOTP(email, otp string) (*LoginResponse, error) {
 	}, nil
 }
 
-// ForgotPassword initiates a password reset request
-func (s *authService) ForgotPassword(email string, resetURL string) error {
+// ForgotPassword sends an OTP for password reset
+func (s *authService) ForgotPassword(email string) error {
 	// Find user by email across all organizations
 	user, err := s.userRepo.GetByEmailAcrossOrgs(email)
 	if err != nil {
@@ -310,66 +312,88 @@ func (s *authService) ForgotPassword(email string, resetURL string) error {
 		return nil
 	}
 
-	// Invalidate any existing unused tokens for this user
-	if err := s.passwordResetRepo.InvalidateUserTokens(strconv.FormatUint(uint64(user.ID), 10)); err != nil {
+	// Invalidate any existing unused OTPs for this email
+	if err := s.otpRepo.InvalidateUserOTPs(email); err != nil {
 		// Log but don't fail
 	}
 
-	// Generate secure random token
-	token, err := utils.GenerateRandomString(64)
+	// Generate 6-digit OTP
+	otp, err := utils.GenerateOTP()
 	if err != nil {
-		return fmt.Errorf("failed to generate reset token: %w", err)
+		return fmt.Errorf("failed to generate OTP: %w", err)
 	}
 
-	// Create password reset token (expires in 1 hour)
-	resetToken := &models.PasswordResetToken{
+	// Create OTP token for password reset (expires in 10 minutes)
+	otpToken := &models.OTPToken{
 		UserID:    user.ID,
-		Token:     token,
-		ExpiresAt: time.Now().Add(1 * time.Hour),
+		Email:     email,
+		OTP:       otp,
+		ExpiresAt: time.Now().Add(10 * time.Minute),
 		Used:      false,
 	}
 
-	if err := s.passwordResetRepo.Create(resetToken); err != nil {
-		return fmt.Errorf("failed to create reset token: %w", err)
+	if err := s.otpRepo.Create(otpToken); err != nil {
+		return fmt.Errorf("failed to create OTP token: %w", err)
 	}
 
-	// Send password reset email
-	resetLink := fmt.Sprintf("%s?token=%s", resetURL, token)
-	emailSubject := "Password Reset Request - HR Portal"
+	// Send password reset OTP email
+	emailSubject := "Password Reset OTP - HR Portal"
 	emailBody := fmt.Sprintf(
 		"Hello %s,\n\n"+
 			"You requested a password reset for your HR Portal account.\n\n"+
-			"Click the following link to reset your password:\n%s\n\n"+
-			"This link will expire in 1 hour.\n\n"+
+			"Your password reset OTP is: %s\n\n"+
+			"This OTP will expire in 10 minutes.\n\n"+
 			"If you did not request this password reset, please ignore this email.\n\n"+
 			"Best regards,\nHR Portal Team",
 		user.Name,
-		resetLink,
+		otp,
 	)
 
 	if err := s.notificationService.SendEmail(user.Email, emailSubject, emailBody); err != nil {
-		// Log but don't fail - token is already created
+		// Log error for debugging
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"email":   user.Email,
+			"user_id": user.ID,
+		}).Error("Failed to send forgot password email")
+		// Return error so caller knows email failed
+		return fmt.Errorf("failed to send email: %w", err)
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"email":   user.Email,
+		"user_id": user.ID,
+	}).Info("Forgot password OTP email sent successfully")
 
 	return nil
 }
 
-// ResetPassword resets a user's password using a reset token
-func (s *authService) ResetPassword(token, newPassword string) error {
-	// Validate password strength (relaxed - just check length for now)
+// ResetPasswordWithOTP resets a user's password using OTP verification
+func (s *authService) ResetPasswordWithOTP(email, otp, newPassword string) error {
+	// Validate password length
 	if len(newPassword) < 8 {
 		return fmt.Errorf("password must be at least 8 characters long")
 	}
 
-	// Get reset token
-	resetToken, err := s.passwordResetRepo.GetByToken(token)
+	// Verify OTP
+	otpToken, err := s.otpRepo.GetByEmailAndOTP(email, otp)
 	if err != nil {
-		return fmt.Errorf("invalid or expired token")
+		return fmt.Errorf("invalid or expired OTP")
 	}
 
-	// Mark token as used
-	if err := s.passwordResetRepo.MarkAsUsed(token); err != nil {
+	// Mark OTP as used
+	if err := s.otpRepo.MarkAsUsed(otp); err != nil {
 		// Continue anyway
+	}
+
+	// Get user
+	user, err := s.userRepo.GetByID(strconv.FormatUint(uint64(otpToken.UserID), 10))
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Check if user is still active
+	if !user.IsActive {
+		return fmt.Errorf("user account is deactivated")
 	}
 
 	// Hash new password
@@ -379,11 +403,6 @@ func (s *authService) ResetPassword(token, newPassword string) error {
 	}
 
 	// Update user password
-	user, err := s.userRepo.GetByID(strconv.FormatUint(uint64(resetToken.UserID), 10))
-	if err != nil {
-		return fmt.Errorf("user not found: %w", err)
-	}
-
 	user.PasswordHash = hashedPassword
 	if err := s.userRepo.Update(user); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)

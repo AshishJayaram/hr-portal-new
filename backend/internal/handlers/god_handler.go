@@ -109,18 +109,104 @@ func (h *GodHandler) GetOrganization(c *gin.Context) {
 
 // CreateOrganization creates a new organization
 func (h *GodHandler) CreateOrganization(c *gin.Context) {
-	var org models.Organization
-	if err := c.ShouldBindJSON(&org); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+	var req struct {
+		Name        string `json:"name" binding:"required"`
+		Domain      string `json:"domain"`
+		Description string `json:"description"`
+		Settings    string `json:"settings"`
+		IsActive    *bool  `json:"is_active"`
+		AdminUser   *struct {
+			Username string `json:"username" binding:"required"`
+			Email    string `json:"email" binding:"required,email"`
+			Password string `json:"password" binding:"required"`
+			Name     string `json:"name" binding:"required"`
+		} `json:"admin_user" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: " + err.Error()})
 		return
 	}
 
-	if err := h.services.Organization.Create(&org); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create organization"})
+	// Check if domain already exists (if domain is provided)
+	if req.Domain != "" {
+		existingOrg, _ := h.services.Organization.GetByDomain(req.Domain)
+		if existingOrg != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Domain already exists"})
+			return
+		}
+	}
+
+	// Create organization
+	org := &models.Organization{
+		Name:     req.Name,
+		Domain:   req.Domain,
+		Settings: req.Settings,
+		IsActive: true,
+	}
+	if req.IsActive != nil {
+		org.IsActive = *req.IsActive
+	}
+
+	if err := h.services.Organization.Create(org); err != nil {
+		// Check for specific database errors
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "duplicate key") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Organization with this domain already exists"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create organization: " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, org)
+	// Create admin user
+	orgIDStr := fmt.Sprintf("%d", org.ID)
+	createUserReq := services.CreateUserRequest{
+		OrganizationID: orgIDStr,
+		Username:       req.AdminUser.Username,
+		Email:          req.AdminUser.Email,
+		Password:       req.AdminUser.Password,
+		Name:           req.AdminUser.Name,
+		Role:           "Admin",
+		Department:     "Management", // Default department for admin
+	}
+
+	adminUser, err := h.services.User.CreateUser(createUserReq, c.Request)
+	if err != nil {
+		// If user creation fails, delete the organization to maintain consistency
+		h.services.Organization.Delete(orgIDStr)
+
+		// Provide more specific error messages
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "username already exists") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Username already exists"})
+			return
+		}
+		if strings.Contains(errorMsg, "email already exists") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create admin user: " + errorMsg})
+		return
+	}
+
+	// Return organization with admin user info
+	response := gin.H{
+		"data":    org,
+		"message": "Organization created successfully",
+	}
+
+	if adminUser != nil {
+		response["admin_user"] = gin.H{
+			"id":       adminUser.ID,
+			"username": adminUser.Username,
+			"email":    adminUser.Email,
+			"name":     adminUser.Name,
+			"role":     adminUser.Role,
+		}
+	}
+
+	c.JSON(http.StatusCreated, response)
 }
 
 // UpdateOrganization updates an organization

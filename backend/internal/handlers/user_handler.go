@@ -39,7 +39,11 @@ func NewUserHandler(userService services.UserService) *UserHandler {
 // @Failure 401 {object} map[string]string
 // @Router /api/users [get]
 func (h *UserHandler) ListUsers(c *gin.Context) {
-	organizationID, _ := c.Get("current_organization_id")
+	// Try both organization_id and current_organization_id for compatibility
+	organizationID, exists := c.Get("organization_id")
+	if !exists {
+		organizationID, _ = c.Get("current_organization_id")
+	}
 
 	// Parse query parameters
 	filters := make(map[string]interface{})

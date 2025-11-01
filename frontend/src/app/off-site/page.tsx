@@ -10,6 +10,7 @@ import {
   getCurrentUser,
   canManageOffSites,
 } from "@/lib/api";
+import { useFilteredUsers } from "@/hooks/useUsersCache";
 import RoleGuard from "@/components/RoleGuard";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -41,9 +42,32 @@ export default function OffSitePage() {
   // Check if user can manage off-sites (HR, Admin, God)
   const canManage = canManageOffSites();
   
-  // Check if user can view team off-sites (HR, Admin, God, or Employee managers)
+  // Get user role from existing user object
   const userRole = user?.role || "Employee";
-  const canViewTeamOffSites = canManage || userRole === "Employee"; // Employee managers can view team off-sites
+  
+  // Use global users cache for checking if user is a manager
+  const { users: usersData } = useFilteredUsers();
+
+  // Check if current user is a manager (has subordinates)
+  // Anyone with subordinates is considered a manager, regardless of role
+  const isManager = useMemo(() => {
+    if (canManage) return true; // HR, Admin, God are always managers
+    
+    const users = usersData || [];
+    const currentUserId = String(userId);
+    // Check if any user has this user as their manager
+    // This works for any role - if you have subordinates, you're a manager
+    // Handle both number and string formats for manager_id
+    return users.some((u: any) => {
+      const managerId = u.manager_id;
+      if (managerId === null || managerId === undefined) return false;
+      // Convert both to strings for comparison
+      return String(managerId) === currentUserId;
+    });
+  }, [canManage, usersData, userId]);
+  
+  // Check if user can view team off-sites (HR, Admin, God, or anyone who has subordinates)
+  const canViewTeamOffSites = canManage || isManager;
 
   // Fetch off-site entries - different scope based on active tab
   const { data: offSitesData, isLoading, error, refetch } = useQuery({

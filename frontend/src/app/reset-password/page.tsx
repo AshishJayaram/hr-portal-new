@@ -3,16 +3,19 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { resetPassword } from "@/lib/api";
+import { resetPassword, forgotPassword } from "@/lib/api";
 
 export default function ResetPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendingOTP, setIsResendingOTP] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,17 +27,52 @@ export default function ResetPasswordPage() {
     };
     checkTheme();
 
-    const tokenParam = searchParams.get("token");
-    setToken(tokenParam);
-    
-    if (!tokenParam) {
-      setError("Invalid or missing reset token. Please request a new password reset.");
+    // Get email from URL query parameter if available
+    const emailParam = searchParams.get("email");
+    if (emailParam) {
+      setEmail(emailParam);
+      setOtpSent(true); // Assume OTP was already sent
     }
   }, [searchParams]);
+
+  const handleResendOTP = async () => {
+    if (!email) {
+      setError("Please enter your email address first");
+      return;
+    }
+
+    setIsResendingOTP(true);
+    setError("");
+    
+    try {
+      await forgotPassword(email);
+      setOtpSent(true);
+      setSuccess(false);
+    } catch (err: any) {
+      console.error("Resend OTP error:", err);
+      if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Failed to resend OTP. Please try again.");
+      }
+    } finally {
+      setIsResendingOTP(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!email) {
+      setError("Email is required");
+      return;
+    }
+
+    if (!otp || otp.length !== 6) {
+      setError("Please enter a valid 6-digit OTP");
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match");
@@ -46,15 +84,10 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (!token) {
-      setError("Invalid or missing reset token");
-      return;
-    }
-
     setIsLoading(true);
 
     try {
-      await resetPassword(token, newPassword);
+      await resetPassword(email, otp, newPassword);
       setSuccess(true);
       
       setTimeout(() => {
@@ -109,8 +142,52 @@ export default function ResetPasswordPage() {
         ) : (
           <>
             <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-              Enter your new password below.
+              Enter your email, the OTP sent to your email, and your new password.
             </p>
+            
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={otpSent && email !== ""}
+              className={`w-full p-3 rounded focus:outline-none focus:ring-2 ${
+                isDarkMode 
+                  ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60 disabled:opacity-50" 
+                  : "bg-white/60 text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50 disabled:opacity-50"
+              }`}
+            />
+
+            <div className="space-y-2">
+              <input
+                type="text"
+                placeholder="Enter 6-digit OTP"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                maxLength={6}
+                required
+                className={`w-full p-3 rounded focus:outline-none focus:ring-2 ${
+                  isDarkMode 
+                    ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
+                    : "bg-white/60 text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
+                }`}
+              />
+              {otpSent && (
+                <button
+                  type="button"
+                  onClick={handleResendOTP}
+                  disabled={isResendingOTP}
+                  className={`w-full text-sm underline ${
+                    isDarkMode 
+                      ? "text-indigo-400 hover:text-indigo-300 disabled:opacity-50" 
+                      : "text-indigo-600 hover:text-indigo-700 disabled:opacity-50"
+                  }`}
+                >
+                  {isResendingOTP ? "Sending..." : "Resend OTP"}
+                </button>
+              )}
+            </div>
             
             <input
               type="password"
@@ -146,9 +223,9 @@ export default function ResetPasswordPage() {
             
             <button
               type="submit"
-              disabled={isLoading || !token}
+              disabled={isLoading}
               className={`w-full p-3 rounded font-semibold shadow-lg transition-shadow ${
-                isLoading || !token
+                isLoading 
                   ? "bg-gray-500 cursor-not-allowed" 
                   : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:shadow-xl"
               }`}
@@ -177,4 +254,3 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
-

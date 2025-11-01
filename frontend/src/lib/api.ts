@@ -322,18 +322,18 @@ export const verifyOTP = async (email: string, otp: string): Promise<ApiResponse
   return response;
 };
 
-export const forgotPassword = async (email: string, resetURL?: string): Promise<ApiResponse<{ message: string }>> => {
+export const forgotPassword = async (email: string): Promise<ApiResponse<{ message: string }>> => {
   const response = await fetcher<ApiResponse<{ message: string }>>("/auth/forgot-password", {
     method: "POST",
-    body: JSON.stringify({ email, reset_url: resetURL }),
+    body: JSON.stringify({ email }),
   });
   return response;
 };
 
-export const resetPassword = async (token: string, newPassword: string): Promise<ApiResponse<{ message: string }>> => {
+export const resetPassword = async (email: string, otp: string, newPassword: string): Promise<ApiResponse<{ message: string }>> => {
   const response = await fetcher<ApiResponse<{ message: string }>>("/auth/reset-password", {
     method: "POST",
-    body: JSON.stringify({ token, new_password: newPassword }),
+    body: JSON.stringify({ email, otp, new_password: newPassword }),
   });
   return response;
 };
@@ -348,6 +348,7 @@ export const getUsers = (params?: Record<string, string>) =>
       name: u.name ?? u.username ?? 'User',
       role: toCanonicalRole(u.role) as Role,
       department: u.department,
+      manager_id: u.manager_id !== undefined && u.manager_id !== null ? Number(u.manager_id) : undefined,
       created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updated_at: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     }));
@@ -502,11 +503,11 @@ export const createLeaveAllocation = (userId: string, body: Partial<LeaveAllocat
   fetcher<ApiResponse<LeaveAllocation>>(`/api/leave-allocations`, {
     method: "POST",
     body: JSON.stringify({
-      user_id: userId,
-      category_id: body.categoryId,
-      category_name: body.categoryName,
-      total_days: body.totalDays,
-      year: body.year,
+      user_id: String(userId), // Ensure user_id is always a string
+      category_id: String(body.categoryId || ''),
+      category_name: body.categoryName || '',
+      total_days: Number(body.totalDays) || 0,
+      year: Number(body.year) || new Date().getFullYear(),
     }),
   });
 
@@ -617,7 +618,12 @@ export const getLeaves = (params?: Record<string, string>) =>
 
 export const getLeavesPaginated = (params?: Record<string, string>) =>
   fetcher<any>(`/leaves?${new URLSearchParams({ ...(params || {}), paginated: 'true' }).toString()}`).then((raw) => {
-    const items = (raw?.data || []) as any[];
+    // Handle both direct response and wrapped response
+    // Backend returns: { data: [...], total: ..., page: ..., per_page: ..., total_pages: ... }
+    const responseData = raw?.data !== undefined ? raw : raw;
+    const items = (responseData?.data || []) as any[];
+    
+    
     const mapped: Leave[] = items.map((l: any) => ({
       id: String(l.id),
       userId: String(l.user_id ?? l.userId ?? ''),
@@ -637,18 +643,21 @@ export const getLeavesPaginated = (params?: Record<string, string>) =>
     }));
     return {
       data: mapped,
-      total: raw?.total || 0,
-      page: raw?.page || 1,
-      per_page: raw?.per_page || 10,
-      total_pages: raw?.total_pages || 1,
+      total: (responseData?.total ?? raw?.total) || 0,
+      page: (responseData?.page ?? raw?.page) || 1,
+      per_page: (responseData?.per_page ?? raw?.per_page) || 10,
+      total_pages: (responseData?.total_pages ?? raw?.total_pages) || 1,
     };
-  }).catch(() => ({ 
-    data: [], 
-    total: 0, 
-    page: 1, 
-    per_page: 10, 
-    total_pages: 1 
-  }));
+  }).catch((error) => {
+    console.error('❌ getLeavesPaginated error:', error);
+    return { 
+      data: [], 
+      total: 0, 
+      page: 1, 
+      per_page: 10, 
+      total_pages: 1 
+    };
+  });
 
 export const getLeave = (id: string) =>
   fetcher<ApiResponse<Leave>>(`/leaves/${id}`);
