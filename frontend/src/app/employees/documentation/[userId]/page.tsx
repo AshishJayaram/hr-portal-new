@@ -182,6 +182,27 @@ export default function EmployeeDocumentationPage() {
     }
   };
 
+  // Helper function to format date for display
+  const formatDateForDisplay = (dateValue: any): string => {
+    if (!dateValue) return 'N/A';
+    try {
+      const dateStr = String(dateValue).trim();
+      let date: Date;
+      if (dateStr.includes('T') || dateStr.includes(' ')) {
+        const cleanDateStr = dateStr.split(' ')[0].split('T')[0];
+        date = new Date(cleanDateStr + 'T00:00:00');
+      } else {
+        date = new Date(dateStr + 'T00:00:00');
+      }
+      if (isNaN(date.getTime())) {
+        return 'N/A';
+      }
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch (e) {
+      return 'N/A';
+    }
+  };
+
   const handleEditGrowth = (record: EmployeeGrowthRecord) => {
     setEditingRecord(record);
     setTitle(record.title);
@@ -237,15 +258,6 @@ export default function EmployeeDocumentationPage() {
     } else {
       return 'Less than a month';
     }
-  };
-
-  const formatDateForDisplay = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
   };
 
   const tabs = [
@@ -311,7 +323,11 @@ export default function EmployeeDocumentationPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {editingRecord && editingRecord.date
+                    ? `Date (Current: ${formatDateForDisplay(editingRecord.date)})`
+                    : "Date"}
+                </label>
                 <Input
                   type="date"
                   value={date}

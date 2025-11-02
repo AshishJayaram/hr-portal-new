@@ -840,11 +840,11 @@ export default function DashboardPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-medium text-primary">{event.name || event.title}</h4>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          event.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
-                          event.type === 'event' ? 'bg-amber-500/20 text-amber-400' :
-                          event.type === 'notice' ? 'bg-green-500/20 text-green-400' :
-                          'bg-purple-500/20 text-purple-400'
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          event.type === 'holiday' ? 'bg-red-500/30 text-red-300 border border-red-500/40' :
+                          event.type === 'event' ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40' :
+                          event.type === 'notice' ? 'bg-green-500/30 text-green-300 border border-green-500/40' :
+                          'bg-purple-500/30 text-purple-300 border border-purple-500/40'
                         }`}>
                           {event.type || 'holiday'}
                         </span>

@@ -300,12 +300,12 @@ export default function KRAPage() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card className="p-4">
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <div className="p-2 bg-blue-500/20 dark:bg-blue-500/30 rounded-lg">
                 <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total KRAs</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                <p className="text-sm font-medium text-secondary dark:text-gray-400">Total KRAs</p>
+                <p className="text-lg font-semibold text-primary dark:text-white">
                   {kraSummary.total_kras}
                 </p>
               </div>
@@ -313,12 +313,12 @@ export default function KRAPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center">
-              <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+              <div className="p-2 bg-green-500/20 dark:bg-green-500/30 rounded-lg">
                 <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Completed</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                <p className="text-sm font-medium text-secondary dark:text-gray-400">Completed</p>
+                <p className="text-lg font-semibold text-primary dark:text-white">
                   {kraSummary.completed_kras}
                 </p>
               </div>
@@ -326,12 +326,12 @@ export default function KRAPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+              <div className="p-2 bg-yellow-500/20 dark:bg-yellow-500/30 rounded-lg">
                 <Clock className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">In Progress</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                <p className="text-sm font-medium text-secondary dark:text-gray-400">In Progress</p>
+                <p className="text-lg font-semibold text-primary dark:text-white">
                   {kraSummary.total_kras - kraSummary.completed_kras}
                 </p>
               </div>
@@ -339,12 +339,12 @@ export default function KRAPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+              <div className="p-2 bg-purple-500/20 dark:bg-purple-500/30 rounded-lg">
                 <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Rating</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                <p className="text-sm font-medium text-secondary dark:text-gray-400">Avg Rating</p>
+                <p className="text-lg font-semibold text-primary dark:text-white">
                   {kraSummary.average_rating?.toFixed(1) || 'N/A'}
                 </p>
               </div>
@@ -352,12 +352,12 @@ export default function KRAPage() {
           </Card>
           <Card className="p-4">
             <div className="flex items-center">
-              <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+              <div className="p-2 bg-orange-500/20 dark:bg-orange-500/30 rounded-lg">
                 <BarChart3 className="w-5 h-5 text-orange-600 dark:text-orange-400" />
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Weight</p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                <p className="text-sm font-medium text-secondary dark:text-gray-400">Total Weight</p>
+                <p className="text-lg font-semibold text-primary dark:text-white">
                   {kraSummary.total_weight?.toFixed(1) || '0'}%
                 </p>
               </div>
@@ -1081,15 +1081,15 @@ function SampleKRASheetModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between p-6 border-b border-card dark:border-white/10">
+          <h2 className="text-xl font-semibold text-primary dark:text-white">
             Sample KRA Formats & Creation
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-muted hover:text-primary dark:text-gray-400 dark:hover:text-white transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1110,10 +1110,10 @@ function SampleKRASheetModal({
           {activeTab === 'samples' && (
             <div className="mt-6">
               <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                <h3 className="text-lg font-semibold text-primary dark:text-white mb-4">
                   Sample KRA Formats
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                <p className="text-secondary dark:text-gray-400 mb-4">
                   Here are some sample KRAs to help you understand the format and structure. 
                   You can use these as templates for creating your own KRAs.
                 </p>
@@ -1124,25 +1124,25 @@ function SampleKRASheetModal({
                   <Card key={index} className="p-4">
                     <div className="space-y-3">
                       <div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white">{sample.title}</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{sample.description}</p>
+                        <h4 className="font-semibold text-primary dark:text-white">{sample.title}</h4>
+                        <p className="text-sm text-secondary dark:text-gray-400">{sample.description}</p>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Target:</span>
-                          <span className="ml-2 font-medium text-gray-900 dark:text-white">
+                          <span className="text-muted dark:text-gray-500">Target:</span>
+                          <span className="ml-2 font-medium text-primary dark:text-white">
                             {sample.target_value} {sample.measurement_unit}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400">Weight:</span>
-                          <span className="ml-2 font-medium text-gray-900 dark:text-white">
+                          <span className="text-muted dark:text-gray-500">Weight:</span>
+                          <span className="ml-2 font-medium text-primary dark:text-white">
                             {sample.weight}%
                           </span>
                         </div>
                         <div className="col-span-2">
-                          <span className="text-gray-500 dark:text-gray-400">Domain:</span>
-                          <span className="ml-2 font-medium text-gray-900 dark:text-white">
+                          <span className="text-muted dark:text-gray-500">Domain:</span>
+                          <span className="ml-2 font-medium text-primary dark:text-white">
                             {sample.domain}
                           </span>
                         </div>
@@ -1152,9 +1152,9 @@ function SampleKRASheetModal({
                 ))}
               </div>
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">💡 Tips for Creating Effective KRAs:</h4>
-                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+              <div className="bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 dark:border-indigo-500/30 p-4 rounded-lg">
+                <h4 className="font-semibold text-indigo-900 dark:text-indigo-100 mb-2">💡 Tips for Creating Effective KRAs:</h4>
+                <ul className="text-sm text-indigo-800 dark:text-indigo-200 space-y-1">
                   <li>• Make your KRAs specific and measurable</li>
                   <li>• Set realistic but challenging targets</li>
                   <li>• Ensure KRAs align with company objectives</li>
@@ -1180,7 +1180,7 @@ function SampleKRASheetModal({
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                       KRA Title *
                     </label>
                     <Input
@@ -1192,7 +1192,7 @@ function SampleKRASheetModal({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                       Period *
                     </label>
                     <Select
@@ -1207,21 +1207,21 @@ function SampleKRASheetModal({
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                       Description *
                     </label>
                     <textarea
                       value={formData.description}
                       onChange={(e) => handleInputChange('description', e.target.value)}
                       placeholder="Describe the KRA in detail"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 rounded-lg border border-card bg-card text-primary placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent"
                       rows={3}
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                       Target Value *
                     </label>
                 <Input
@@ -1234,7 +1234,7 @@ function SampleKRASheetModal({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                       Measurement Unit *
                     </label>
                     <Input
@@ -1246,7 +1246,7 @@ function SampleKRASheetModal({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                       Weightage (%) *
                     </label>
                     <div className="space-y-2">
@@ -1265,12 +1265,12 @@ function SampleKRASheetModal({
                         placeholder="Enter weight percentage"
                         required
                       />
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                      <div className="text-sm text-secondary dark:text-gray-400">
                         Remaining weight: {calculateRemainingWeight()}%
                       </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div className="w-full bg-white/5 dark:bg-white/10 rounded-full h-2 border border-card dark:border-white/10">
                         <div 
-                          className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
+                          className="bg-indigo-500 dark:bg-indigo-400 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${Math.min(100, formData.weight)}%` }}
                         ></div>
                       </div>
@@ -1279,7 +1279,7 @@ function SampleKRASheetModal({
 
                   {canViewTeamKRAs && usersData && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                         Assign to User
                       </label>
                       <Select
@@ -2071,7 +2071,7 @@ function TeamKRASection({
       <Card className="p-4">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
               Search Team Members
             </label>
             <Input
@@ -2100,21 +2100,21 @@ function TeamKRASection({
                     onClick={() => setSelectedUser(String(user.id))}
                     className={`p-3 rounded-lg border text-left transition-colors ${
                       selectedUser === String(user.id)
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        ? 'border-indigo-500 bg-indigo-500/20 dark:bg-indigo-500/30 shadow-md'
+                        : 'border-card dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 hover:bg-white/5 dark:hover:bg-white/10'
                     }`}
                   >
-                    <div className="font-medium text-gray-900 dark:text-white">{user.name}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">{user.email}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500 capitalize">{user.role}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500">
+                    <div className="font-medium text-primary dark:text-white">{user.name}</div>
+                    <div className="text-sm text-secondary dark:text-gray-400">{user.email}</div>
+                    <div className="text-xs text-muted dark:text-gray-500 capitalize">{user.role}</div>
+                    <div className="text-xs text-muted dark:text-gray-500">
                       Manager: {getManagerName(user.manager_id) || '—'}
                     </div>
                     <div className="mt-2 flex items-center justify-between">
-                      <span className="text-xs text-gray-500 dark:text-gray-500">
+                      <span className="text-xs text-muted dark:text-gray-500">
                         {userKRAs.length} KRA{userKRAs.length !== 1 ? 's' : ''}
                       </span>
-                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                      <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
                         {userKRAs.length > 0 ? `${totalWeightage.toFixed(1)}% weight` : 'No KRAs'}
                       </span>
                     </div>
@@ -2160,10 +2160,10 @@ function TeamKRASection({
         <Card className="p-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
+              <h3 className="font-semibold text-primary dark:text-white">
                 KRAs for {selectedUserData.name}
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-secondary dark:text-gray-400">
                 {selectedUserData.email} • {selectedUserData.role}
               </p>
             </div>

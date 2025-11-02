@@ -257,12 +257,12 @@ export default function SignInPage() {
     }`}>
       <form
         onSubmit={loginMode === "password" ? handlePasswordLogin : (otpSent ? handleOTPLogin : handleSendOTP)}
-        className="bg-white/10 backdrop-blur p-8 rounded-xl shadow-2xl shadow-purple-900/30 space-y-4 w-full max-w-md border border-white/10"
+        className="bg-card border border-card dark:bg-white/10 dark:border-white/10 backdrop-blur-sm p-8 rounded-xl shadow-2xl space-y-4 w-full max-w-md"
       >
-        <h1 className={`text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent ${
+        <h1 className={`text-2xl font-bold ${
           isDarkMode 
-            ? "from-white to-gray-300"
-            : "from-gray-800 to-gray-600"
+            ? "text-white"
+            : "text-primary"
         }`}>
           Sign in to HR Portal
         </h1>

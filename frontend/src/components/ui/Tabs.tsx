@@ -26,28 +26,28 @@ export default function Tabs({
   variant = 'default'
 }: TabsProps) {
   const getTabClasses = (tab: Tab) => {
-    const baseClasses = "font-medium text-sm transition-all duration-200";
+    const baseClasses = "font-semibold text-sm transition-all duration-200";
     
     switch (variant) {
       case 'pills':
         return `${baseClasses} px-4 py-2 rounded-lg ${
           activeTab === tab.id
-            ? 'bg-indigo-600 text-white shadow-sm'
-            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-800'
+            ? 'bg-indigo-500 text-white shadow-md'
+            : 'text-secondary dark:text-gray-300 hover:text-primary dark:hover:text-white hover:bg-white/10 dark:hover:bg-white/20'
         }`;
       
       case 'underline':
         return `${baseClasses} py-4 px-1 border-b-2 ${
           activeTab === tab.id
             ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            : 'border-transparent text-secondary dark:text-gray-400 hover:text-primary dark:hover:text-gray-300 hover:border-indigo-300 dark:hover:border-indigo-500/40'
         }`;
       
       default:
         return `${baseClasses} py-4 px-1 border-b-2 ${
           activeTab === tab.id
             ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            : 'border-transparent text-secondary dark:text-gray-400 hover:text-primary dark:hover:text-gray-300 hover:border-indigo-300 dark:hover:border-indigo-500/40'
         }`;
     }
   };
@@ -58,7 +58,7 @@ export default function Tabs({
         return `flex space-x-2 ${className}`;
       case 'underline':
       default:
-        return `border-b border-gray-200 dark:border-gray-700 ${className}`;
+        return `border-b border-card dark:border-white/10 ${className}`;
     }
   };
 
@@ -78,19 +78,19 @@ export default function Tabs({
               )}
               <span>{tab.label}</span>
               {tab.count !== undefined && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
                   activeTab === tab.id
-                    ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                    ? 'bg-indigo-500/30 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 dark:border-indigo-500/40'
+                    : 'bg-white/5 dark:bg-white/10 text-secondary dark:text-gray-300 border-card dark:border-white/10'
                 }`}>
                   {tab.count}
                 </span>
               )}
               {tab.badge && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${
                   activeTab === tab.id
-                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                    ? 'bg-red-500/30 text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/40'
+                    : 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30 dark:border-red-500/30'
                 }`}>
                   {tab.badge}
                 </span>

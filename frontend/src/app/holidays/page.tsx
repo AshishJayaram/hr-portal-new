@@ -127,6 +127,27 @@ export default function HolidaysPage() {
     }
   };
 
+  // Helper function to format date for display
+  const formatDateForDisplay = (dateValue: any): string => {
+    if (!dateValue) return "";
+    try {
+      const dateStr = String(dateValue).trim();
+      let date: Date;
+      if (dateStr.includes('T') || dateStr.includes(' ')) {
+        const cleanDateStr = dateStr.split(' ')[0].split('T')[0];
+        date = new Date(cleanDateStr + 'T00:00:00');
+      } else {
+        date = new Date(dateStr + 'T00:00:00');
+      }
+      if (isNaN(date.getTime())) {
+        return "";
+      }
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch (e) {
+      return "";
+    }
+  };
+
   const handleEdit = (holiday: Holiday) => {
     setEditingHoliday(holiday);
     
@@ -186,17 +207,16 @@ export default function HolidaysPage() {
       </div>
 
       {/* Year Selector for Financial Year */}
-      <div className="bg-gray-100 dark:bg-gray-800/50 rounded-lg p-4">
+      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <label htmlFor="year-select" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="year-select" className="text-sm font-semibold text-primary dark:text-white">
               Financial Year:
             </label>
             <Select
               id="year-select"
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
               options={availableYears.length > 0 ? availableYears.map((year) => {
                 const financialYearLabel = `${year} (Apr ${year.toString().slice(-2)} - Mar ${(year + 1).toString().slice(-2)})`;
                 return {
@@ -212,59 +232,59 @@ export default function HolidaysPage() {
               })}
             />
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="text-sm text-secondary dark:text-gray-400">
             Showing holidays and events for FY {selectedYear}
           </div>
         </div>
       </div>
 
       {/* Type Filter */}
-      <div className="bg-white/5 dark:bg-white/10 rounded-lg p-4 border border-card">
+      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-4 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-primary mr-2">Filter:</span>
+            <span className="text-sm font-semibold text-primary dark:text-white mr-2">Filter:</span>
             <button
               onClick={() => setTypeFilter("all")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
                 typeFilter === "all"
-                  ? "bg-indigo-500 text-white"
-                  : "bg-white/5 dark:bg-white/10 text-secondary hover:bg-white/10 dark:hover:bg-white/20"
+                  ? "bg-indigo-500 text-white shadow-md"
+                  : "bg-white/5 dark:bg-white/10 text-secondary dark:text-gray-300 hover:bg-white/10 dark:hover:bg-white/20 border border-card dark:border-white/10"
               }`}
             >
               All
             </button>
             <button
               onClick={() => setTypeFilter("holiday")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
                 typeFilter === "holiday"
-                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                  : "bg-white/5 dark:bg-white/10 text-secondary hover:bg-white/10 dark:hover:bg-white/20"
+                  ? "bg-red-500/30 text-red-300 border-red-500/40 shadow-md"
+                  : "bg-white/5 dark:bg-white/10 text-secondary dark:text-gray-300 hover:bg-white/10 dark:hover:bg-white/20 border-card dark:border-white/10"
               }`}
             >
               Holidays
             </button>
             <button
               onClick={() => setTypeFilter("event")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
                 typeFilter === "event"
-                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                  : "bg-white/5 dark:bg-white/10 text-secondary hover:bg-white/10 dark:hover:bg-white/20"
+                  ? "bg-amber-500/30 text-amber-300 border-amber-500/40 shadow-md"
+                  : "bg-white/5 dark:bg-white/10 text-secondary dark:text-gray-300 hover:bg-white/10 dark:hover:bg-white/20 border-card dark:border-white/10"
               }`}
             >
               Events
             </button>
             <button
               onClick={() => setTypeFilter("notice")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
                 typeFilter === "notice"
-                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                  : "bg-white/5 dark:bg-white/10 text-secondary hover:bg-white/10 dark:hover:bg-white/20"
+                  ? "bg-green-500/30 text-green-300 border-green-500/40 shadow-md"
+                  : "bg-white/5 dark:bg-white/10 text-secondary dark:text-gray-300 hover:bg-white/10 dark:hover:bg-white/20 border-card dark:border-white/10"
               }`}
             >
               Notices
             </button>
           </div>
-          <div className="text-sm text-secondary">
+          <div className="text-sm text-secondary dark:text-gray-400">
             {(() => {
               const filteredCount = holidays.filter((holiday) => {
                 if (typeFilter === "all") return true;
@@ -367,7 +387,23 @@ export default function HolidaysPage() {
               {/* Date Fields */}
               <div className="grid md:grid-cols-2 gap-4">
                 <Input
-                  label={formData.isMultiDay ? "Start Date" : "Date"}
+                  label={(() => {
+                    if (!editingHoliday) {
+                      return formData.isMultiDay ? "Start Date" : "Date";
+                    }
+                    const currentDate = editingHoliday.dateRange 
+                      ? editingHoliday.dateRange.split(" to ")[0].trim()
+                      : editingHoliday.date || "";
+                    const formattedDate = currentDate ? formatDateForDisplay(currentDate) : "";
+                    if (formData.isMultiDay) {
+                      return formattedDate 
+                        ? `Start Date (Current: ${formattedDate})`
+                        : "Start Date";
+                    }
+                    return formattedDate 
+                      ? `Date (Current: ${formattedDate})`
+                      : "Date";
+                  })()}
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => {
@@ -382,7 +418,16 @@ export default function HolidaysPage() {
                 />
                 {formData.isMultiDay && (
                   <Input
-                    label="End Date"
+                    label={(() => {
+                      if (!editingHoliday || !editingHoliday.dateRange) {
+                        return "End Date";
+                      }
+                      const endDateStr = editingHoliday.dateRange.split(" to ")[1]?.trim() || "";
+                      const formattedDate = endDateStr ? formatDateForDisplay(endDateStr) : "";
+                      return formattedDate 
+                        ? `End Date (Current: ${formattedDate})`
+                        : "End Date";
+                    })()}
                     type="date"
                     value={formData.endDate}
                     onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}

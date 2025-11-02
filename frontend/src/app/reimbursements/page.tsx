@@ -490,23 +490,23 @@ export default function ReimbursementsPage() {
       {/* Tabs for HR/Admin */}
       {isHRorAdmin() && (
         <Card className="p-4">
-          <div className="flex space-x-1 bg-gray-100 dark:bg-white/5 p-1 rounded-lg">
+          <div className="flex space-x-1 bg-white/5 dark:bg-white/10 p-1 rounded-lg border border-card dark:border-white/10">
             <button
               onClick={() => setActiveTab('my')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
                 activeTab === 'my'
-                  ? 'bg-indigo-500 text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
+                  ? 'bg-indigo-500 text-white shadow-md'
+                  : 'text-secondary dark:text-gray-300 hover:text-primary dark:hover:text-white hover:bg-white/10 dark:hover:bg-white/20'
               }`}
             >
               My Requests
             </button>
             <button
               onClick={() => setActiveTab('team')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
                 activeTab === 'team'
-                  ? 'bg-indigo-500 text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
+                  ? 'bg-indigo-500 text-white shadow-md'
+                  : 'text-secondary dark:text-gray-300 hover:text-primary dark:hover:text-white hover:bg-white/10 dark:hover:bg-white/20'
               }`}
             >
               Team Requests

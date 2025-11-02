@@ -254,7 +254,7 @@ export default function TeamPage() {
         {/* Selected User Details */}
         <div className="lg:col-span-1">
           <Card className="p-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+            <h2 className="text-xl font-bold mb-4 text-primary dark:text-white flex items-center gap-2">
               <UserIcon className="h-5 w-5" />
               Employee Details
             </h2>
@@ -269,14 +269,14 @@ export default function TeamPage() {
                   }`}>
                     {selectedUser.name?.charAt(0) || 'U'}
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-lg font-semibold text-primary dark:text-white">
                     {selectedUser.name}
                   </h3>
-                  <p className="text-gray-500 dark:text-gray-400">
+                  <p className="text-secondary dark:text-gray-400">
                     {selectedUser.designation}
                   </p>
                   {team.some(u => u.manager_id === Number(selectedUser.id)) && (
-                    <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
+                    <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-500/30 text-green-700 dark:text-green-300 border border-green-500/40 dark:border-green-500/40 mt-1">
                       Manager
                     </span>
                   )}
@@ -285,36 +285,36 @@ export default function TeamPage() {
                 <div className="space-y-3">
                   {selectedUser.department && (
                     <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Department:</span>
-                      <span className="text-gray-900 dark:text-white">{selectedUser.department}</span>
+                      <Building className="h-4 w-4 text-muted dark:text-gray-500" />
+                      <span className="text-sm text-secondary dark:text-gray-400">Department:</span>
+                      <span className="text-primary dark:text-white font-medium">{selectedUser.department}</span>
                     </div>
                   )}
                   
                   <div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Email:</span>
-                    <p className="text-gray-900 dark:text-white">{selectedUser.email}</p>
+                    <span className="text-sm text-secondary dark:text-gray-400">Email:</span>
+                    <p className="text-primary dark:text-white font-medium">{selectedUser.email}</p>
                   </div>
                   
                   {selectedUser.manager_id && (
                     <div>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Manager:</span>
-                      <p className="text-gray-900 dark:text-white">
+                      <span className="text-sm text-secondary dark:text-gray-400">Manager:</span>
+                      <p className="text-primary dark:text-white font-medium">
                         {team.find(u => u.id === selectedUser.manager_id?.toString())?.name || 'Unknown'}
                       </p>
                     </div>
                   )}
                   
                   <div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Direct Reports:</span>
-                    <p className="text-gray-900 dark:text-white">
+                    <span className="text-sm text-secondary dark:text-gray-400">Direct Reports:</span>
+                    <p className="text-primary dark:text-white font-medium">
                       {team.filter(u => u.manager_id?.toString() === selectedUser.id.toString()).length} employee{team.filter(u => u.manager_id?.toString() === selectedUser.id.toString()).length !== 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-8 text-secondary dark:text-gray-400">
                 <UserIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p>Select an employee to view details</p>
               </div>

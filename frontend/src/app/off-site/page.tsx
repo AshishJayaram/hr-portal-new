@@ -328,11 +328,11 @@ export default function OffSitePage() {
                                       {offSite.location}
                                     </span>
                                   )}
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    offSite.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                    offSite.status === 'in_progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                                    offSite.status === 'cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                                    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                                    offSite.status === 'completed' ? 'bg-green-500/30 text-green-700 dark:text-green-300 border-green-500/40 dark:border-green-500/40' :
+                                    offSite.status === 'in_progress' ? 'bg-blue-500/30 text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/40' :
+                                    offSite.status === 'cancelled' ? 'bg-red-500/30 text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/40' :
+                                    'bg-amber-500/30 text-amber-700 dark:text-amber-300 border-amber-500/40 dark:border-amber-500/40'
                                   }`}>
                                     {capitalize(offSite.status)}
                                   </span>
@@ -464,11 +464,11 @@ export default function OffSitePage() {
                                   <h3 className="text-lg font-semibold text-white truncate">
                                     {offSite.title}
                                   </h3>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium self-start ${
-                                    offSite.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                    offSite.status === 'in_progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                                    offSite.status === 'cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                                    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border self-start ${
+                                    offSite.status === 'completed' ? 'bg-green-500/30 text-green-700 dark:text-green-300 border-green-500/40 dark:border-green-500/40' :
+                                    offSite.status === 'in_progress' ? 'bg-blue-500/30 text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/40' :
+                                    offSite.status === 'cancelled' ? 'bg-red-500/30 text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/40' :
+                                    'bg-amber-500/30 text-amber-700 dark:text-amber-300 border-amber-500/40 dark:border-amber-500/40'
                                   }`}>
                                     {capitalize(offSite.status)}
                                   </span>
@@ -574,6 +574,30 @@ export default function OffSitePage() {
 
 // Off-site Modal Component
 function OffSiteModal({ offSite, onClose, onSave, isLoading }: any) {
+  // Helper function to format date for display
+  const formatDateForDisplay = (dateValue: any): string => {
+    if (!dateValue) return "";
+    try {
+      const dateStr = String(dateValue).trim();
+      let date: Date;
+      if (dateStr.includes('T') || dateStr.includes(' ')) {
+        const cleanDateStr = dateStr.split(' ')[0].split('T')[0];
+        date = new Date(cleanDateStr + 'T00:00:00');
+      } else {
+        date = new Date(dateStr + 'T00:00:00');
+      }
+      if (isNaN(date.getTime())) {
+        return "";
+      }
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch (e) {
+      return "";
+    }
+  };
+
+  const originalStartDate = offSite.start_date ? formatDateForDisplay(offSite.start_date) : "";
+  const originalEndDate = offSite.end_date ? formatDateForDisplay(offSite.end_date) : "";
+
   const [formData, setFormData] = useState({
     title: offSite.title || "",
     description: offSite.description || "",
@@ -681,14 +705,18 @@ function OffSiteModal({ offSite, onClose, onSave, isLoading }: any) {
           
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Start Date"
+              label={originalStartDate && offSite.id
+                ? `Start Date (Current: ${originalStartDate})`
+                : "Start Date"}
               type="date"
               value={formData.start_date}
               onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
               required
             />
             <Input
-              label="End Date"
+              label={originalEndDate && offSite.id
+                ? `End Date (Current: ${originalEndDate})`
+                : "End Date"}
               type="date"
               value={formData.end_date}
               onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}

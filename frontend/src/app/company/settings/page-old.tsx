@@ -107,38 +107,40 @@ export default function CompanySettingsPage() {
       <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Company Settings</h1>
 
       {/* Tab Navigation */}
-      <div className="flex space-x-1 bg-gray-100 dark:bg-white/5 p-1 rounded-lg">
-        <button
-          onClick={() => setActiveTab('general')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'general'
-              ? 'bg-indigo-500 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
-          }`}
-        >
-          General Settings
-        </button>
-        <button
-          onClick={() => setActiveTab('payroll')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'payroll'
-              ? 'bg-indigo-500 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
-          }`}
-        >
-          CTC Rules & Breakdown
-        </button>
-        <button
-          onClick={() => setActiveTab('leaves')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'leaves'
-              ? 'bg-indigo-500 text-white'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10'
-          }`}
-        >
-          Leave Categories
-        </button>
-      </div>
+      <Card className="p-4">
+        <div className="flex space-x-1 bg-white/5 dark:bg-white/10 p-1 rounded-lg border border-card dark:border-white/10">
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'general'
+                ? 'bg-indigo-500 text-white shadow-md'
+                : 'text-secondary dark:text-gray-300 hover:text-primary dark:hover:text-white hover:bg-white/10 dark:hover:bg-white/20'
+            }`}
+          >
+            General Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('payroll')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'payroll'
+                ? 'bg-indigo-500 text-white shadow-md'
+                : 'text-secondary dark:text-gray-300 hover:text-primary dark:hover:text-white hover:bg-white/10 dark:hover:bg-white/20'
+            }`}
+          >
+            CTC Rules & Breakdown
+          </button>
+          <button
+            onClick={() => setActiveTab('leaves')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'leaves'
+                ? 'bg-indigo-500 text-white shadow-md'
+                : 'text-secondary dark:text-gray-300 hover:text-primary dark:hover:text-white hover:bg-white/10 dark:hover:bg-white/20'
+            }`}
+          >
+            Leave Categories
+          </button>
+        </div>
+      </Card>
 
       {activeTab === 'general' && (
         <>

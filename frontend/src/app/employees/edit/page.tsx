@@ -576,14 +576,14 @@ function EditEmployeeForm({ id }: { id: string }) {
                     </div>
                   )}
                   {(managerQuery.length > 0 || managers?.data) && (
-                    <div className="mt-2 max-h-48 overflow-y-auto border border-card dark:border-white/10 rounded bg-card dark:bg-white/10 shadow-lg">
+                    <div className="mt-2 max-h-48 overflow-y-auto border border-card dark:border-white/10 rounded-lg bg-card dark:bg-white/10 shadow-lg">
                       {(managers?.data || [])
                         .filter((u: any) => String(u.id) !== String(id)) // Exclude current employee
                         .map((u: any) => (
                         <button
                           type="button"
                           key={u.id}
-                          className={`w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors ${String(formData.manager_id) === String(u.id) ? 'bg-indigo-100 dark:bg-indigo-900/30 border-l-2 border-indigo-500' : ''}`}
+                          className={`w-full text-left px-3 py-2 hover:bg-white/10 dark:hover:bg-white/20 text-primary dark:text-white transition-colors ${String(formData.manager_id) === String(u.id) ? 'bg-indigo-500/20 dark:bg-indigo-500/30 border-l-4 border-indigo-500' : ''}`}
                           onClick={() => {
                             setFormData({ ...formData, manager_id: String(u.id) });
                             setManagerQuery(`${u.name} (ID: ${u.id})`);
