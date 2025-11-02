@@ -81,6 +81,8 @@ func migrate(db *gorm.DB) error {
 		&models.Feedback{},
 		&models.PasswordResetToken{},
 		&models.OTPToken{},
+		&models.Designation{},
+		&models.Department{},
 	)
 
 	if err != nil {

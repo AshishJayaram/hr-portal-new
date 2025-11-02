@@ -1492,6 +1492,64 @@ export const getAvailableHolidayYears = () => {
     });
 };
 
+// -------------------- Designations --------------------
+export const getDesignations = (params?: Record<string, string>) =>
+  fetcher<any>(`/designations?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
+    const items = (raw?.data || raw || []) as any[];
+    return { data: items.map((d: any) => ({
+      id: String(d.id),
+      name: d.name || '',
+      description: d.description || '',
+      is_active: d.is_active !== undefined ? d.is_active : true,
+    })) } as ApiResponse<any[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<any[]>));
+
+export const createDesignation = (body: { name: string; description?: string; is_active?: boolean }) =>
+  fetcher<ApiResponse<any>>("/designations", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const updateDesignation = (id: string, body: Partial<{ name: string; description: string; is_active: boolean }>) =>
+  fetcher<ApiResponse<any>>(`/designations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+
+export const deleteDesignation = (id: string) =>
+  fetcher<ApiResponse<any>>(`/designations/${id}`, {
+    method: "DELETE",
+  });
+
+// -------------------- Departments --------------------
+export const getDepartments = (params?: Record<string, string>) =>
+  fetcher<any>(`/departments?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
+    const items = (raw?.data || raw || []) as any[];
+    return { data: items.map((d: any) => ({
+      id: String(d.id),
+      name: d.name || '',
+      description: d.description || '',
+      is_active: d.is_active !== undefined ? d.is_active : true,
+    })) } as ApiResponse<any[]>;
+  }).catch(() => ({ data: [] } as ApiResponse<any[]>));
+
+export const createDepartment = (body: { name: string; description?: string; is_active?: boolean }) =>
+  fetcher<ApiResponse<any>>("/departments", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const updateDepartment = (id: string, body: Partial<{ name: string; description: string; is_active: boolean }>) =>
+  fetcher<ApiResponse<any>>(`/departments/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+
+export const deleteDepartment = (id: string) =>
+  fetcher<ApiResponse<any>>(`/departments/${id}`, {
+    method: "DELETE",
+  });
+
 // -------------------- Document Acknowledgments --------------------
 export const acknowledgeDocument = (documentId: string) =>
   fetcher<any>(`/document-acknowledgments/${documentId}`, {

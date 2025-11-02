@@ -438,6 +438,30 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			documentAcknowledgment.GET("/document/:id/users", handlers.DocumentAcknowledgment.GetAcknowledgedUsersForDocument)
 		}
 
+		// Designation routes
+		designations := api.Group("/designations")
+		designations.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		designations.Use(middleware.OrganizationRequired())
+		{
+			designations.GET("", handlers.Designation.ListDesignations)
+			designations.POST("", middleware.RoleRequired("HR", "Admin"), handlers.Designation.CreateDesignation)
+			designations.GET("/:id", handlers.Designation.GetDesignation)
+			designations.PATCH("/:id", middleware.RoleRequired("HR", "Admin"), handlers.Designation.UpdateDesignation)
+			designations.DELETE("/:id", middleware.RoleRequired("HR", "Admin"), handlers.Designation.DeleteDesignation)
+		}
+
+		// Department routes
+		departments := api.Group("/departments")
+		departments.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		departments.Use(middleware.OrganizationRequired())
+		{
+			departments.GET("", handlers.Department.ListDepartments)
+			departments.POST("", middleware.RoleRequired("HR", "Admin"), handlers.Department.CreateDepartment)
+			departments.GET("/:id", handlers.Department.GetDepartment)
+			departments.PATCH("/:id", middleware.RoleRequired("HR", "Admin"), handlers.Department.UpdateDepartment)
+			departments.DELETE("/:id", middleware.RoleRequired("HR", "Admin"), handlers.Department.DeleteDepartment)
+		}
+
 		// KRA routes
 		kras := api.Group("/kras")
 		kras.Use(middleware.AuthRequired(cfg.JWT.Secret))

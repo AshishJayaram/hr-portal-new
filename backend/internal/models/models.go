@@ -554,3 +554,35 @@ type OTPToken struct {
 	// Relationships
 	User User `json:"user,omitempty" gorm:"foreignKey:UserID"`
 }
+
+// Designation represents a job designation/position
+type Designation struct {
+	BaseModel
+	OrganizationID uint   `json:"organization_id" gorm:"not null;index"`
+	Name           string `json:"name" gorm:"not null;size:255"`
+	Description    string `json:"description" gorm:"type:text"`
+	IsActive       bool   `json:"is_active" gorm:"default:true"`
+
+	// Relationships
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+}
+
+// Department represents a department within an organization
+type Department struct {
+	BaseModel
+	OrganizationID uint   `json:"organization_id" gorm:"not null;index"`
+	Name           string `json:"name" gorm:"not null;size:255"`
+	Description    string `json:"description" gorm:"type:text"`
+	IsActive       bool   `json:"is_active" gorm:"default:true"`
+
+	// Relationships
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+}
+
+func (Designation) TableName() string {
+	return "designations"
+}
+
+func (Department) TableName() string {
+	return "departments"
+}

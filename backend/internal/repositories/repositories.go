@@ -34,6 +34,8 @@ type Repositories struct {
 	KRA                     KRARepository
 	OTP                     OTPRepository
 	PasswordReset           PasswordResetRepository
+	Designation             DesignationRepository
+	Department              DepartmentRepository
 }
 
 // New creates a new instance of Repositories
@@ -59,6 +61,8 @@ func New(db *gorm.DB, rdb *redis.Client) *Repositories {
 		KRA:                     NewKRARepository(db, rdb),
 		OTP:                     NewOTPRepository(db, rdb),
 		PasswordReset:           NewPasswordResetRepository(db, rdb),
+		Designation:             NewDesignationRepository(db, rdb),
+		Department:              NewDepartmentRepository(db, rdb),
 	}
 }
 
@@ -233,6 +237,26 @@ type PasswordResetRepository interface {
 	MarkAsUsed(token string) error
 	DeleteExpiredTokens() error
 	InvalidateUserTokens(userID string) error
+}
+
+// DesignationRepository interface for designation operations
+type DesignationRepository interface {
+	Create(designation *models.Designation) error
+	GetByID(id string) (*models.Designation, error)
+	List(organizationID string, filters map[string]interface{}) ([]models.Designation, error)
+	GetByName(organizationID, name string) (*models.Designation, error)
+	Update(designation *models.Designation) error
+	Delete(id string) error
+}
+
+// DepartmentRepository interface for department operations
+type DepartmentRepository interface {
+	Create(department *models.Department) error
+	GetByID(id string) (*models.Department, error)
+	List(organizationID string, filters map[string]interface{}) ([]models.Department, error)
+	GetByName(organizationID, name string) (*models.Department, error)
+	Update(department *models.Department) error
+	Delete(id string) error
 }
 
 // Common query helpers

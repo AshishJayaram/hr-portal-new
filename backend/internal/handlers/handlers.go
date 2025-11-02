@@ -29,6 +29,8 @@ type Handlers struct {
 	PrivateDocument        *PrivateDocumentHandler
 	PayslipPDF             *PayslipPDFHandler
 	KRA                    *KRAHandler
+	Designation            *DesignationHandler
+	Department             *DepartmentHandler
 }
 
 // New creates a new instance of Handlers
@@ -55,5 +57,7 @@ func New(services *services.Services, repos *repositories.Repositories, cfg *con
 		PrivateDocument:        NewPrivateDocumentHandler(services.EmployeePrivateDocument),
 		PayslipPDF:             NewPayslipPDFHandler(services.PayslipPDF, services.SalarySlip, services.User, services.CompanySettings),
 		KRA:                    NewKRAHandler(services.KRA),
+		Designation:            NewDesignationHandler(services.Designation),
+		Department:             NewDepartmentHandler(services.Department),
 	}
 }

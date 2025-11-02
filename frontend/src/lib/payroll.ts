@@ -12,24 +12,39 @@ export interface EmployeeDeductionsSettings {
   esiEnabled: boolean; // toggle visibility/applicability
 }
 
+export type ConditionType = 'CTC_RANGE' | 'DEPARTMENT' | 'DESIGNATION' | 'DESIGNATION_SPECIFIC';
+
+export interface CategoryCondition {
+  type: ConditionType;
+  // For CTC_RANGE
+  ctcMin?: number; // Minimum CTC (greater than or equal)
+  ctcMax?: number; // Maximum CTC (less than or equal)
+  // For DEPARTMENT
+  departments?: string[]; // Array of department names
+  // For DESIGNATION
+  designations?: string[]; // Array of designation names
+  // For DESIGNATION_SPECIFIC
+  designation?: string; // Specific designation
+}
+
 export interface EmployerPFSettings {
   employerPFPercentOfBasic: number; // 12
   epsPercentOfBasic: number; // 8.33
   epsCap: number; // 1250
   enabled?: boolean; // Enable/disable employer PF
   calculationMethod?: 'PERCENT_OF_BASIC' | 'FIXED_AMOUNT' | 'PERCENT_OF_CTC'; // Calculation method
-  // Conditional categories based on CTC
+  // Conditional categories with flexible conditions
   conditionalEarnings?: Array<{
     key: string;
     label: string;
-    ctcThreshold: number; // Minimum CTC to apply this earning
+    condition: CategoryCondition;
     mode: PayrollMode;
     value?: number;
   }>;
   conditionalDeductions?: Array<{
     key: string;
     label: string;
-    ctcThreshold: number; // Minimum CTC to apply this deduction
+    condition: CategoryCondition;
     mode: PayrollMode;
     value?: number;
   }>;

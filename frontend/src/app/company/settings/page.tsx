@@ -6,8 +6,8 @@ import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
-import { getCompanySettings, updateCompanySettings, getLeaveCategories, createLeaveCategory, updateLeaveCategory, deleteLeaveCategory } from "@/lib/api";
-import { PayrollSettings, PayrollMode, defaultPayrollSettings, computePayslipFromCTC, ComponentSetting, calculateLOPAmount } from "@/lib/payroll";
+import { getCompanySettings, updateCompanySettings, getLeaveCategories, createLeaveCategory, updateLeaveCategory, deleteLeaveCategory, getUsers, getDesignations, getDepartments } from "@/lib/api";
+import { PayrollSettings, PayrollMode, defaultPayrollSettings, computePayslipFromCTC, ComponentSetting, calculateLOPAmount, ConditionType, CategoryCondition } from "@/lib/payroll";
 import RoleGuard from "@/components/RoleGuard";
 import { LeaveCategory } from "@/lib/api";
 import { toast } from "sonner";
@@ -52,13 +52,23 @@ export default function CompanySettingsPage() {
   const [newConditionalEarningLabel, setNewConditionalEarningLabel] = useState('');
   const [newConditionalEarningMode, setNewConditionalEarningMode] = useState<PayrollMode>('FIXED');
   const [newConditionalEarningValue, setNewConditionalEarningValue] = useState(0);
-  const [newConditionalEarningThreshold, setNewConditionalEarningThreshold] = useState(0);
+  const [newConditionalEarningConditionType, setNewConditionalEarningConditionType] = useState<ConditionType>('CTC_RANGE');
+  const [newConditionalEarningCtcMin, setNewConditionalEarningCtcMin] = useState<number | undefined>(undefined);
+  const [newConditionalEarningCtcMax, setNewConditionalEarningCtcMax] = useState<number | undefined>(undefined);
+  const [newConditionalEarningDepartments, setNewConditionalEarningDepartments] = useState<string[]>([]);
+  const [newConditionalEarningDesignations, setNewConditionalEarningDesignations] = useState<string[]>([]);
+  const [newConditionalEarningDesignationSpecific, setNewConditionalEarningDesignationSpecific] = useState('');
   
   const [newConditionalDeductionKey, setNewConditionalDeductionKey] = useState('');
   const [newConditionalDeductionLabel, setNewConditionalDeductionLabel] = useState('');
   const [newConditionalDeductionMode, setNewConditionalDeductionMode] = useState<PayrollMode>('FIXED');
   const [newConditionalDeductionValue, setNewConditionalDeductionValue] = useState(0);
-  const [newConditionalDeductionThreshold, setNewConditionalDeductionThreshold] = useState(0);
+  const [newConditionalDeductionConditionType, setNewConditionalDeductionConditionType] = useState<ConditionType>('CTC_RANGE');
+  const [newConditionalDeductionCtcMin, setNewConditionalDeductionCtcMin] = useState<number | undefined>(undefined);
+  const [newConditionalDeductionCtcMax, setNewConditionalDeductionCtcMax] = useState<number | undefined>(undefined);
+  const [newConditionalDeductionDepartments, setNewConditionalDeductionDepartments] = useState<string[]>([]);
+  const [newConditionalDeductionDesignations, setNewConditionalDeductionDesignations] = useState<string[]>([]);
+  const [newConditionalDeductionDesignationSpecific, setNewConditionalDeductionDesignationSpecific] = useState('');
 
   // Accordion states for Add Category sections
   const [showAddEarningCategory, setShowAddEarningCategory] = useState(false);
@@ -67,6 +77,43 @@ export default function CompanySettingsPage() {
   // Conditional category toggle states
   const [isConditionalEarning, setIsConditionalEarning] = useState(false);
   const [isConditionalDeduction, setIsConditionalDeduction] = useState(false);
+
+  // Fetch departments and designations from dedicated tables
+  const { data: departmentsData } = useQuery({
+    queryKey: ["departments"],
+    queryFn: () => getDepartments({ is_active: "true" }),
+    staleTime: 300000, // Cache for 5 minutes
+  });
+
+  const { data: designationsData, isLoading: designationsLoading, error: designationsError } = useQuery({
+    queryKey: ["designations"],
+    queryFn: () => getDesignations({ is_active: "true" }),
+    staleTime: 300000, // Cache for 5 minutes
+  });
+
+  // Extract names from the API responses
+  const departments = useMemo(() => {
+    if (!departmentsData?.data) return [];
+    return departmentsData.data.map((d: any) => d.name).sort();
+  }, [departmentsData]);
+
+  const designations = useMemo(() => {
+    if (!designationsData?.data) return [];
+    return designationsData.data.map((d: any) => d.name).sort();
+  }, [designationsData]);
+
+  // Debug logging
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Designations Debug:', {
+        designationsData,
+        designations,
+        designationsLoading,
+        designationsError,
+        count: designations.length,
+      });
+    }
+  }, [designationsData, designations, designationsLoading, designationsError]);
 
   useEffect(() => {
     if (data?.data) {
@@ -118,6 +165,63 @@ export default function CompanySettingsPage() {
   });
 
   const breakdown = useMemo(() => computePayslipFromCTC(annualCTC, settings, { lopDays: lop, tdsOverride: tds }), [annualCTC, settings, lop, tds]);
+
+  // Helper function to format condition display text
+  const formatConditionText = (category: any): string => {
+    // Backward compatibility: if old format with ctcThreshold, convert it
+    if ('ctcThreshold' in category && !('condition' in category)) {
+      return `CTC ≥ ₹${(category.ctcThreshold as number).toLocaleString('en-IN')}`;
+    }
+    
+    const condition = category.condition as CategoryCondition;
+    if (!condition) return 'No condition';
+    
+    switch (condition.type) {
+      case 'CTC_RANGE':
+        if (condition.ctcMin !== undefined && condition.ctcMax !== undefined) {
+          return `CTC: ₹${condition.ctcMin.toLocaleString('en-IN')} - ₹${condition.ctcMax.toLocaleString('en-IN')}`;
+        } else if (condition.ctcMin !== undefined) {
+          return `CTC ≥ ₹${condition.ctcMin.toLocaleString('en-IN')}`;
+        } else if (condition.ctcMax !== undefined) {
+          return `CTC ≤ ₹${condition.ctcMax.toLocaleString('en-IN')}`;
+        }
+        return 'CTC Range (any)';
+      case 'DEPARTMENT':
+        return `Dept: ${condition.departments?.join(', ') || 'None'}`;
+      case 'DESIGNATION':
+        return `Designation: ${condition.designations?.join(', ') || 'None'}`;
+      case 'DESIGNATION_SPECIFIC':
+        return `Designation: ${condition.designation || 'None'}`;
+      default:
+        return 'Unknown condition';
+    }
+  };
+
+  // Helper function to check if condition is active for current employee
+  const isConditionActive = (category: any, employeeCTC: number, employeeDept?: string, employeeDesignation?: string): boolean => {
+    // Backward compatibility: if old format with ctcThreshold
+    if ('ctcThreshold' in category && !('condition' in category)) {
+      return employeeCTC >= (category.ctcThreshold as number);
+    }
+    
+    const condition = category.condition as CategoryCondition;
+    if (!condition) return false;
+    
+    switch (condition.type) {
+      case 'CTC_RANGE':
+        if (condition.ctcMin !== undefined && employeeCTC < condition.ctcMin) return false;
+        if (condition.ctcMax !== undefined && employeeCTC > condition.ctcMax) return false;
+        return true;
+      case 'DEPARTMENT':
+        return condition.departments?.includes(employeeDept || '') || false;
+      case 'DESIGNATION':
+        return condition.designations?.includes(employeeDesignation || '') || false;
+      case 'DESIGNATION_SPECIFIC':
+        return condition.designation === employeeDesignation;
+      default:
+        return false;
+    }
+  };
 
   const setComponent = (path: (s: PayrollSettings) => { mode: PayrollMode; value?: number }, field: 'mode' | 'value', value: any) => {
     setSettings(prev => {
@@ -301,7 +405,9 @@ export default function CompanySettingsPage() {
                         setNewConditionalEarningLabel('');
                         setNewConditionalEarningMode('FIXED');
                         setNewConditionalEarningValue(0);
-                        setNewConditionalEarningThreshold(0);
+                        setNewConditionalEarningConditionType('CTC_RANGE');
+                        setNewConditionalEarningCtcMin(undefined);
+                        setNewConditionalEarningCtcMax(undefined);
                       }
                     }}
                     className="flex items-center gap-2 text-green-600 border-green-500/30 hover:bg-green-500/10"
@@ -323,7 +429,9 @@ export default function CompanySettingsPage() {
                         onChange={(e) => {
                           setIsConditionalEarning(e.target.checked);
                           if (!e.target.checked) {
-                            setNewConditionalEarningThreshold(0);
+                            setNewConditionalEarningConditionType('CTC_RANGE');
+                        setNewConditionalEarningCtcMin(undefined);
+                        setNewConditionalEarningCtcMax(undefined);
                           }
                         }}
                         className="rounded"
@@ -371,29 +479,137 @@ export default function CompanySettingsPage() {
                       </div>
                     </div>
                     {isConditionalEarning && (
-                      <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
-                          CTC Threshold (₹) <span className="text-red-400">*</span>
-                        </label>
-                        <Input
-                          type="number"
-                          placeholder="e.g., 500000"
-                          value={String(newConditionalEarningThreshold)}
-                          onChange={(e) => {
-                            const value = Number(e.target.value);
-                            // Enforce bounds
-                            if (value < 0) setNewConditionalEarningThreshold(0);
-                            else if (value > 100000000) setNewConditionalEarningThreshold(100000000);
-                            else setNewConditionalEarningThreshold(value);
-                          }}
-                          className="text-sm"
-                          min="0"
-                          max="100000000"
-                          step="1000"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Category applies only when employee's annual CTC ≥ this amount (Range: ₹0 - ₹10,00,00,000)
-                        </p>
+                      <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-lg">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">
+                            Condition Type <span className="text-red-400">*</span>
+                          </label>
+                          <Select
+                            value={newConditionalEarningConditionType}
+                            onChange={(e) => {
+                              setNewConditionalEarningConditionType(e.target.value as ConditionType);
+                              // Reset condition-specific fields when changing type
+                              setNewConditionalEarningCtcMin(undefined);
+                              setNewConditionalEarningCtcMax(undefined);
+                              setNewConditionalEarningDepartments([]);
+                              setNewConditionalEarningDesignations([]);
+                              setNewConditionalEarningDesignationSpecific('');
+                            }}
+                            options={[
+                              { value: 'CTC_RANGE', label: 'CTC Range (Min/Max)' },
+                              { value: 'DEPARTMENT', label: 'Department' },
+                              { value: 'DESIGNATION', label: 'Designation (Multiple)' },
+                              { value: 'DESIGNATION_SPECIFIC', label: 'Designation (Specific)' },
+                            ]}
+                            className="text-sm"
+                          />
+                        </div>
+
+                        {newConditionalEarningConditionType === 'CTC_RANGE' && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-400 mb-1">
+                                CTC Min (≥) (₹)
+                              </label>
+                              <Input
+                                type="number"
+                                placeholder="e.g., 500000"
+                                value={newConditionalEarningCtcMin !== undefined ? String(newConditionalEarningCtcMin) : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                  if (value !== undefined && value < 0) return;
+                                  setNewConditionalEarningCtcMin(value);
+                                }}
+                                className="text-sm"
+                                min="0"
+                                step="1000"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">Minimum CTC (leave empty for no minimum)</p>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-400 mb-1">
+                                CTC Max (≤) (₹)
+                              </label>
+                              <Input
+                                type="number"
+                                placeholder="e.g., 10000000"
+                                value={newConditionalEarningCtcMax !== undefined ? String(newConditionalEarningCtcMax) : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                  if (value !== undefined && value < 0) return;
+                                  setNewConditionalEarningCtcMax(value);
+                                }}
+                                className="text-sm"
+                                min="0"
+                                step="1000"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">Maximum CTC (leave empty for no maximum)</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {newConditionalEarningConditionType === 'DEPARTMENT' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">
+                              Departments <span className="text-red-400">*</span>
+                            </label>
+                            <div className="space-y-2">
+                              {departments.map((dept) => (
+                                <label key={dept} className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={newConditionalEarningDepartments.includes(dept)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setNewConditionalEarningDepartments([...newConditionalEarningDepartments, dept]);
+                                      } else {
+                                        setNewConditionalEarningDepartments(newConditionalEarningDepartments.filter(d => d !== dept));
+                                      }
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <span className="text-sm text-gray-300">{dept}</span>
+                                </label>
+                              ))}
+                              {departments.length === 0 && (
+                                <p className="text-xs text-gray-500">No departments found. Add employees with departments first.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {newConditionalEarningConditionType === 'DESIGNATION' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">
+                              Designations <span className="text-red-400">*</span>
+                            </label>
+                            <DesignationSearchInput
+                              designations={designations}
+                              selected={newConditionalEarningDesignations}
+                              onSelectionChange={setNewConditionalEarningDesignations}
+                              isLoading={designationsLoading}
+                              error={designationsError as Error | null}
+                            />
+                          </div>
+                        )}
+
+                        {newConditionalEarningConditionType === 'DESIGNATION_SPECIFIC' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">
+                              Specific Designation <span className="text-red-400">*</span>
+                            </label>
+                            <Select
+                              value={newConditionalEarningDesignationSpecific}
+                              onChange={(e) => setNewConditionalEarningDesignationSpecific(e.target.value)}
+                              options={[
+                                { value: '', label: 'Select Designation...' },
+                                ...designations.map(d => ({ value: d, label: d }))
+                              ]}
+                              className="text-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Apply this category to employees with this specific designation</p>
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-3">
@@ -462,10 +678,44 @@ export default function CompanySettingsPage() {
                         onClick={() => {
                           if (isConditionalEarning) {
                             if (!newConditionalEarningKey || !newConditionalEarningLabel) return;
+                            
+                            // Build condition based on condition type
+                            let condition: CategoryCondition = {
+                              type: newConditionalEarningConditionType,
+                            };
+                            
+                            if (newConditionalEarningConditionType === 'CTC_RANGE') {
+                              // Validate CTC range - at least one bound must be set
+                              if (newConditionalEarningCtcMin === undefined && newConditionalEarningCtcMax === undefined) {
+                                toast.error("Please set at least a minimum or maximum CTC threshold");
+                                return;
+                              }
+                              condition.ctcMin = newConditionalEarningCtcMin;
+                              condition.ctcMax = newConditionalEarningCtcMax;
+                            } else if (newConditionalEarningConditionType === 'DEPARTMENT') {
+                              if (newConditionalEarningDepartments.length === 0) {
+                                toast.error("Please select at least one department");
+                                return;
+                              }
+                              condition.departments = newConditionalEarningDepartments;
+                            } else if (newConditionalEarningConditionType === 'DESIGNATION') {
+                              if (newConditionalEarningDesignations.length === 0) {
+                                toast.error("Please select at least one designation");
+                                return;
+                              }
+                              condition.designations = newConditionalEarningDesignations;
+                            } else if (newConditionalEarningConditionType === 'DESIGNATION_SPECIFIC') {
+                              if (!newConditionalEarningDesignationSpecific) {
+                                toast.error("Please select a designation");
+                                return;
+                              }
+                              condition.designation = newConditionalEarningDesignationSpecific;
+                            }
+                            
                             const newCategory = {
                               key: newConditionalEarningKey,
                               label: newConditionalEarningLabel,
-                              ctcThreshold: newConditionalEarningThreshold,
+                              condition,
                               mode: newConditionalEarningMode,
                               value: newConditionalEarningMode !== 'REMAINDER' ? newConditionalEarningValue : undefined
                             };
@@ -479,11 +729,17 @@ export default function CompanySettingsPage() {
                                 ]
                               }
                             });
+                            // Reset all form fields
                             setNewConditionalEarningKey('');
                             setNewConditionalEarningLabel('');
                             setNewConditionalEarningMode('FIXED');
                             setNewConditionalEarningValue(0);
-                            setNewConditionalEarningThreshold(0);
+                            setNewConditionalEarningConditionType('CTC_RANGE');
+                            setNewConditionalEarningCtcMin(undefined);
+                            setNewConditionalEarningCtcMax(undefined);
+                            setNewConditionalEarningDepartments([]);
+                            setNewConditionalEarningDesignations([]);
+                            setNewConditionalEarningDesignationSpecific('');
                             setIsConditionalEarning(false);
                           } else {
                             addCustomEarning();
@@ -492,7 +748,12 @@ export default function CompanySettingsPage() {
                         }} 
                         disabled={
                           isConditionalEarning 
-                            ? (!newConditionalEarningKey || !newConditionalEarningLabel || newConditionalEarningThreshold <= 0)
+                            ? (!newConditionalEarningKey || !newConditionalEarningLabel || (
+                              (newConditionalEarningConditionType === 'CTC_RANGE' && newConditionalEarningCtcMin === undefined && newConditionalEarningCtcMax === undefined) ||
+                              (newConditionalEarningConditionType === 'DEPARTMENT' && newConditionalEarningDepartments.length === 0) ||
+                              (newConditionalEarningConditionType === 'DESIGNATION' && newConditionalEarningDesignations.length === 0) ||
+                              (newConditionalEarningConditionType === 'DESIGNATION_SPECIFIC' && !newConditionalEarningDesignationSpecific)
+                            ))
                             : (!newEarningKey || !newEarningLabel)
                         } 
                         size="sm"
@@ -658,11 +919,11 @@ export default function CompanySettingsPage() {
                           <div className="flex items-center gap-2 mb-2">
                             <span className="font-medium text-green-600 dark:text-green-400 text-sm">{category.label}</span>
                             <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
-                              CTC ≥ ₹{category.ctcThreshold.toLocaleString('en-IN')}
+                              {formatConditionText(category)}
                             </span>
-                            {annualCTC < category.ctcThreshold && (
+                            {!isConditionActive(category, annualCTC) && (
                               <span className="text-xs px-2 py-0.5 rounded bg-gray-500/20 text-gray-400">
-                                Inactive (Current CTC: ₹{annualCTC.toLocaleString('en-IN')})
+                                Inactive
                               </span>
                             )}
                           </div>
@@ -756,7 +1017,9 @@ export default function CompanySettingsPage() {
                         setNewConditionalDeductionLabel('');
                         setNewConditionalDeductionMode('FIXED');
                         setNewConditionalDeductionValue(0);
-                        setNewConditionalDeductionThreshold(0);
+                        setNewConditionalDeductionConditionType('CTC_RANGE');
+                        setNewConditionalDeductionCtcMin(undefined);
+                        setNewConditionalDeductionCtcMax(undefined);
                       }
                     }}
                     className="flex items-center gap-2 text-red-600 border-red-500/30 hover:bg-red-500/10"
@@ -778,7 +1041,9 @@ export default function CompanySettingsPage() {
                         onChange={(e) => {
                           setIsConditionalDeduction(e.target.checked);
                           if (!e.target.checked) {
-                            setNewConditionalDeductionThreshold(0);
+                            setNewConditionalDeductionConditionType('CTC_RANGE');
+                        setNewConditionalDeductionCtcMin(undefined);
+                        setNewConditionalDeductionCtcMax(undefined);
                           }
                         }}
                         className="rounded"
@@ -826,29 +1091,137 @@ export default function CompanySettingsPage() {
                       </div>
                     </div>
                     {isConditionalDeduction && (
-                      <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
-                          CTC Threshold (₹) <span className="text-red-400">*</span>
-                        </label>
-                        <Input
-                          type="number"
-                          placeholder="e.g., 500000"
-                          value={String(newConditionalDeductionThreshold)}
-                          onChange={(e) => {
-                            const value = Number(e.target.value);
-                            // Enforce bounds
-                            if (value < 0) setNewConditionalDeductionThreshold(0);
-                            else if (value > 100000000) setNewConditionalDeductionThreshold(100000000);
-                            else setNewConditionalDeductionThreshold(value);
-                          }}
-                          className="text-sm"
-                          min="0"
-                          max="100000000"
-                          step="1000"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Category applies only when employee's annual CTC ≥ this amount (Range: ₹0 - ₹10,00,00,000)
-                        </p>
+                      <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-lg">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">
+                            Condition Type <span className="text-red-400">*</span>
+                          </label>
+                          <Select
+                            value={newConditionalDeductionConditionType}
+                            onChange={(e) => {
+                              setNewConditionalDeductionConditionType(e.target.value as ConditionType);
+                              // Reset condition-specific fields when changing type
+                              setNewConditionalDeductionCtcMin(undefined);
+                              setNewConditionalDeductionCtcMax(undefined);
+                              setNewConditionalDeductionDepartments([]);
+                              setNewConditionalDeductionDesignations([]);
+                              setNewConditionalDeductionDesignationSpecific('');
+                            }}
+                            options={[
+                              { value: 'CTC_RANGE', label: 'CTC Range (Min/Max)' },
+                              { value: 'DEPARTMENT', label: 'Department' },
+                              { value: 'DESIGNATION', label: 'Designation (Multiple)' },
+                              { value: 'DESIGNATION_SPECIFIC', label: 'Designation (Specific)' },
+                            ]}
+                            className="text-sm"
+                          />
+                        </div>
+
+                        {newConditionalDeductionConditionType === 'CTC_RANGE' && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-400 mb-1">
+                                CTC Min (≥) (₹)
+                              </label>
+                              <Input
+                                type="number"
+                                placeholder="e.g., 500000"
+                                value={newConditionalDeductionCtcMin !== undefined ? String(newConditionalDeductionCtcMin) : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                  if (value !== undefined && value < 0) return;
+                                  setNewConditionalDeductionCtcMin(value);
+                                }}
+                                className="text-sm"
+                                min="0"
+                                step="1000"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">Minimum CTC (leave empty for no minimum)</p>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-400 mb-1">
+                                CTC Max (≤) (₹)
+                              </label>
+                              <Input
+                                type="number"
+                                placeholder="e.g., 10000000"
+                                value={newConditionalDeductionCtcMax !== undefined ? String(newConditionalDeductionCtcMax) : ''}
+                                onChange={(e) => {
+                                  const value = e.target.value === '' ? undefined : Number(e.target.value);
+                                  if (value !== undefined && value < 0) return;
+                                  setNewConditionalDeductionCtcMax(value);
+                                }}
+                                className="text-sm"
+                                min="0"
+                                step="1000"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">Maximum CTC (leave empty for no maximum)</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {newConditionalDeductionConditionType === 'DEPARTMENT' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">
+                              Departments <span className="text-red-400">*</span>
+                            </label>
+                            <div className="space-y-2">
+                              {departments.map((dept) => (
+                                <label key={dept} className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={newConditionalDeductionDepartments.includes(dept)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setNewConditionalDeductionDepartments([...newConditionalDeductionDepartments, dept]);
+                                      } else {
+                                        setNewConditionalDeductionDepartments(newConditionalDeductionDepartments.filter(d => d !== dept));
+                                      }
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <span className="text-sm text-gray-300">{dept}</span>
+                                </label>
+                              ))}
+                              {departments.length === 0 && (
+                                <p className="text-xs text-gray-500">No departments found. Add employees with departments first.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {newConditionalDeductionConditionType === 'DESIGNATION' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">
+                              Designations <span className="text-red-400">*</span>
+                            </label>
+                            <DesignationSearchInput
+                              designations={designations}
+                              selected={newConditionalDeductionDesignations}
+                              onSelectionChange={setNewConditionalDeductionDesignations}
+                              isLoading={designationsLoading}
+                              error={designationsError as Error | null}
+                            />
+                          </div>
+                        )}
+
+                        {newConditionalDeductionConditionType === 'DESIGNATION_SPECIFIC' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">
+                              Specific Designation <span className="text-red-400">*</span>
+                            </label>
+                            <Select
+                              value={newConditionalDeductionDesignationSpecific}
+                              onChange={(e) => setNewConditionalDeductionDesignationSpecific(e.target.value)}
+                              options={[
+                                { value: '', label: 'Select Designation...' },
+                                ...designations.map(d => ({ value: d, label: d }))
+                              ]}
+                              className="text-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Apply this category to employees with this specific designation</p>
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-3">
@@ -917,10 +1290,44 @@ export default function CompanySettingsPage() {
                         onClick={() => {
                           if (isConditionalDeduction) {
                             if (!newConditionalDeductionKey || !newConditionalDeductionLabel) return;
+                            
+                            // Build condition based on condition type
+                            let condition: CategoryCondition = {
+                              type: newConditionalDeductionConditionType,
+                            };
+                            
+                            if (newConditionalDeductionConditionType === 'CTC_RANGE') {
+                              // Validate CTC range - at least one bound must be set
+                              if (newConditionalDeductionCtcMin === undefined && newConditionalDeductionCtcMax === undefined) {
+                                toast.error("Please set at least a minimum or maximum CTC threshold");
+                                return;
+                              }
+                              condition.ctcMin = newConditionalDeductionCtcMin;
+                              condition.ctcMax = newConditionalDeductionCtcMax;
+                            } else if (newConditionalDeductionConditionType === 'DEPARTMENT') {
+                              if (newConditionalDeductionDepartments.length === 0) {
+                                toast.error("Please select at least one department");
+                                return;
+                              }
+                              condition.departments = newConditionalDeductionDepartments;
+                            } else if (newConditionalDeductionConditionType === 'DESIGNATION') {
+                              if (newConditionalDeductionDesignations.length === 0) {
+                                toast.error("Please select at least one designation");
+                                return;
+                              }
+                              condition.designations = newConditionalDeductionDesignations;
+                            } else if (newConditionalDeductionConditionType === 'DESIGNATION_SPECIFIC') {
+                              if (!newConditionalDeductionDesignationSpecific) {
+                                toast.error("Please select a designation");
+                                return;
+                              }
+                              condition.designation = newConditionalDeductionDesignationSpecific;
+                            }
+                            
                             const newCategory = {
                               key: newConditionalDeductionKey,
                               label: newConditionalDeductionLabel,
-                              ctcThreshold: newConditionalDeductionThreshold,
+                              condition,
                               mode: newConditionalDeductionMode,
                               value: newConditionalDeductionMode !== 'REMAINDER' ? newConditionalDeductionValue : undefined
                             };
@@ -934,11 +1341,17 @@ export default function CompanySettingsPage() {
                                 ]
                               }
                             });
+                            // Reset all form fields
                             setNewConditionalDeductionKey('');
                             setNewConditionalDeductionLabel('');
                             setNewConditionalDeductionMode('FIXED');
                             setNewConditionalDeductionValue(0);
-                            setNewConditionalDeductionThreshold(0);
+                            setNewConditionalDeductionConditionType('CTC_RANGE');
+                            setNewConditionalDeductionCtcMin(undefined);
+                            setNewConditionalDeductionCtcMax(undefined);
+                            setNewConditionalDeductionDepartments([]);
+                            setNewConditionalDeductionDesignations([]);
+                            setNewConditionalDeductionDesignationSpecific('');
                             setIsConditionalDeduction(false);
                           } else {
                             addCustomDeduction();
@@ -947,7 +1360,12 @@ export default function CompanySettingsPage() {
                         }} 
                         disabled={
                           isConditionalDeduction 
-                            ? (!newConditionalDeductionKey || !newConditionalDeductionLabel || newConditionalDeductionThreshold <= 0)
+                            ? (!newConditionalDeductionKey || !newConditionalDeductionLabel || (
+                              (newConditionalDeductionConditionType === 'CTC_RANGE' && newConditionalDeductionCtcMin === undefined && newConditionalDeductionCtcMax === undefined) ||
+                              (newConditionalDeductionConditionType === 'DEPARTMENT' && newConditionalDeductionDepartments.length === 0) ||
+                              (newConditionalDeductionConditionType === 'DESIGNATION' && newConditionalDeductionDesignations.length === 0) ||
+                              (newConditionalDeductionConditionType === 'DESIGNATION_SPECIFIC' && !newConditionalDeductionDesignationSpecific)
+                            ))
                             : (!newDeductionKey || !newDeductionLabel)
                         } 
                         size="sm"
@@ -1188,11 +1606,11 @@ export default function CompanySettingsPage() {
                           <div className="flex items-center gap-2 mb-2">
                             <span className="font-medium text-red-600 dark:text-red-400 text-sm">{category.label}</span>
                             <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
-                              CTC ≥ ₹{category.ctcThreshold.toLocaleString('en-IN')}
+                              {formatConditionText(category)}
                             </span>
-                            {annualCTC < category.ctcThreshold && (
+                            {!isConditionActive(category, annualCTC) && (
                               <span className="text-xs px-2 py-0.5 rounded bg-gray-500/20 text-gray-400">
-                                Inactive (Current CTC: ₹{annualCTC.toLocaleString('en-IN')})
+                                Inactive
                               </span>
                             )}
                           </div>
@@ -1490,26 +1908,26 @@ export default function CompanySettingsPage() {
                       (Total PF - EPS)
                     </span>
                   </div>
-                  {(settings.employerPF.conditionalEarnings || []).filter(cat => annualCTC >= cat.ctcThreshold).length > 0 && (
+                  {(settings.employerPF.conditionalEarnings || []).filter(cat => isConditionActive(cat, annualCTC)).length > 0 && (
                     <div className="mt-2 pt-2 border-t border-blue-500/20">
                       <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Active Conditional Earnings:</div>
                       {(settings.employerPF.conditionalEarnings || [])
-                        .filter(cat => annualCTC >= cat.ctcThreshold)
+                        .filter(cat => isConditionActive(cat, annualCTC))
                         .map(cat => (
                           <div key={cat.key} className="text-xs">
-                            • {cat.label} (CTC ≥ ₹{cat.ctcThreshold.toLocaleString('en-IN')})
+                            • {cat.label} ({formatConditionText(cat)})
                           </div>
                         ))}
                     </div>
                   )}
-                  {(settings.employerPF.conditionalDeductions || []).filter(cat => annualCTC >= cat.ctcThreshold).length > 0 && (
+                  {(settings.employerPF.conditionalDeductions || []).filter(cat => isConditionActive(cat, annualCTC)).length > 0 && (
                     <div className="mt-2 pt-2 border-t border-blue-500/20">
                       <div className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">Active Conditional Deductions:</div>
                       {(settings.employerPF.conditionalDeductions || [])
-                        .filter(cat => annualCTC >= cat.ctcThreshold)
+                        .filter(cat => isConditionActive(cat, annualCTC))
                         .map(cat => (
                           <div key={cat.key} className="text-xs">
-                            • {cat.label} (CTC ≥ ₹{cat.ctcThreshold.toLocaleString('en-IN')})
+                            • {cat.label} ({formatConditionText(cat)})
                           </div>
                         ))}
                     </div>
@@ -1859,6 +2277,123 @@ function LeaveCategoriesManager({
           )}
         </div>
       </Card>
+    </div>
+  );
+}
+
+// Designation Search Component (similar to ManagerSearch)
+function DesignationSearchInput({
+  designations,
+  selected,
+  onSelectionChange,
+  isLoading,
+  error,
+}: {
+  designations: string[];
+  selected: string[];
+  onSelectionChange: (designations: string[]) => void;
+  isLoading?: boolean;
+  error?: Error | null;
+}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Filter designations based on search query
+  const filteredDesignations = useMemo(() => {
+    if (!searchQuery.trim()) return designations;
+    const query = searchQuery.toLowerCase();
+    return designations.filter(desig => desig.toLowerCase().includes(query));
+  }, [designations, searchQuery]);
+
+  // Remove a selected designation
+  const removeDesignation = (desig: string) => {
+    onSelectionChange(selected.filter(d => d !== desig));
+  };
+
+  // Add a designation
+  const addDesignation = (desig: string) => {
+    if (!selected.includes(desig)) {
+      onSelectionChange([...selected, desig]);
+      setSearchQuery(''); // Clear search after selection
+    }
+  };
+
+  return (
+    <div className="relative">
+      {/* Selected designations display */}
+      {selected.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {selected.map((desig) => (
+            <span
+              key={desig}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-500/20 text-indigo-400 text-xs"
+            >
+              {desig}
+              <button
+                type="button"
+                onClick={() => removeDesignation(desig)}
+                className="text-indigo-400 hover:text-indigo-300"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Search input */}
+      <Input
+        placeholder={selected.length > 0 ? "Search for more designations..." : "Search designations..."}
+        value={searchQuery}
+        onChange={(e) => {
+          setSearchQuery(e.target.value);
+          setShowDropdown(true);
+        }}
+        onFocus={() => {
+          setShowDropdown(true);
+          if (!searchQuery) setSearchQuery(' '); // Trigger showing all if empty
+        }}
+        onBlur={() => {
+          // Delay hiding dropdown to allow clicks
+          setTimeout(() => setShowDropdown(false), 200);
+        }}
+        className="text-sm"
+      />
+
+      {/* Dropdown results */}
+      {showDropdown && filteredDesignations.length > 0 && (
+        <div className="absolute z-50 mt-2 max-h-48 overflow-y-auto border border-card dark:border-white/10 rounded-lg bg-card dark:bg-white/10 shadow-lg w-full">
+          {filteredDesignations
+            .filter(desig => !selected.includes(desig)) // Only show unselected designations
+            .map((desig) => (
+              <button
+                key={desig}
+                type="button"
+                className="w-full text-left px-3 py-2 hover:bg-white/10 dark:hover:bg-white/20 text-primary dark:text-white transition-colors"
+                onClick={() => {
+                  addDesignation(desig);
+                  setShowDropdown(false);
+                }}
+              >
+                {desig}
+              </button>
+            ))}
+          {filteredDesignations.filter(desig => !selected.includes(desig)).length === 0 && (
+            <div className="px-3 py-2 text-sm text-secondary dark:text-gray-400">All designations selected</div>
+          )}
+        </div>
+      )}
+
+      {isLoading && (
+        <p className="text-xs text-gray-500 mt-1">Loading designations...</p>
+      )}
+      {!isLoading && designations.length === 0 && (
+        <p className="text-xs text-gray-500 mt-1">
+          {error 
+            ? "Error loading designations. Please refresh the page." 
+            : "No designations found. HR/Admin users can create designations through the API."}
+        </p>
+      )}
     </div>
   );
 }

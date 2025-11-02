@@ -38,6 +38,8 @@ type Services struct {
 	EmployeePrivateDocument EmployeePrivateDocumentService
 	PayslipPDF              PayslipPDFService
 	KRA                     KRAService
+	Designation             DesignationService
+	Department              DepartmentService
 }
 
 // New creates a new instance of Services
@@ -68,6 +70,8 @@ func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb 
 		EmployeePrivateDocument: NewEmployeePrivateDocumentService(repos.EmployeePrivateDocument),
 		PayslipPDF:              NewPayslipPDFService("./uploads"),
 		KRA:                     NewKRAService(repos.KRA, repos.User, auditService, NewNotificationService()),
+		Designation:             NewDesignationService(repos.Designation),
+		Department:              NewDepartmentService(repos.Department),
 	}
 }
 
