@@ -1,3 +1,6 @@
+//go:build populate_designations_departments
+// +build populate_designations_departments
+
 package main
 
 import (

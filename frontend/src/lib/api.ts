@@ -185,10 +185,25 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         organizationId = payload.organization_id?.toString() || null;
+        // If we found it in the token, save it to localStorage for future use
+        if (organizationId && typeof window !== "undefined") {
+          localStorage.setItem("organizationId", organizationId);
+        }
       } catch (e) {
         // Ignore JWT decode errors
+        console.warn('Failed to decode JWT token for organization ID:', e);
       }
     }
+  }
+  
+  // Always log organization ID for designations calls to help debug
+  if (path.includes('designations')) {
+    console.log('Organization ID for designations call:', {
+      fromLocalStorage: localStorage.getItem("organizationId"),
+      fromUser: getCurrentUser()?.organization_id,
+      final: organizationId,
+      token: token ? 'present' : 'missing',
+    });
   }
 
   const headers: Record<string, string> = {
@@ -205,7 +220,21 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Add /api prefix if not already present
   const fullPath = path.startsWith('/api/') ? path : `/api${path}`;
 
-  const res = await fetch(`${API_URL}${fullPath}`, {
+  const url = `${API_URL}${fullPath}`;
+  
+  // Debug logging for designations
+  if (path.includes('designations')) {
+    console.log('Designations API call:', {
+      path,
+      fullPath,
+      url,
+      organizationId,
+      token: token ? 'present' : 'missing',
+      headers,
+    });
+  }
+
+  const res = await fetch(url, {
     ...options,
     headers,
     credentials: "include", // Include cookies for NextAuth
@@ -226,6 +255,18 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
 
     const errorData = await res.json().catch(() => ({ error: { message: `HTTP ${res.status}` } }));
+    
+    // Debug logging for designations errors
+    if (path.includes('designations')) {
+      console.error('Designations API error:', {
+        status: res.status,
+        statusText: res.statusText,
+        errorData,
+        url,
+        headers,
+      });
+    }
+    
     // Handle both error formats: {"error": "msg"} and {"error": {"message": "msg"}}
     let message = `API error ${res.status}`;
     if (errorData?.error) {
@@ -237,7 +278,18 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
     throw new Error(message);
   }
-  return res.json();
+  
+  const responseData = await res.json();
+  
+  // Debug logging for designations success
+  if (path.includes('designations')) {
+    console.log('Designations API success:', {
+      status: res.status,
+      responseData,
+    });
+  }
+  
+  return responseData;
 }
 
 // Helper for multipart form data
@@ -1495,14 +1547,21 @@ export const getAvailableHolidayYears = () => {
 // -------------------- Designations --------------------
 export const getDesignations = (params?: Record<string, string>) =>
   fetcher<any>(`/designations?${new URLSearchParams(params || {}).toString()}`).then((raw) => {
+    console.log('getDesignations raw response:', raw);
     const items = (raw?.data || raw || []) as any[];
-    return { data: items.map((d: any) => ({
+    console.log('getDesignations items:', items);
+    const mapped = items.map((d: any) => ({
       id: String(d.id),
       name: d.name || '',
       description: d.description || '',
       is_active: d.is_active !== undefined ? d.is_active : true,
-    })) } as ApiResponse<any[]>;
-  }).catch(() => ({ data: [] } as ApiResponse<any[]>));
+    }));
+    console.log('getDesignations mapped:', mapped);
+    return { data: mapped } as ApiResponse<any[]>;
+  }).catch((error) => {
+    console.error('getDesignations error:', error);
+    return { data: [] } as ApiResponse<any[]>;
+  });
 
 export const createDesignation = (body: { name: string; description?: string; is_active?: boolean }) =>
   fetcher<ApiResponse<any>>("/designations", {

@@ -118,7 +118,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 func TestUserService_CreateUser(t *testing.T) {
 	db := setupTestDB(t)
 	repos := repositories.New(db, nil)
-	svc := services.New(repos, &config.Config{})
+	svc := services.New(repos, &config.Config{}, db, nil)
 
 	// Create test organization
 	org := &models.Organization{
@@ -140,7 +140,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		CTC:            500000,
 	}
 
-	user, err := svc.User.CreateUser(req)
+	user, err := svc.User.CreateUser(req, nil)
 	require.NoError(t, err)
 	assert.Equal(t, req.Username, user.Username)
 	assert.Equal(t, req.Email, user.Email)
@@ -164,7 +164,7 @@ func TestAuthService_Login(t *testing.T) {
 		},
 	}
 
-	svc := services.New(repos, cfg)
+	svc := services.New(repos, cfg, db, nil)
 
 	// Create test organization
 	org := &models.Organization{

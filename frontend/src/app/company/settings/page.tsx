@@ -7,11 +7,11 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import { getCompanySettings, updateCompanySettings, getLeaveCategories, createLeaveCategory, updateLeaveCategory, deleteLeaveCategory, getUsers, getDesignations, getDepartments } from "@/lib/api";
-import { PayrollSettings, PayrollMode, defaultPayrollSettings, computePayslipFromCTC, ComponentSetting, calculateLOPAmount, ConditionType, CategoryCondition } from "@/lib/payroll";
+import { PayrollSettings, PayrollMode, defaultPayrollSettings, computePayslipFromCTC, ComponentSetting, calculateLOPAmount, calculateOvertimePay, ConditionType, CategoryCondition } from "@/lib/payroll";
 import RoleGuard from "@/components/RoleGuard";
 import { LeaveCategory } from "@/lib/api";
 import { toast } from "sonner";
-import { Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
 function getCompanyId(): string {
   if (typeof window === 'undefined') return 'demo-company';
@@ -34,6 +34,7 @@ export default function CompanySettingsPage() {
   const [annualCTC, setAnnualCTC] = useState<number>(1000000);
   const [lop, setLop] = useState<number>(0);
   const [tds, setTds] = useState<number>(0);
+  const [overtimeHours, setOvertimeHours] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<'payroll' | 'leaves'>('payroll');
 
   // Custom categories state
@@ -57,7 +58,6 @@ export default function CompanySettingsPage() {
   const [newConditionalEarningCtcMax, setNewConditionalEarningCtcMax] = useState<number | undefined>(undefined);
   const [newConditionalEarningDepartments, setNewConditionalEarningDepartments] = useState<string[]>([]);
   const [newConditionalEarningDesignations, setNewConditionalEarningDesignations] = useState<string[]>([]);
-  const [newConditionalEarningDesignationSpecific, setNewConditionalEarningDesignationSpecific] = useState('');
   
   const [newConditionalDeductionKey, setNewConditionalDeductionKey] = useState('');
   const [newConditionalDeductionLabel, setNewConditionalDeductionLabel] = useState('');
@@ -68,7 +68,6 @@ export default function CompanySettingsPage() {
   const [newConditionalDeductionCtcMax, setNewConditionalDeductionCtcMax] = useState<number | undefined>(undefined);
   const [newConditionalDeductionDepartments, setNewConditionalDeductionDepartments] = useState<string[]>([]);
   const [newConditionalDeductionDesignations, setNewConditionalDeductionDesignations] = useState<string[]>([]);
-  const [newConditionalDeductionDesignationSpecific, setNewConditionalDeductionDesignationSpecific] = useState('');
 
   // Accordion states for Add Category sections
   const [showAddEarningCategory, setShowAddEarningCategory] = useState(false);
@@ -79,7 +78,7 @@ export default function CompanySettingsPage() {
   const [isConditionalDeduction, setIsConditionalDeduction] = useState(false);
 
   // Fetch departments and designations from dedicated tables
-  const { data: departmentsData } = useQuery({
+  const { data: departmentsData, isLoading: departmentsLoading, error: departmentsError } = useQuery({
     queryKey: ["departments"],
     queryFn: () => getDepartments({ is_active: "true" }),
     staleTime: 300000, // Cache for 5 minutes
@@ -104,23 +103,66 @@ export default function CompanySettingsPage() {
 
   // Debug logging
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Designations Debug:', {
-        designationsData,
-        designations,
-        designationsLoading,
-        designationsError,
-        count: designations.length,
+    console.log('Designations Debug:', {
+      designationsData,
+      designations,
+      designationsLoading,
+      designationsError,
+      count: designations.length,
+      rawNames: designations,
+      rawDataArray: designationsData?.data,
+    });
+    
+    // Also check localStorage for organization ID
+    if (typeof window !== 'undefined') {
+      const orgId = localStorage.getItem('organizationId');
+      const token = localStorage.getItem('token');
+      console.log('Organization Debug:', {
+        organizationId: orgId,
+        token: token ? 'present' : 'missing',
+        user: localStorage.getItem('user'),
       });
     }
   }, [designationsData, designations, designationsLoading, designationsError]);
 
   useEffect(() => {
     if (data?.data) {
-      setSettings(data.data);
+      const settingsData = data.data;
+      // Initialize fields if not present (migration from old format)
+      if (!settingsData.employerPF?.fields && settingsData.employerPF) {
+        const fields = [];
+        if (settingsData.employerPF.employerPFPercentOfBasic !== undefined) {
+          fields.push({
+            id: 'employer_pf_percent',
+            label: 'Employer PF Percentage of Basic',
+            value: settingsData.employerPF.employerPFPercentOfBasic,
+            type: 'PERCENTAGE' as const,
+          });
+        }
+        if (settingsData.employerPF.epsPercentOfBasic !== undefined) {
+          fields.push({
+            id: 'eps_percent',
+            label: 'EPS Percentage of Basic',
+            value: settingsData.employerPF.epsPercentOfBasic,
+            type: 'PERCENTAGE' as const,
+          });
+        }
+        if (settingsData.employerPF.epsCap !== undefined) {
+          fields.push({
+            id: 'eps_cap',
+            label: 'EPS Cap Amount',
+            value: settingsData.employerPF.epsCap,
+            type: 'FIXED_AMOUNT' as const,
+          });
+        }
+        if (fields.length > 0) {
+          settingsData.employerPF.fields = fields;
+        }
+      }
+      setSettings(settingsData);
       // Extract currency from company settings if available
-      if (data.data.currency) {
-        setCurrency(data.data.currency);
+      if (settingsData.currency) {
+        setCurrency(settingsData.currency);
       }
     }
   }, [data]);
@@ -164,7 +206,7 @@ export default function CompanySettingsPage() {
     },
   });
 
-  const breakdown = useMemo(() => computePayslipFromCTC(annualCTC, settings, { lopDays: lop, tdsOverride: tds }), [annualCTC, settings, lop, tds]);
+  const breakdown = useMemo(() => computePayslipFromCTC(annualCTC, settings, { lopDays: lop, tdsOverride: tds, overtimeHours }), [annualCTC, settings, lop, tds, overtimeHours]);
 
   // Helper function to format condition display text
   const formatConditionText = (category: any): string => {
@@ -189,9 +231,12 @@ export default function CompanySettingsPage() {
       case 'DEPARTMENT':
         return `Dept: ${condition.departments?.join(', ') || 'None'}`;
       case 'DESIGNATION':
+        // Support both old format (single designation) and new format (array)
+        if (condition.designation) {
+          // Backward compatibility: old DESIGNATION_SPECIFIC format
+          return `Designation: ${condition.designation}`;
+        }
         return `Designation: ${condition.designations?.join(', ') || 'None'}`;
-      case 'DESIGNATION_SPECIFIC':
-        return `Designation: ${condition.designation || 'None'}`;
       default:
         return 'Unknown condition';
     }
@@ -215,9 +260,12 @@ export default function CompanySettingsPage() {
       case 'DEPARTMENT':
         return condition.departments?.includes(employeeDept || '') || false;
       case 'DESIGNATION':
+        // Support both old format (single designation) and new format (array of designations)
+        if (condition.designation) {
+          // Backward compatibility: old DESIGNATION_SPECIFIC format
+          return condition.designation === employeeDesignation;
+        }
         return condition.designations?.includes(employeeDesignation || '') || false;
-      case 'DESIGNATION_SPECIFIC':
-        return condition.designation === employeeDesignation;
       default:
         return false;
     }
@@ -493,13 +541,11 @@ export default function CompanySettingsPage() {
                               setNewConditionalEarningCtcMax(undefined);
                               setNewConditionalEarningDepartments([]);
                               setNewConditionalEarningDesignations([]);
-                              setNewConditionalEarningDesignationSpecific('');
                             }}
                             options={[
                               { value: 'CTC_RANGE', label: 'CTC Range (Min/Max)' },
                               { value: 'DEPARTMENT', label: 'Department' },
-                              { value: 'DESIGNATION', label: 'Designation (Multiple)' },
-                              { value: 'DESIGNATION_SPECIFIC', label: 'Designation (Specific)' },
+                              { value: 'DESIGNATION', label: 'Designation' },
                             ]}
                             className="text-sm"
                           />
@@ -553,28 +599,14 @@ export default function CompanySettingsPage() {
                             <label className="block text-xs font-medium text-gray-400 mb-1">
                               Departments <span className="text-red-400">*</span>
                             </label>
-                            <div className="space-y-2">
-                              {departments.map((dept) => (
-                                <label key={dept} className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={newConditionalEarningDepartments.includes(dept)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setNewConditionalEarningDepartments([...newConditionalEarningDepartments, dept]);
-                                      } else {
-                                        setNewConditionalEarningDepartments(newConditionalEarningDepartments.filter(d => d !== dept));
-                                      }
-                                    }}
-                                    className="rounded"
-                                  />
-                                  <span className="text-sm text-gray-300">{dept}</span>
-                                </label>
-                              ))}
-                              {departments.length === 0 && (
-                                <p className="text-xs text-gray-500">No departments found. Add employees with departments first.</p>
-                              )}
-                            </div>
+                            <DepartmentSearchInput
+                              departments={departments}
+                              selected={newConditionalEarningDepartments}
+                              onSelectionChange={setNewConditionalEarningDepartments}
+                              isLoading={departmentsLoading}
+                              error={departmentsError as Error | null}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Select one or more departments. Category will apply to employees with any of the selected departments.</p>
                           </div>
                         )}
 
@@ -590,24 +622,7 @@ export default function CompanySettingsPage() {
                               isLoading={designationsLoading}
                               error={designationsError as Error | null}
                             />
-                          </div>
-                        )}
-
-                        {newConditionalEarningConditionType === 'DESIGNATION_SPECIFIC' && (
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">
-                              Specific Designation <span className="text-red-400">*</span>
-                            </label>
-                            <Select
-                              value={newConditionalEarningDesignationSpecific}
-                              onChange={(e) => setNewConditionalEarningDesignationSpecific(e.target.value)}
-                              options={[
-                                { value: '', label: 'Select Designation...' },
-                                ...designations.map(d => ({ value: d, label: d }))
-                              ]}
-                              className="text-sm"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Apply this category to employees with this specific designation</p>
+                            <p className="text-xs text-gray-500 mt-1">Select one or more designations. Category will apply to employees with any of the selected designations.</p>
                           </div>
                         )}
                       </div>
@@ -704,12 +719,6 @@ export default function CompanySettingsPage() {
                                 return;
                               }
                               condition.designations = newConditionalEarningDesignations;
-                            } else if (newConditionalEarningConditionType === 'DESIGNATION_SPECIFIC') {
-                              if (!newConditionalEarningDesignationSpecific) {
-                                toast.error("Please select a designation");
-                                return;
-                              }
-                              condition.designation = newConditionalEarningDesignationSpecific;
                             }
                             
                             const newCategory = {
@@ -739,7 +748,6 @@ export default function CompanySettingsPage() {
                             setNewConditionalEarningCtcMax(undefined);
                             setNewConditionalEarningDepartments([]);
                             setNewConditionalEarningDesignations([]);
-                            setNewConditionalEarningDesignationSpecific('');
                             setIsConditionalEarning(false);
                           } else {
                             addCustomEarning();
@@ -751,8 +759,7 @@ export default function CompanySettingsPage() {
                             ? (!newConditionalEarningKey || !newConditionalEarningLabel || (
                               (newConditionalEarningConditionType === 'CTC_RANGE' && newConditionalEarningCtcMin === undefined && newConditionalEarningCtcMax === undefined) ||
                               (newConditionalEarningConditionType === 'DEPARTMENT' && newConditionalEarningDepartments.length === 0) ||
-                              (newConditionalEarningConditionType === 'DESIGNATION' && newConditionalEarningDesignations.length === 0) ||
-                              (newConditionalEarningConditionType === 'DESIGNATION_SPECIFIC' && !newConditionalEarningDesignationSpecific)
+                              (newConditionalEarningConditionType === 'DESIGNATION' && newConditionalEarningDesignations.length === 0)
                             ))
                             : (!newEarningKey || !newEarningLabel)
                         } 
@@ -1105,13 +1112,11 @@ export default function CompanySettingsPage() {
                               setNewConditionalDeductionCtcMax(undefined);
                               setNewConditionalDeductionDepartments([]);
                               setNewConditionalDeductionDesignations([]);
-                              setNewConditionalDeductionDesignationSpecific('');
                             }}
                             options={[
                               { value: 'CTC_RANGE', label: 'CTC Range (Min/Max)' },
                               { value: 'DEPARTMENT', label: 'Department' },
-                              { value: 'DESIGNATION', label: 'Designation (Multiple)' },
-                              { value: 'DESIGNATION_SPECIFIC', label: 'Designation (Specific)' },
+                              { value: 'DESIGNATION', label: 'Designation' },
                             ]}
                             className="text-sm"
                           />
@@ -1165,28 +1170,14 @@ export default function CompanySettingsPage() {
                             <label className="block text-xs font-medium text-gray-400 mb-1">
                               Departments <span className="text-red-400">*</span>
                             </label>
-                            <div className="space-y-2">
-                              {departments.map((dept) => (
-                                <label key={dept} className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={newConditionalDeductionDepartments.includes(dept)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setNewConditionalDeductionDepartments([...newConditionalDeductionDepartments, dept]);
-                                      } else {
-                                        setNewConditionalDeductionDepartments(newConditionalDeductionDepartments.filter(d => d !== dept));
-                                      }
-                                    }}
-                                    className="rounded"
-                                  />
-                                  <span className="text-sm text-gray-300">{dept}</span>
-                                </label>
-                              ))}
-                              {departments.length === 0 && (
-                                <p className="text-xs text-gray-500">No departments found. Add employees with departments first.</p>
-                              )}
-                            </div>
+                            <DepartmentSearchInput
+                              departments={departments}
+                              selected={newConditionalDeductionDepartments}
+                              onSelectionChange={setNewConditionalDeductionDepartments}
+                              isLoading={departmentsLoading}
+                              error={departmentsError as Error | null}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Select one or more departments. Category will apply to employees with any of the selected departments.</p>
                           </div>
                         )}
 
@@ -1202,24 +1193,7 @@ export default function CompanySettingsPage() {
                               isLoading={designationsLoading}
                               error={designationsError as Error | null}
                             />
-                          </div>
-                        )}
-
-                        {newConditionalDeductionConditionType === 'DESIGNATION_SPECIFIC' && (
-                          <div>
-                            <label className="block text-xs font-medium text-gray-400 mb-1">
-                              Specific Designation <span className="text-red-400">*</span>
-                            </label>
-                            <Select
-                              value={newConditionalDeductionDesignationSpecific}
-                              onChange={(e) => setNewConditionalDeductionDesignationSpecific(e.target.value)}
-                              options={[
-                                { value: '', label: 'Select Designation...' },
-                                ...designations.map(d => ({ value: d, label: d }))
-                              ]}
-                              className="text-sm"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Apply this category to employees with this specific designation</p>
+                            <p className="text-xs text-gray-500 mt-1">Select one or more designations. Category will apply to employees with any of the selected designations.</p>
                           </div>
                         )}
                       </div>
@@ -1316,12 +1290,6 @@ export default function CompanySettingsPage() {
                                 return;
                               }
                               condition.designations = newConditionalDeductionDesignations;
-                            } else if (newConditionalDeductionConditionType === 'DESIGNATION_SPECIFIC') {
-                              if (!newConditionalDeductionDesignationSpecific) {
-                                toast.error("Please select a designation");
-                                return;
-                              }
-                              condition.designation = newConditionalDeductionDesignationSpecific;
                             }
                             
                             const newCategory = {
@@ -1351,7 +1319,6 @@ export default function CompanySettingsPage() {
                             setNewConditionalDeductionCtcMax(undefined);
                             setNewConditionalDeductionDepartments([]);
                             setNewConditionalDeductionDesignations([]);
-                            setNewConditionalDeductionDesignationSpecific('');
                             setIsConditionalDeduction(false);
                           } else {
                             addCustomDeduction();
@@ -1363,8 +1330,7 @@ export default function CompanySettingsPage() {
                             ? (!newConditionalDeductionKey || !newConditionalDeductionLabel || (
                               (newConditionalDeductionConditionType === 'CTC_RANGE' && newConditionalDeductionCtcMin === undefined && newConditionalDeductionCtcMax === undefined) ||
                               (newConditionalDeductionConditionType === 'DEPARTMENT' && newConditionalDeductionDepartments.length === 0) ||
-                              (newConditionalDeductionConditionType === 'DESIGNATION' && newConditionalDeductionDesignations.length === 0) ||
-                              (newConditionalDeductionConditionType === 'DESIGNATION_SPECIFIC' && !newConditionalDeductionDesignationSpecific)
+                              (newConditionalDeductionConditionType === 'DESIGNATION' && newConditionalDeductionDesignations.length === 0)
                             ))
                             : (!newDeductionKey || !newDeductionLabel)
                         } 
@@ -1707,185 +1673,142 @@ export default function CompanySettingsPage() {
             </div>
             
             <div className="space-y-4">
-              {/* Calculation Method */}
-              <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-                  Calculation Method
-                </label>
-                <Select
-                  value={settings.employerPF.calculationMethod || 'PERCENT_OF_BASIC'}
-                  onChange={(e) => {
-                    setSettings({
-                      ...settings,
-                      employerPF: {
-                        ...settings.employerPF,
-                        calculationMethod: e.target.value as any
-                      }
-                    });
-                  }}
-                  options={[
-                    { value: 'PERCENT_OF_BASIC', label: 'Percentage of Basic' },
-                    { value: 'PERCENT_OF_CTC', label: 'Percentage of CTC' },
-                    { value: 'FIXED_AMOUNT', label: 'Fixed Amount' },
-                  ]}
-                  className="w-full"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Choose how employer PF is calculated
-                </p>
-              </div>
-
-              {settings.employerPF.calculationMethod === 'PERCENT_OF_BASIC' || !settings.employerPF.calculationMethod ? (
-                <>
-                  <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                    <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-                      Employer PF Percentage of Basic
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="number"
-                        value={String(settings.employerPF.employerPFPercentOfBasic)}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
+              {/* Dynamic Fields */}
+              {(settings.employerPF.fields || []).map((field) => (
+                <div key={field.id} className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Field Label
+                        </label>
+                        <Input
+                          type="text"
+                          value={field.label}
+                          onChange={(e) => {
+                            const updated = (settings.employerPF.fields || []).map(f =>
+                              f.id === field.id ? { ...f, label: e.target.value } : f
+                            );
+                            setSettings({
+                              ...settings,
+                              employerPF: {
+                                ...settings.employerPF,
+                                fields: updated
+                              }
+                            });
+                          }}
+                          className="text-sm"
+                          placeholder="e.g., Employer PF Percentage"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">
+                            Type
+                          </label>
+                          <Select
+                            value={field.type}
+                            onChange={(e) => {
+                              const updated = (settings.employerPF.fields || []).map(f =>
+                                f.id === field.id ? { ...f, type: e.target.value as 'PERCENTAGE' | 'FIXED_AMOUNT' } : f
+                              );
+                              setSettings({
+                                ...settings,
+                                employerPF: {
+                                  ...settings.employerPF,
+                                  fields: updated
+                                }
+                              });
+                            }}
+                            options={[
+                              { value: 'PERCENTAGE', label: 'Percentage' },
+                              { value: 'FIXED_AMOUNT', label: 'Fixed Amount' },
+                            ]}
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-400 mb-1">
+                            Value
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={String(field.value)}
+                              onChange={(e) => {
+                                const value = parseFloat(e.target.value) || 0;
+                                const updated = (settings.employerPF.fields || []).map(f =>
+                                  f.id === field.id ? { ...f, value } : f
+                                );
+                                setSettings({
+                                  ...settings,
+                                  employerPF: {
+                                    ...settings.employerPF,
+                                    fields: updated
+                                  }
+                                });
+                              }}
+                              min="0"
+                              step={field.type === 'PERCENTAGE' ? '0.01' : '1'}
+                              max={field.type === 'PERCENTAGE' ? '100' : undefined}
+                              className="text-sm flex-1"
+                            />
+                            <span className="text-sm text-gray-400">
+                              {field.type === 'PERCENTAGE' ? '%' : '₹'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        if (confirm(`Are you sure you want to remove "${field.label}"?`)) {
+                          const updated = (settings.employerPF.fields || []).filter(f => f.id !== field.id);
                           setSettings({
                             ...settings,
                             employerPF: {
                               ...settings.employerPF,
-                              employerPFPercentOfBasic: value
+                              fields: updated
                             }
                           });
-                        }}
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        className="flex-1"
-                      />
-                      <span className="text-sm text-gray-400">%</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Total employer PF contribution (typically 12% of basic salary)
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                    <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-                      EPS Percentage of Basic
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="number"
-                        value={String(settings.employerPF.epsPercentOfBasic)}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
-                          setSettings({
-                            ...settings,
-                            employerPF: {
-                              ...settings.employerPF,
-                              epsPercentOfBasic: value
-                            }
-                          });
-                        }}
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        className="flex-1"
-                      />
-                      <span className="text-sm text-gray-400">%</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Employee Pension Scheme contribution (typically 8.33% of basic salary)
-                    </p>
-                  </div>
-                </>
-              ) : settings.employerPF.calculationMethod === 'PERCENT_OF_CTC' ? (
-                <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                  <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-                    Employer PF Percentage of CTC
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="number"
-                      value={String(settings.employerPF.employerPFPercentOfBasic)}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setSettings({
-                          ...settings,
-                          employerPF: {
-                            ...settings.employerPF,
-                            employerPFPercentOfBasic: value
-                          }
-                        });
-                      }}
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      className="flex-1"
-                    />
-                    <span className="text-sm text-gray-400">%</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Employer PF as percentage of CTC
-                  </p>
-                </div>
-              ) : (
-                <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                  <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-                    Fixed Employer PF Amount
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="number"
-                      value={String(settings.employerPF.employerPFPercentOfBasic)}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setSettings({
-                          ...settings,
-                          employerPF: {
-                            ...settings.employerPF,
-                            employerPFPercentOfBasic: value
-                          }
-                        });
-                      }}
-                      min="0"
-                      step="1"
-                      className="flex-1"
-                    />
-                    <span className="text-sm text-gray-400">₹</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Fixed monthly employer PF amount
-                  </p>
-                </div>
-              )}
-
-              <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-                  EPS Cap Amount
-                </label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="number"
-                    value={String(settings.employerPF.epsCap)}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      setSettings({
-                        ...settings,
-                        employerPF: {
-                          ...settings.employerPF,
-                          epsCap: value
                         }
-                      });
-                    }}
-                    min="0"
-                    step="1"
-                    className="flex-1"
-                  />
-                  <span className="text-sm text-gray-400">₹</span>
+                      }}
+                      className="bg-red-600 hover:bg-red-700 mt-6"
+                      size="sm"
+                      title="Remove field"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Maximum EPS contribution (typically ₹1,250 per month)
-                </p>
-              </div>
+              ))}
+
+              {/* Add Field Button */}
+              <Button
+                onClick={() => {
+                  const newField = {
+                    id: `field_${Date.now()}`,
+                    label: 'New Field',
+                    value: 0,
+                    type: 'PERCENTAGE' as const,
+                  };
+                  setSettings({
+                    ...settings,
+                    employerPF: {
+                      ...settings.employerPF,
+                      fields: [
+                        ...(settings.employerPF.fields || []),
+                        newField
+                      ]
+                    }
+                  });
+                }}
+                className="bg-blue-600 hover:bg-blue-700 w-full"
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Field
+              </Button>
 
               <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
                 <h4 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">Calculation Preview</h4>
@@ -2008,6 +1931,120 @@ export default function CompanySettingsPage() {
             </div>
           </Card>
 
+          {/* Overtime Settings */}
+          <Card>
+            <h2 className="text-xl font-semibold mb-4">Overtime Hours Pay Settings</h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
+                <div className="text-sm text-gray-300">Calculation Method</div>
+                <Select
+                  value={settings.overtime?.calculationMethod || 'HOURLY_RATE_BY_BASIC'}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    overtime: { 
+                      ...settings.overtime || { hoursPerDay: 8, multiplier: 1.5 },
+                      calculationMethod: e.target.value as any 
+                    }
+                  })}
+                  options={[
+                    { value: 'HOURLY_RATE_BY_BASIC', label: 'Hourly Rate (Basic ÷ Hours)' },
+                    { value: 'HOURLY_RATE_BY_NET_PAY', label: 'Hourly Rate (Net Pay ÷ Hours)' },
+                    { value: 'FIXED_RATE_PER_HOUR', label: 'Fixed Rate per Hour' },
+                    { value: 'DOUBLE_RATE', label: 'Double Rate (2x)' },
+                  ]}
+                />
+              </div>
+              <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
+                <div className="text-sm text-gray-300">Hours Per Day</div>
+                <Input
+                  type="number"
+                  value={settings.overtime?.hoursPerDay || 8}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    overtime: { 
+                      ...settings.overtime || { calculationMethod: 'HOURLY_RATE_BY_BASIC', multiplier: 1.5 },
+                      hoursPerDay: parseInt(e.target.value) || 8 
+                    }
+                  })}
+                  min="1"
+                  max="24"
+                />
+                <p className="text-xs text-gray-400">Default working hours per day</p>
+              </div>
+              <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
+                <div className="text-sm text-gray-300">Multiplier</div>
+                <Input
+                  type="number"
+                  value={settings.overtime?.multiplier || 1.5}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    overtime: { 
+                      ...settings.overtime || { calculationMethod: 'HOURLY_RATE_BY_BASIC', hoursPerDay: 8 },
+                      multiplier: parseFloat(e.target.value) || 1.5 
+                    }
+                  })}
+                  min="0.1"
+                  max="10"
+                  step="0.1"
+                />
+                <p className="text-xs text-gray-400">
+                  {settings.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR' 
+                    ? 'Fixed rate per hour (₹)' 
+                    : 'Overtime rate multiplier (e.g., 1.5 for 1.5x)'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <h3 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">Overtime Calculation Preview</h3>
+              <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                <div>Method: {
+                  settings.overtime?.calculationMethod === 'HOURLY_RATE_BY_BASIC' ? 'Basic ÷ Hours × Multiplier' :
+                  settings.overtime?.calculationMethod === 'HOURLY_RATE_BY_NET_PAY' ? 'Net Pay ÷ Hours × Multiplier' :
+                  settings.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR' ? 'Fixed Rate per Hour' :
+                  settings.overtime?.calculationMethod === 'DOUBLE_RATE' ? 'Double Rate (2x)' :
+                  'Hourly Rate (Basic ÷ Hours) × Multiplier'
+                }</div>
+                <div>Hours Per Day: {settings.overtime?.hoursPerDay || 8}</div>
+                <div>Multiplier: {
+                  settings.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR' 
+                    ? `₹${(settings.overtime?.multiplier || 1.5).toLocaleString('en-IN')} per hour`
+                    : `${settings.overtime?.multiplier || 1.5}x`
+                }</div>
+                <div className="text-xs text-gray-400 mt-2">
+                  {(() => {
+                    const exampleBasic = breakdown.earnings.basic || 25000;
+                    const exampleNetPay = breakdown.totals.netPay || 50000;
+                    const exampleHours = 1;
+                    let overtimeAmount = 0;
+                    let calculationText = '';
+                    
+                    switch (settings.overtime?.calculationMethod) {
+                      case 'HOURLY_RATE_BY_BASIC':
+                        overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
+                        calculationText = `For ${exampleHours} hour(s): (₹${exampleBasic.toLocaleString('en-IN')} ÷ ${settings.lop.defaultDaysInMonth || 30} days) ÷ ${settings.overtime?.hoursPerDay || 8} hours × ${settings.overtime?.multiplier || 1.5} = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                        break;
+                      case 'HOURLY_RATE_BY_NET_PAY':
+                        overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
+                        calculationText = `For ${exampleHours} hour(s): (₹${exampleNetPay.toLocaleString('en-IN')} ÷ ${settings.lop.defaultDaysInMonth || 30} days) ÷ ${settings.overtime?.hoursPerDay || 8} hours × ${settings.overtime?.multiplier || 1.5} = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                        break;
+                      case 'FIXED_RATE_PER_HOUR':
+                        overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
+                        calculationText = `For ${exampleHours} hour(s): ₹${(settings.overtime?.multiplier || 100).toLocaleString('en-IN')} × ${exampleHours} = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                        break;
+                      case 'DOUBLE_RATE':
+                        overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
+                        calculationText = `For ${exampleHours} hour(s): (₹${exampleBasic.toLocaleString('en-IN')} ÷ ${settings.lop.defaultDaysInMonth || 30} days) ÷ ${settings.overtime?.hoursPerDay || 8} hours × 2 = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                        break;
+                      default:
+                        calculationText = `For ${exampleHours} hour(s): Calculate based on selected method`;
+                    }
+                    return `Example: ${calculationText}`;
+                  })()}
+                </div>
+              </div>
+            </div>
+          </Card>
+
           <div className="flex gap-3">
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>Save Settings</Button>
             <Button variant="outline" onClick={restoreDefaults}>Restore Defaults</Button>
@@ -2025,6 +2062,7 @@ export default function CompanySettingsPage() {
                 <Input type="number" label="Annual CTC" value={String(annualCTC)} onChange={(e) => setAnnualCTC(Number(e.target.value))} />
                 <div className="text-sm text-gray-400">Monthly CTC: ₹{breakdown.monthlyCTC.toLocaleString('en-IN')}</div>
                 <Input type="number" label="LOP Days" value={String(lop)} onChange={(e) => setLop(Number(e.target.value))} />
+                <Input type="number" label="Overtime Hours" value={String(overtimeHours)} onChange={(e) => setOvertimeHours(Number(e.target.value))} />
                 <Input type="number" label="TDS (override)" value={String(tds)} onChange={(e) => setTds(Number(e.target.value))} />
               </div>
               <div className="space-y-2">
@@ -2281,6 +2319,130 @@ function LeaveCategoriesManager({
   );
 }
 
+// Department Search Component (similar to DesignationSearchInput)
+function DepartmentSearchInput({
+  departments,
+  selected,
+  onSelectionChange,
+  isLoading,
+  error,
+}: {
+  departments: string[];
+  selected: string[];
+  onSelectionChange: (departments: string[]) => void;
+  isLoading?: boolean;
+  error?: Error | null;
+}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Filter departments based on search query
+  const filteredDepartments = useMemo(() => {
+    if (!searchQuery.trim()) return departments;
+    const query = searchQuery.toLowerCase();
+    return departments.filter(dept => dept.toLowerCase().includes(query));
+  }, [departments, searchQuery]);
+
+  // Remove a selected department
+  const removeDepartment = (dept: string) => {
+    onSelectionChange(selected.filter(d => d !== dept));
+  };
+
+  // Add a department
+  const addDepartment = (dept: string) => {
+    if (!selected.includes(dept)) {
+      onSelectionChange([...selected, dept]);
+      setSearchQuery(''); // Clear search after selection
+    }
+  };
+
+  return (
+    <div className="relative">
+      {/* Selected departments display */}
+      {selected.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {selected.map((dept) => (
+            <span
+              key={dept}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-500/20 text-indigo-400 text-xs"
+            >
+              {dept}
+              <button
+                type="button"
+                onClick={() => removeDepartment(dept)}
+                className="text-indigo-400 hover:text-indigo-300"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Search input */}
+      <Input
+        placeholder={selected.length > 0 ? "Search for more departments..." : "Search departments..."}
+        value={searchQuery}
+        onChange={(e) => {
+          setSearchQuery(e.target.value);
+          setShowDropdown(true);
+        }}
+        onFocus={() => {
+          setShowDropdown(true);
+        }}
+        onBlur={() => {
+          // Delay hiding dropdown to allow clicks
+          setTimeout(() => setShowDropdown(false), 200);
+        }}
+        className="text-sm"
+      />
+
+      {/* Dropdown results */}
+      {showDropdown && (
+        <div className="absolute z-50 mt-2 max-h-48 overflow-y-auto border border-card dark:border-white/10 rounded-lg bg-card dark:bg-white/10 shadow-lg w-full">
+          {filteredDepartments.length > 0 ? (
+            <>
+              {filteredDepartments
+                .filter(dept => !selected.includes(dept)) // Only show unselected departments
+                .map((dept) => (
+                  <button
+                    key={dept}
+                    type="button"
+                    className="w-full text-left px-3 py-2 hover:bg-white/10 dark:hover:bg-white/20 text-primary dark:text-white transition-colors"
+                    onClick={() => {
+                      addDepartment(dept);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    {dept}
+                  </button>
+                ))}
+              {filteredDepartments.filter(dept => !selected.includes(dept)).length === 0 && (
+                <div className="px-3 py-2 text-sm text-secondary dark:text-gray-400">All departments selected</div>
+              )}
+            </>
+          ) : (
+            <div className="px-3 py-2 text-sm text-secondary dark:text-gray-400">
+              {searchQuery.trim() ? 'No departments found matching your search' : 'No departments available'}
+            </div>
+          )}
+        </div>
+      )}
+
+      {isLoading && (
+        <p className="text-xs text-gray-500 mt-1">Loading departments...</p>
+      )}
+      {!isLoading && departments.length === 0 && (
+        <p className="text-xs text-gray-500 mt-1">
+          {error 
+            ? "Error loading departments. Please refresh the page." 
+            : "No departments found. HR/Admin users can create departments through the API."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Designation Search Component (similar to ManagerSearch)
 function DesignationSearchInput({
   designations,
@@ -2304,6 +2466,17 @@ function DesignationSearchInput({
     const query = searchQuery.toLowerCase();
     return designations.filter(desig => desig.toLowerCase().includes(query));
   }, [designations, searchQuery]);
+
+  // Debug: Log filtered designations
+  useEffect(() => {
+    console.log('DesignationSearchInput Debug:', {
+      designations,
+      filteredDesignations,
+      searchQuery,
+      showDropdown,
+      selected,
+    });
+  }, [designations, filteredDesignations, searchQuery, showDropdown, selected]);
 
   // Remove a selected designation
   const removeDesignation = (desig: string) => {
@@ -2351,7 +2524,6 @@ function DesignationSearchInput({
         }}
         onFocus={() => {
           setShowDropdown(true);
-          if (!searchQuery) setSearchQuery(' '); // Trigger showing all if empty
         }}
         onBlur={() => {
           // Delay hiding dropdown to allow clicks
@@ -2361,25 +2533,33 @@ function DesignationSearchInput({
       />
 
       {/* Dropdown results */}
-      {showDropdown && filteredDesignations.length > 0 && (
+      {showDropdown && (
         <div className="absolute z-50 mt-2 max-h-48 overflow-y-auto border border-card dark:border-white/10 rounded-lg bg-card dark:bg-white/10 shadow-lg w-full">
-          {filteredDesignations
-            .filter(desig => !selected.includes(desig)) // Only show unselected designations
-            .map((desig) => (
-              <button
-                key={desig}
-                type="button"
-                className="w-full text-left px-3 py-2 hover:bg-white/10 dark:hover:bg-white/20 text-primary dark:text-white transition-colors"
-                onClick={() => {
-                  addDesignation(desig);
-                  setShowDropdown(false);
-                }}
-              >
-                {desig}
-              </button>
-            ))}
-          {filteredDesignations.filter(desig => !selected.includes(desig)).length === 0 && (
-            <div className="px-3 py-2 text-sm text-secondary dark:text-gray-400">All designations selected</div>
+          {filteredDesignations.length > 0 ? (
+            <>
+              {filteredDesignations
+                .filter(desig => !selected.includes(desig)) // Only show unselected designations
+                .map((desig) => (
+                  <button
+                    key={desig}
+                    type="button"
+                    className="w-full text-left px-3 py-2 hover:bg-white/10 dark:hover:bg-white/20 text-primary dark:text-white transition-colors"
+                    onClick={() => {
+                      addDesignation(desig);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    {desig}
+                  </button>
+                ))}
+              {filteredDesignations.filter(desig => !selected.includes(desig)).length === 0 && (
+                <div className="px-3 py-2 text-sm text-secondary dark:text-gray-400">All designations selected</div>
+              )}
+            </>
+          ) : (
+            <div className="px-3 py-2 text-sm text-secondary dark:text-gray-400">
+              {searchQuery.trim() ? 'No designations found matching your search' : 'No designations available'}
+            </div>
           )}
         </div>
       )}

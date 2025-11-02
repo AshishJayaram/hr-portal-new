@@ -1,3 +1,6 @@
+//go:build fix_leave_allocations
+// +build fix_leave_allocations
+
 package main
 
 import (

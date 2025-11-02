@@ -5,7 +5,7 @@ import { X, Plus, Trash2 } from "lucide-react";
 import Button from "./ui/Button";
 import Input from "./ui/Input";
 import { toast } from "sonner";
-import { computePayslipFromCTC } from "@/lib/payroll";
+import { computePayslipFromCTC, calculateOvertimePay } from "@/lib/payroll";
 import { getUser } from "@/lib/api";
 
 interface PayslipGeneratorModalProps {
@@ -60,6 +60,10 @@ export default function PayslipGeneratorModal({
   const [lopDays, setLopDays] = useState(0);
   const [lopAmount, setLopAmount] = useState(0);
   const [lopFixedAmountPerDay, setLopFixedAmountPerDay] = useState(1000);
+  
+  // Overtime state
+  const [overtimeHours, setOvertimeHours] = useState(0);
+  const [overtimeAmount, setOvertimeAmount] = useState(0);
 
   // Dynamic categories
   const [customEarnings, setCustomEarnings] = useState<DynamicCategory[]>([]);
@@ -168,7 +172,19 @@ export default function PayslipGeneratorModal({
     const customEarningsTotal = customEarnings.reduce((sum, cat) => sum + cat.amount, 0);
     const customDeductionsTotal = customDeductions.reduce((sum, cat) => sum + cat.amount, 0);
     
-    const grossEarnings = basicSalary + hra + specialAllowance + otherAllowances + customEarningsTotal;
+    // Calculate overtime pay if overtime hours provided
+    let calculatedOvertimeAmount = 0;
+    if (overtimeHours > 0 && companySettings) {
+      const grossEarningsBeforeOvertime = basicSalary + hra + specialAllowance + otherAllowances + customEarningsTotal;
+      const totalDeductionsBeforeOvertime = pf + esi + professionalTax + tds + otherDeductions + lopAmount + customDeductionsTotal;
+      const netPayBeforeOvertime = grossEarningsBeforeOvertime - totalDeductionsBeforeOvertime;
+      calculatedOvertimeAmount = calculateOvertimePay(overtimeHours, netPayBeforeOvertime, basicSalary, companySettings);
+      setOvertimeAmount(calculatedOvertimeAmount);
+    } else if (overtimeHours === 0) {
+      setOvertimeAmount(0);
+    }
+    
+    const grossEarnings = basicSalary + hra + specialAllowance + otherAllowances + customEarningsTotal + calculatedOvertimeAmount;
     const totalDeductions = pf + esi + professionalTax + tds + otherDeductions + lopAmount + customDeductionsTotal;
     const netPay = grossEarnings - totalDeductions;
     
@@ -243,6 +259,7 @@ export default function PayslipGeneratorModal({
           hra,
           specialAllowance,
           other: otherAllowances,
+          overtime: overtimeAmount,
           custom: customEarnings.reduce((acc, cat) => ({ ...acc, [cat.name]: cat.amount }), {}),
         },
         deductions: {
@@ -255,6 +272,8 @@ export default function PayslipGeneratorModal({
         },
         lopDays,
         lopAmount,
+        overtimeHours,
+        overtimeAmount,
         grossEarnings: totals.grossEarnings,
         totalDeductions: totals.totalDeductions,
         netPay: totals.netPay,
@@ -766,6 +785,60 @@ export default function PayslipGeneratorModal({
                   placeholder="LOP Amount"
                 />
                 <p className="text-xs text-gray-500">Amount deducted for LOP days</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Overtime Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b pb-2">
+              Overtime Hours Pay
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('overtimeHours')}`}>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Overtime Hours
+                </label>
+                <Input
+                  type="number"
+                  value={overtimeHours}
+                  onChange={(e) => {
+                    const hours = parseFloat(e.target.value) || 0;
+                    setOvertimeHours(hours);
+                    setHighlightedField('overtimeHours');
+                    // Trigger recalculation
+                    setTimeout(() => {
+                      const totals = calculateTotals();
+                      // totals already includes overtime calculation
+                    }, 0);
+                  }}
+                  placeholder="Number of overtime hours"
+                  min="0"
+                  step="0.5"
+                />
+                <p className="text-xs text-gray-500">Number of overtime hours worked</p>
+              </div>
+
+              <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('overtimeAmount')}`}>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Overtime Amount
+                </label>
+                <Input
+                  type="number"
+                  value={overtimeAmount}
+                  onChange={(e) => {
+                    setOvertimeAmount(parseFloat(e.target.value) || 0);
+                    setHighlightedField('overtimeAmount');
+                  }}
+                  placeholder="Overtime Amount"
+                  min="0"
+                />
+                <p className="text-xs text-gray-500">
+                  {companySettings?.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR'
+                    ? `Calculated: ₹${(companySettings?.overtime?.multiplier || 100).toLocaleString('en-IN')} per hour`
+                    : `Calculated based on ${companySettings?.overtime?.calculationMethod || 'default'} method`}
+                </p>
               </div>
             </div>
           </div>

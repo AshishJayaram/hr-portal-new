@@ -12,7 +12,7 @@ export interface EmployeeDeductionsSettings {
   esiEnabled: boolean; // toggle visibility/applicability
 }
 
-export type ConditionType = 'CTC_RANGE' | 'DEPARTMENT' | 'DESIGNATION' | 'DESIGNATION_SPECIFIC';
+export type ConditionType = 'CTC_RANGE' | 'DEPARTMENT' | 'DESIGNATION';
 
 export interface CategoryCondition {
   type: ConditionType;
@@ -21,18 +21,26 @@ export interface CategoryCondition {
   ctcMax?: number; // Maximum CTC (less than or equal)
   // For DEPARTMENT
   departments?: string[]; // Array of department names
-  // For DESIGNATION
-  designations?: string[]; // Array of designation names
-  // For DESIGNATION_SPECIFIC
-  designation?: string; // Specific designation
+  // For DESIGNATION - supports both single and multiple designations
+  designations?: string[]; // Array of designation names (can be single or multiple)
+  // Backward compatibility: old DESIGNATION_SPECIFIC format (single designation string)
+  designation?: string; // Legacy single designation field (deprecated, use designations array)
+}
+
+export interface EmployerPFField {
+  id: string;
+  label: string;
+  value: number;
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  unit?: string; // Optional unit label
 }
 
 export interface EmployerPFSettings {
-  employerPFPercentOfBasic: number; // 12
-  epsPercentOfBasic: number; // 8.33
-  epsCap: number; // 1250
+  employerPFPercentOfBasic: number; // 12 (deprecated, use fields)
+  epsPercentOfBasic: number; // 8.33 (deprecated, use fields)
+  epsCap: number; // 1250 (deprecated, use fields)
   enabled?: boolean; // Enable/disable employer PF
-  calculationMethod?: 'PERCENT_OF_BASIC' | 'FIXED_AMOUNT' | 'PERCENT_OF_CTC'; // Calculation method
+  fields?: EmployerPFField[]; // Dynamic fields configuration
   // Conditional categories with flexible conditions
   conditionalEarnings?: Array<{
     key: string;
@@ -70,6 +78,11 @@ export interface PayrollSettings {
     calculationMethod: 'NET_PAY_BY_DAYS' | 'BASIC_BY_DAYS' | 'FIXED_AMOUNT';
     defaultDaysInMonth: number; // default 30 or 31
   };
+  overtime: {
+    calculationMethod: 'HOURLY_RATE_BY_BASIC' | 'HOURLY_RATE_BY_NET_PAY' | 'FIXED_RATE_PER_HOUR' | 'DOUBLE_RATE';
+    hoursPerDay?: number; // Default working hours per day (default 8)
+    multiplier?: number; // Multiplier for overtime (default 1.5 for 1.5x rate)
+  };
   // Dynamic category definitions
   customEarnings?: Array<{ key: string; label: string; mode: PayrollMode; value?: number }>;
   customDeductions?: Array<{ key: string; label: string; mode: PayrollMode; value?: number }>;
@@ -84,6 +97,7 @@ export interface PayslipBreakdown {
     conveyance: number;
     lta: number;
     special: number;
+    overtime?: number; // Overtime pay
   };
   employer: {
     totalPF: number; // 12% of basic
@@ -108,6 +122,7 @@ export interface ComputeContext {
   workingDays?: number; // default 30
   lopDays?: number; // leave without pay
   tdsOverride?: number; // optional TDS deduction
+  overtimeHours?: number; // overtime hours worked
 }
 
 export const defaultPayrollSettings: PayrollSettings = {
@@ -138,6 +153,11 @@ export const defaultPayrollSettings: PayrollSettings = {
     calculationMethod: 'NET_PAY_BY_DAYS',
     defaultDaysInMonth: 30,
   },
+  overtime: {
+    calculationMethod: 'HOURLY_RATE_BY_BASIC',
+    hoursPerDay: 8,
+    multiplier: 1.5, // 1.5x rate for overtime
+  },
 };
 
 function round2(n: number): number {
@@ -163,6 +183,49 @@ export function calculateLOPAmount(
       return lopDays * 1000; // Default fixed amount per day
     default:
       return (netPay / daysInMonth) * lopDays;
+  }
+}
+
+export function calculateOvertimePay(
+  overtimeHours: number,
+  netPay: number,
+  basicSalary: number,
+  settings: PayrollSettings
+): number {
+  if (overtimeHours <= 0) return 0;
+  
+  const hoursPerDay = settings.overtime?.hoursPerDay || 8;
+  const multiplier = settings.overtime?.multiplier || 1.5;
+  const daysInMonth = settings.lop.defaultDaysInMonth;
+  
+  switch (settings.overtime?.calculationMethod) {
+    case 'HOURLY_RATE_BY_BASIC':
+      // Calculate hourly rate from basic salary
+      const dailyBasic = basicSalary / daysInMonth;
+      const hourlyRateFromBasic = dailyBasic / hoursPerDay;
+      return round2(overtimeHours * hourlyRateFromBasic * multiplier);
+      
+    case 'HOURLY_RATE_BY_NET_PAY':
+      // Calculate hourly rate from net pay
+      const dailyNetPay = netPay / daysInMonth;
+      const hourlyRateFromNetPay = dailyNetPay / hoursPerDay;
+      return round2(overtimeHours * hourlyRateFromNetPay * multiplier);
+      
+    case 'FIXED_RATE_PER_HOUR':
+      // Use a fixed rate per hour (stored in multiplier as the rate)
+      return round2(overtimeHours * (settings.overtime?.multiplier || 100));
+      
+    case 'DOUBLE_RATE':
+      // Double the regular hourly rate
+      const dailyBasic2 = basicSalary / daysInMonth;
+      const hourlyRate2 = dailyBasic2 / hoursPerDay;
+      return round2(overtimeHours * hourlyRate2 * 2);
+      
+    default:
+      // Default: Use basic salary hourly rate with 1.5x multiplier
+      const dailyBasicDefault = basicSalary / daysInMonth;
+      const hourlyRateDefault = dailyBasicDefault / hoursPerDay;
+      return round2(overtimeHours * hourlyRateDefault * 1.5);
   }
 }
 
@@ -234,7 +297,20 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
   const professionalTax = computeByMode(settings.deductions.professionalTax);
   const esi = settings.deductions.esiEnabled ? computeByMode(settings.deductions.esi) : 0;
 
-  const totalEarnings = earningsExceptSpecial + special;
+  const totalEarningsBase = earningsExceptSpecial + special;
+  
+  // Calculate overtime pay if overtime hours provided
+  let overtimePay = 0;
+  if (ctx?.overtimeHours && ctx.overtimeHours > 0) {
+    // Calculate net pay first for overtime calculation
+    const tdsForOvertime = round2((ctx?.tdsOverride || 0) / 12);
+    const totalDeductionsForOvertime = empPF + professionalTax + esi + tdsForOvertime;
+    const netPayForOvertime = totalEarningsBase - totalDeductionsForOvertime;
+    overtimePay = calculateOvertimePay(ctx.overtimeHours, netPayForOvertime, effBasic, settings);
+  }
+  
+  const totalEarnings = totalEarningsBase + overtimePay;
+  
   // TDS override is yearly, so divide by 12 for monthly calculation
   const tds = round2((ctx?.tdsOverride || 0) / 12);
   const totalDeductions = empPF + professionalTax + esi + tds;
@@ -242,7 +318,15 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
 
   return {
     monthlyCTC,
-    earnings: { basic: effBasic, hra: effHra, medical: effMedical, conveyance: effConveyance, lta: effLta, special },
+    earnings: { 
+      basic: effBasic, 
+      hra: effHra, 
+      medical: effMedical, 
+      conveyance: effConveyance, 
+      lta: effLta, 
+      special,
+      overtime: overtimePay,
+    },
     employer: { totalPF: employerPFTotal, eps, epf },
     deductions: { empPF, professionalTax, esi, tds },
     totals: { totalEarnings, totalDeductions, netPay },
