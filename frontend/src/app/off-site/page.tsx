@@ -21,7 +21,7 @@ import SearchFilter from "@/components/ui/SearchFilter";
 import Tabs from "@/components/ui/Tabs";
 import { toast } from "sonner";
 import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit, Trash2, MapPin, Briefcase } from "lucide-react";
-import { formatDate, capitalize } from "@/lib/utils";
+import { formatDate, formatDateShort, capitalize } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 export default function OffSitePage() {
@@ -317,18 +317,20 @@ export default function OffSitePage() {
                                 <h3 className="text-xl font-semibold text-white mb-1">
                                   {offSite.title}
                                 </h3>
-                                <div className="flex items-center gap-4 text-sm text-gray-400 mb-2">
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="h-4 w-4" />
-                                    {formatDate(offSite.start_date)} - {formatDate(offSite.end_date)}
+                                <div className="flex items-center gap-4 text-sm text-gray-400 mb-2 flex-wrap">
+                                  <span className="flex items-center gap-1 min-w-0">
+                                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                                    <span className="truncate min-w-0">
+                                      {formatDateShort(offSite.start_date)} - {formatDateShort(offSite.end_date)}
+                                    </span>
                                   </span>
                                   {offSite.location && (
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="h-4 w-4" />
-                                      {offSite.location}
+                                    <span className="flex items-center gap-1 min-w-0">
+                                      <MapPin className="h-4 w-4 flex-shrink-0" />
+                                      <span className="truncate min-w-0">{offSite.location}</span>
                                     </span>
                                   )}
-                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border flex-shrink-0 ${
                                     offSite.status === 'completed' ? 'bg-green-500/30 text-green-700 dark:text-green-300 border-green-500/40 dark:border-green-500/40' :
                                     offSite.status === 'in_progress' ? 'bg-blue-500/30 text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/40' :
                                     offSite.status === 'cancelled' ? 'bg-red-500/30 text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/40' :
@@ -485,15 +487,15 @@ export default function OffSitePage() {
 
                                 <div className="flex flex-wrap gap-4 text-sm text-gray-400">
                                   {offSite.location && (
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1 min-w-0">
                                       <MapPin className="h-4 w-4 flex-shrink-0" />
-                                      <span className="truncate">{offSite.location}</span>
+                                      <span className="truncate min-w-0">{offSite.location}</span>
                                     </div>
                                   )}
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center gap-1 min-w-0 max-w-full">
                                     <Calendar className="h-4 w-4 flex-shrink-0" />
-                                    <span className="truncate">
-                                      {formatDate(offSite.start_date)} - {formatDate(offSite.end_date)}
+                                    <span className="truncate min-w-0">
+                                      {formatDateShort(offSite.start_date)} - {formatDateShort(offSite.end_date)}
                                     </span>
                                   </div>
                                 </div>

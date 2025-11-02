@@ -312,6 +312,11 @@ export default function CompanySettingsPage() {
 
       <Card>
         <h2 className="text-xl font-semibold mb-4">Preview</h2>
+        <div className="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 rounded-lg">
+          <p className="text-sm text-secondary dark:text-gray-400">
+            <strong className="text-primary dark:text-white">Note:</strong> All amounts shown below are <strong className="text-primary dark:text-white">Monthly</strong> (except Annual CTC).
+          </p>
+        </div>
         <div className="grid md:grid-cols-3 gap-6">
           <div className="space-y-3">
             <Input type="number" label="Annual CTC" value={String(annualCTC)} onChange={(e) => setAnnualCTC(Number(e.target.value))} />
@@ -405,6 +410,11 @@ export default function CompanySettingsPage() {
 
       <Card>
         <h2 className="text-xl font-semibold mb-4">Live Preview</h2>
+        <div className="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 rounded-lg">
+          <p className="text-sm text-secondary dark:text-gray-400">
+            <strong className="text-primary dark:text-white">Note:</strong> All amounts shown below are <strong className="text-primary dark:text-white">Monthly</strong> (except Annual CTC).
+          </p>
+        </div>
         <div className="grid md:grid-cols-3 gap-6">
           <div className="space-y-3">
             <Input type="number" label="Annual CTC" value={String(annualCTC)} onChange={(e) => setAnnualCTC(Number(e.target.value))} />

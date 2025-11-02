@@ -11,7 +11,7 @@ import { PayrollSettings, PayrollMode, defaultPayrollSettings, computePayslipFro
 import RoleGuard from "@/components/RoleGuard";
 import { LeaveCategory } from "@/lib/api";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp } from "lucide-react";
 
 function getCompanyId(): string {
   if (typeof window === 'undefined') return 'demo-company';
@@ -34,7 +34,7 @@ export default function CompanySettingsPage() {
   const [annualCTC, setAnnualCTC] = useState<number>(1000000);
   const [lop, setLop] = useState<number>(0);
   const [tds, setTds] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'payroll' | 'leaves' | 'general'>('payroll');
+  const [activeTab, setActiveTab] = useState<'payroll' | 'leaves'>('payroll');
 
   // Custom categories state
   const [newEarningKey, setNewEarningKey] = useState('');
@@ -46,6 +46,27 @@ export default function CompanySettingsPage() {
   const [newDeductionLabel, setNewDeductionLabel] = useState('');
   const [newDeductionMode, setNewDeductionMode] = useState<PayrollMode>('FIXED');
   const [newDeductionValue, setNewDeductionValue] = useState(0);
+
+  // Conditional categories state for Employer PF
+  const [newConditionalEarningKey, setNewConditionalEarningKey] = useState('');
+  const [newConditionalEarningLabel, setNewConditionalEarningLabel] = useState('');
+  const [newConditionalEarningMode, setNewConditionalEarningMode] = useState<PayrollMode>('FIXED');
+  const [newConditionalEarningValue, setNewConditionalEarningValue] = useState(0);
+  const [newConditionalEarningThreshold, setNewConditionalEarningThreshold] = useState(0);
+  
+  const [newConditionalDeductionKey, setNewConditionalDeductionKey] = useState('');
+  const [newConditionalDeductionLabel, setNewConditionalDeductionLabel] = useState('');
+  const [newConditionalDeductionMode, setNewConditionalDeductionMode] = useState<PayrollMode>('FIXED');
+  const [newConditionalDeductionValue, setNewConditionalDeductionValue] = useState(0);
+  const [newConditionalDeductionThreshold, setNewConditionalDeductionThreshold] = useState(0);
+
+  // Accordion states for Add Category sections
+  const [showAddEarningCategory, setShowAddEarningCategory] = useState(false);
+  const [showAddDeductionCategory, setShowAddDeductionCategory] = useState(false);
+  
+  // Conditional category toggle states
+  const [isConditionalEarning, setIsConditionalEarning] = useState(false);
+  const [isConditionalDeduction, setIsConditionalDeduction] = useState(false);
 
   useEffect(() => {
     if (data?.data) {
@@ -224,16 +245,6 @@ export default function CompanySettingsPage() {
       <Card className="p-4">
         <div className="flex space-x-1 bg-white/5 dark:bg-white/10 p-1 rounded-lg border border-card dark:border-white/10">
           <button
-            onClick={() => setActiveTab('general')}
-            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
-              activeTab === 'general'
-                ? 'bg-indigo-500 text-white shadow-md'
-                : 'text-secondary dark:text-gray-300 hover:text-primary dark:hover:text-white hover:bg-white/10 dark:hover:bg-white/20'
-            }`}
-          >
-            General Settings
-          </button>
-          <button
             onClick={() => setActiveTab('payroll')}
             className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
               activeTab === 'payroll'
@@ -256,49 +267,6 @@ export default function CompanySettingsPage() {
         </div>
       </Card>
 
-      {activeTab === 'general' && (
-        <>
-          <h2 className="text-2xl font-bold text-primary">General Settings</h2>
-          
-          <Card>
-            <h3 className="text-xl font-semibold mb-4">Currency Settings</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-secondary mb-2">
-                  Default Currency
-                </label>
-                <Select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  options={[
-                    { value: 'INR', label: 'Indian Rupee (₹)' },
-                    { value: 'USD', label: 'US Dollar ($)' },
-                    { value: 'EUR', label: 'Euro (€)' },
-                    { value: 'GBP', label: 'British Pound (£)' },
-                    { value: 'JPY', label: 'Japanese Yen (¥)' },
-                    { value: 'CAD', label: 'Canadian Dollar (C$)' },
-                    { value: 'AUD', label: 'Australian Dollar (A$)' },
-                  ]}
-                />
-                <p className="text-xs text-gray-400 mt-2">
-                  This will be used as the default currency for all monetary values across the system.
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <div className="flex justify-end">
-            <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="bg-indigo-600 hover:bg-indigo-700"
-            >
-              {saveMutation.isPending ? "Saving..." : "Save Settings"}
-            </Button>
-          </div>
-        </>
-      )}
-
       {activeTab === 'payroll' && (
         <>
           <h2 className="text-2xl font-bold text-primary">CTC Rules & Breakdown</h2>
@@ -310,33 +278,6 @@ export default function CompanySettingsPage() {
             <Card>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-green-600 dark:text-green-400">Earnings Configuration</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // Import from Live Preview breakdown
-                    const standardEarnings = [
-                      { key: 'basic', label: 'Basic', mode: settings.earnings.basic.mode, value: settings.earnings.basic.value },
-                      { key: 'hra', label: 'HRA', mode: settings.earnings.hra.mode, value: settings.earnings.hra.value },
-                      { key: 'medical', label: 'Medical', mode: settings.earnings.medical.mode, value: settings.earnings.medical.value },
-                      { key: 'conveyance', label: 'Conveyance', mode: settings.earnings.conveyance.mode, value: settings.earnings.conveyance.value },
-                      { key: 'lta', label: 'LTA', mode: settings.earnings.lta.mode, value: settings.earnings.lta.value },
-                      { key: 'specialAllowance', label: 'Special Allowance', mode: settings.earnings.specialAllowance.mode, value: settings.earnings.specialAllowance.value },
-                    ];
-                    // Filter out earnings that already exist in customEarnings
-                    const existingKeys = new Set((settings.customEarnings || []).map(e => e.key));
-                    const newEarnings = standardEarnings.filter(e => !existingKeys.has(e.key));
-                    setSettings({
-                      ...settings,
-                      customEarnings: [...(settings.customEarnings || []), ...newEarnings]
-                    });
-                    toast.success(`Imported ${newEarnings.length} earnings from Live Preview`);
-                  }}
-                  className="flex items-center gap-2 text-green-600 border-green-500/30 hover:bg-green-500/10"
-                >
-                  <Plus className="h-4 w-4" />
-                  Import from Preview
-                </Button>
               </div>
 
               {/* Earning Categories List */}
@@ -346,55 +287,222 @@ export default function CompanySettingsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={addCustomEarning}
+                    onClick={() => {
+                      const newState = !showAddEarningCategory;
+                      setShowAddEarningCategory(newState);
+                      if (!newState) {
+                        // Reset form when closing
+                        setIsConditionalEarning(false);
+                        setNewEarningKey('');
+                        setNewEarningLabel('');
+                        setNewEarningMode('FIXED');
+                        setNewEarningValue(0);
+                        setNewConditionalEarningKey('');
+                        setNewConditionalEarningLabel('');
+                        setNewConditionalEarningMode('FIXED');
+                        setNewConditionalEarningValue(0);
+                        setNewConditionalEarningThreshold(0);
+                      }
+                    }}
                     className="flex items-center gap-2 text-green-600 border-green-500/30 hover:bg-green-500/10"
                   >
                     <Plus className="h-4 w-4" />
                     Add Category
+                    {showAddEarningCategory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                 </div>
                 
-                {/* Add New Earning Category */}
-                <div className="p-3 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 mb-3">
-                  <div className="grid grid-cols-4 gap-2">
-                    <Input
-                      placeholder="Key (e.g., bonus)"
-                      value={newEarningKey}
-                      onChange={(e) => setNewEarningKey(e.target.value)}
-                      className="text-sm"
-                    />
-                    <Input
-                      placeholder="Label (e.g., Performance Bonus)"
-                      value={newEarningLabel}
-                      onChange={(e) => setNewEarningLabel(e.target.value)}
-                      className="text-sm"
-                    />
-                    <Select
-                      value={newEarningMode}
-                      onChange={(e) => setNewEarningMode(e.target.value as PayrollMode)}
-                      options={[
-                        { value: 'FIXED', label: 'Fixed' },
-                        { value: 'PERCENT_OF_BASIC', label: '% Basic' },
-                        { value: 'PERCENT_OF_CTC', label: '% CTC' },
-                        { value: 'REMAINDER', label: 'Remainder' },
-                      ]}
-                      className="text-sm"
-                    />
-                    <div className="flex gap-1">
-                      <Input
-                        type="number"
-                        placeholder="Value"
-                        value={String(newEarningValue)}
-                        onChange={(e) => setNewEarningValue(Number(e.target.value))}
-                        disabled={newEarningMode === 'REMAINDER'}
-                        className="text-sm flex-1"
+                {/* Add New Earning Category - Accordion */}
+                {showAddEarningCategory && (
+                  <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 mb-3 space-y-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <input
+                        type="checkbox"
+                        id="conditionalEarning"
+                        checked={isConditionalEarning}
+                        onChange={(e) => {
+                          setIsConditionalEarning(e.target.checked);
+                          if (!e.target.checked) {
+                            setNewConditionalEarningThreshold(0);
+                          }
+                        }}
+                        className="rounded"
                       />
-                      <Button onClick={addCustomEarning} disabled={!newEarningKey || !newEarningLabel} size="sm">
-                        Add
+                      <label htmlFor="conditionalEarning" className="text-sm font-medium text-green-600 dark:text-green-400 cursor-pointer">
+                        Apply only when employee CTC meets threshold (Conditional Category)
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Category Key <span className="text-red-400">*</span>
+                        </label>
+                        <Input
+                          placeholder="e.g., bonus, allowance"
+                          value={isConditionalEarning ? newConditionalEarningKey : newEarningKey}
+                          onChange={(e) => {
+                            if (isConditionalEarning) {
+                              setNewConditionalEarningKey(e.target.value);
+                            } else {
+                              setNewEarningKey(e.target.value);
+                            }
+                          }}
+                          className="text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Unique identifier (lowercase, no spaces)</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Category Label <span className="text-red-400">*</span>
+                        </label>
+                        <Input
+                          placeholder="e.g., Performance Bonus, Tax Benefits"
+                          value={isConditionalEarning ? newConditionalEarningLabel : newEarningLabel}
+                          onChange={(e) => {
+                            if (isConditionalEarning) {
+                              setNewConditionalEarningLabel(e.target.value);
+                            } else {
+                              setNewEarningLabel(e.target.value);
+                            }
+                          }}
+                          className="text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Display name shown in payslips</p>
+                      </div>
+                    </div>
+                    {isConditionalEarning && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          CTC Threshold (₹) <span className="text-red-400">*</span>
+                        </label>
+                        <Input
+                          type="number"
+                          placeholder="e.g., 500000"
+                          value={String(newConditionalEarningThreshold)}
+                          onChange={(e) => {
+                            const value = Number(e.target.value);
+                            // Enforce bounds
+                            if (value < 0) setNewConditionalEarningThreshold(0);
+                            else if (value > 100000000) setNewConditionalEarningThreshold(100000000);
+                            else setNewConditionalEarningThreshold(value);
+                          }}
+                          className="text-sm"
+                          min="0"
+                          max="100000000"
+                          step="1000"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Category applies only when employee's annual CTC ≥ this amount (Range: ₹0 - ₹10,00,00,000)
+                        </p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Calculation Mode <span className="text-red-400">*</span>
+                        </label>
+                        <Select
+                          value={isConditionalEarning ? newConditionalEarningMode : newEarningMode}
+                          onChange={(e) => {
+                            if (isConditionalEarning) {
+                              setNewConditionalEarningMode(e.target.value as PayrollMode);
+                            } else {
+                              setNewEarningMode(e.target.value as PayrollMode);
+                            }
+                          }}
+                          options={[
+                            { value: 'FIXED', label: 'Fixed Amount' },
+                            { value: 'PERCENT_OF_BASIC', label: 'Percentage of Basic Salary' },
+                            { value: 'PERCENT_OF_CTC', label: 'Percentage of CTC' },
+                            { value: 'REMAINDER', label: 'Remainder (Leftover amount)' },
+                          ]}
+                          className="text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {(() => {
+                            const mode = isConditionalEarning ? newConditionalEarningMode : newEarningMode;
+                            if (mode === 'FIXED') return 'Fixed monthly amount in ₹';
+                            if (mode === 'PERCENT_OF_BASIC') return '% of employee\'s Basic Salary';
+                            if (mode === 'PERCENT_OF_CTC') return '% of employee\'s Annual CTC (divided by 12 for monthly)';
+                            return 'Automatically calculated as remaining amount after all other earnings';
+                          })()}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Value <span className="text-red-400">*</span>
+                        </label>
+                        <Input
+                          type="number"
+                          placeholder={isConditionalEarning ? newConditionalEarningMode === 'PERCENT_OF_BASIC' || newConditionalEarningMode === 'PERCENT_OF_CTC' ? 'e.g., 10 (for 10%)' : 'e.g., 5000' : newEarningMode === 'PERCENT_OF_BASIC' || newEarningMode === 'PERCENT_OF_CTC' ? 'e.g., 10 (for 10%)' : 'e.g., 5000'}
+                          value={String(isConditionalEarning ? newConditionalEarningValue : newEarningValue)}
+                          onChange={(e) => {
+                            if (isConditionalEarning) {
+                              setNewConditionalEarningValue(Number(e.target.value));
+                            } else {
+                              setNewEarningValue(Number(e.target.value));
+                            }
+                          }}
+                          disabled={(isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'REMAINDER'}
+                          className="text-sm"
+                          min="0"
+                          step={(isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED' ? '1' : '0.01'}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {(isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'REMAINDER' 
+                            ? 'Disabled for Remainder mode' 
+                            : (isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED' 
+                              ? 'Fixed amount in ₹ per month' 
+                              : 'Percentage value (e.g., 10 for 10%)'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <Button 
+                        onClick={() => {
+                          if (isConditionalEarning) {
+                            if (!newConditionalEarningKey || !newConditionalEarningLabel) return;
+                            const newCategory = {
+                              key: newConditionalEarningKey,
+                              label: newConditionalEarningLabel,
+                              ctcThreshold: newConditionalEarningThreshold,
+                              mode: newConditionalEarningMode,
+                              value: newConditionalEarningMode !== 'REMAINDER' ? newConditionalEarningValue : undefined
+                            };
+                            setSettings({
+                              ...settings,
+                              employerPF: {
+                                ...settings.employerPF,
+                                conditionalEarnings: [
+                                  ...(settings.employerPF.conditionalEarnings || []),
+                                  newCategory
+                                ]
+                              }
+                            });
+                            setNewConditionalEarningKey('');
+                            setNewConditionalEarningLabel('');
+                            setNewConditionalEarningMode('FIXED');
+                            setNewConditionalEarningValue(0);
+                            setNewConditionalEarningThreshold(0);
+                            setIsConditionalEarning(false);
+                          } else {
+                            addCustomEarning();
+                          }
+                          setShowAddEarningCategory(false);
+                        }} 
+                        disabled={
+                          isConditionalEarning 
+                            ? (!newConditionalEarningKey || !newConditionalEarningLabel || newConditionalEarningThreshold <= 0)
+                            : (!newEarningKey || !newEarningLabel)
+                        } 
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Add Category
                       </Button>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Earning Categories List */}
                 <div className="space-y-2">
@@ -533,36 +641,98 @@ export default function CompanySettingsPage() {
                   )}
                 </div>
               </div>
+
+              {/* Conditional Earning Categories List */}
+              {(settings.employerPF.conditionalEarnings || []).length > 0 && (
+                <div className="mt-6 p-4 rounded-lg bg-green-500/5 border border-green-500/10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-green-600 dark:text-green-400">Conditional Earning Categories</h4>
+                      <p className="text-xs text-gray-400 mt-1">Categories that apply only when employee's CTC meets the threshold</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {(settings.employerPF.conditionalEarnings || []).map((category) => (
+                      <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium text-green-600 dark:text-green-400 text-sm">{category.label}</span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                              CTC ≥ ₹{category.ctcThreshold.toLocaleString('en-IN')}
+                            </span>
+                            {annualCTC < category.ctcThreshold && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-gray-500/20 text-gray-400">
+                                Inactive (Current CTC: ₹{annualCTC.toLocaleString('en-IN')})
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select
+                              value={category.mode}
+                              onChange={(e) => {
+                                const updated = (settings.employerPF.conditionalEarnings || []).map(c =>
+                                  c.key === category.key ? { ...c, mode: e.target.value as PayrollMode } : c
+                                );
+                                setSettings({
+                                  ...settings,
+                                  employerPF: { ...settings.employerPF, conditionalEarnings: updated }
+                                });
+                              }}
+                              options={[
+                                { value: 'FIXED', label: 'Fixed Amount' },
+                                { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                                { value: 'PERCENT_OF_CTC', label: '% of CTC' },
+                                { value: 'REMAINDER', label: 'Remainder' },
+                              ]}
+                              className="text-xs"
+                            />
+                            <Input
+                              type="number"
+                              value={String(category.value ?? '')}
+                              onChange={(e) => {
+                                const updated = (settings.employerPF.conditionalEarnings || []).map(c =>
+                                  c.key === category.key ? { ...c, value: Number(e.target.value) } : c
+                                );
+                                setSettings({
+                                  ...settings,
+                                  employerPF: { ...settings.employerPF, conditionalEarnings: updated }
+                                });
+                              }}
+                              disabled={category.mode === 'REMAINDER'}
+                              className="text-xs"
+                              placeholder="Value"
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to delete "${category.label}"?`)) {
+                              setSettings({
+                                ...settings,
+                                employerPF: {
+                                  ...settings.employerPF,
+                                  conditionalEarnings: (settings.employerPF.conditionalEarnings || []).filter(c => c.key !== category.key)
+                                }
+                              });
+                            }
+                          }}
+                          className="bg-red-600 hover:bg-red-700 ml-2"
+                          size="sm"
+                          title="Delete category"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Card>
 
             {/* Deductions Section */}
             <Card>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold text-red-600 dark:text-red-400">Deductions Configuration</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // Import from Live Preview breakdown
-                    const standardDeductions = [
-                      { key: 'employeePF', label: 'Employee PF', mode: settings.deductions.employeePF.mode, value: settings.deductions.employeePF.value },
-                      { key: 'professionalTax', label: 'Professional Tax', mode: settings.deductions.professionalTax.mode, value: settings.deductions.professionalTax.value },
-                      { key: 'esi', label: 'ESI', mode: settings.deductions.esi.mode, value: settings.deductions.esi.value },
-                    ];
-                    // Filter out deductions that already exist in customDeductions
-                    const existingKeys = new Set((settings.customDeductions || []).map(d => d.key));
-                    const newDeductions = standardDeductions.filter(d => !existingKeys.has(d.key));
-                    setSettings({
-                      ...settings,
-                      customDeductions: [...(settings.customDeductions || []), ...newDeductions]
-                    });
-                    toast.success(`Imported ${newDeductions.length} deductions from Live Preview`);
-                  }}
-                  className="flex items-center gap-2 text-red-600 border-red-500/30 hover:bg-red-500/10"
-                >
-                  <Plus className="h-4 w-4" />
-                  Import from Preview
-                </Button>
               </div>
 
               {/* Deduction Categories List */}
@@ -572,55 +742,222 @@ export default function CompanySettingsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={addCustomDeduction}
+                    onClick={() => {
+                      const newState = !showAddDeductionCategory;
+                      setShowAddDeductionCategory(newState);
+                      if (!newState) {
+                        // Reset form when closing
+                        setIsConditionalDeduction(false);
+                        setNewDeductionKey('');
+                        setNewDeductionLabel('');
+                        setNewDeductionMode('FIXED');
+                        setNewDeductionValue(0);
+                        setNewConditionalDeductionKey('');
+                        setNewConditionalDeductionLabel('');
+                        setNewConditionalDeductionMode('FIXED');
+                        setNewConditionalDeductionValue(0);
+                        setNewConditionalDeductionThreshold(0);
+                      }
+                    }}
                     className="flex items-center gap-2 text-red-600 border-red-500/30 hover:bg-red-500/10"
                   >
                     <Plus className="h-4 w-4" />
                     Add Category
+                    {showAddDeductionCategory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                 </div>
                 
-                {/* Add New Deduction Category */}
-                <div className="p-3 rounded-lg bg-gradient-to-r from-red-500/10 to-rose-500/10 border border-red-500/20 mb-3">
-                  <div className="grid grid-cols-4 gap-2">
-                    <Input
-                      placeholder="Key (e.g., advance)"
-                      value={newDeductionKey}
-                      onChange={(e) => setNewDeductionKey(e.target.value)}
-                      className="text-sm"
-                    />
-                    <Input
-                      placeholder="Label (e.g., Salary Advance)"
-                      value={newDeductionLabel}
-                      onChange={(e) => setNewDeductionLabel(e.target.value)}
-                      className="text-sm"
-                    />
-                    <Select
-                      value={newDeductionMode}
-                      onChange={(e) => setNewDeductionMode(e.target.value as PayrollMode)}
-                      options={[
-                        { value: 'FIXED', label: 'Fixed' },
-                        { value: 'PERCENT_OF_BASIC', label: '% Basic' },
-                        { value: 'PERCENT_OF_CTC', label: '% CTC' },
-                        { value: 'REMAINDER', label: 'Remainder' },
-                      ]}
-                      className="text-sm"
-                    />
-                    <div className="flex gap-1">
-                      <Input
-                        type="number"
-                        placeholder="Value"
-                        value={String(newDeductionValue)}
-                        onChange={(e) => setNewDeductionValue(Number(e.target.value))}
-                        disabled={newDeductionMode === 'REMAINDER'}
-                        className="text-sm flex-1"
+                {/* Add New Deduction Category - Accordion */}
+                {showAddDeductionCategory && (
+                  <div className="p-4 rounded-lg bg-gradient-to-r from-red-500/10 to-rose-500/10 border border-red-500/20 mb-3 space-y-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <input
+                        type="checkbox"
+                        id="conditionalDeduction"
+                        checked={isConditionalDeduction}
+                        onChange={(e) => {
+                          setIsConditionalDeduction(e.target.checked);
+                          if (!e.target.checked) {
+                            setNewConditionalDeductionThreshold(0);
+                          }
+                        }}
+                        className="rounded"
                       />
-                      <Button onClick={addCustomDeduction} disabled={!newDeductionKey || !newDeductionLabel} size="sm">
-                        Add
+                      <label htmlFor="conditionalDeduction" className="text-sm font-medium text-red-600 dark:text-red-400 cursor-pointer">
+                        Apply only when employee CTC meets threshold (Conditional Category)
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Category Key <span className="text-red-400">*</span>
+                        </label>
+                        <Input
+                          placeholder="e.g., advance, tax"
+                          value={isConditionalDeduction ? newConditionalDeductionKey : newDeductionKey}
+                          onChange={(e) => {
+                            if (isConditionalDeduction) {
+                              setNewConditionalDeductionKey(e.target.value);
+                            } else {
+                              setNewDeductionKey(e.target.value);
+                            }
+                          }}
+                          className="text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Unique identifier (lowercase, no spaces)</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Category Label <span className="text-red-400">*</span>
+                        </label>
+                        <Input
+                          placeholder="e.g., Salary Advance, Higher TDS"
+                          value={isConditionalDeduction ? newConditionalDeductionLabel : newDeductionLabel}
+                          onChange={(e) => {
+                            if (isConditionalDeduction) {
+                              setNewConditionalDeductionLabel(e.target.value);
+                            } else {
+                              setNewDeductionLabel(e.target.value);
+                            }
+                          }}
+                          className="text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Display name shown in payslips</p>
+                      </div>
+                    </div>
+                    {isConditionalDeduction && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          CTC Threshold (₹) <span className="text-red-400">*</span>
+                        </label>
+                        <Input
+                          type="number"
+                          placeholder="e.g., 500000"
+                          value={String(newConditionalDeductionThreshold)}
+                          onChange={(e) => {
+                            const value = Number(e.target.value);
+                            // Enforce bounds
+                            if (value < 0) setNewConditionalDeductionThreshold(0);
+                            else if (value > 100000000) setNewConditionalDeductionThreshold(100000000);
+                            else setNewConditionalDeductionThreshold(value);
+                          }}
+                          className="text-sm"
+                          min="0"
+                          max="100000000"
+                          step="1000"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Category applies only when employee's annual CTC ≥ this amount (Range: ₹0 - ₹10,00,00,000)
+                        </p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Calculation Mode <span className="text-red-400">*</span>
+                        </label>
+                        <Select
+                          value={isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode}
+                          onChange={(e) => {
+                            if (isConditionalDeduction) {
+                              setNewConditionalDeductionMode(e.target.value as PayrollMode);
+                            } else {
+                              setNewDeductionMode(e.target.value as PayrollMode);
+                            }
+                          }}
+                          options={[
+                            { value: 'FIXED', label: 'Fixed Amount' },
+                            { value: 'PERCENT_OF_BASIC', label: 'Percentage of Basic Salary' },
+                            { value: 'PERCENT_OF_CTC', label: 'Percentage of CTC' },
+                            { value: 'REMAINDER', label: 'Remainder (Leftover amount)' },
+                          ]}
+                          className="text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {(() => {
+                            const mode = isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode;
+                            if (mode === 'FIXED') return 'Fixed monthly amount in ₹';
+                            if (mode === 'PERCENT_OF_BASIC') return '% of employee\'s Basic Salary';
+                            if (mode === 'PERCENT_OF_CTC') return '% of employee\'s Annual CTC (divided by 12 for monthly)';
+                            return 'Automatically calculated as remaining amount after all other deductions';
+                          })()}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Value <span className="text-red-400">*</span>
+                        </label>
+                        <Input
+                          type="number"
+                          placeholder={isConditionalDeduction ? newConditionalDeductionMode === 'PERCENT_OF_BASIC' || newConditionalDeductionMode === 'PERCENT_OF_CTC' ? 'e.g., 10 (for 10%)' : 'e.g., 2000' : newDeductionMode === 'PERCENT_OF_BASIC' || newDeductionMode === 'PERCENT_OF_CTC' ? 'e.g., 10 (for 10%)' : 'e.g., 2000'}
+                          value={String(isConditionalDeduction ? newConditionalDeductionValue : newDeductionValue)}
+                          onChange={(e) => {
+                            if (isConditionalDeduction) {
+                              setNewConditionalDeductionValue(Number(e.target.value));
+                            } else {
+                              setNewDeductionValue(Number(e.target.value));
+                            }
+                          }}
+                          disabled={(isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'REMAINDER'}
+                          className="text-sm"
+                          min="0"
+                          step={(isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED' ? '1' : '0.01'}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {(isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'REMAINDER' 
+                            ? 'Disabled for Remainder mode' 
+                            : (isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED' 
+                              ? 'Fixed amount in ₹ per month' 
+                              : 'Percentage value (e.g., 10 for 10%)'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <Button 
+                        onClick={() => {
+                          if (isConditionalDeduction) {
+                            if (!newConditionalDeductionKey || !newConditionalDeductionLabel) return;
+                            const newCategory = {
+                              key: newConditionalDeductionKey,
+                              label: newConditionalDeductionLabel,
+                              ctcThreshold: newConditionalDeductionThreshold,
+                              mode: newConditionalDeductionMode,
+                              value: newConditionalDeductionMode !== 'REMAINDER' ? newConditionalDeductionValue : undefined
+                            };
+                            setSettings({
+                              ...settings,
+                              employerPF: {
+                                ...settings.employerPF,
+                                conditionalDeductions: [
+                                  ...(settings.employerPF.conditionalDeductions || []),
+                                  newCategory
+                                ]
+                              }
+                            });
+                            setNewConditionalDeductionKey('');
+                            setNewConditionalDeductionLabel('');
+                            setNewConditionalDeductionMode('FIXED');
+                            setNewConditionalDeductionValue(0);
+                            setNewConditionalDeductionThreshold(0);
+                            setIsConditionalDeduction(false);
+                          } else {
+                            addCustomDeduction();
+                          }
+                          setShowAddDeductionCategory(false);
+                        }} 
+                        disabled={
+                          isConditionalDeduction 
+                            ? (!newConditionalDeductionKey || !newConditionalDeductionLabel || newConditionalDeductionThreshold <= 0)
+                            : (!newDeductionKey || !newDeductionLabel)
+                        } 
+                        size="sm"
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Add Category
                       </Button>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Deduction Categories List */}
                 <div className="space-y-2">
@@ -834,76 +1171,274 @@ export default function CompanySettingsPage() {
                   )}
                 </div>
               </div>
+
+              {/* Conditional Deduction Categories List */}
+              {(settings.employerPF.conditionalDeductions || []).length > 0 && (
+                <div className="mt-6 p-4 rounded-lg bg-red-500/5 border border-red-500/10">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-red-600 dark:text-red-400">Conditional Deduction Categories</h4>
+                      <p className="text-xs text-gray-400 mt-1">Categories that apply only when employee's CTC meets the threshold</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {(settings.employerPF.conditionalDeductions || []).map((category) => (
+                      <div key={category.key} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium text-red-600 dark:text-red-400 text-sm">{category.label}</span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                              CTC ≥ ₹{category.ctcThreshold.toLocaleString('en-IN')}
+                            </span>
+                            {annualCTC < category.ctcThreshold && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-gray-500/20 text-gray-400">
+                                Inactive (Current CTC: ₹{annualCTC.toLocaleString('en-IN')})
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select
+                              value={category.mode}
+                              onChange={(e) => {
+                                const updated = (settings.employerPF.conditionalDeductions || []).map(c =>
+                                  c.key === category.key ? { ...c, mode: e.target.value as PayrollMode } : c
+                                );
+                                setSettings({
+                                  ...settings,
+                                  employerPF: { ...settings.employerPF, conditionalDeductions: updated }
+                                });
+                              }}
+                              options={[
+                                { value: 'FIXED', label: 'Fixed Amount' },
+                                { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                                { value: 'PERCENT_OF_CTC', label: '% of CTC' },
+                                { value: 'REMAINDER', label: 'Remainder' },
+                              ]}
+                              className="text-xs"
+                            />
+                            <Input
+                              type="number"
+                              value={String(category.value ?? '')}
+                              onChange={(e) => {
+                                const updated = (settings.employerPF.conditionalDeductions || []).map(c =>
+                                  c.key === category.key ? { ...c, value: Number(e.target.value) } : c
+                                );
+                                setSettings({
+                                  ...settings,
+                                  employerPF: { ...settings.employerPF, conditionalDeductions: updated }
+                                });
+                              }}
+                              disabled={category.mode === 'REMAINDER'}
+                              className="text-xs"
+                              placeholder="Value"
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to delete "${category.label}"?`)) {
+                              setSettings({
+                                ...settings,
+                                employerPF: {
+                                  ...settings.employerPF,
+                                  conditionalDeductions: (settings.employerPF.conditionalDeductions || []).filter(c => c.key !== category.key)
+                                }
+                              });
+                            }
+                          }}
+                          className="bg-red-600 hover:bg-red-700 ml-2"
+                          size="sm"
+                          title="Delete category"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
 
           {/* Employer PF Configuration */}
           <Card>
-            <h3 className="text-xl font-semibold mb-4 text-blue-600 dark:text-blue-400">Employer PF Configuration</h3>
-            <p className="text-sm text-gray-400 mb-4">
-              Configure employer contribution to Provident Fund (PF). Employer PF is part of CTC and includes EPS (Employee Pension Scheme) and EPF (Employee Provident Fund).
-            </p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-semibold text-blue-600 dark:text-blue-400">Employer PF Configuration</h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  Configure employer contribution to Provident Fund (PF). Employer PF is part of CTC and includes EPS (Employee Pension Scheme) and EPF (Employee Provident Fund).
+                </p>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.employerPF.enabled !== false}
+                  onChange={(e) => {
+                    setSettings({
+                      ...settings,
+                      employerPF: {
+                        ...settings.employerPF,
+                        enabled: e.target.checked
+                      }
+                    });
+                  }}
+                  className="rounded"
+                />
+                <span className="text-sm text-gray-400">Enable Employer PF</span>
+              </label>
+            </div>
             
             <div className="space-y-4">
+              {/* Calculation Method */}
               <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
                 <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-                  Employer PF Percentage of Basic
+                  Calculation Method
                 </label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="number"
-                    value={String(settings.employerPF.employerPFPercentOfBasic)}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      setSettings({
-                        ...settings,
-                        employerPF: {
-                          ...settings.employerPF,
-                          employerPFPercentOfBasic: value
-                        }
-                      });
-                    }}
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    className="flex-1"
-                  />
-                  <span className="text-sm text-gray-400">%</span>
-                </div>
+                <Select
+                  value={settings.employerPF.calculationMethod || 'PERCENT_OF_BASIC'}
+                  onChange={(e) => {
+                    setSettings({
+                      ...settings,
+                      employerPF: {
+                        ...settings.employerPF,
+                        calculationMethod: e.target.value as any
+                      }
+                    });
+                  }}
+                  options={[
+                    { value: 'PERCENT_OF_BASIC', label: 'Percentage of Basic' },
+                    { value: 'PERCENT_OF_CTC', label: 'Percentage of CTC' },
+                    { value: 'FIXED_AMOUNT', label: 'Fixed Amount' },
+                  ]}
+                  className="w-full"
+                />
                 <p className="text-xs text-gray-500 mt-1">
-                  Total employer PF contribution (typically 12% of basic salary)
+                  Choose how employer PF is calculated
                 </p>
               </div>
 
-              <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
-                  EPS Percentage of Basic
-                </label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="number"
-                    value={String(settings.employerPF.epsPercentOfBasic)}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      setSettings({
-                        ...settings,
-                        employerPF: {
-                          ...settings.employerPF,
-                          epsPercentOfBasic: value
-                        }
-                      });
-                    }}
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    className="flex-1"
-                  />
-                  <span className="text-sm text-gray-400">%</span>
+              {settings.employerPF.calculationMethod === 'PERCENT_OF_BASIC' || !settings.employerPF.calculationMethod ? (
+                <>
+                  <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                      Employer PF Percentage of Basic
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        value={String(settings.employerPF.employerPFPercentOfBasic)}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          setSettings({
+                            ...settings,
+                            employerPF: {
+                              ...settings.employerPF,
+                              employerPFPercentOfBasic: value
+                            }
+                          });
+                        }}
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        className="flex-1"
+                      />
+                      <span className="text-sm text-gray-400">%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Total employer PF contribution (typically 12% of basic salary)
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                      EPS Percentage of Basic
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        value={String(settings.employerPF.epsPercentOfBasic)}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          setSettings({
+                            ...settings,
+                            employerPF: {
+                              ...settings.employerPF,
+                              epsPercentOfBasic: value
+                            }
+                          });
+                        }}
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        className="flex-1"
+                      />
+                      <span className="text-sm text-gray-400">%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Employee Pension Scheme contribution (typically 8.33% of basic salary)
+                    </p>
+                  </div>
+                </>
+              ) : settings.employerPF.calculationMethod === 'PERCENT_OF_CTC' ? (
+                <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                  <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                    Employer PF Percentage of CTC
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      value={String(settings.employerPF.employerPFPercentOfBasic)}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        setSettings({
+                          ...settings,
+                          employerPF: {
+                            ...settings.employerPF,
+                            employerPFPercentOfBasic: value
+                          }
+                        });
+                      }}
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-gray-400">%</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Employer PF as percentage of CTC
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Employee Pension Scheme contribution (typically 8.33% of basic salary)
-                </p>
-              </div>
+              ) : (
+                <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                  <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                    Fixed Employer PF Amount
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      value={String(settings.employerPF.employerPFPercentOfBasic)}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        setSettings({
+                          ...settings,
+                          employerPF: {
+                            ...settings.employerPF,
+                            employerPFPercentOfBasic: value
+                          }
+                        });
+                      }}
+                      min="0"
+                      step="1"
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-gray-400">₹</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Fixed monthly employer PF amount
+                  </p>
+                </div>
+              )}
 
               <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
                 <label className="block text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
@@ -955,6 +1490,30 @@ export default function CompanySettingsPage() {
                       (Total PF - EPS)
                     </span>
                   </div>
+                  {(settings.employerPF.conditionalEarnings || []).filter(cat => annualCTC >= cat.ctcThreshold).length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-blue-500/20">
+                      <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Active Conditional Earnings:</div>
+                      {(settings.employerPF.conditionalEarnings || [])
+                        .filter(cat => annualCTC >= cat.ctcThreshold)
+                        .map(cat => (
+                          <div key={cat.key} className="text-xs">
+                            • {cat.label} (CTC ≥ ₹{cat.ctcThreshold.toLocaleString('en-IN')})
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  {(settings.employerPF.conditionalDeductions || []).filter(cat => annualCTC >= cat.ctcThreshold).length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-blue-500/20">
+                      <div className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">Active Conditional Deductions:</div>
+                      {(settings.employerPF.conditionalDeductions || [])
+                        .filter(cat => annualCTC >= cat.ctcThreshold)
+                        .map(cat => (
+                          <div key={cat.key} className="text-xs">
+                            • {cat.label} (CTC ≥ ₹{cat.ctcThreshold.toLocaleString('en-IN')})
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1038,6 +1597,11 @@ export default function CompanySettingsPage() {
 
           <Card>
             <h2 className="text-xl font-semibold mb-4">Live Preview</h2>
+            <div className="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 rounded-lg">
+              <p className="text-sm text-secondary dark:text-gray-400">
+                <strong className="text-primary dark:text-white">Note:</strong> All amounts shown below are <strong className="text-primary dark:text-white">Monthly</strong> (except Annual CTC).
+              </p>
+            </div>
             <div className="grid md:grid-cols-3 gap-6">
               <div className="space-y-3">
                 <Input type="number" label="Annual CTC" value={String(annualCTC)} onChange={(e) => setAnnualCTC(Number(e.target.value))} />

@@ -300,15 +300,15 @@ export default function FeedbackPage() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'critical':
-        return 'text-red-400 bg-red-400/10';
+        return 'text-red-600 dark:text-red-300 bg-red-500/30 border-red-500/40 dark:border-red-500/40 border';
       case 'high':
-        return 'text-orange-400 bg-orange-400/10';
+        return 'text-orange-600 dark:text-orange-300 bg-orange-500/30 border-orange-500/40 dark:border-orange-500/40 border';
       case 'medium':
-        return 'text-yellow-400 bg-yellow-400/10';
+        return 'text-amber-600 dark:text-amber-300 bg-amber-500/30 border-amber-500/40 dark:border-amber-500/40 border';
       case 'low':
-        return 'text-green-400 bg-green-400/10';
+        return 'text-green-600 dark:text-green-300 bg-green-500/30 border-green-500/40 dark:border-green-500/40 border';
       default:
-        return 'text-gray-400 bg-gray-400/10';
+        return 'text-gray-600 dark:text-gray-300 bg-gray-500/30 border-gray-500/40 dark:border-gray-500/40 border';
     }
   };
 
@@ -330,15 +330,15 @@ export default function FeedbackPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open':
-        return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-400/10';
+        return 'text-blue-600 dark:text-blue-300 bg-blue-500/30 border-blue-500/40 dark:border-blue-500/40 border';
       case 'in_progress':
-        return 'text-yellow-400 bg-yellow-400/10';
+        return 'text-amber-600 dark:text-amber-300 bg-amber-500/30 border-amber-500/40 dark:border-amber-500/40 border';
       case 'resolved':
-        return 'text-green-400 bg-green-400/10';
+        return 'text-green-600 dark:text-green-300 bg-green-500/30 border-green-500/40 dark:border-green-500/40 border';
       case 'closed':
-        return 'text-gray-400 bg-gray-400/10';
+        return 'text-gray-600 dark:text-gray-300 bg-gray-500/30 border-gray-500/40 dark:border-gray-500/40 border';
       default:
-        return 'text-gray-400 bg-gray-400/10';
+        return 'text-gray-600 dark:text-gray-300 bg-gray-500/30 border-gray-500/40 dark:border-gray-500/40 border';
     }
   };
 
@@ -360,7 +360,7 @@ export default function FeedbackPage() {
           <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
             Feedback & Bug Reports
           </h1>
-          <p className="text-gray-400 mt-2 text-sm max-w-2xl">
+          <p className="text-secondary dark:text-gray-400 mt-2 text-sm max-w-2xl">
             Track and manage all user feedback, bug reports, and feature requests. Use the comprehensive statistics and insights below to monitor trends, identify patterns, and prioritize your development efforts effectively.
           </p>
         </div>
@@ -382,26 +382,26 @@ export default function FeedbackPage() {
 
       {/* Guidelines Modal */}
       {showGuidelines && (
-        <Card className="p-6 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border-blue-500/20">
+        <Card className="p-6 bg-card border border-card dark:bg-white/10 dark:border-white/10">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Info className="h-5 w-5 text-blue-400" />
-              <h3 className="text-lg font-semibold text-blue-300">Feedback Submission Guidelines</h3>
+              <Info className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
+              <h3 className="text-lg font-semibold text-primary dark:text-white">Feedback Submission Guidelines</h3>
             </div>
             <button
               onClick={() => setShowGuidelines(false)}
-              className="text-gray-400 hover:text-white"
+              className="text-muted hover:text-primary dark:text-gray-400 dark:hover:text-white transition-colors"
             >
               <XCircle className="h-5 w-5" />
             </button>
           </div>
-          <div className="space-y-4 text-sm text-gray-300">
+          <div className="space-y-4 text-sm text-secondary dark:text-gray-300">
             <div>
-              <h4 className="font-semibold text-white mb-2 flex items-center gap-2">
-                <Bug className="h-4 w-4 text-red-400" />
+              <h4 className="font-semibold text-primary dark:text-white mb-2 flex items-center gap-2">
+                <Bug className="h-4 w-4 text-red-500 dark:text-red-400" />
                 Bug Reports
               </h4>
-              <ul className="list-disc list-inside space-y-1 text-gray-400 ml-4">
+              <ul className="list-disc list-inside space-y-1 text-secondary dark:text-gray-400 ml-4">
                 <li>Describe what happened vs. what you expected</li>
                 <li>Include steps to reproduce the issue</li>
                 <li>Mention your browser/device and any error messages</li>
@@ -409,11 +409,11 @@ export default function FeedbackPage() {
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-white mb-2 flex items-center gap-2">
-                <Lightbulb className="h-4 w-4 text-blue-400" />
+              <h4 className="font-semibold text-primary dark:text-white mb-2 flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-blue-500 dark:text-blue-400" />
                 Feature Requests
               </h4>
-              <ul className="list-disc list-inside space-y-1 text-gray-400 ml-4">
+              <ul className="list-disc list-inside space-y-1 text-secondary dark:text-gray-400 ml-4">
                 <li>Explain the problem you're trying to solve</li>
                 <li>Describe how the feature would work from your perspective</li>
                 <li>Explain the benefit/value it would provide</li>
@@ -421,22 +421,22 @@ export default function FeedbackPage() {
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-white mb-2 flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-green-400" />
+              <h4 className="font-semibold text-primary dark:text-white mb-2 flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-green-500 dark:text-green-400" />
                 Improvements
               </h4>
-              <ul className="list-disc list-inside space-y-1 text-gray-400 ml-4">
+              <ul className="list-disc list-inside space-y-1 text-secondary dark:text-gray-400 ml-4">
                 <li>Identify the current limitation or friction point</li>
                 <li>Suggest specific enhancements</li>
                 <li>Explain the expected improvement in user experience</li>
               </ul>
             </div>
-            <div className="pt-3 border-t border-gray-700">
-              <p className="text-xs text-gray-500">
-                <strong className="text-gray-400">Priority Guide:</strong> Use <span className="text-red-400">Critical</span> for blocking issues, 
-                <span className="text-orange-400"> High</span> for important items, 
-                <span className="text-yellow-400"> Medium</span> for moderate impact, 
-                and <span className="text-green-400"> Low</span> for nice-to-have items.
+            <div className="pt-3 border-t border-card dark:border-white/10">
+              <p className="text-xs text-muted dark:text-gray-500">
+                <strong className="text-secondary dark:text-gray-400">Priority Guide:</strong> Use <span className="text-red-500 dark:text-red-400">Critical</span> for blocking issues, 
+                <span className="text-orange-500 dark:text-orange-400"> High</span> for important items, 
+                <span className="text-amber-500 dark:text-amber-400"> Medium</span> for moderate impact, 
+                and <span className="text-green-500 dark:text-green-400"> Low</span> for nice-to-have items.
               </p>
             </div>
           </div>
@@ -444,22 +444,22 @@ export default function FeedbackPage() {
       )}
 
       {/* Info Banner */}
-      <Card className="p-4 bg-blue-500/10 border-blue-500/20">
+      <Card className="p-4 bg-indigo-500/10 border-indigo-500/20 dark:border-indigo-500/30">
         <div className="flex items-start gap-3">
-          <Lightbulb className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <Lightbulb className="h-5 w-5 text-indigo-500 dark:text-indigo-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <h3 className="text-sm font-semibold text-blue-300 mb-1">Understanding Feedback Types</h3>
-            <div className="text-xs text-gray-400 leading-relaxed space-y-1">
+            <h3 className="text-sm font-semibold text-primary dark:text-white mb-1">Understanding Feedback Types</h3>
+            <div className="text-xs text-secondary dark:text-gray-400 leading-relaxed space-y-1">
               <p>
-                <strong className="text-blue-300">Bug Reports</strong> help us identify and fix issues quickly. Include reproduction steps and error details.
+                <strong className="text-primary dark:text-white">Bug Reports</strong> help us identify and fix issues quickly. Include reproduction steps and error details.
               </p>
               <p>
-                <strong className="text-blue-300">Feature Requests</strong> guide our product roadmap. Describe the problem and proposed solution.
+                <strong className="text-primary dark:text-white">Feature Requests</strong> guide our product roadmap. Describe the problem and proposed solution.
               </p>
               <p>
-                <strong className="text-blue-300">Improvements</strong> help us enhance existing features. Specify what needs refinement and why.
+                <strong className="text-primary dark:text-white">Improvements</strong> help us enhance existing features. Specify what needs refinement and why.
               </p>
-              <p className="text-gray-500 mt-2">
+              <p className="text-muted dark:text-gray-500 mt-2">
                 All feedback is reviewed within 2-3 business days and tracked through its lifecycle from submission to resolution.
             </p>
             </div>
@@ -469,13 +469,13 @@ export default function FeedbackPage() {
 
       {/* Create Feedback Form */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Submit Feedback</h2>
+              <h2 className="text-xl font-semibold text-primary dark:text-white">Submit Feedback</h2>
               <button
                 onClick={() => setShowForm(false)}
-                className="text-gray-400 hover:text-white"
+                className="text-muted hover:text-primary dark:text-gray-400 dark:hover:text-white transition-colors"
               >
                 <XCircle className="h-6 w-6" />
               </button>
@@ -483,7 +483,7 @@ export default function FeedbackPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                   Title *
                 </label>
                 <Input
@@ -495,7 +495,7 @@ export default function FeedbackPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                   Type *
                 </label>
                 <Select
@@ -513,7 +513,7 @@ export default function FeedbackPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                   Priority
                 </label>
                 <Select
@@ -529,14 +529,14 @@ export default function FeedbackPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-semibold text-primary dark:text-white mb-2">
                   Description *
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Please provide detailed information about the issue or suggestion..."
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-card border border-card text-primary placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent rounded-lg"
                   rows={6}
                   required
                 />
@@ -564,84 +564,84 @@ export default function FeedbackPage() {
 
       {/* Statistics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 border-blue-500/20 hover:border-blue-500/40 transition-colors group">
+        <Card className="p-4 bg-blue-500/10 border-blue-500/20 dark:border-blue-500/30 hover:border-blue-500/40 transition-colors group">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm text-gray-400 dark:text-gray-500">Total Feedback</p>
+                <p className="text-sm text-secondary dark:text-gray-400">Total Feedback</p>
                 <div className="relative group/tooltip">
-                  <Info className="h-3 w-3 text-gray-500 cursor-help" />
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-gray-900 border border-gray-700 rounded p-2 text-xs text-gray-300 z-10">
+                  <Info className="h-3 w-3 text-muted dark:text-gray-500 cursor-help" />
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
                     Total number of feedback submissions across all types and statuses
                   </div>
                 </div>
               </div>
-              <p className="text-2xl font-bold text-white">{stats.total}</p>
-              <p className="text-xs text-gray-500 mt-1">{stats.thisMonth} this month</p>
+              <p className="text-2xl font-bold text-primary dark:text-white">{stats.total}</p>
+              <p className="text-xs text-muted dark:text-gray-500 mt-1">{stats.thisMonth} this month</p>
             </div>
-            <MessageSquare className="h-8 w-8 text-blue-400 opacity-50 group-hover:opacity-75 transition-opacity" />
+            <MessageSquare className="h-8 w-8 text-blue-500 dark:text-blue-400 opacity-50 group-hover:opacity-75 transition-opacity" />
           </div>
         </Card>
-        <Card className="p-4 bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 border-yellow-500/20 hover:border-yellow-500/40 transition-colors">
+        <Card className="p-4 bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 hover:border-amber-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm text-gray-400 dark:text-gray-500">Open Issues</p>
+                <p className="text-sm text-secondary dark:text-gray-400">Open Issues</p>
                 <div className="relative group/tooltip">
-                  <Info className="h-3 w-3 text-gray-500 cursor-help" />
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-gray-900 border border-gray-700 rounded p-2 text-xs text-gray-300 z-10">
+                  <Info className="h-3 w-3 text-muted dark:text-gray-500 cursor-help" />
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
                     Feedback items waiting for review or action
                   </div>
                 </div>
               </div>
-              <p className="text-2xl font-bold text-white">{stats.byStatus.open}</p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-2xl font-bold text-primary dark:text-white">{stats.byStatus.open}</p>
+              <p className="text-xs text-muted dark:text-gray-500 mt-1">
                 {stats.total > 0 ? Math.round((stats.byStatus.open / stats.total) * 100) : 0}% of total
               </p>
             </div>
-            <Clock className="h-8 w-8 text-yellow-400 opacity-50" />
+            <Clock className="h-8 w-8 text-amber-500 dark:text-amber-400 opacity-50" />
           </div>
         </Card>
-        <Card className="p-4 bg-gradient-to-br from-orange-500/10 to-orange-600/10 border-orange-500/20 hover:border-orange-500/40 transition-colors">
+        <Card className="p-4 bg-orange-500/10 border-orange-500/20 dark:border-orange-500/30 hover:border-orange-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm text-gray-400 dark:text-gray-500">In Progress</p>
+                <p className="text-sm text-secondary dark:text-gray-400">In Progress</p>
                 <div className="relative group/tooltip">
-                  <Info className="h-3 w-3 text-gray-500 cursor-help" />
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-gray-900 border border-gray-700 rounded p-2 text-xs text-gray-300 z-10">
+                  <Info className="h-3 w-3 text-muted dark:text-gray-500 cursor-help" />
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
                     Feedback items currently being worked on by the team
                   </div>
                 </div>
               </div>
-              <p className="text-2xl font-bold text-white">{stats.byStatus.in_progress}</p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-2xl font-bold text-primary dark:text-white">{stats.byStatus.in_progress}</p>
+              <p className="text-xs text-muted dark:text-gray-500 mt-1">
                 {stats.urgentCount > 0 && (
-                  <span className="text-orange-400">{stats.urgentCount} urgent items</span>
+                  <span className="text-orange-500 dark:text-orange-400">{stats.urgentCount} urgent items</span>
                 )}
               </p>
             </div>
-            <AlertTriangle className="h-8 w-8 text-orange-400 opacity-50" />
+            <AlertTriangle className="h-8 w-8 text-orange-500 dark:text-orange-400 opacity-50" />
           </div>
         </Card>
-        <Card className="p-4 bg-gradient-to-br from-green-500/10 to-green-600/10 border-green-500/20 hover:border-green-500/40 transition-colors">
+        <Card className="p-4 bg-green-500/10 border-green-500/20 dark:border-green-500/30 hover:border-green-500/40 transition-colors">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm text-gray-400 dark:text-gray-500">Resolved</p>
+                <p className="text-sm text-secondary dark:text-gray-400">Resolved</p>
                 <div className="relative group/tooltip">
-                  <Info className="h-3 w-3 text-gray-500 cursor-help" />
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-gray-900 border border-gray-700 rounded p-2 text-xs text-gray-300 z-10">
+                  <Info className="h-3 w-3 text-muted dark:text-gray-500 cursor-help" />
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
                     Feedback items that have been completed or resolved
                   </div>
                 </div>
               </div>
-              <p className="text-2xl font-bold text-white">{stats.byStatus.resolved}</p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-2xl font-bold text-primary dark:text-white">{stats.byStatus.resolved}</p>
+              <p className="text-xs text-muted dark:text-gray-500 mt-1">
                 {stats.resolutionRate}% resolution rate
               </p>
             </div>
-            <CheckCircle className="h-8 w-8 text-green-400 opacity-50" />
+            <CheckCircle className="h-8 w-8 text-green-500 dark:text-green-400 opacity-50" />
           </div>
         </Card>
       </div>
@@ -650,12 +650,12 @@ export default function FeedbackPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-primary dark:text-white flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
             By Type
           </h3>
             {stats.mostCommonType && (
-              <span className="text-xs text-gray-500 flex items-center gap-1">
+              <span className="text-xs text-muted dark:text-gray-500 flex items-center gap-1">
                 <TrendingUp className="h-3 w-3" />
                 Most: {stats.mostCommonType}
               </span>
@@ -664,23 +664,23 @@ export default function FeedbackPage() {
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-400 flex items-center gap-2">
-                  <Bug className="h-3 w-3 text-red-400" />
+                <span className="text-sm text-secondary dark:text-gray-400 flex items-center gap-2">
+                  <Bug className="h-3 w-3 text-red-500 dark:text-red-400" />
                   Bug Reports
                 </span>
                 <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-red-400">{stats.byType.bug}</span>
+              <span className="text-sm font-semibold text-red-500 dark:text-red-400">{stats.byType.bug}</span>
                   {stats.total > 0 && (
-                    <span className="text-xs text-gray-600">
+                    <span className="text-xs text-muted dark:text-gray-500">
                       {Math.round((stats.byType.bug / stats.total) * 100)}%
                     </span>
                   )}
                 </div>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
                   <div 
-                    className="h-full bg-red-400 rounded-full transition-all"
+                    className="h-full bg-red-500 dark:bg-red-400 rounded-full transition-all"
                     style={{ width: `${(stats.byType.bug / stats.total) * 100}%` }}
                   />
                 </div>
@@ -688,23 +688,23 @@ export default function FeedbackPage() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-400 flex items-center gap-2">
-                  <Lightbulb className="h-3 w-3 text-blue-400" />
+                <span className="text-sm text-secondary dark:text-gray-400 flex items-center gap-2">
+                  <Lightbulb className="h-3 w-3 text-blue-500 dark:text-blue-400" />
                   Feature Requests
                 </span>
                 <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-blue-400">{stats.byType.feature}</span>
+              <span className="text-sm font-semibold text-blue-500 dark:text-blue-400">{stats.byType.feature}</span>
                   {stats.total > 0 && (
-                    <span className="text-xs text-gray-600">
+                    <span className="text-xs text-muted dark:text-gray-500">
                       {Math.round((stats.byType.feature / stats.total) * 100)}%
                     </span>
                   )}
                 </div>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
                   <div 
-                    className="h-full bg-blue-400 rounded-full transition-all"
+                    className="h-full bg-blue-500 dark:bg-blue-400 rounded-full transition-all"
                     style={{ width: `${(stats.byType.feature / stats.total) * 100}%` }}
                   />
                 </div>
@@ -712,23 +712,23 @@ export default function FeedbackPage() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-400 flex items-center gap-2">
-                  <MessageSquare className="h-3 w-3 text-green-400" />
+                <span className="text-sm text-secondary dark:text-gray-400 flex items-center gap-2">
+                  <MessageSquare className="h-3 w-3 text-green-500 dark:text-green-400" />
                   Improvements
                 </span>
                 <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-green-400">{stats.byType.improvement}</span>
+              <span className="text-sm font-semibold text-green-500 dark:text-green-400">{stats.byType.improvement}</span>
                   {stats.total > 0 && (
-                    <span className="text-xs text-gray-600">
+                    <span className="text-xs text-muted dark:text-gray-500">
                       {Math.round((stats.byType.improvement / stats.total) * 100)}%
                     </span>
                   )}
                 </div>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
                   <div 
-                    className="h-full bg-green-400 rounded-full transition-all"
+                    className="h-full bg-green-500 dark:bg-green-400 rounded-full transition-all"
                     style={{ width: `${(stats.byType.improvement / stats.total) * 100}%` }}
                   />
                 </div>
@@ -736,20 +736,20 @@ export default function FeedbackPage() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-gray-400">Other</span>
+              <span className="text-sm text-secondary dark:text-gray-400">Other</span>
                 <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-400">{stats.byType.other}</span>
+              <span className="text-sm font-semibold text-muted dark:text-gray-400">{stats.byType.other}</span>
                   {stats.total > 0 && (
-                    <span className="text-xs text-gray-600">
+                    <span className="text-xs text-muted dark:text-gray-500">
                       {Math.round((stats.byType.other / stats.total) * 100)}%
                     </span>
                   )}
                 </div>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
                   <div 
-                    className="h-full bg-gray-400 rounded-full transition-all"
+                    className="h-full bg-gray-500 dark:bg-gray-400 rounded-full transition-all"
                     style={{ width: `${(stats.byType.other / stats.total) * 100}%` }}
                   />
                 </div>
@@ -758,20 +758,20 @@ export default function FeedbackPage() {
           </div>
         </Card>
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-primary dark:text-white mb-3 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             By Priority
           </h3>
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-gray-400">Critical</span>
-              <span className="text-sm font-semibold text-red-400">{stats.byPriority.critical}</span>
+              <span className="text-sm text-secondary dark:text-gray-400">Critical</span>
+              <span className="text-sm font-semibold text-red-500 dark:text-red-400">{stats.byPriority.critical}</span>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
                   <div 
-                    className="h-full bg-red-400 rounded-full transition-all"
+                    className="h-full bg-red-500 dark:bg-red-400 rounded-full transition-all"
                     style={{ width: `${(stats.byPriority.critical / stats.total) * 100}%` }}
                   />
                 </div>
@@ -779,13 +779,13 @@ export default function FeedbackPage() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-gray-400">High</span>
-              <span className="text-sm font-semibold text-orange-400">{stats.byPriority.high}</span>
+              <span className="text-sm text-secondary dark:text-gray-400">High</span>
+              <span className="text-sm font-semibold text-orange-500 dark:text-orange-400">{stats.byPriority.high}</span>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
                   <div 
-                    className="h-full bg-orange-400 rounded-full transition-all"
+                    className="h-full bg-orange-500 dark:bg-orange-400 rounded-full transition-all"
                     style={{ width: `${(stats.byPriority.high / stats.total) * 100}%` }}
                   />
                 </div>
@@ -793,13 +793,13 @@ export default function FeedbackPage() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-gray-400">Medium</span>
-              <span className="text-sm font-semibold text-yellow-400">{stats.byPriority.medium}</span>
+              <span className="text-sm text-secondary dark:text-gray-400">Medium</span>
+              <span className="text-sm font-semibold text-amber-500 dark:text-amber-400">{stats.byPriority.medium}</span>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
                   <div 
-                    className="h-full bg-yellow-400 rounded-full transition-all"
+                    className="h-full bg-amber-500 dark:bg-amber-400 rounded-full transition-all"
                     style={{ width: `${(stats.byPriority.medium / stats.total) * 100}%` }}
                   />
                 </div>
@@ -807,13 +807,13 @@ export default function FeedbackPage() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-gray-400">Low</span>
-              <span className="text-sm font-semibold text-green-400">{stats.byPriority.low}</span>
+              <span className="text-sm text-secondary dark:text-gray-400">Low</span>
+              <span className="text-sm font-semibold text-green-500 dark:text-green-400">{stats.byPriority.low}</span>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
                   <div 
-                    className="h-full bg-green-400 rounded-full transition-all"
+                    className="h-full bg-green-500 dark:bg-green-400 rounded-full transition-all"
                     style={{ width: `${(stats.byPriority.low / stats.total) * 100}%` }}
                   />
                 </div>
@@ -822,51 +822,51 @@ export default function FeedbackPage() {
           </div>
         </Card>
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-primary dark:text-white mb-3 flex items-center gap-2">
             <Target className="h-4 w-4" />
             Performance Metrics
           </h3>
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-400 flex items-center gap-2">
+                <span className="text-sm text-secondary dark:text-gray-400 flex items-center gap-2">
                   <Calendar className="h-3 w-3" />
                   Last 7 Days
                 </span>
-              <span className="text-sm font-semibold text-white">{stats.recent}</span>
+              <span className="text-sm font-semibold text-primary dark:text-white">{stats.recent}</span>
               </div>
-              <p className="text-xs text-gray-500 mt-1">New submissions this week</p>
+              <p className="text-xs text-muted dark:text-gray-500 mt-1">New submissions this week</p>
             </div>
-            <div className="pt-2 border-t border-gray-700">
+            <div className="pt-2 border-t border-card dark:border-white/10">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-400 flex items-center gap-2">
-                  <Zap className="h-3 w-3 text-green-400" />
+                <span className="text-sm text-secondary dark:text-gray-400 flex items-center gap-2">
+                  <Zap className="h-3 w-3 text-green-500 dark:text-green-400" />
                   Avg Resolution Time
                 </span>
-                <span className="text-sm font-semibold text-green-400">
+                <span className="text-sm font-semibold text-green-500 dark:text-green-400">
                   {stats.avgResolutionDays > 0 ? `${stats.avgResolutionDays} days` : 'N/A'}
                 </span>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted dark:text-gray-500 mt-1">
                 Average time to resolve feedback
               </p>
             </div>
-            <div className="pt-2 border-t border-gray-700">
+            <div className="pt-2 border-t border-card dark:border-white/10">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-gray-500">Resolution Rate</span>
-                <span className="text-sm font-semibold text-green-400 flex items-center gap-1">
+                <span className="text-xs text-muted dark:text-gray-500">Resolution Rate</span>
+                <span className="text-sm font-semibold text-green-500 dark:text-green-400 flex items-center gap-1">
                   {stats.resolutionRate}%
                   {stats.resolutionRate >= 70 && <TrendingUp className="h-3 w-3" />}
                 </span>
               </div>
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs text-muted dark:text-gray-500 mt-1">
                 {stats.byStatus.resolved + stats.byStatus.closed} of {stats.total} items resolved
               </p>
             </div>
-            <div className="pt-2 border-t border-gray-700">
+            <div className="pt-2 border-t border-card dark:border-white/10">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">Closed Items</span>
-                <span className="text-sm font-semibold text-gray-400">{stats.byStatus.closed}</span>
+                <span className="text-sm text-secondary dark:text-gray-400">Closed Items</span>
+                <span className="text-sm font-semibold text-muted dark:text-gray-400">{stats.byStatus.closed}</span>
               </div>
             </div>
           </div>
@@ -906,8 +906,8 @@ export default function FeedbackPage() {
         {feedback?.data?.length === 0 ? (
           <Card className="p-8 text-center">
             <div className="text-4xl mb-2">💬</div>
-            <p className="text-gray-400">No feedback found matching your filters</p>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-secondary dark:text-gray-400">No feedback found matching your filters</p>
+            <p className="text-sm text-muted dark:text-gray-500 mt-2">
               {statusFilter || typeFilter 
                 ? "Try adjusting your filters to see more results."
                 : "Be the first to submit feedback!"}
@@ -928,18 +928,18 @@ export default function FeedbackPage() {
             
             return (
               <div key={actualId || `feedback-${index}`} onClick={(e) => e.stopPropagation()}>
-              <Card className="p-6 hover:bg-white/5 transition-colors">
+              <Card className="p-6 hover:bg-white/5 dark:hover:bg-white/10 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     {/* Header with Type, Title, and Badges */}
                     <div className="flex items-start gap-3 mb-3 flex-wrap">
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {getTypeIcon(item.type)}
-                        <span className="text-xs text-gray-500 capitalize">{item.type}</span>
+                        <span className="text-xs text-muted dark:text-gray-500 capitalize">{item.type}</span>
                       </div>
-                      <h3 className="font-semibold text-white text-lg flex-1 min-w-0">{item.title}</h3>
+                      <h3 className="font-semibold text-primary dark:text-white text-lg flex-1 min-w-0">{item.title}</h3>
                       {isRecent && (
-                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 flex-shrink-0">
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/30 text-blue-700 dark:text-blue-300 border border-blue-500/40 dark:border-blue-500/40 flex-shrink-0">
                           New
                         </span>
                       )}
@@ -947,10 +947,10 @@ export default function FeedbackPage() {
 
                     {/* Priority and Status Badges */}
                     <div className="flex items-center gap-2 mb-3 flex-wrap">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(item.priority)}`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(item.priority)}`}>
                         {item.priority?.toUpperCase() || 'MEDIUM'}
                       </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColor(item.status)}`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${getStatusColor(item.status)}`}>
                         {getStatusIcon(item.status)}
                         <span className="capitalize">{(item.status || 'open').replace('_', ' ')}</span>
                       </span>
@@ -958,7 +958,7 @@ export default function FeedbackPage() {
 
                     {/* Description */}
                     <div className="mb-4">
-                      <p className={`text-sm text-gray-400 leading-relaxed ${
+                      <p className={`text-sm text-secondary dark:text-gray-400 leading-relaxed ${
                         expandedId === item.id ? '' : 'line-clamp-3'
                       }`}>
                       {item.description}
@@ -966,7 +966,7 @@ export default function FeedbackPage() {
                       {item.description && item.description.length > 150 && (
                         <button
                           onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                          className="text-xs text-blue-400 hover:text-blue-300 mt-1"
+                          className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 mt-1"
                         >
                           {expandedId === item.id ? 'Show less' : 'Read more'}
                         </button>
@@ -974,30 +974,30 @@ export default function FeedbackPage() {
                     </div>
 
                     {/* Metadata */}
-                    <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                    <div className="flex items-center gap-4 text-xs text-muted dark:text-gray-500 flex-wrap">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
                           {item.is_anonymous || item.isAnonymous 
                             ? '?' 
                             : (item.user?.name?.charAt(0) || 'A')}
                         </div>
-                        <span className="text-gray-400">
+                        <span className="text-secondary dark:text-gray-400">
                           {item.is_anonymous || item.isAnonymous 
                             ? 'Anonymous' 
                             : (item.user?.name || 'Unknown')}
                         </span>
-                        <span className="text-gray-600">•</span>
-                        <span className="text-gray-500">
+                        <span className="text-muted dark:text-gray-600">•</span>
+                        <span className="text-muted dark:text-gray-500">
                           {item.is_anonymous || item.isAnonymous 
                             ? 'Anonymous submission' 
                             : (item.user?.email || 'N/A')}
                         </span>
                       </div>
-                      <span className="text-gray-600">•</span>
-                      <span className="text-gray-500">
+                      <span className="text-muted dark:text-gray-600">•</span>
+                      <span className="text-muted dark:text-gray-500">
                         {formatDate(item.created_at)}
                         {daysSince > 0 && (
-                          <span className="ml-1 text-gray-600">
+                          <span className="ml-1 text-muted dark:text-gray-600">
                             ({daysSince} {daysSince === 1 ? 'day' : 'days'} ago)
                           </span>
                         )}
@@ -1030,7 +1030,7 @@ export default function FeedbackPage() {
                               updateEditingResolution(String(actualId), e.target.value);
                             }}
                             placeholder="Resolution notes (optional)..."
-                            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                            className="w-full px-3 py-2 bg-card border border-card text-primary placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent rounded-lg text-sm"
                             rows={2}
                             onClick={(e) => e.stopPropagation()}
                           />

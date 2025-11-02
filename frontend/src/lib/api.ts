@@ -367,6 +367,8 @@ export const getUser = (id: string) =>
       designation: u.designation,
       ctc: u.ctc ? String(u.ctc) : undefined,
       manager_id: u.manager_id,
+      joining_date: u.joining_date ?? u.joiningDate ?? undefined,
+      birthday: u.birthday ?? undefined,
       created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updated_at: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     };

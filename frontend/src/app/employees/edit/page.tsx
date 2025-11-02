@@ -151,11 +151,16 @@ function EditEmployeeForm({ id }: { id: string }) {
         }
       };
 
-      const joiningDateInput = parseDateForInput(user.data.joining_date);
-      const birthdayInput = parseDateForInput(user.data.birthday);
+      // Access joining_date and birthday with fallback to raw data
+      const rawUser = user.data as any;
+      const joiningDateValue = user.data.joining_date ?? rawUser.joining_date ?? rawUser.JoiningDate ?? null;
+      const birthdayValue = user.data.birthday ?? rawUser.birthday ?? rawUser.Birthday ?? null;
       
-      setOriginalJoiningDate(formatDateForDisplay(user.data.joining_date));
-      setOriginalBirthday(formatDateForDisplay(user.data.birthday));
+      const joiningDateInput = parseDateForInput(joiningDateValue);
+      const birthdayInput = parseDateForInput(birthdayValue);
+      
+      setOriginalJoiningDate(formatDateForDisplay(joiningDateValue));
+      setOriginalBirthday(formatDateForDisplay(birthdayValue));
       
       setFormData({
         username: user.data.name || user.data.email || "",
@@ -990,6 +995,11 @@ function CTCManager({
         {breakdown && companySettings && (
           <div className="p-4 rounded-lg bg-white/5 border border-white/10">
             <h4 className="font-semibold text-primary mb-4">CTC Breakdown Preview</h4>
+            <div className="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 rounded-lg">
+              <p className="text-sm text-secondary dark:text-gray-400">
+                <strong className="text-primary dark:text-white">Note:</strong> All amounts shown below are <strong className="text-primary dark:text-white">Monthly</strong> (except Annual CTC).
+              </p>
+            </div>
             <div className="grid md:grid-cols-3 gap-6">
               <div className="space-y-3">
                 <div className="text-sm text-secondary">

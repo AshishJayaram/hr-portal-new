@@ -93,7 +93,12 @@ export default function ProfilePage() {
           <h2 className="text-xl font-semibold text-primary">Change Password</h2>
           <Button
             variant="outline"
-            onClick={() => setShowPasswordForm(!showPasswordForm)}
+            onClick={() => {
+              if (showPasswordForm) {
+                setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+              }
+              setShowPasswordForm(!showPasswordForm);
+            }}
           >
             {showPasswordForm ? "Cancel" : "Change Password"}
           </Button>
@@ -130,16 +135,6 @@ export default function ProfilePage() {
                 disabled={!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
               >
                 Update Password
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowPasswordForm(false);
-                  setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-                }}
-              >
-                Cancel
               </Button>
             </div>
           </form>

@@ -24,7 +24,7 @@ import Loader from "@/components/ui/Loader";
 import SearchFilter from "@/components/ui/SearchFilter";
 import { toast } from "sonner";
 import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit, ChevronDown, ChevronUp } from "lucide-react";
-import { formatDate, capitalize } from "@/lib/utils";
+import { formatDate, formatDateShort, capitalize } from "@/lib/utils";
 import ApplyLeaveForm from "@/components/ApplyLeaveForm";
 import EditLeaveForm from "@/components/EditLeaveForm";
 import LeaveBalanceCard from "@/components/LeaveBalanceCard";
@@ -427,35 +427,40 @@ export default function LeavesPage() {
                     transition={{ delay: idx * 0.03 }}
                     className="p-4 border rounded-lg transition-all duration-200 border-card bg-card hover:bg-white/70 dark:hover:bg-white/5 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-400/50 shadow-sm"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4 flex-1 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white flex-shrink-0">
                           <Calendar className="h-5 w-5" />
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-primary">{leave.type}</h3>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(leave.status)}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <h3 className="font-semibold text-primary truncate">{leave.type}</h3>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium text-white flex-shrink-0 ${getStatusColor(leave.status)}`}>
                               {capitalize(leave.status)}
                             </span>
                           </div>
                           
                           {activeTab === 'team-leaves' && leave.user && (
-                            <div className="flex items-center gap-2 mb-2">
-                              <User className="h-4 w-4 text-gray-400" />
-                              <span className="text-sm text-gray-400">
+                            <div className="flex items-center gap-2 mb-2 min-w-0">
+                              <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-sm text-gray-400 truncate">
                                 {leave.user.name || "Unknown Employee"}
                               </span>
                               {leave.user.designation && (
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-gray-500 truncate">
                                   ({leave.user.designation})
                                 </span>
                               )}
                             </div>
                           )}
                           
-                          <div className="text-sm text-secondary mb-2">
-                            {formatDate(leave.from)} → {formatDate(leave.to)}
+                          <div className="text-sm text-secondary mb-2 min-w-0">
+                            <div className="flex items-center gap-1 min-w-0">
+                              <Calendar className="h-3 w-3 flex-shrink-0 text-muted dark:text-gray-500" />
+                              <span className="truncate min-w-0">
+                                {formatDateShort(leave.from)} → {formatDateShort(leave.to)}
+                              </span>
+                            </div>
                           </div>
                           
                           {leave.reason && (
@@ -672,10 +677,10 @@ export default function LeavesPage() {
                           </div>
                         )}
 
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-4 text-sm text-gray-500 min-w-0">
+                          <div className="flex items-center gap-1 min-w-0 flex-1">
                             <Calendar className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{formatDate(leave.from)} - {formatDate(leave.to)}</span>
+                            <span className="truncate min-w-0">{formatDateShort(leave.from)} - {formatDateShort(leave.to)}</span>
                           </div>
                         </div>
                       </div>

@@ -850,7 +850,7 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       {isMultiDay ? (
-                        <p className="text-sm text-secondary">
+                        <p className="text-sm text-secondary truncate">
                           {(() => {
                             const parts = dateRange.split(' to ');
                             if (parts.length === 2) {
@@ -869,7 +869,7 @@ export default function DashboardPage() {
                           })()}
                         </p>
                       ) : event.date ? (
-                        <p className="text-sm text-secondary">
+                        <p className="text-sm text-secondary truncate">
                           {new Date(event.date).toLocaleDateString('en-US', { 
                             weekday: 'short',
                             month: 'short', 
@@ -877,7 +877,7 @@ export default function DashboardPage() {
                           })}
                         </p>
                       ) : (
-                        <p className="text-sm text-secondary">📢 Ongoing Notice</p>
+                        <p className="text-sm text-secondary truncate">📢 Ongoing Notice</p>
                       )}
                       {event.description && (
                         <p className="text-sm text-gray-400 mt-1">{event.description}</p>

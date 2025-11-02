@@ -1185,6 +1185,11 @@ function EmployeeSalaryBreakdown({ userId, companySettings, isCurrentUser = fals
       <h4 className="font-semibold mb-3 text-lg">
         {isCurrentUser ? 'Your' : `${userData.data.name}'s`} Salary Breakdown (CTC: ₹{userCTC.toLocaleString('en-IN')})
       </h4>
+      <div className="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/20 dark:border-indigo-500/30 rounded-lg">
+        <p className="text-sm text-secondary dark:text-gray-400">
+          <strong className="text-primary dark:text-white">Note:</strong> All amounts shown below are <strong className="text-primary dark:text-white">Monthly</strong> (except Annual CTC).
+        </p>
+      </div>
       <div className="grid md:grid-cols-3 gap-4">
         <div>
           <div className="font-semibold mb-2">Earnings</div>

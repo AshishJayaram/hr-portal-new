@@ -12,10 +12,27 @@ export interface EmployeeDeductionsSettings {
   esiEnabled: boolean; // toggle visibility/applicability
 }
 
-export interface EmployerPFSettingsReadOnly {
+export interface EmployerPFSettings {
   employerPFPercentOfBasic: number; // 12
   epsPercentOfBasic: number; // 8.33
   epsCap: number; // 1250
+  enabled?: boolean; // Enable/disable employer PF
+  calculationMethod?: 'PERCENT_OF_BASIC' | 'FIXED_AMOUNT' | 'PERCENT_OF_CTC'; // Calculation method
+  // Conditional categories based on CTC
+  conditionalEarnings?: Array<{
+    key: string;
+    label: string;
+    ctcThreshold: number; // Minimum CTC to apply this earning
+    mode: PayrollMode;
+    value?: number;
+  }>;
+  conditionalDeductions?: Array<{
+    key: string;
+    label: string;
+    ctcThreshold: number; // Minimum CTC to apply this deduction
+    mode: PayrollMode;
+    value?: number;
+  }>;
 }
 
 export interface PayrollSettings {
@@ -33,7 +50,7 @@ export interface PayrollSettings {
     // Dynamic categories
     [key: string]: ComponentSetting | any;
   };
-  employerPF: EmployerPFSettingsReadOnly; // read-only config for display
+  employerPF: EmployerPFSettings; // Employer PF configuration
   lop: {
     calculationMethod: 'NET_PAY_BY_DAYS' | 'BASIC_BY_DAYS' | 'FIXED_AMOUNT';
     defaultDaysInMonth: number; // default 30 or 31
@@ -97,6 +114,10 @@ export const defaultPayrollSettings: PayrollSettings = {
     employerPFPercentOfBasic: 12,
     epsPercentOfBasic: 8.33,
     epsCap: 1250,
+    enabled: true,
+    calculationMethod: 'PERCENT_OF_BASIC' as const,
+    conditionalEarnings: [],
+    conditionalDeductions: [],
   },
   lop: {
     calculationMethod: 'NET_PAY_BY_DAYS',
