@@ -160,24 +160,41 @@ export default function SignInPage() {
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleForgotPassword = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setError("");
     setSuccess("");
+    
+    if (!forgotPasswordEmail) {
+      setError("Please enter your email address");
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(forgotPasswordEmail)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     setForgotPasswordLoading(true);
 
     try {
       await forgotPassword(forgotPasswordEmail);
-      setSuccess("If an account with that email exists, a password reset OTP has been sent to your email address.");
+      setSuccess("Password reset OTP has been sent to your email address. Please check your inbox.");
       setForgotPasswordOTPSent(true);
       setShowPasswordResetForm(true);
       setForgotPasswordOTP("");
+      setError(""); // Clear any previous errors
     } catch (err: any) {
-      console.error("Forgot password error:", err);
       if (err.message) {
-        setError(err.message);
+        if (err.message.includes("email") || err.message.includes("SMTP") || err.message.includes("send")) {
+          setError(`Failed to send email: ${err.message}. Please check your email configuration or try the dedicated Reset Password page.`);
+        } else {
+          setError(err.message);
+        }
       } else {
-        setError("Failed to send password reset OTP. Please try again.");
+        setError("Failed to send password reset OTP. Please check your email configuration or try again.");
       }
     } finally {
       setForgotPasswordLoading(false);
@@ -376,12 +393,7 @@ export default function SignInPage() {
           <div className="text-center">
             <button
               type="button"
-              onClick={() => {
-                setShowForgotPassword(true);
-                setError("");
-                setSuccess("");
-                setForgotPasswordEmail("");
-              }}
+              onClick={() => router.push("/reset-password")}
               className={`text-sm underline ${isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700"}`}
             >
               Forgot Password?
@@ -417,8 +429,18 @@ export default function SignInPage() {
             {!forgotPasswordOTPSent && !showPasswordResetForm ? (
               <>
                 <p className={`text-xs mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                  Enter your email address and we'll send you an OTP to reset your password.
+                  Enter your email address and we'll send you a 6-digit OTP to reset your password.
                 </p>
+                {success && (
+                  <div className={`p-2 rounded text-xs mb-3 ${isDarkMode ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-green-100 text-green-700 border border-green-300"}`}>
+                    {success}
+                  </div>
+                )}
+                {error && (
+                  <div className={`p-2 rounded text-xs mb-3 ${isDarkMode ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-red-100 text-red-700 border border-red-300"}`}>
+                    {error}
+                  </div>
+                )}
                 <form onSubmit={handleForgotPassword} className="space-y-3">
                   <input
                     type="email"
@@ -454,49 +476,74 @@ export default function SignInPage() {
               </>
             ) : (
               <>
+                {success && (
+                  <div className={`p-2 rounded text-xs mb-3 ${isDarkMode ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-blue-100 text-blue-700 border border-blue-300"}`}>
+                    ✓ {success}
+                  </div>
+                )}
+                {error && (
+                  <div className={`p-2 rounded text-xs mb-3 ${isDarkMode ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-red-100 text-red-700 border border-red-300"}`}>
+                    {error}
+                  </div>
+                )}
                 <p className={`text-xs mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                  Enter the OTP sent to your email and your new password below.
+                  Enter the 6-digit OTP sent to <strong>{forgotPasswordEmail}</strong> and your new password below.
                 </p>
                 <form onSubmit={handleResetPassword} className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Enter 6-digit OTP"
-                    value={forgotPasswordOTP}
-                    onChange={(e) => setForgotPasswordOTP(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    maxLength={6}
-                    required
-                    className={`w-full p-2 rounded text-sm focus:outline-none focus:ring-2 ${
-                      isDarkMode 
-                        ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
-                        : "bg-white text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
-                    }`}
-                  />
-                  <input
-                    type="password"
-                    placeholder="New Password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    minLength={8}
-                    className={`w-full p-2 rounded text-sm focus:outline-none focus:ring-2 ${
-                      isDarkMode 
-                        ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
-                        : "bg-white text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
-                    }`}
-                  />
-                  <input
-                    type="password"
-                    placeholder="Confirm New Password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    minLength={8}
-                    className={`w-full p-2 rounded text-sm focus:outline-none focus:ring-2 ${
-                      isDarkMode 
-                        ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
-                        : "bg-white text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
-                    }`}
-                  />
+                  <div>
+                    <label className={`text-xs block mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      OTP Code (6 digits)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter 6-digit OTP"
+                      value={forgotPasswordOTP}
+                      onChange={(e) => setForgotPasswordOTP(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      maxLength={6}
+                      required
+                      className={`w-full p-3 rounded text-center text-xl tracking-widest font-mono focus:outline-none focus:ring-2 ${
+                        isDarkMode 
+                          ? "bg-white/20 text-white placeholder:text-white/40 focus:ring-indigo-500/60" 
+                          : "bg-white text-gray-800 placeholder:text-gray-400 focus:ring-indigo-500/40 border border-gray-300/50"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs block mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      New Password (min. 8 characters)
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="New Password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className={`w-full p-2 rounded text-sm focus:outline-none focus:ring-2 ${
+                        isDarkMode 
+                          ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
+                          : "bg-white text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-xs block mb-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Confirm New Password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className={`w-full p-2 rounded text-sm focus:outline-none focus:ring-2 ${
+                        isDarkMode 
+                          ? "bg-white/20 text-white placeholder:text-white/60 focus:ring-indigo-500/60" 
+                          : "bg-white text-gray-800 placeholder:text-gray-500 focus:ring-indigo-500/40 border border-gray-300/50"
+                      }`}
+                    />
+                  </div>
                   <button
                     type="submit"
                     disabled={resetPasswordLoading}
@@ -516,19 +563,21 @@ export default function SignInPage() {
                     )}
                   </button>
                 </form>
-                <div className="mt-2 text-center">
+                <div className="mt-2 flex items-center justify-between">
                   <button
                     type="button"
-                    onClick={() => {
-                      setForgotPasswordOTPSent(false);
-                      setForgotPasswordOTP("");
-                      setShowPasswordResetForm(false);
-                      setSuccess("");
-                    }}
-                    className={`text-xs underline ${isDarkMode ? "text-indigo-400 hover:text-indigo-300" : "text-indigo-600 hover:text-indigo-700"}`}
+                    onClick={handleForgotPassword}
+                    disabled={forgotPasswordLoading}
+                    className={`text-xs underline ${isDarkMode ? "text-indigo-400 hover:text-indigo-300 disabled:opacity-50" : "text-indigo-600 hover:text-indigo-700 disabled:opacity-50"}`}
                   >
-                    Resend OTP
+                    {forgotPasswordLoading ? "Sending..." : "Resend OTP"}
                   </button>
+                  <Link
+                    href={`/reset-password?email=${encodeURIComponent(forgotPasswordEmail)}`}
+                    className={`text-xs underline ${isDarkMode ? "text-gray-400 hover:text-gray-300" : "text-gray-600 hover:text-gray-700"}`}
+                  >
+                    Use Reset Password Page
+                  </Link>
                 </div>
               </>
             )}

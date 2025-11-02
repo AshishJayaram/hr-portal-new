@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const normalized = (pathname || "").replace(/\/$/, "");
-  const isAuthPage = normalized === "/signin" || normalized === "/login";
+  const isAuthPage = normalized === "/signin" || normalized === "/login" || normalized === "/reset-password" || normalized === "/forgot-password";
 
   // Debug logging removed for production stability
 
