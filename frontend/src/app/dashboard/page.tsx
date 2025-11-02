@@ -393,7 +393,7 @@ export default function DashboardPage() {
                   start: startDate,
                   end: endExclusive,
                   allDay: true,
-                  color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#8b5cf6" : "#10b981"),
+                  color: h.color || (h.type === 'holiday' ? "#ef4444" : h.type === 'event' ? "#ec4899" : h.type === 'notice' ? "#39ff14" : "#10b981"),
                   extendedProps: {
                     type: h.type || 'holiday',
                     description: h.description,
@@ -843,6 +843,7 @@ export default function DashboardPage() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           event.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
                           event.type === 'event' ? 'bg-amber-500/20 text-amber-400' :
+                          event.type === 'notice' ? 'bg-green-500/20 text-green-400' :
                           'bg-purple-500/20 text-purple-400'
                         }`}>
                           {event.type || 'holiday'}
@@ -948,7 +949,10 @@ export default function DashboardPage() {
                   if (userRole === "HR" || userRole === "Admin" || userRole === "God") {
                     return true; // HR/Admin can see all documents
                   }
-                  return doc.isPublic || doc.user_id === userId; // Employees can only see public docs or their own
+                  // Backend returns is_public (snake_case) in JSON, check both formats for compatibility
+                  const isPublic = doc.is_public !== undefined ? doc.is_public : (doc.isPublic !== undefined ? doc.isPublic : false);
+                  const docUserId = doc.user_id !== undefined ? String(doc.user_id) : String(doc.userId || doc.user?.id || "");
+                  return isPublic || docUserId === String(userId); // Employees can only see public docs or their own
                 })
                 .slice(0, 3).map((doc: any) => (
               <li key={doc.id} className="py-2 flex justify-between items-center">
@@ -991,8 +995,12 @@ export default function DashboardPage() {
                 </button>
               </li>
             ))}
-          {((dashboardData?.data?.recent_documents || []).length || 0) === 0 && (
-            <li className="text-gray-400 py-4 text-center">No documents available</li>
+          {(dashboardData?.data?.recent_documents || []).length === 0 && (
+            <li className="text-gray-400 py-4 text-center">
+              {userRole === "HR" || userRole === "Admin" || userRole === "God" 
+                ? "No documents available" 
+                : "No public documents or documents assigned to you"}
+            </li>
           )}
         </ul>
       </Card>

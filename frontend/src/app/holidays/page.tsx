@@ -478,6 +478,7 @@ export default function HolidaysPage() {
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       holiday.type === 'holiday' ? 'bg-red-500/20 text-red-400' :
                       holiday.type === 'event' ? 'bg-blue-500/20 text-blue-400' :
+                      holiday.type === 'notice' ? 'bg-green-500/20 text-green-400' :
                       'bg-green-500/20 text-green-400'
                     }`}>
                       {holiday.type || 'holiday'}

@@ -610,11 +610,21 @@ function OffSiteModal({ offSite, onClose, onSave, isLoading }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-semibold text-white mb-4">
-          {offSite.id ? "Edit Off-site Entry" : "Add Off-site Entry"}
-        </h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-primary dark:text-white">
+            {offSite.id ? "Edit Off-site Entry" : "Add Off-site Entry"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-muted hover:text-primary dark:text-gray-400 dark:hover:text-white transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -625,13 +635,13 @@ function OffSiteModal({ offSite, onClose, onSave, isLoading }: any) {
           />
           
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
               Description
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 rounded-lg border border-card bg-card text-primary placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent"
               rows={3}
               placeholder="Enter description..."
             />
@@ -686,7 +696,7 @@ function OffSiteModal({ offSite, onClose, onSave, isLoading }: any) {
             />
           </div>
           
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-4 border-t border-card dark:border-white/10">
             <Button
               type="button"
               variant="outline"
@@ -697,7 +707,7 @@ function OffSiteModal({ offSite, onClose, onSave, isLoading }: any) {
             </Button>
             <Button
               type="submit"
-              className="flex-1"
+              className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
               disabled={isLoading}
             >
               {isLoading ? "Saving..." : offSite.id ? "Update" : "Create"}

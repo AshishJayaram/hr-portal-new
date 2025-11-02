@@ -266,7 +266,7 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
                 <span className="text-xs text-gray-600 dark:text-gray-200">Events</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: "#8b5cf6" }}></div>
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: "#39ff14" }}></div>
                 <span className="text-xs text-gray-600 dark:text-gray-200">Notices</span>
           </div>
           <div className="flex items-center space-x-2">
