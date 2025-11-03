@@ -145,7 +145,7 @@ export const defaultPayrollSettings: PayrollSettings = {
     epsPercentOfBasic: 8.33,
     epsCap: 1250,
     enabled: true,
-    calculationMethod: 'PERCENT_OF_BASIC' as const,
+    fields: [],
     conditionalEarnings: [],
     conditionalDeductions: [],
   },
