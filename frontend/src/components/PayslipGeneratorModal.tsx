@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
 import Button from "./ui/Button";
 import Input from "./ui/Input";
@@ -71,21 +71,23 @@ export default function PayslipGeneratorModal({
 
   // Highlighting state
   const [highlightedField, setHighlightedField] = useState<string | null>(null);
-
+  
+  // Use ref to store companySettings to avoid callback recreation
+  const companySettingsRef = useRef(companySettings);
   useEffect(() => {
-    if (isOpen && userId) {
-      fetchUserDataAndCalculate();
-    }
-  }, [isOpen, userId]);
+    companySettingsRef.current = companySettings;
+  }, [companySettings]);
 
-  const fetchUserDataAndCalculate = async () => {
+  const fetchUserDataAndCalculate = React.useCallback(async () => {
+    if (!userId) return;
+    
     try {
       const userData = await getUser(userId);
       const ctc = parseFloat(userData.data.ctc || "0") || 0;
       setUserCTC(ctc);
       
       // Calculate initial breakdown using company settings or defaults
-      const breakdown = computePayslipFromCTC(ctc, companySettings);
+      const breakdown = computePayslipFromCTC(ctc, companySettingsRef.current || {});
       
       // Set earnings with better defaults
       setBasicSalary(breakdown.earnings.basic);
@@ -101,12 +103,13 @@ export default function PayslipGeneratorModal({
       setOtherDeductions(0);
       
       // Set percentages from company settings or smart defaults
-      if (companySettings) {
-        setBasicPercentage(companySettings.basicSalaryPercentage || 40);
-        setHraPercentage(companySettings.hraPercentage || 50);
-        setPfPercentage(companySettings.pfPercentage || 12);
-        setEsiPercentage(companySettings.esiPercentage || 0.75);
-        setTdsPercentage(companySettings.tdsPercentage || 0);
+      const currentSettings = companySettingsRef.current;
+      if (currentSettings) {
+        setBasicPercentage(currentSettings.basicSalaryPercentage || 40);
+        setHraPercentage(currentSettings.hraPercentage || 50);
+        setPfPercentage(currentSettings.pfPercentage || 12);
+        setEsiPercentage(currentSettings.esiPercentage || 0.75);
+        setTdsPercentage(currentSettings.tdsPercentage || 0);
       } else {
         // Smart defaults based on CTC
         const monthlyCTC = ctc / 12;
@@ -132,7 +135,13 @@ export default function PayslipGeneratorModal({
     } catch (error) {
       toast.error("Failed to fetch user data");
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    if (isOpen && userId) {
+      fetchUserDataAndCalculate();
+    }
+  }, [isOpen, userId, fetchUserDataAndCalculate]);
 
   const recalculateFromBasicPercentage = () => {
     const monthlyCTC = userCTC / 12;

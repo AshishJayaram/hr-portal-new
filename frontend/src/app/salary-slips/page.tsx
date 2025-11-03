@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSalarySlips, getSalarySlip, addSalarySlip, deleteSalarySlip, getCurrentUser, canManageSalarySlips, getUser, getCompanySettings, uploadUserDocument, getUserDocuments, deleteDocument, getDocuments, downloadPayslipPDF, uploadPrivateDocument, getPrivateDocumentsByUser, deletePrivateDocument } from "@/lib/api";
 import { useFilteredUsers, useUserName } from "@/hooks/useUsersCache";
@@ -1117,15 +1117,17 @@ export default function SalarySlipsPage() {
       )}
 
       {/* Payslip Generator Modal */}
-      <PayslipGeneratorModal
-        isOpen={showPayslipGenerator}
-        onClose={() => setShowPayslipGenerator(false)}
-        userId={payslipGeneratorData.userId}
-        userName={payslipGeneratorData.userName}
-        month={payslipGeneratorData.month}
-        year={payslipGeneratorData.year}
-        companySettings={companySettings?.data}
-      />
+      {showPayslipGenerator && (
+        <PayslipGeneratorModal
+          isOpen={showPayslipGenerator}
+          onClose={() => setShowPayslipGenerator(false)}
+          userId={payslipGeneratorData.userId}
+          userName={payslipGeneratorData.userName}
+          month={payslipGeneratorData.month}
+          year={payslipGeneratorData.year}
+          companySettings={companySettings?.data}
+        />
+      )}
     </div>
   );
 }
