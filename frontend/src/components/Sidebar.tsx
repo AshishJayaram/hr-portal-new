@@ -52,35 +52,12 @@ export default function Sidebar() {
   const canAccessSettings = hasRole(["HR", "Admin"]);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Fetch organization logo from current user
+  // Use locally cached current user for organization info to avoid cross-origin fetch errors
   const { data: currentUserData } = useQuery({
-    queryKey: ["current-user", user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      try {
-        const orgId = user.organization_id?.toString() || localStorage.getItem('organizationId') || '';
-        const token = localStorage.getItem('token');
-        
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'X-Organization-ID': orgId,
-          },
-        });
-        if (!response.ok) {
-          console.error('Failed to fetch current user:', response.status, response.statusText);
-          return null;
-        }
-        const data = await response.json();
-        console.log('API Response:', data);
-        return data.user;
-      } catch (error) {
-        console.error('Failed to fetch current user:', error);
-        return null;
-      }
-    },
+    queryKey: ["current-user-cached", user?.id],
+    queryFn: async () => user ?? null,
     enabled: !!user && !isGod(),
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
   // Get organization logo from current user data (backend returns logo_url in OrganizationResponse)

@@ -54,6 +54,12 @@ type CalendarEvent = {
       birthday: string;
       description?: string;
     }>;
+    anniversaries?: Array<{
+      id?: string;
+      name: string;
+      years: number;
+      description?: string;
+    }>;
     count?: number;
     isCurrentUser?: boolean;
     hasCurrentUser?: boolean;
@@ -282,6 +288,10 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#06b6d4" }}></div>
                 <span className="text-xs text-secondary dark:text-gray-200">Birthdays</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: "#f59e0b" }}></div>
+                <span className="text-xs text-secondary dark:text-gray-200">Work Anniversaries</span>
           </div>
         </div>
       </div>
@@ -641,6 +651,43 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
                       {selectedEvent.extendedProps?.birthdays?.[0]?.description || 
                        selectedEvent.extendedProps?.description || 
                        `${selectedEvent.title.replace("🎂 ", "").replace("'s Birthday", "")}'s birthday celebration`}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+              
+              {/* Work Anniversary Details */}
+              {selectedEvent.extendedProps?.type === 'anniversary' ? (
+                <div className="bg-white/5 dark:bg-white/10 rounded-lg p-4 border border-card dark:border-white/10">
+                  <div className="text-base font-semibold text-primary dark:text-white mb-3">
+                    🎉 {selectedEvent.extendedProps?.grouped || (selectedEvent.extendedProps?.count && selectedEvent.extendedProps.count > 1)
+                      ? `${selectedEvent.extendedProps.count || selectedEvent.extendedProps?.anniversaries?.length || 0} Work Anniversaries`
+                      : selectedEvent.title.replace("🎉 ", "").replace("'s Work Anniversary", "")}
+                  </div>
+                  {selectedEvent.extendedProps?.anniversaries && selectedEvent.extendedProps.anniversaries.length > 1 ? (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold text-primary dark:text-white mb-2">
+                        Celebrations:
+                      </div>
+                      {selectedEvent.extendedProps.anniversaries.map((a: any, index: number) => {
+                        const displayName = a.id ? (getUserNameById(a.id) || a.name) : a.name;
+                        return (
+                        <div key={index} className="text-sm text-secondary dark:text-gray-300 pl-3 border-l-4 border-amber-500 py-1">
+                          🎉 {displayName} — {a.years} year{a.years === 1 ? '' : 's'}
+                        </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-secondary dark:text-gray-300">
+                      {(() => {
+                        const a = selectedEvent.extendedProps?.anniversaries?.[0];
+                        if (a) {
+                          const displayName = a.id ? (getUserNameById(a.id) || a.name) : a.name;
+                          return `${displayName} — ${a.years} year${a.years === 1 ? '' : 's'} at the company`;
+                        }
+                        return selectedEvent.extendedProps?.description || 'Work anniversary';
+                      })()}
                     </div>
                   )}
                 </div>

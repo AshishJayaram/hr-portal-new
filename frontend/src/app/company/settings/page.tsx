@@ -35,7 +35,7 @@ export default function CompanySettingsPage() {
   const [lop, setLop] = useState<number>(0);
   const [tds, setTds] = useState<number>(0);
   const [overtimeHours, setOvertimeHours] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'payroll' | 'leaves'>('payroll');
+  const [activeTab, setActiveTab] = useState<'payroll' | 'leaves' | 'notifications'>('payroll');
 
   // Custom categories state
   const [newEarningKey, setNewEarningKey] = useState('');
@@ -159,11 +159,56 @@ export default function CompanySettingsPage() {
           settingsData.employerPF.fields = fields;
         }
       }
-      setSettings(settingsData);
-      // Extract currency from company settings if available
-      if (settingsData.currency) {
-        setCurrency(settingsData.currency);
+      // Ensure Employee PF default deduction exists at all times
+      const normalized: PayrollSettings = {
+        ...settingsData,
+        deductions: {
+          ...settingsData.deductions,
+          employeePF: settingsData.deductions?.employeePF ?? defaultPayrollSettings.deductions.employeePF,
+          // Force ESI enabled by default and remove UI toggle
+          esiEnabled: true,
+        },
+      };
+      // Ensure notifications defaults with template placeholders as default values
+      (normalized as any).notifications = (normalized as any).notifications || {};
+      const prevNotif = JSON.stringify((normalized as any).notifications);
+      // Birthday defaults
+      (normalized as any).notifications.birthday = (normalized as any).notifications.birthday || {};
+      (normalized as any).notifications.birthday.enabled = (normalized as any).notifications.birthday.enabled ?? true;
+      (normalized as any).notifications.birthday.windowDays = (normalized as any).notifications.birthday.windowDays ?? 7;
+      // Remove advance wishes threshold (no longer used)
+      (normalized as any).notifications.birthday.templates = (normalized as any).notifications.birthday.templates || {};
+      (normalized as any).notifications.birthday.templates.today_subject =
+        (normalized as any).notifications.birthday.templates.today_subject ?? "Happy Birthday - {{birthday_name}}! 🎂";
+      (normalized as any).notifications.birthday.templates.today_body =
+        (normalized as any).notifications.birthday.templates.today_body ?? "Dear {{recipient_name}},\n\nToday is {{birthday_name}}'s birthday! 🎂\n\nBest regards,\n{{organization_name}}";
+      // Anniversary defaults
+      (normalized as any).notifications.anniversary = (normalized as any).notifications.anniversary || {};
+      (normalized as any).notifications.anniversary.templates = (normalized as any).notifications.anniversary.templates || {};
+      (normalized as any).notifications.anniversary.templates.employee_subject =
+        (normalized as any).notifications.anniversary.templates.employee_subject ?? "Happy Work Anniversary, {{employee_name}}! 🎉";
+      (normalized as any).notifications.anniversary.templates.employee_body =
+        (normalized as any).notifications.anniversary.templates.employee_body ?? "Dear {{employee_name}},\n\nCongratulations on your {{years}}-year work anniversary with {{organization_name}}!\n\nWarm regards,\n{{organization_name}}";
+      (normalized as any).notifications.anniversary.templates.admin_today_subject =
+        (normalized as any).notifications.anniversary.templates.admin_today_subject ?? "Today's Work Anniversaries - {{date}}";
+      (normalized as any).notifications.anniversary.templates.admin_today_body =
+        (normalized as any).notifications.anniversary.templates.admin_today_body ?? "Hello Team,\n\nHere are today's work anniversaries at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System";
+      (normalized as any).notifications.anniversary.templates.admin_monthly_subject =
+        (normalized as any).notifications.anniversary.templates.admin_monthly_subject ?? "Work Anniversaries — {{month}} {{year}}";
+      (normalized as any).notifications.anniversary.templates.admin_monthly_body =
+        (normalized as any).notifications.anniversary.templates.admin_monthly_body ?? "Hello Team,\n\nHere are the work anniversaries for {{month}} {{year}} at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System";
+      const nextNotif = JSON.stringify((normalized as any).notifications);
+      const injectedDefaults = prevNotif !== nextNotif;
+      setSettings(normalized);
+      if (injectedDefaults) {
+        // Persist defaults immediately for this organization only
+        setTimeout(() => {
+          updateCompanySettings(companyId, normalized, (data?.data as any)?.currency).catch(() => {});
+        }, 0);
       }
+      // Extract currency from company settings if available
+      const incomingCurrency = (data?.data as any)?.currency;
+      if (incomingCurrency) setCurrency(incomingCurrency);
     }
   }, [data]);
 
@@ -449,6 +494,16 @@ export default function CompanySettingsPage() {
             }`}
           >
             Leave Categories
+          </button>
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+              activeTab === 'notifications'
+                ? 'bg-indigo-500 text-white shadow-md'
+                : 'text-secondary dark:text-gray-300 hover:text-primary dark:hover:text-white hover:bg-white/10 dark:hover:bg-white/20'
+            }`}
+          >
+            Notifications
           </button>
         </div>
       </Card>
@@ -820,6 +875,7 @@ export default function CompanySettingsPage() {
                     { key: 'lta', label: 'LTA', setting: settings.earnings.lta },
                     { key: 'specialAllowance', label: 'Special Allowance', setting: settings.earnings.specialAllowance },
                   ].map((item) => {
+                    if (!item.setting) return null; // Skip if deleted/missing
                     const isCustom = (settings.customEarnings || []).some(e => e.key === item.key);
                     return (
                       <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/10">
@@ -851,20 +907,6 @@ export default function CompanySettingsPage() {
                           </div>
                         </div>
                         <div className="flex gap-2 ml-2">
-                          <Button
-                            onClick={() => {
-                              // Reset to default
-                              const defaults = defaultPayrollSettings.earnings[item.key as keyof typeof defaultPayrollSettings.earnings];
-                              setComponent((s) => s.earnings[item.key as keyof typeof s.earnings], 'mode', defaults.mode);
-                              setComponent((s) => s.earnings[item.key as keyof typeof s.earnings], 'value', defaults.value);
-                            }}
-                            variant="outline"
-                            size="sm"
-                            title="Reset to default"
-                            className="text-xs"
-                          >
-                            Reset
-                          </Button>
                           <Button
                             onClick={() => {
                               if (confirm(`Are you sure you want to delete "${item.label}"? This will remove it from all calculations.`)) {
@@ -1395,18 +1437,13 @@ export default function CompanySettingsPage() {
                     { key: 'professionalTax', label: 'Professional Tax', setting: settings.deductions.professionalTax },
                     { key: 'esi', label: 'ESI', setting: settings.deductions.esi },
                   ].map((item) => {
+                    if (!item.setting) return null; // Skip if deleted/missing (e.g., Employee PF removed)
                     const isCustom = (settings.customDeductions || []).some(d => d.key === item.key);
                     return (
                       <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
                             <span className="font-medium text-red-600 dark:text-red-400 text-sm">{item.label}</span>
-                            {item.key === 'employeePF' && settings.deductions.employeePF.capAt1800 && (
-                              <span className="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400">Capped at ₹1800</span>
-                            )}
-                            {item.key === 'esi' && !settings.deductions.esiEnabled && (
-                              <span className="text-xs px-2 py-0.5 rounded bg-gray-500/20 text-gray-400">Disabled</span>
-                            )}
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <Select
@@ -1454,70 +1491,10 @@ export default function CompanySettingsPage() {
                               placeholder="Value"
                             />
                           </div>
-                          {item.key === 'employeePF' && (
-                            <div className="mt-2">
-                              <label className="flex items-center gap-2 text-xs">
-                                <input
-                                  type="checkbox"
-                                  checked={settings.deductions.employeePF.capAt1800 || false}
-                                  onChange={(e) => setSettings({
-                                    ...settings,
-                                    deductions: {
-                                      ...settings.deductions,
-                                      employeePF: { ...settings.deductions.employeePF, capAt1800: e.target.checked }
-                                    }
-                                  })}
-                                  className="rounded"
-                                />
-                                <span>Cap at ₹1800</span>
-                              </label>
-                            </div>
-                          )}
-                          {item.key === 'esi' && (
-                            <div className="mt-2">
-                              <label className="flex items-center gap-2 text-xs">
-                                <input
-                                  type="checkbox"
-                                  checked={settings.deductions.esiEnabled || false}
-                                  onChange={(e) => setSettings({
-                                    ...settings,
-                                    deductions: {
-                                      ...settings.deductions,
-                                      esiEnabled: e.target.checked
-                                    }
-                                  })}
-                                  className="rounded"
-                                />
-                                <span>Enable ESI</span>
-                              </label>
-                            </div>
-                          )}
+                          {/* Employee PF cap option removed */}
+                          {/* ESI enable option removed */}
                         </div>
                         <div className="flex gap-2 ml-2">
-                          <Button
-                            onClick={() => {
-                              // Reset to default
-                              const defaults = defaultPayrollSettings.deductions[item.key as keyof typeof defaultPayrollSettings.deductions];
-                              if (item.key === 'employeePF') {
-                                setSettings({
-                                  ...settings,
-                                  deductions: {
-                                    ...settings.deductions,
-                                    employeePF: defaults as any
-                                  }
-                                });
-                              } else {
-                                setComponent((s) => s.deductions[item.key as keyof typeof s.deductions] as ComponentSetting, 'mode', (defaults as ComponentSetting).mode);
-                                setComponent((s) => s.deductions[item.key as keyof typeof s.deductions] as ComponentSetting, 'value', (defaults as ComponentSetting).value);
-                              }
-                            }}
-                            variant="outline"
-                            size="sm"
-                            title="Reset to default"
-                            className="text-xs"
-                          >
-                            Reset
-                          </Button>
                           <Button
                             onClick={() => {
                               if (confirm(`Are you sure you want to delete "${item.label}"? This will remove it from all calculations.`)) {
@@ -2225,6 +2202,248 @@ export default function CompanySettingsPage() {
         </>
       )}
 
+      {activeTab === 'notifications' && (
+        <>
+        <Card className="p-4">
+          <h2 className="text-2xl font-bold text-primary mb-2">Notifications</h2>
+          <p className="text-gray-400 mb-6">Configure organization-wide notification preferences.</p>
+
+          <div className="space-y-6">
+            <div className="p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/10">
+              <h3 className="text-lg font-semibold text-indigo-400 mb-2">Birthday Notifications</h3>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={Boolean((settings as any).notifications?.birthday?.enabled)}
+                    onChange={(e) => {
+                      setSettings(prev => {
+                        const next: any = JSON.parse(JSON.stringify(prev));
+                        next.notifications = next.notifications || {};
+                        next.notifications.birthday = next.notifications.birthday || {};
+                        next.notifications.birthday.enabled = e.target.checked;
+                        return next;
+                      });
+                    }}
+                    className="rounded"
+                  />
+                  <span>Enable birthday notifications</span>
+                </label>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-secondary mb-1">Days to look ahead for reminders</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={String((settings as any).notifications?.birthday?.windowDays ?? 7)}
+                      onChange={(e) => {
+                        const val = Math.max(0, Number(e.target.value) || 0);
+                        setSettings(prev => {
+                          const next: any = JSON.parse(JSON.stringify(prev));
+                          next.notifications = next.notifications || {};
+                          next.notifications.birthday = next.notifications.birthday || {};
+                          next.notifications.birthday.windowDays = val;
+                          return next;
+                        });
+                      }}
+                      placeholder="7"
+                    />
+                  </div>
+                  {/* Advance wishes threshold removed */}
+                </div>
+                <p className="text-xs text-gray-500">
+                  “Today” notifications are sent at 12:00 AM on the birthday (day 0).
+                </p>
+                {/* Birthday email templates */}
+                <div className="mt-4 space-y-2">
+                  <div className="text-sm font-medium text-secondary">Email Templates</div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-secondary mb-1">Birthday (Today) Subject</label>
+                      <Input
+                        value={String((settings as any).notifications?.birthday?.templates?.today_subject ?? '')}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(prev => {
+                            const next: any = JSON.parse(JSON.stringify(prev));
+                            next.notifications = next.notifications || {};
+                            next.notifications.birthday = next.notifications.birthday || {};
+                            next.notifications.birthday.templates = next.notifications.birthday.templates || {};
+                            next.notifications.birthday.templates.today_subject = val;
+                            return next;
+                          });
+                        }}
+                        placeholder="e.g., Happy Birthday - {{birthday_name}}! 🎂"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-secondary mb-1">Birthday (Today) Body</label>
+                      <textarea
+                        className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
+                        rows={6}
+                        value={String((settings as any).notifications?.birthday?.templates?.today_body ?? '')}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(prev => {
+                            const next: any = JSON.parse(JSON.stringify(prev));
+                            next.notifications = next.notifications || {};
+                            next.notifications.birthday = next.notifications.birthday || {};
+                            next.notifications.birthday.templates = next.notifications.birthday.templates || {};
+                            next.notifications.birthday.templates.today_body = val;
+                            return next;
+                          });
+                        }}
+                        placeholder={"Dear {{recipient_name}},\n\nToday is {{birthday_name}}'s birthday! 🎂\n\nBest regards,\n{{organization_name}}"}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Placeholders: {'{{recipient_name}}'}, {'{{birthday_name}}'}, {'{{birthday_date}}'}, {'{{organization_name}}'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+        
+        {/* Work Anniversary Notifications */}
+        <Card className="mt-6 p-4">
+          <h3 className="text-lg font-semibold text-primary mb-2">Work Anniversary Notifications</h3>
+          <p className="text-sm text-secondary mb-4">Configure email templates for employee congratulations and HR/Admin notifications.</p>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <div className="font-medium mb-2">Employee Email (on anniversary day)</div>
+              <label className="block text-sm text-secondary mb-1">Subject</label>
+              <Input
+                value={String((settings as any).notifications?.anniversary?.templates?.employee_subject ?? '')}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSettings(prev => {
+                    const next: any = JSON.parse(JSON.stringify(prev));
+                    next.notifications = next.notifications || {};
+                    next.notifications.anniversary = next.notifications.anniversary || {};
+                    next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                    next.notifications.anniversary.templates.employee_subject = val;
+                    return next;
+                  });
+                }}
+                placeholder="e.g., Happy Work Anniversary, {{employee_name}}! 🎉"
+              />
+              <label className="block text-sm text-secondary mt-3 mb-1">Body</label>
+              <textarea
+                className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
+                rows={6}
+                value={String((settings as any).notifications?.anniversary?.templates?.employee_body ?? '')}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSettings(prev => {
+                    const next: any = JSON.parse(JSON.stringify(prev));
+                    next.notifications = next.notifications || {};
+                    next.notifications.anniversary = next.notifications.anniversary || {};
+                    next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                    next.notifications.anniversary.templates.employee_body = val;
+                    return next;
+                  });
+                }}
+                placeholder={"Dear {{employee_name}},\n\nCongratulations on your {{years}}-year work anniversary with {{organization_name}}!\n\nWarm regards,\n{{organization_name}}"}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Placeholders: {'{{employee_name}}'}, {'{{years}}'}, {'{{organization_name}}'}
+              </p>
+            </div>
+            
+            <div>
+              <div className="font-medium mb-2">HR/Admin Email (Today's anniversaries)</div>
+              <label className="block text-sm text-secondary mb-1">Subject</label>
+              <Input
+                value={String((settings as any).notifications?.anniversary?.templates?.admin_today_subject ?? '')}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSettings(prev => {
+                    const next: any = JSON.parse(JSON.stringify(prev));
+                    next.notifications = next.notifications || {};
+                    next.notifications.anniversary = next.notifications.anniversary || {};
+                    next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                    next.notifications.anniversary.templates.admin_today_subject = val;
+                    return next;
+                  });
+                }}
+                placeholder="e.g., Today's Work Anniversaries - {{date}}"
+              />
+              <label className="block text-sm text-secondary mt-3 mb-1">Body</label>
+              <textarea
+                className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
+                rows={6}
+                value={String((settings as any).notifications?.anniversary?.templates?.admin_today_body ?? '')}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSettings(prev => {
+                    const next: any = JSON.parse(JSON.stringify(prev));
+                    next.notifications = next.notifications || {};
+                    next.notifications.anniversary = next.notifications.anniversary || {};
+                    next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                    next.notifications.anniversary.templates.admin_today_body = val;
+                    return next;
+                  });
+                }}
+                placeholder={"Hello Team,\n\nHere are today's work anniversaries at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System"}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Placeholders: {'{{date}}'}, {'{{organization_name}}'}, {'{{list}}'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-6">
+            <div className="font-medium mb-2">HR/Admin Email (Monthly digest on 1st)</div>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm text-secondary mb-1">Subject</label>
+                <Input
+                  value={String((settings as any).notifications?.anniversary?.templates?.admin_monthly_subject ?? '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSettings(prev => {
+                      const next: any = JSON.parse(JSON.stringify(prev));
+                      next.notifications = next.notifications || {};
+                      next.notifications.anniversary = next.notifications.anniversary || {};
+                      next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                      next.notifications.anniversary.templates.admin_monthly_subject = val;
+                      return next;
+                    });
+                  }}
+                  placeholder="e.g., Work Anniversaries — {{month}} {{year}}"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-secondary mb-1">Body</label>
+                <textarea
+                  className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
+                  rows={6}
+                  value={String((settings as any).notifications?.anniversary?.templates?.admin_monthly_body ?? '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSettings(prev => {
+                      const next: any = JSON.parse(JSON.stringify(prev));
+                      next.notifications = next.notifications || {};
+                      next.notifications.anniversary = next.notifications.anniversary || {};
+                      next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                      next.notifications.anniversary.templates.admin_monthly_body = val;
+                      return next;
+                    });
+                  }}
+                  placeholder={"Hello Team,\n\nHere are the work anniversaries for {{month}} {{year}} at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System"}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Placeholders: {'{{month}}'}, {'{{year}}'}, {'{{organization_name}}'}, {'{{list}}'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+        </>
+      )}
+
       {activeTab === 'leaves' && (
         <>
           <h2 className="text-2xl font-bold text-primary">Leave Categories</h2>
@@ -2328,16 +2547,7 @@ function LeaveCategoriesManager({
             min="1"
             disabled={isLoading}
           />
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="isActive"
-              checked={newCategory.isActive}
-              onChange={(e) => setNewCategory({ ...newCategory, isActive: e.target.checked })}
-              disabled={isLoading}
-            />
-            <label htmlFor="isActive" className="text-sm">Active</label>
-          </div>
+          {/* Active option removed */}
         </div>
         <div className="mt-4">
           <Button 
@@ -2397,14 +2607,7 @@ function LeaveCategoriesManager({
                       }}
                       min="1"
                     />
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={editingCategory.isActive}
-                        onChange={(e) => setEditingCategory({ ...editingCategory, isActive: e.target.checked })}
-                      />
-                      <label className="text-sm">Active</label>
-                    </div>
+                    {/* Active option removed in edit form */}
                   </div>
                   <div className="flex gap-2">
                     <Button 
@@ -2423,9 +2626,7 @@ function LeaveCategoriesManager({
                     <p className="text-sm text-secondary">{category.description}</p>
                     <div className="flex gap-4 mt-2 text-sm">
                       <span>Default Days: <strong>{category.defaultDays}</strong></span>
-                      <span className={`px-2 py-1 rounded text-xs ${category.isActive ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'}`}>
-                        {category.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      {/* Active badge removed as requested */}
                     </div>
                   </div>
                   <div className="flex gap-2">

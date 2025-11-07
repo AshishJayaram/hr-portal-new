@@ -48,8 +48,8 @@ func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb 
 	// Create audit service first since other services depend on it
 	auditService := NewAuditService(repos.AuditLog, repos.User)
 
-	// Create notification service with repository
-	notificationService := NewNotificationServiceWithRepo(repos.Notification)
+	// Create notification service with repositories
+	notificationService := NewNotificationServiceWithRepo(repos.Notification, repos.CompanySettings)
 
 	return &Services{
 		User:                    NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, repos.LeaveCategory, auditService, notificationService),
@@ -580,19 +580,20 @@ type UpdateKRASettingsRequest struct {
 }
 
 type DashboardStatsResponse struct {
-	TotalUsers        int64                  `json:"total_users"`
-	TotalLeaves       int64                  `json:"total_leaves"`
-	PendingLeaves     int64                  `json:"pending_leaves"`
-	ApprovedLeaves    int64                  `json:"approved_leaves"`
-	TotalDocuments    int64                  `json:"total_documents"`
-	UpcomingHolidays  []models.Holiday       `json:"upcoming_holidays"`
-	RecentLeaves      []models.Leave         `json:"recent_leaves"`
-	RecentDocuments   []models.Document      `json:"recent_documents"`
-	RecentSalarySlips []models.SalarySlip    `json:"recent_salary_slips"`
-	LeaveBalances     []LeaveBalanceResponse `json:"leave_balances"`
-	RecentOffSites    []models.OffSite       `json:"recent_off_sites"`
-	UserBirthdays     []UserBirthdayResponse `json:"user_birthdays"`
-	HikeReminders     []HikeReminderResponse `json:"hike_reminders"`
+	TotalUsers        int64                     `json:"total_users"`
+	TotalLeaves       int64                     `json:"total_leaves"`
+	PendingLeaves     int64                     `json:"pending_leaves"`
+	ApprovedLeaves    int64                     `json:"approved_leaves"`
+	TotalDocuments    int64                     `json:"total_documents"`
+	UpcomingHolidays  []models.Holiday          `json:"upcoming_holidays"`
+	RecentLeaves      []models.Leave            `json:"recent_leaves"`
+	RecentDocuments   []models.Document         `json:"recent_documents"`
+	RecentSalarySlips []models.SalarySlip       `json:"recent_salary_slips"`
+	LeaveBalances     []LeaveBalanceResponse    `json:"leave_balances"`
+	RecentOffSites    []models.OffSite          `json:"recent_off_sites"`
+	UserBirthdays     []UserBirthdayResponse    `json:"user_birthdays"`
+	WorkAnniversaries []WorkAnniversaryResponse `json:"work_anniversaries"`
+	HikeReminders     []HikeReminderResponse    `json:"hike_reminders"`
 }
 
 // UserBirthdayResponse represents a user birthday for dashboard display
@@ -601,6 +602,13 @@ type UserBirthdayResponse struct {
 	Name            string `json:"name"`
 	Birthday        string `json:"birthday"`
 	BirthdayVisible bool   `json:"birthday_visible"`
+}
+
+// WorkAnniversaryResponse represents a user's work anniversary (joining date) for dashboard display
+type WorkAnniversaryResponse struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	JoiningDate string `json:"joining_date"`
 }
 
 // HikeReminderResponse represents a hike reminder for dashboard display

@@ -513,23 +513,22 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 	return router
 }
 
-// startBirthdayNotifications starts a goroutine that periodically checks for upcoming birthdays
-// and sends notifications to all users in the organization
+// startBirthdayNotifications starts a goroutine that triggers at local midnight daily
+// and sends birthday notifications only on the birthday date (no advance wishes).
 func startBirthdayNotifications(repos *repositories.Repositories, notificationService services.NotificationService) {
 	go func() {
-		ticker := time.NewTicker(24 * time.Hour) // Check once per day
-		defer ticker.Stop()
-
 		for {
-			select {
-			case <-ticker.C:
-				sendBirthdayNotifications(repos, notificationService)
-			}
+			now := time.Now()
+			// Compute next local midnight
+			nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+			delay := nextMidnight.Sub(now)
+			time.Sleep(delay)
+			sendBirthdayNotifications(repos, notificationService)
 		}
 	}()
 }
 
-// sendBirthdayNotifications checks for upcoming birthdays and sends notifications
+// sendBirthdayNotifications checks for birthdays today and sends notifications at midnight
 func sendBirthdayNotifications(repos *repositories.Repositories, notificationService services.NotificationService) {
 	logrus.Info("Checking for birthday notifications...")
 
@@ -570,41 +569,19 @@ func sendBirthdayNotifications(repos *repositories.Repositories, notificationSer
 
 				daysUntilBirthday := int(birthdayThisYear.Sub(now).Hours() / 24)
 
-				// Send notifications for birthdays within 7 days
-				if daysUntilBirthday <= 7 && daysUntilBirthday >= 0 {
+				// Only send wishes exactly on the birthday (no advance/reminder)
+				if daysUntilBirthday == 0 {
 					birthdayUsers = append(birthdayUsers, user)
 				}
 			}
 		}
 
-		// Send notifications for each birthday person
+		// Send notifications for each birthday person (today)
 		for _, birthdayUser := range birthdayUsers {
-			birthdayThisYear := time.Date(
-				now.Year(),
-				birthdayUser.Birthday.Month(),
-				birthdayUser.Birthday.Day(),
-				0, 0, 0, 0,
-				birthdayUser.Birthday.Location(),
-			)
-
-			if birthdayThisYear.Before(now) {
-				birthdayThisYear = birthdayThisYear.AddDate(1, 0, 0)
-			}
-
-			daysUntilBirthday := int(birthdayThisYear.Sub(now).Hours() / 24)
-
-			// Send to all users in the organization (except the birthday person themselves if it's today)
 			for _, recipient := range users {
-				notificationType := "reminder"
-				if daysUntilBirthday == 0 {
-					notificationType = "today"
-				} else if daysUntilBirthday <= 3 {
-					notificationType = "advance_wish"
-				}
-
 				// Don't send birthday notifications to the person themselves
 				if recipient.ID != birthdayUser.ID {
-					if err := notificationService.SendBirthdayNotification(&birthdayUser, &recipient, notificationType); err != nil {
+					if err := notificationService.SendBirthdayNotification(&birthdayUser, &recipient, "today"); err != nil {
 						logrus.Errorf("Failed to send birthday notification for %s to %s: %v", birthdayUser.Name, recipient.Name, err)
 					}
 				}
@@ -623,6 +600,8 @@ func startServer(router *gin.Engine, port int, repos *repositories.Repositories,
 
 	// Start birthday notification service
 	startBirthdayNotifications(repos, notificationService)
+	// Start work anniversary notification service (daily + monthly digest on 1st)
+	startWorkAnniversaryNotifications(repos, notificationService)
 
 	// Start server in a goroutine
 	go func() {
@@ -647,4 +626,118 @@ func startServer(router *gin.Engine, port int, repos *repositories.Repositories,
 	}
 
 	logrus.Info("Server exited")
+}
+
+// startWorkAnniversaryNotifications triggers at local midnight daily to:
+// - Send congratulations emails to employees celebrating their work anniversary today
+// - Notify HR/Admin with today's anniversary list
+// - On the 1st of each month, send a monthly digest of all anniversaries for that month to HR/Admin
+func startWorkAnniversaryNotifications(repos *repositories.Repositories, notificationService services.NotificationService) {
+	go func() {
+		for {
+			now := time.Now()
+			// Compute next local midnight
+			nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+			delay := nextMidnight.Sub(now)
+			time.Sleep(delay)
+			sendWorkAnniversaryNotifications(repos, notificationService)
+		}
+	}()
+}
+
+func sendWorkAnniversaryNotifications(repos *repositories.Repositories, notificationService services.NotificationService) {
+	logrus.Info("Checking for work anniversary notifications...")
+
+	// Get all organizations
+	organizations, err := repos.Organization.List()
+	if err != nil {
+		logrus.Errorf("Failed to get organizations for work anniversary notifications: %v", err)
+		return
+	}
+
+	now := time.Now()
+	todayMonth := now.Month()
+	todayDay := now.Day()
+	isFirstOfMonth := todayDay == 1
+
+	for _, org := range organizations {
+		users, err := repos.User.List(strconv.FormatUint(uint64(org.ID), 10), map[string]interface{}{})
+		if err != nil {
+			logrus.Errorf("Failed to get users for organization %d: %v", org.ID, err)
+			continue
+		}
+
+		// Collect HR/Admin recipients
+		var adminRecipients []*models.User
+		for idx := range users {
+			u := &users[idx]
+			if u.Role == "HR" || u.Role == "Admin" {
+				adminRecipients = append(adminRecipients, u)
+			}
+		}
+
+		// Today's anniversaries
+		var todayItems []services.WorkAnniversaryItem
+		for idx := range users {
+			u := &users[idx]
+			if u.JoiningDate == nil {
+				continue
+			}
+			j := u.JoiningDate.In(now.Location())
+			if j.Month() == todayMonth && j.Day() == todayDay {
+				years := now.Year() - j.Year()
+				// Send to employee
+				if err := notificationService.SendWorkAnniversaryEmployee(u, org.Name, years); err != nil {
+					logrus.WithError(err).WithFields(logrus.Fields{
+						"user_id":  u.ID,
+						"org_id":   org.ID,
+						"years":    years,
+						"org_name": org.Name,
+					}).Error("Failed to send employee work anniversary email")
+				}
+				todayItems = append(todayItems, services.WorkAnniversaryItem{
+					Name:        u.Name,
+					Email:       u.Email,
+					Years:       years,
+					JoiningDate: *u.JoiningDate,
+				})
+			}
+		}
+		// Notify HR/Admin for today's anniversaries
+		if len(todayItems) > 0 && len(adminRecipients) > 0 {
+			if err := notificationService.SendWorkAnniversaryAdminToday(adminRecipients, org.Name, todayItems); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"org_id": org.ID,
+				}).Error("Failed to send today's work anniversary admin email")
+			}
+		}
+
+		// On 1st of month, send monthly digest for the month
+		if isFirstOfMonth && len(adminRecipients) > 0 {
+			var monthItems []services.WorkAnniversaryItem
+			for idx := range users {
+				u := &users[idx]
+				if u.JoiningDate == nil {
+					continue
+				}
+				j := u.JoiningDate.In(now.Location())
+				if j.Month() == todayMonth {
+					years := now.Year() - j.Year()
+					monthItems = append(monthItems, services.WorkAnniversaryItem{
+						Name:        u.Name,
+						Email:       u.Email,
+						Years:       years,
+						JoiningDate: *u.JoiningDate,
+					})
+				}
+			}
+			if err := notificationService.SendWorkAnniversaryAdminMonthlyDigest(adminRecipients, org.Name, todayMonth, now.Year(), monthItems); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"org_id": org.ID,
+				}).Error("Failed to send monthly work anniversary digest to admin")
+			}
+		}
+	}
+
+	logrus.Info("Work anniversary notification check completed")
 }

@@ -190,6 +190,49 @@ func (h *GodHandler) CreateOrganization(c *gin.Context) {
 		return
 	}
 
+	// Initialize default company settings for this organization
+	defaultSettingsJSON := `{
+  "earnings": {
+    "basic": { "mode": "PERCENT_OF_CTC", "value": 50 },
+    "hra": { "mode": "PERCENT_OF_BASIC", "value": 30 },
+    "medical": { "mode": "FIXED_MONTHLY", "value": 1250 },
+    "conveyance": { "mode": "FIXED_MONTHLY", "value": 800 },
+    "lta": { "mode": "PERCENT_OF_BASIC", "value": 15 },
+    "specialAllowance": { "mode": "REMAINDER" }
+  },
+  "deductions": {
+    "employeePF": { "mode": "PERCENT_OF_BASIC", "value": 12, "capAt1800": false },
+    "professionalTax": { "mode": "FIXED_MONTHLY", "value": 200 },
+    "esi": { "mode": "PERCENT_OF_CTC", "value": 0.75 },
+    "esiEnabled": true
+  },
+  "employerPF": {
+    "employerPFPercentOfBasic": 12,
+    "epsPercentOfBasic": 8.33,
+    "epsCap": 1250,
+    "enabled": true,
+    "fields": [],
+    "conditionalEarnings": [],
+    "conditionalDeductions": []
+  },
+  "lop": {
+    "calculationMethod": "NET_PAY_BY_DAYS",
+    "defaultDaysInMonth": 30
+  },
+  "overtime": {
+    "calculationMethod": "HOURLY_RATE_BY_BASIC",
+    "hoursPerDay": 8,
+    "multiplier": 1.5
+  },
+  "customEarnings": [],
+  "customDeductions": []
+}`
+	if _, err := h.services.CompanySettings.UpdateSettings(orgIDStr, services.UpdateCompanySettingsRequest{
+		Settings: defaultSettingsJSON,
+	}); err != nil {
+		// Log but don't fail org creation
+	}
+
 	// Return organization with admin user info
 	response := gin.H{
 		"data":    org,

@@ -112,17 +112,19 @@ export default function DashboardPage() {
     groupedEventsByDate.forEach((dayEvents, dateKey) => {
       if (processedDates.has(dateKey)) return;
       
-      // Group by type - keep leaves, off-sites (my vs team), holidays, and birthdays separate
+      // Group by type - keep leaves, off-sites (my vs team), holidays, birthdays, and work anniversaries separate
       const leaves = dayEvents.filter(e => e.extendedProps?.type === 'leave');
       const holidays = dayEvents.filter(e => e.extendedProps?.type === 'holiday');
       const birthdays = dayEvents.filter(e => e.extendedProps?.type === 'birthday');
+      const anniversaries = dayEvents.filter(e => e.extendedProps?.type === 'anniversary');
       const myOffsites = dayEvents.filter(e => e.extendedProps?.type === 'offsite' && e.extendedProps?.isMyOffSite === true);
       const teamOffsites = dayEvents.filter(e => e.extendedProps?.type === 'offsite' && e.extendedProps?.isMyOffSite !== true);
       const otherEvents = dayEvents.filter(e => 
         e.extendedProps?.type !== 'leave' && 
         e.extendedProps?.type !== 'holiday' && 
         e.extendedProps?.type !== 'offsite' &&
-        e.extendedProps?.type !== 'birthday'
+        e.extendedProps?.type !== 'birthday' &&
+        e.extendedProps?.type !== 'anniversary'
       );
 
       const day = new Date(dateKey + 'T00:00:00');
@@ -323,6 +325,17 @@ export default function DashboardPage() {
           if (!processedEventIds.has(eventId)) {
             processedEventIds.add(eventId);
             finalEvents.push(birthday);
+          }
+        });
+      }
+      
+      // Add WORK ANNIVERSARIES - similar handling as birthdays
+      if (anniversaries.length > 0) {
+        anniversaries.forEach(anniv => {
+          const eventId = `${getDateKey(new Date(anniv.start))}-${anniv.title}`;
+          if (!processedEventIds.has(eventId)) {
+            processedEventIds.add(eventId);
+            finalEvents.push(anniv);
           }
         });
       }
@@ -616,6 +629,92 @@ export default function DashboardPage() {
       if (!groupedEventsByDate.has(dateKey)) {
         groupedEventsByDate.set(dateKey, []);
       }
+      groupedEventsByDate.get(dateKey)!.push(allEvents[allEvents.length - 1]);
+    });
+    
+    // Add work anniversaries - group multiple anniversaries on the same day
+    const anniversariesByDate = new Map<string, any[]>();
+    const anniversarySeenByDate = new Map<string, Set<string>>();
+    const workAnniversaries = (dashboardData?.data?.work_anniversaries || []) as any[];
+    // Role-based filter: Employees see only their own anniversaries
+    const filteredAnniversaries = (userRole === "HR" || userRole === "Admin" || userRole === "God")
+      ? workAnniversaries
+      : workAnniversaries.filter((a: any) => String(a.id) === String(userId));
+    
+    filteredAnniversaries.forEach((a: any) => {
+      const joiningDate = new Date(a.joining_date);
+      // Show anniversaries for current year and next 5 years
+      for (let yearOffset = 0; yearOffset < 6; yearOffset++) {
+        const annivThisYear = new Date(currentYear + yearOffset, joiningDate.getMonth(), joiningDate.getDate());
+        // Skip past anniversaries in current year
+        if (yearOffset === 0 && annivThisYear < new Date()) continue;
+        const dateKey = getDateKey(annivThisYear);
+        if (!anniversariesByDate.has(dateKey)) anniversariesByDate.set(dateKey, []);
+        if (!anniversarySeenByDate.has(dateKey)) anniversarySeenByDate.set(dateKey, new Set());
+        // Compute years completed on that anniversary year
+        const years = (currentYear + yearOffset) - joiningDate.getFullYear();
+        const uid = String(a.id);
+        const seen = anniversarySeenByDate.get(dateKey)!;
+        if (!seen.has(uid)) {
+          seen.add(uid);
+          anniversariesByDate.get(dateKey)!.push({
+            id: uid,
+            name: a.name,
+            joining_date: a.joining_date,
+            years,
+            date: annivThisYear
+          });
+        }
+      }
+    });
+    
+    // Create grouped anniversary events
+    anniversariesByDate.forEach((annivs, dateKey) => {
+      const date = new Date(dateKey);
+      const endExclusive = new Date(date);
+      endExclusive.setDate(endExclusive.getDate() + 1);
+      if (annivs.length > 1) {
+        const event = {
+          title: `🎉 ${annivs.length} work anniversaries`,
+          start: date,
+          end: endExclusive,
+          allDay: true,
+          color: "#f59e0b", // Amber for anniversaries
+          extendedProps: {
+            type: 'anniversary',
+            anniversaries: annivs.map(a => ({
+              id: a.id,
+              name: a.name,
+              years: a.years,
+              description: `${a.name} — ${a.years} year(s)`
+            })),
+            count: annivs.length,
+            grouped: true
+          }
+        };
+        allEvents.push(event);
+      } else {
+        const a = annivs[0];
+        const event = {
+          title: `🎉 ${a.name}'s Work Anniversary`,
+          start: date,
+          end: endExclusive,
+          allDay: true,
+          color: "#f59e0b",
+          extendedProps: {
+            type: 'anniversary',
+            anniversaries: [{
+              id: a.id,
+              name: a.name,
+              years: a.years,
+              description: `${a.name} — ${a.years} year(s)`
+            }],
+            count: 1
+          }
+        };
+        allEvents.push(event);
+      }
+      if (!groupedEventsByDate.has(dateKey)) groupedEventsByDate.set(dateKey, []);
       groupedEventsByDate.get(dateKey)!.push(allEvents[allEvents.length - 1]);
     });
 
@@ -939,12 +1038,32 @@ export default function DashboardPage() {
             {createCalendarEvents()
               // include ongoing multi-day events (end is exclusive)
               .filter((e) => new Date(e.end) > new Date(new Date().toDateString()))
+              // sort by start date ascending to surface nearest events
+              .sort((a: any, b: any) => {
+                const aStart = a.start instanceof Date ? a.start : new Date(a.start);
+                const bStart = b.start instanceof Date ? b.start : new Date(b.start);
+                return aStart.getTime() - bStart.getTime();
+              })
               .slice(0, 3)
               .map((e, index) => (
                 <div key={`mobile-${index}`} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
                   <div className={`w-2 h-8 rounded`} style={{ backgroundColor: e.color }} />
                   <div>
                     <div className="text-sm text-gray-300">{e.title}</div>
+                    {/* Type label and details */}
+                    {e.extendedProps?.type && (
+                      <div className="text-[11px] text-gray-400 mt-0.5 capitalize">
+                        {e.extendedProps.type === 'anniversary' ? (
+                          <span className="text-amber-400">
+                            {e.extendedProps?.anniversaries?.length > 1
+                              ? `${e.extendedProps.anniversaries.length} work anniversaries`
+                              : e.extendedProps?.anniversaries?.[0]
+                                ? `${e.extendedProps.anniversaries[0].name} — ${e.extendedProps.anniversaries[0].years} year${e.extendedProps.anniversaries[0].years === 1 ? '' : 's'}`
+                                : 'Work Anniversary'}
+                          </span>
+                        ) : e.extendedProps.type}
+                      </div>
+                    )}
                     <div className="text-xs text-gray-400">
                       {e.start instanceof Date
                         ? e.start.toLocaleDateString()

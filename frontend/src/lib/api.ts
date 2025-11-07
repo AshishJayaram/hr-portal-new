@@ -1,4 +1,9 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+// Prefer same-origin on the client (avoids CORS and broken localhost:8080 defaults)
+// Fall back to explicit API base only during SSR or when explicitly provided
+const API_URL =
+  typeof window !== "undefined"
+    ? (process.env.NEXT_PUBLIC_API_URL || "")
+    : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080");
 
 // Types for better type safety
 export type Role = 'Employee' | 'HR' | 'Admin' | 'God';
@@ -8,6 +13,7 @@ export interface Organization {
   name: string;
   domain: string;
   logo?: string;
+  logo_url?: string;
   description: string;
   is_active: boolean;
   user_count: number;
@@ -154,6 +160,7 @@ export interface DashboardStats {
   leave_balances: LeaveBalance[];
   recent_off_sites: OffSite[];
   user_birthdays: UserBirthday[];
+  work_anniversaries?: WorkAnniversary[];
   hike_reminders?: HikeReminder[];
 }
 
@@ -174,6 +181,12 @@ export interface UserBirthday {
   birthday_visible: boolean;
 }
 
+export interface WorkAnniversary {
+  id: string;
+  name: string;
+  joining_date: string;
+}
+
 export interface ApiResponse<T> {
   data: T;
   message?: string;
@@ -189,6 +202,16 @@ export interface ApiError {
 async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   let organizationId = typeof window !== "undefined" ? localStorage.getItem("organizationId") : null;
+  // Fallback to 'companyId' key commonly used by UI
+  if (!organizationId && typeof window !== "undefined") {
+    const cid = localStorage.getItem("companyId");
+    if (cid) {
+      organizationId = cid;
+      try {
+        localStorage.setItem("organizationId", cid);
+      } catch {}
+    }
+  }
   
   // Fallback: get organizationId from user object if not in localStorage
   if (!organizationId && typeof window !== "undefined") {
@@ -249,11 +272,18 @@ async function fetcher<T>(path: string, options: RequestInit = {}): Promise<T> {
     });
   }
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-    credentials: "include", // Include cookies for NextAuth
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+      credentials: "include", // Include cookies for NextAuth
+    });
+  } catch (err) {
+    // Network-level error (CORS, DNS, server down, etc.)
+    console.error('API network error:', { url, err });
+    throw new Error('Network error: Unable to reach API. Please verify API URL and server availability.');
+  }
 
   if (!res.ok) {
     // Handle authentication errors (token expired/invalid)
@@ -532,7 +562,7 @@ export const getLeaveCategories = () =>
   }).catch(() => ({ data: [] } as ApiResponse<LeaveCategory[]>));
 
 export const createLeaveCategory = (body: Partial<LeaveCategory>) =>
-  fetcher<ApiResponse<LeaveCategory>>("/leave-categories", {
+  fetcher<ApiResponse<LeaveCategory>>("/api/leave-categories", {
     method: "POST",
     body: JSON.stringify({
       name: body.name,
@@ -544,7 +574,7 @@ export const createLeaveCategory = (body: Partial<LeaveCategory>) =>
   });
 
 export const updateLeaveCategory = (id: string, body: Partial<LeaveCategory>) =>
-  fetcher<ApiResponse<LeaveCategory>>(`/leave-categories/${id}`, {
+  fetcher<ApiResponse<LeaveCategory>>(`/api/leave-categories/${id}`, {
     method: "PATCH",
     body: JSON.stringify({
       name: body.name,
@@ -556,7 +586,7 @@ export const updateLeaveCategory = (id: string, body: Partial<LeaveCategory>) =>
   });
 
 export const deleteLeaveCategory = (id: string) =>
-  fetcher<ApiResponse<void>>(`/leave-categories/${id}`, {
+  fetcher<ApiResponse<void>>(`/api/leave-categories/${id}`, {
     method: "DELETE",
   });
 
@@ -1087,6 +1117,7 @@ export const getDashboardStats = () =>
       leave_balances: d.leave_balances ?? [],
       recent_off_sites: d.recent_off_sites ?? [],
       user_birthdays: d.user_birthdays ?? [],
+      work_anniversaries: d.work_anniversaries ?? [],
       hike_reminders: d.hike_reminders ?? [],
     };
     return { data: mapped } as ApiResponse<DashboardStats>;
@@ -1104,6 +1135,7 @@ export const getDashboardStats = () =>
       leave_balances: [],
       recent_off_sites: [],
       user_birthdays: [],
+      work_anniversaries: [],
       hike_reminders: []
     }
   } as ApiResponse<DashboardStats>));

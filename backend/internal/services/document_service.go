@@ -311,7 +311,7 @@ func (s *salarySlipService) AddSalarySlip(req UploadSalarySlipRequest, httpReq *
 	}
 
 	// Log the salary slip upload
-	changeSummary := fmt.Sprintf("Salary slip uploaded for %s (%d)", req.Month, req.Year)
+	changeSummary := fmt.Sprintf("Salary slip uploaded for %s (%d)", time.Month(req.Month).String(), req.Year)
 	if err := s.auditService.LogSalarySlipChange(orgIDStr, salarySlipIDStr, changedBy, "CREATE", changeSummary, httpReq); err != nil {
 	}
 
@@ -367,8 +367,43 @@ func (s *companySettingsService) GetSettings(organizationID string) (*models.Com
 		// Return default settings
 		return &models.CompanySettings{
 			OrganizationID: uint(orgID),
-			Settings:       `{"earnings":{"basic":{"mode":"PERCENT_OF_CTC","value":40},"hra":{"mode":"PERCENT_OF_BASIC","value":50},"medical":{"mode":"FIXED","value":1250},"conveyance":{"mode":"FIXED","value":1600},"lta":{"mode":"FIXED","value":8000},"specialAllowance":{"mode":"REMAINDER"}},"deductions":{"empPF":{"mode":"PERCENT_OF_BASIC","value":12},"professionalTax":{"mode":"FIXED","value":200},"esi":{"mode":"PERCENT_OF_CTC","value":0.75}},"employerPF":{"mode":"PERCENT_OF_BASIC","value":12},"lop":{"calculationMethod":"NET_PAY_BY_DAYS","defaultDaysInMonth":30}}`,
-			Currency:       "INR",
+			Settings: `{
+  "earnings": {
+    "basic": { "mode": "PERCENT_OF_CTC", "value": 50 },
+    "hra": { "mode": "PERCENT_OF_BASIC", "value": 30 },
+    "medical": { "mode": "FIXED_MONTHLY", "value": 1250 },
+    "conveyance": { "mode": "FIXED_MONTHLY", "value": 800 },
+    "lta": { "mode": "PERCENT_OF_BASIC", "value": 15 },
+    "specialAllowance": { "mode": "REMAINDER" }
+  },
+  "deductions": {
+    "employeePF": { "mode": "PERCENT_OF_BASIC", "value": 12, "capAt1800": false },
+    "professionalTax": { "mode": "FIXED_MONTHLY", "value": 200 },
+    "esi": { "mode": "PERCENT_OF_CTC", "value": 0.75 },
+    "esiEnabled": true
+  },
+  "employerPF": {
+    "employerPFPercentOfBasic": 12,
+    "epsPercentOfBasic": 8.33,
+    "epsCap": 1250,
+    "enabled": true,
+    "fields": [],
+    "conditionalEarnings": [],
+    "conditionalDeductions": []
+  },
+  "lop": {
+    "calculationMethod": "NET_PAY_BY_DAYS",
+    "defaultDaysInMonth": 30
+  },
+  "overtime": {
+    "calculationMethod": "HOURLY_RATE_BY_BASIC",
+    "hoursPerDay": 8,
+    "multiplier": 1.5
+  },
+  "customEarnings": [],
+  "customDeductions": []
+}`,
+			Currency: "INR",
 		}, nil
 	}
 
@@ -477,9 +512,44 @@ func (s *companySettingsService) UpdateKRASettings(organizationID string, req Up
 
 		settings = &models.CompanySettings{
 			OrganizationID: uint(orgID),
-			Settings:       `{"earnings":{"basic":{"mode":"PERCENT_OF_CTC","value":40},"hra":{"mode":"PERCENT_OF_BASIC","value":50},"medical":{"mode":"FIXED","value":1250},"conveyance":{"mode":"FIXED","value":1600},"lta":{"mode":"FIXED","value":8000},"specialAllowance":{"mode":"REMAINDER"}},"deductions":{"empPF":{"mode":"PERCENT_OF_BASIC","value":12},"professionalTax":{"mode":"FIXED","value":200},"esi":{"mode":"PERCENT_OF_CTC","value":0.75}},"employerPF":{"mode":"PERCENT_OF_BASIC","value":12},"lop":{"calculationMethod":"NET_PAY_BY_DAYS","defaultDaysInMonth":30}}`,
-			KRASettings:    req.KRASettings,
-			Currency:       "INR",
+			Settings: `{
+  "earnings": {
+    "basic": { "mode": "PERCENT_OF_CTC", "value": 50 },
+    "hra": { "mode": "PERCENT_OF_BASIC", "value": 30 },
+    "medical": { "mode": "FIXED_MONTHLY", "value": 1250 },
+    "conveyance": { "mode": "FIXED_MONTHLY", "value": 800 },
+    "lta": { "mode": "PERCENT_OF_BASIC", "value": 15 },
+    "specialAllowance": { "mode": "REMAINDER" }
+  },
+  "deductions": {
+    "employeePF": { "mode": "PERCENT_OF_BASIC", "value": 12, "capAt1800": false },
+    "professionalTax": { "mode": "FIXED_MONTHLY", "value": 200 },
+    "esi": { "mode": "PERCENT_OF_CTC", "value": 0.75 },
+    "esiEnabled": true
+  },
+  "employerPF": {
+    "employerPFPercentOfBasic": 12,
+    "epsPercentOfBasic": 8.33,
+    "epsCap": 1250,
+    "enabled": true,
+    "fields": [],
+    "conditionalEarnings": [],
+    "conditionalDeductions": []
+  },
+  "lop": {
+    "calculationMethod": "NET_PAY_BY_DAYS",
+    "defaultDaysInMonth": 30
+  },
+  "overtime": {
+    "calculationMethod": "HOURLY_RATE_BY_BASIC",
+    "hoursPerDay": 8,
+    "multiplier": 1.5
+  },
+  "customEarnings": [],
+  "customDeductions": []
+}`,
+			KRASettings: req.KRASettings,
+			Currency:    "INR",
 		}
 
 		if err := s.repo.Create(settings); err != nil {
@@ -896,6 +966,12 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		return nil, fmt.Errorf("failed to get hike reminders: %w", err)
 	}
 
+	// Get work anniversaries
+	workAnniversaries, err := s.getWorkAnniversaries(organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get work anniversaries: %w", err)
+	}
+
 	return &DashboardStatsResponse{
 		TotalUsers:        totalUsers,
 		TotalLeaves:       totalLeaves,
@@ -909,6 +985,7 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		LeaveBalances:     leaveBalances,
 		RecentOffSites:    recentOffSites,
 		UserBirthdays:     userBirthdays,
+		WorkAnniversaries: workAnniversaries,
 		HikeReminders:     hikeReminders,
 	}, nil
 }
@@ -981,20 +1058,6 @@ func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthd
 
 	for _, user := range users {
 		if user.Birthday != nil && user.BirthdayVisible {
-			// Calculate this year's birthday date
-			birthdayThisYear := time.Date(
-				now.Year(),
-				user.Birthday.Month(),
-				user.Birthday.Day(),
-				0, 0, 0, 0,
-				user.Birthday.Location(),
-			)
-
-			// If birthday has already passed this year, get next year's birthday
-			if birthdayThisYear.Before(now) {
-				birthdayThisYear = birthdayThisYear.AddDate(1, 0, 0)
-			}
-
 			// Include all visible birthdays; frontend will decide how many years to render
 			birthdays = append(birthdays, UserBirthdayResponse{
 				ID:              strconv.FormatUint(uint64(user.ID), 10),
@@ -1029,6 +1092,33 @@ func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthd
 	}
 
 	return birthdays, nil
+}
+
+// getWorkAnniversaries fetches users with joining dates for the organization
+func (s *dashboardService) getWorkAnniversaries(organizationID string) ([]WorkAnniversaryResponse, error) {
+	// Get all users in the organization with joining dates
+	users, err := s.repos.User.List(organizationID, map[string]interface{}{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+
+	var anniversaries []WorkAnniversaryResponse
+	for _, user := range users {
+		if user.JoiningDate != nil {
+			anniversaries = append(anniversaries, WorkAnniversaryResponse{
+				ID:          strconv.FormatUint(uint64(user.ID), 10),
+				Name:        user.Name,
+				JoiningDate: user.JoiningDate.Format("2006-01-02"),
+			})
+		}
+	}
+
+	// Limit to a reasonable number to avoid payload bloat
+	if len(anniversaries) > 200 {
+		anniversaries = anniversaries[:200]
+	}
+
+	return anniversaries, nil
 }
 
 // getUserHikeReminders fetches users with upcoming hike reminders for the organization

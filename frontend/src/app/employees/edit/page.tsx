@@ -33,6 +33,7 @@ function EditEmployeeForm({ id }: { id: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
+    name: "",
     username: "",
     email: "",
     designation: "",
@@ -166,6 +167,7 @@ function EditEmployeeForm({ id }: { id: string }) {
       setOriginalBirthday(formatDateForDisplay(birthdayValue));
       
       setFormData({
+        name: user.data.name || "",
         username: user.data.name || user.data.email || "",
         email: user.data.email || "",
         designation: user.data.designation || "",
@@ -406,6 +408,7 @@ function EditEmployeeForm({ id }: { id: string }) {
     // Additional validation will be handled by the backend to prevent circular references
 
     const payload = {
+      name: formData.name || undefined,
       username: formData.username,
       email: formData.email,
       designation: formData.designation,
@@ -503,6 +506,13 @@ function EditEmployeeForm({ id }: { id: string }) {
           <Card>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
+                <Input
+                  label="Full Name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Employee's full name"
+                  required
+                />
                 <Input
                   label="Username (name or email)"
                   value={formData.username}
