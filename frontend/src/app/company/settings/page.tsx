@@ -181,7 +181,7 @@ export default function CompanySettingsPage() {
   });
 
   // Autosave with debouncing
-  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoad = useRef(true);
 
   useEffect(() => {
@@ -2207,8 +2207,8 @@ export default function CompanySettingsPage() {
                   {breakdown.deductions.tds > 0 && (
                     <div className="flex justify-between text-sm"><span>TDS</span><span>₹{breakdown.deductions.tds.toLocaleString('en-IN')}</span></div>
                   )}
-                  {breakdown.deductions.lop && breakdown.deductions.lop > 0 && (
-                    <div className="flex justify-between text-sm"><span>LOP</span><span>₹{breakdown.deductions.lop.toLocaleString('en-IN')}</span></div>
+                  {(breakdown.deductions.lop ?? 0) > 0 && (
+                    <div className="flex justify-between text-sm"><span>LOP</span><span>₹{(breakdown.deductions.lop ?? 0).toLocaleString('en-IN')}</span></div>
                   )}
                   <div className="flex justify-between text-sm border-t border-white/10 pt-2"><span>Total</span><span>₹{breakdown.totals.totalDeductions.toLocaleString('en-IN')}</span></div>
                 </div>

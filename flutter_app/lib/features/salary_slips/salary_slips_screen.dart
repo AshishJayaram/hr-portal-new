@@ -46,27 +46,29 @@ class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            leading: Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+            title: const Text('Salary Slips'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Generate Payslip PDF',
+                onPressed: _showGeneratePayslipDialog,
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _loadSalarySlips,
+              ),
+            ],
           ),
-        ),
-        title: const Text('Salary Slips'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Generate Payslip PDF',
-            onPressed: _showGeneratePayslipDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadSalarySlips,
-          ),
-        ],
-      ),
       drawer: const AppDrawer(),
       body: Column(
         children: [
@@ -224,9 +226,11 @@ class _SalarySlipsScreenState extends ConsumerState<SalarySlipsScreen> {
           ],
         ],
       ),
-
-      // Generate Payslip PDF Dialog
-      if (_showGenerateDialog) _buildGeneratePayslipDialog(),
+        ),
+        
+        // Generate Payslip PDF Dialog
+        if (_showGenerateDialog) _buildGeneratePayslipDialog(),
+      ],
     );
   }
 

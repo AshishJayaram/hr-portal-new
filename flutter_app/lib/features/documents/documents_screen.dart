@@ -83,7 +83,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                       )
                     : _documents.isEmpty
                         ? _buildEmptyState(context)
-                        : _buildDocumentsList(context),
+                        : _buildDocumentsList(context, canManageDocuments),
               ),
             ],
           ),
@@ -765,7 +765,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     );
   }
 
-  Widget _buildDocumentsList(BuildContext context) {
+  Widget _buildDocumentsList(BuildContext context, bool canManageDocuments) {
     return ListView.builder(
       padding: const EdgeInsets.all(LiquidGlassTheme.spacingM),
       itemCount: _documents.length,
@@ -813,47 +813,15 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                   ),
                 ],
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GlassButton(
-                    onPressed: () => _viewDocument(document),
-                    backgroundColor: Colors.white.withOpacity(0.2),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(LiquidGlassTheme.spacingS),
-                    child: const Icon(Icons.visibility_rounded, size: 16),
-                  ),
-                  const SizedBox(width: LiquidGlassTheme.spacingS),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'download':
-                          _downloadDocument(document);
-                          break;
-                        case 'delete':
-                          _deleteDocument(document['id']);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'download',
-                        child: Text('Download'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete'),
-                      ),
-                    ],
-                    child: GlassButton(
-                      backgroundColor: Colors.white.withOpacity(0.2),
+              trailing: canManageDocuments
+                  ? GlassButton(
+                      onPressed: () => _deleteDocument(document['id']),
+                      backgroundColor: Colors.red.withOpacity(0.3),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.all(LiquidGlassTheme.spacingS),
-                      child: const Icon(Icons.more_vert_rounded, size: 16),
-                    ),
-                  ),
-                ],
-              ),
+                      child: const Icon(Icons.delete_rounded, size: 16),
+                    )
+                  : null,
             ),
           ),
         );

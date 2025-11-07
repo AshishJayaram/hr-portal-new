@@ -373,15 +373,7 @@ export default function DocumentsPage() {
                 </div>
               </div>
               <RoleGuard allowedRoles={["HR", "Admin"]}>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(doc.fileUrl, '_blank')}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
+                <div className="flex gap-1">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -391,6 +383,7 @@ export default function DocumentsPage() {
                       }
                     }}
                     className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
+                    title="Delete"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -493,15 +486,7 @@ export default function DocumentsPage() {
                         <p className="text-sm text-gray-600 dark:text-gray-400">{doc.category}</p>
                       </div>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => window.open(doc.fileUrl, '_blank')}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                    <div className="flex gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -511,6 +496,7 @@ export default function DocumentsPage() {
                           }
                         }}
                         className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
+                        title="Delete"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

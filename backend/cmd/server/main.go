@@ -463,6 +463,17 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 			departments.DELETE("/:id", middleware.RoleRequired("HR", "Admin"), handlers.Department.DeleteDepartment)
 		}
 
+		// Notification routes
+		notifications := api.Group("/notifications")
+		notifications.Use(middleware.AuthRequired(cfg.JWT.Secret))
+		notifications.Use(middleware.OrganizationRequired())
+		{
+			notifications.GET("", handlers.Notification.GetNotifications)
+			notifications.GET("/unread-count", handlers.Notification.GetUnreadCount)
+			notifications.PUT("/:id/read", handlers.Notification.MarkAsRead)
+			notifications.PUT("/read-all", handlers.Notification.MarkAllAsRead)
+		}
+
 		// KRA routes
 		kras := api.Group("/kras")
 		kras.Use(middleware.AuthRequired(cfg.JWT.Secret))

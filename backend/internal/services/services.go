@@ -48,29 +48,32 @@ func New(repos *repositories.Repositories, cfg *config.Config, db *gorm.DB, rdb 
 	// Create audit service first since other services depend on it
 	auditService := NewAuditService(repos.AuditLog, repos.User)
 
+	// Create notification service with repository
+	notificationService := NewNotificationServiceWithRepo(repos.Notification)
+
 	return &Services{
-		User:                    NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, repos.LeaveCategory, auditService, NewNotificationService()),
-		Auth:                    NewAuthService(repos.User, repos.Organization, repos.OTP, repos.PasswordReset, cfg.JWT, NewNotificationService()),
-		Leave:                   NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService, NewNotificationService()),
+		User:                    NewUserService(repos.User, repos.Organization, repos.LeaveAllocation, repos.LeaveCategory, auditService, notificationService),
+		Auth:                    NewAuthService(repos.User, repos.Organization, repos.OTP, repos.PasswordReset, cfg.JWT, notificationService),
+		Leave:                   NewLeaveService(repos.Leave, repos.User, repos.LeaveCategory, repos.LeaveAllocation, repos.Holiday, auditService, notificationService),
 		LeaveCategory:           NewLeaveCategoryService(repos.LeaveCategory),
 		LeaveAllocation:         NewLeaveAllocationService(repos.LeaveAllocation, repos.LeaveCategory, repos.User),
 		LOP:                     NewLOPService(repos),
-		Document:                NewDocumentService(repos.Document, auditService, NewNotificationService()),
-		SalarySlip:              NewSalarySlipService(repos.SalarySlip, auditService, NewNotificationService()),
+		Document:                NewDocumentService(repos.Document, auditService, notificationService),
+		SalarySlip:              NewSalarySlipService(repos.SalarySlip, auditService, notificationService),
 		Holiday:                 NewHolidayService(repos.Holiday, auditService),
 		CompanySettings:         NewCompanySettingsService(repos.CompanySettings),
 		Dashboard:               NewDashboardService(repos),
 		Organization:            NewOrganizationService(repos.Organization),
 		Audit:                   auditService,
-		Notification:            NewNotificationService(),
+		Notification:            notificationService,
 		OffSite:                 NewOffSiteService(repos.OffSite, repos.User, auditService),
-		Reimbursement:           NewReimbursementService(repos.Reimbursement, repos.User, NewNotificationService()),
+		Reimbursement:           NewReimbursementService(repos.Reimbursement, repos.User, notificationService),
 		Feedback:                NewFeedbackService(repos.Feedback),
 		EmployeeGrowth:          NewEmployeeGrowthService(repos.EmployeeGrowth),
 		DocumentAcknowledgment:  NewDocumentAcknowledgmentService(repos.DocumentAcknowledgment),
 		EmployeePrivateDocument: NewEmployeePrivateDocumentService(repos.EmployeePrivateDocument),
 		PayslipPDF:              NewPayslipPDFService("./uploads"),
-		KRA:                     NewKRAService(repos.KRA, repos.User, auditService, NewNotificationService()),
+		KRA:                     NewKRAService(repos.KRA, repos.User, auditService, notificationService),
 		Designation:             NewDesignationService(repos.Designation),
 		Department:              NewDepartmentService(repos.Department),
 	}

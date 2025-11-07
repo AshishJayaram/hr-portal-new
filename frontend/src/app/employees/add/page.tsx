@@ -595,10 +595,10 @@ function CTCAddManager({
                       <span>{formatCurrency(breakdown.deductions.tds, getDefaultCurrency())}</span>
                     </div>
                   )}
-                  {breakdown.deductions.lop && breakdown.deductions.lop > 0 && (
+                  {(breakdown.deductions.lop ?? 0) > 0 && (
                     <div className="flex justify-between text-sm">
                       <span>LOP</span>
-                      <span>{formatCurrency(breakdown.deductions.lop, getDefaultCurrency())}</span>
+                      <span>{formatCurrency(breakdown.deductions.lop ?? 0, getDefaultCurrency())}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm border-t border-white/10 pt-2">

@@ -263,15 +263,21 @@ class _HolidaysScreenState extends ConsumerState<HolidaysScreen> with TickerProv
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: (Theme.of(context).brightness == Brightness.dark)
+                      ? color.withOpacity(0.6)
+                      : color.withOpacity(0.95),
+                ),
               ),
               child: Text(
                 type.toUpperCase(),
                 style: TextStyle(
                   color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
                 ),
               ),
             ),

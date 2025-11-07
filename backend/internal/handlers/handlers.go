@@ -31,6 +31,7 @@ type Handlers struct {
 	KRA                    *KRAHandler
 	Designation            *DesignationHandler
 	Department             *DepartmentHandler
+	Notification           *NotificationHandler
 }
 
 // New creates a new instance of Handlers
@@ -59,5 +60,6 @@ func New(services *services.Services, repos *repositories.Repositories, cfg *con
 		KRA:                    NewKRAHandler(services.KRA),
 		Designation:            NewDesignationHandler(services.Designation),
 		Department:             NewDepartmentHandler(services.Department),
+		Notification:           NewNotificationHandler(repos.Notification, repos.User),
 	}
 }

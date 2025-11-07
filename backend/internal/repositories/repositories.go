@@ -36,6 +36,7 @@ type Repositories struct {
 	PasswordReset           PasswordResetRepository
 	Designation             DesignationRepository
 	Department              DepartmentRepository
+	Notification            NotificationRepository
 }
 
 // New creates a new instance of Repositories
@@ -63,6 +64,7 @@ func New(db *gorm.DB, rdb *redis.Client) *Repositories {
 		PasswordReset:           NewPasswordResetRepository(db, rdb),
 		Designation:             NewDesignationRepository(db, rdb),
 		Department:              NewDepartmentRepository(db, rdb),
+		Notification:            NewNotificationRepository(db, rdb),
 	}
 }
 

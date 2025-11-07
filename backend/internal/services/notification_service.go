@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"hr-portal-backend/internal/models"
+	"hr-portal-backend/internal/repositories"
 
 	"github.com/sirupsen/logrus"
 )
@@ -24,16 +25,38 @@ type NotificationService interface {
 	SendHolidayNotification(holiday *models.Holiday, recipient *models.User) error
 	SendBirthdayNotification(user *models.User, recipient *models.User, notificationType string) error
 	SendWelcomeEmail(user *models.User, senderName string, password string) error
+	CreateNotification(notification *models.Notification) error
 }
 
 // notificationService implements NotificationService interface
 type notificationService struct {
-	// Add any dependencies here if needed
+	notificationRepo repositories.NotificationRepository
 }
 
 // NewNotificationService creates a new notification service
 func NewNotificationService() NotificationService {
 	return &notificationService{}
+}
+
+// NewNotificationServiceWithRepo creates a new notification service with repository
+func NewNotificationServiceWithRepo(notificationRepo repositories.NotificationRepository) NotificationService {
+	return &notificationService{
+		notificationRepo: notificationRepo,
+	}
+}
+
+// CreateNotification creates a notification in the database
+func (s *notificationService) CreateNotification(notification *models.Notification) error {
+	if s.notificationRepo == nil {
+		// If no repo, just log (for backward compatibility)
+		logrus.WithFields(logrus.Fields{
+			"user_id": notification.UserID,
+			"type":    notification.Type,
+			"title":   notification.Title,
+		}).Info("Notification would be created (repository not available)")
+		return nil
+	}
+	return s.notificationRepo.Create(notification)
 }
 
 // SendLeaveRequestNotification sends notification for leave request updates
@@ -150,6 +173,23 @@ func (s *notificationService) SendLeaveRequestNotification(leave *models.Leave, 
 
 	// Send WhatsApp notification (placeholder - implement actual WhatsApp Business API)
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
+	}
+
+	// Store notification in database
+	leaveID := leave.ID
+	notificationTypeDB := "leave_" + notificationType // leave_applied, leave_approval, leave_rejection, leave_cancelled
+	notification := &models.Notification{
+		OrganizationID: recipient.OrganizationID,
+		UserID:         recipient.ID,
+		Type:           notificationTypeDB,
+		Title:          subject,
+		Message:        message,
+		IsRead:         false,
+		RelatedID:      &leaveID,
+		RelatedType:    "leave",
+	}
+	if err := s.CreateNotification(notification); err != nil {
+		logrus.WithError(err).Error("Failed to create leave notification in database")
 	}
 
 	return nil
@@ -480,6 +520,21 @@ func (s *notificationService) SendBirthdayNotification(user *models.User, recipi
 
 	// Send WhatsApp notification
 	if err := s.sendWhatsApp(recipient.Phone, message); err != nil {
+	}
+
+	// Store notification in database
+	notification := &models.Notification{
+		OrganizationID: recipient.OrganizationID,
+		UserID:         recipient.ID,
+		Type:           "birthday",
+		Title:          subject,
+		Message:        message,
+		IsRead:         false,
+		RelatedID:      &user.ID,
+		RelatedType:    "user",
+	}
+	if err := s.CreateNotification(notification); err != nil {
+		logrus.WithError(err).Error("Failed to create birthday notification in database")
 	}
 
 	return nil

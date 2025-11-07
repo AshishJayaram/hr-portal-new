@@ -385,14 +385,11 @@ export default function KRAPage() {
             setShowSampleSheet(false);
             setCurrentStep('tracker');
           }}
-          onStartCreating={() => {
-            setCurrentStep('create');
-            setShowCreateModal(true);
-          }}
           kraSettings={kraSettings}
           kraPeriod={kraPeriod}
           onKraPeriodChange={setKraPeriod}
           onCreateKRA={handleCreateKRA}
+          isCreating={createKRAMutation.isPending}
           selectedUser={selectedUser}
           usersData={usersData?.data}
           canViewTeamKRAs={Boolean(canViewTeamKRAs)}
@@ -401,25 +398,7 @@ export default function KRAPage() {
         />
       )}
 
-      {/* Create KRA Modal */}
-      {showCreateModal && (
-        <CreateKRAModal
-          isOpen={showCreateModal}
-          onClose={() => {
-            setShowCreateModal(false);
-            setCurrentStep('tracker');
-          }}
-          onSubmit={handleCreateKRA}
-          kraSettings={kraSettings}
-          kraPeriod={kraPeriod}
-          onKraPeriodChange={setKraPeriod}
-          selectedUser={selectedUser}
-          usersData={usersData?.data}
-          canViewTeamKRAs={Boolean(canViewTeamKRAs)}
-          isWeightageFull={isWeightageFull}
-          kraSummary={kraSummary}
-        />
-      )}
+      {/* Create KRA Modal removed: creation now happens in Sample KRA Formats & Creation (Create tab) */}
 
       {/* Edit KRA Modal */}
       {showEditModal && selectedKRA && (
@@ -592,7 +571,13 @@ export default function KRAPage() {
           usersData={usersData?.data}
           teamKRAs={teamKRAs?.data}
           loadingTeamKRAs={loadingTeamKRAs}
-          onShowCreateModal={() => setShowCreateModal(true)}
+          onShowCreateModal={() => {
+            setShowSampleSheet(true);
+            setTimeout(() => {
+              const createTab = document.querySelector('[data-tab="create"]') as HTMLElement;
+              if (createTab) createTab.click();
+            }, 100);
+          }}
           onShowEditModal={handleEditKRA}
           onShowEvaluateModal={handleEvaluateKRA}
           onShowSelfAssessModal={handleSelfAssessKRA}
@@ -978,11 +963,11 @@ function KRACard({
 function SampleKRASheetModal({
   isOpen,
   onClose,
-  onStartCreating,
   kraSettings,
   kraPeriod,
   onKraPeriodChange,
   onCreateKRA,
+  isCreating,
   selectedUser,
   usersData,
   canViewTeamKRAs,
@@ -991,11 +976,11 @@ function SampleKRASheetModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onStartCreating: () => void;
   kraSettings?: KRASettings;
   kraPeriod: 'yearly' | 'quarterly' | 'half-yearly';
   onKraPeriodChange: (period: 'yearly' | 'quarterly' | 'half-yearly') => void;
   onCreateKRA: (data: CreateKRARequest) => void;
+  isCreating: boolean;
   selectedUser: string;
   usersData?: any[];
   canViewTeamKRAs: boolean;
@@ -1081,10 +1066,10 @@ function SampleKRASheetModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-card dark:border-white/10">
-          <h2 className="text-xl font-semibold text-primary dark:text-white">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg sm:rounded-xl shadow-xl max-w-4xl w-full h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 sm:px-6 border-b border-card dark:border-white/10 bg-card dark:bg-white/10 backdrop-blur">
+          <h2 id="sample-kra-title" className="text-lg sm:text-xl font-semibold text-primary dark:text-white">
             Sample KRA Formats & Creation
           </h2>
           <button
@@ -1097,15 +1082,17 @@ function SampleKRASheetModal({
           </button>
         </div>
 
-        <div className="p-6">
-          <Tabs
+        <div className="p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="sample-kra-title">
+          <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+            <Tabs
             tabs={[
               { id: 'samples', label: 'Sample Formats', icon: '📋' },
               ...(isWeightageFull ? [] : [{ id: 'create', label: 'Create KRA', icon: '➕' }]),
             ]}
             activeTab={activeTab}
             onTabChange={(tab) => setActiveTab(tab as 'samples' | 'create')}
-          />
+            />
+          </div>
 
           {activeTab === 'samples' && (
             <div className="mt-6">
@@ -1165,7 +1152,7 @@ function SampleKRASheetModal({
 
               <div className="flex justify-end mt-6">
                 <Button
-                  onClick={onStartCreating}
+                  onClick={() => setActiveTab('create')}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600 text-white shadow-lg"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -1304,7 +1291,8 @@ function SampleKRASheetModal({
                   </Button>
                   <Button
                     type="submit"
-                    disabled={isWeightageFull}
+                    loading={isCreating}
+                    disabled={isWeightageFull || isCreating}
                     className={`shadow-lg ${
                       isWeightageFull 
                         ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
@@ -1312,7 +1300,7 @@ function SampleKRASheetModal({
                     }`}
                     title={isWeightageFull ? "Cannot create more KRAs - weightage limit reached (100%)" : ""}
                   >
-                    Create KRA
+                    {isCreating ? 'Creating KRA...' : 'Create KRA'}
                   </Button>
                 </div>
               </form>
@@ -1378,13 +1366,13 @@ function CreateKRAModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Create New KRA</h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-card dark:border-white/10">
+          <h2 className="text-xl font-semibold text-primary dark:text-white">Create New KRA</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-muted hover:text-primary dark:text-gray-400 dark:hover:text-white transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -23,6 +23,19 @@ export function formatDateTime(date: string | Date) {
   });
 }
 
+export function formatDateShort(date: string | Date) {
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return '';
+  }
+}
+
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number

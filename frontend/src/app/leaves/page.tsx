@@ -24,7 +24,7 @@ import Loader from "@/components/ui/Loader";
 import SearchFilter from "@/components/ui/SearchFilter";
 import { toast } from "sonner";
 import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit, ChevronDown, ChevronUp, Download } from "lucide-react";
-import { formatDate, capitalize } from "@/lib/utils";
+import { formatDate, capitalize, formatDateShort } from "@/lib/utils";
 import { downloadCSV, generateLeavesReport, filterByMonth } from "@/lib/reports";
 import ApplyLeaveForm from "@/components/ApplyLeaveForm";
 import EditLeaveForm from "@/components/EditLeaveForm";

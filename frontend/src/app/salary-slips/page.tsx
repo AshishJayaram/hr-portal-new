@@ -1222,10 +1222,10 @@ function EmployeeSalaryBreakdown({ userId, companySettings, isCurrentUser = fals
               <span>₹{payslip.deductions.tds.toLocaleString('en-IN')}</span>
             </div>
           )}
-          {payslip.deductions.lop && payslip.deductions.lop > 0 && (
+          {(payslip.deductions.lop ?? 0) > 0 && (
             <div className="flex justify-between text-sm mb-1">
               <span>LOP</span>
-              <span>₹{payslip.deductions.lop.toLocaleString('en-IN')}</span>
+              <span>₹{(payslip.deductions.lop ?? 0).toLocaleString('en-IN')}</span>
             </div>
           )}
         </div>

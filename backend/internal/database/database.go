@@ -83,6 +83,7 @@ func migrate(db *gorm.DB) error {
 		&models.OTPToken{},
 		&models.Designation{},
 		&models.Department{},
+		&models.Notification{},
 	)
 
 	if err != nil {

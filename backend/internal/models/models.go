@@ -590,3 +590,20 @@ func (Designation) TableName() string {
 func (Department) TableName() string {
 	return "departments"
 }
+
+// Notification represents a notification in the system
+type Notification struct {
+	BaseModel
+	OrganizationID uint   `json:"organization_id" gorm:"not null;index"`
+	UserID           uint   `json:"user_id" gorm:"not null;index"` // Recipient user ID
+	Type             string `json:"type" gorm:"not null"`          // birthday, leave_request, leave_approval, leave_rejection, etc.
+	Title            string `json:"title" gorm:"not null"`
+	Message          string `json:"message" gorm:"type:text"`
+	IsRead           bool   `json:"is_read" gorm:"default:false;index"`
+	RelatedID        *uint  `json:"related_id" gorm:"index"`      // ID of related entity (leave_id, etc.)
+	RelatedType      string `json:"related_type"`                 // leave, reimbursement, etc.
+
+	// Relationships
+	User         User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Organization Organization `json:"organization,omitempty" gorm:"foreignKey:OrganizationID"`
+}

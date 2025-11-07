@@ -21,7 +21,7 @@ import SearchFilter from "@/components/ui/SearchFilter";
 import Tabs from "@/components/ui/Tabs";
 import { toast } from "sonner";
 import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit, Trash2, MapPin, Briefcase, Download } from "lucide-react";
-import { formatDate, capitalize } from "@/lib/utils";
+import { formatDate, capitalize, formatDateShort } from "@/lib/utils";
 import { downloadCSV, generateOffSitesReport, filterByMonth } from "@/lib/reports";
 import { motion } from "framer-motion";
 
@@ -350,10 +350,10 @@ export default function OffSitePage() {
                                     </span>
                                   )}
                                   <span className={`px-3 py-1 rounded-full text-xs font-semibold border flex-shrink-0 ${
-                                    offSite.status === 'completed' ? 'bg-green-500/30 text-green-700 dark:text-green-300 border-green-500/40 dark:border-green-500/40' :
-                                    offSite.status === 'in_progress' ? 'bg-blue-500/30 text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/40' :
-                                    offSite.status === 'cancelled' ? 'bg-red-500/30 text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/40' :
-                                    'bg-amber-500/30 text-amber-700 dark:text-amber-300 border-amber-500/40 dark:border-amber-500/40'
+                                    offSite.status === 'completed' ? 'bg-transparent text-green-700 dark:text-green-300 border-green-500/40 dark:border-green-500/40' :
+                                    offSite.status === 'in_progress' ? 'bg-transparent text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/40' :
+                                    offSite.status === 'cancelled' ? 'bg-transparent text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/40' :
+                                    'bg-transparent text-amber-700 dark:text-amber-300 border-amber-500/40 dark:border-amber-500/40'
                                   }`}>
                                     {capitalize(offSite.status)}
                                   </span>
@@ -486,10 +486,10 @@ export default function OffSitePage() {
                                     {offSite.title}
                                   </h3>
                                   <span className={`px-3 py-1 rounded-full text-xs font-semibold border self-start ${
-                                    offSite.status === 'completed' ? 'bg-green-500/30 text-green-700 dark:text-green-300 border-green-500/40 dark:border-green-500/40' :
-                                    offSite.status === 'in_progress' ? 'bg-blue-500/30 text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/40' :
-                                    offSite.status === 'cancelled' ? 'bg-red-500/30 text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/40' :
-                                    'bg-amber-500/30 text-amber-700 dark:text-amber-300 border-amber-500/40 dark:border-amber-500/40'
+                                    offSite.status === 'completed' ? 'bg-transparent text-green-700 dark:text-green-300 border-green-500/40 dark:border-green-500/40' :
+                                    offSite.status === 'in_progress' ? 'bg-transparent text-blue-700 dark:text-blue-300 border-blue-500/40 dark:border-blue-500/40' :
+                                    offSite.status === 'cancelled' ? 'bg-transparent text-red-700 dark:text-red-300 border-red-500/40 dark:border-red-500/40' :
+                                    'bg-transparent text-amber-700 dark:text-amber-300 border-amber-500/40 dark:border-amber-500/40'
                                   }`}>
                                     {capitalize(offSite.status)}
                                   </span>
