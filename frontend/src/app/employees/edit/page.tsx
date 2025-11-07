@@ -36,12 +36,15 @@ function EditEmployeeForm({ id }: { id: string }) {
     username: "",
     email: "",
     designation: "",
-    role: "Employee" as "Employee" | "Manager" | "HR" | "Admin" | "God",
+    role: "Employee" as "Employee" | "HR" | "Admin" | "God",
     department: "",
     manager_id: "",
+    employee_id: "",
     ctc: "",
     joining_date: "",
     birthday: "",
+    hike_cycle_months: "",
+    last_hike_date: "",
   });
   const [originalJoiningDate, setOriginalJoiningDate] = useState<string>("");
   const [originalBirthday, setOriginalBirthday] = useState<string>("");
@@ -169,9 +172,12 @@ function EditEmployeeForm({ id }: { id: string }) {
         role: user.data.role,
         department: user.data.department || "",
         manager_id: managerId,
+        employee_id: user.data.employee_id || "",
         ctc: user.data.ctc || "",
         joining_date: joiningDateInput,
         birthday: birthdayInput,
+        hike_cycle_months: (user.data as any).hike_cycle_months ? String((user.data as any).hike_cycle_months) : "",
+        last_hike_date: (user.data as any).last_hike_date ? parseDateForInput((user.data as any).last_hike_date) : "",
       });
       
       // Store original manager ID for comparison
@@ -179,7 +185,7 @@ function EditEmployeeForm({ id }: { id: string }) {
       
       // Set manager query to show current manager
       if (managerId && (user.data as any).manager?.name) {
-        setManagerQuery(`${(user.data as any).manager.name} (ID: ${managerId})`);
+        setManagerQuery(`${(user.data as any).manager.name} (Employee ID: ${(user.data as any).manager?.employee_id})`);
         setSelectedManagerName((user.data as any).manager.name);
       }
       
@@ -406,8 +412,11 @@ function EditEmployeeForm({ id }: { id: string }) {
       role: toCanonicalRole(formData.role),
       department: formData.department,
       manager_id: formData.manager_id ? String(formData.manager_id) : undefined, // Convert to string to match backend
+      employee_id: formData.employee_id || undefined,
       joining_date: formData.joining_date || undefined,
       birthday: formData.birthday || "",
+      hike_cycle_months: formData.hike_cycle_months ? Number(formData.hike_cycle_months) : undefined,
+      last_hike_date: formData.last_hike_date || undefined,
       transfer_reports: formData.manager_id !== originalManagerId ? transferReports : undefined, // Only include if manager changed
     };
 
@@ -528,6 +537,12 @@ function EditEmployeeForm({ id }: { id: string }) {
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
             />
             <Input
+              label="Employee ID"
+              value={formData.employee_id}
+              onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+              placeholder="e.g., EMP001"
+            />
+            <Input
               label={originalJoiningDate 
                 ? `Joining Date (Current: ${originalJoiningDate})`
                 : "Joining Date"}
@@ -542,6 +557,20 @@ function EditEmployeeForm({ id }: { id: string }) {
               type="date"
               value={formData.birthday}
               onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+            />
+            <Input
+              label="Hike Cycle (months)"
+              type="number"
+              min="1"
+              value={formData.hike_cycle_months}
+              onChange={(e) => setFormData({ ...formData, hike_cycle_months: e.target.value })}
+              placeholder="e.g., 12 for annual hike"
+            />
+            <Input
+              label="Last Hike Date"
+              type="date"
+              value={formData.last_hike_date}
+              onChange={(e) => setFormData({ ...formData, last_hike_date: e.target.value })}
             />
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -591,13 +620,13 @@ function EditEmployeeForm({ id }: { id: string }) {
                           className={`w-full text-left px-3 py-2 hover:bg-white/10 dark:hover:bg-white/20 text-primary dark:text-white transition-colors ${String(formData.manager_id) === String(u.id) ? 'bg-indigo-500/20 dark:bg-indigo-500/30 border-l-4 border-indigo-500' : ''}`}
                           onClick={() => {
                             setFormData({ ...formData, manager_id: String(u.id) });
-                            setManagerQuery(`${u.name} (ID: ${u.id})`);
+                            setManagerQuery(`${u.name} (Employee ID: ${u.employee_id})`);
                             setSelectedManagerName(u.name); 
                           }}
                         >
                           <div className="flex items-center justify-between">
                             <span>{u.name}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">ID: {u.id} • {u.role}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Employee ID: {u.employee_id} • {u.role}</span>
                           </div>
                           {u.designation && <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{u.designation}</div>}
                         </button>
@@ -1047,6 +1076,18 @@ function CTCManager({
                     <span>ESI</span>
                     <span>{formatCurrency(breakdown.deductions.esi, getDefaultCurrency())}</span>
                   </div>
+                  {breakdown.deductions.tds > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span>TDS</span>
+                      <span>{formatCurrency(breakdown.deductions.tds, getDefaultCurrency())}</span>
+                    </div>
+                  )}
+                  {breakdown.deductions.lop && breakdown.deductions.lop > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span>LOP</span>
+                      <span>{formatCurrency(breakdown.deductions.lop, getDefaultCurrency())}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm border-t border-white/10 pt-2">
                     <span>Total</span>
                     <span>{formatCurrency(breakdown.totals.totalDeductions, getDefaultCurrency())}</span>

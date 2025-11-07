@@ -89,11 +89,15 @@ type User struct {
 	Department      string     `json:"department" gorm:"not null"`
 	Role            string     `json:"role" gorm:"not null;check:role IN ('Employee','HR','Admin','God')"`
 	ManagerID       *uint      `json:"manager_id" gorm:"index"`
+	EmployeeID      string     `json:"employee_id" gorm:"size:50"`           // Employee ID (e.g., EMP001) - unique per organization (enforced by idx_employee_id_org)
 	CTC             string     `json:"ctc" gorm:"default:''"`                // Encrypted CTC value
 	Phone           string     `json:"phone" gorm:"size:20"`                 // For WhatsApp notifications
 	JoiningDate     *time.Time `json:"joining_date"`                         // Employee joining date for KRA calculations
 	Birthday        *time.Time `json:"birthday"`                             // Employee birthday (date only)
 	BirthdayVisible bool       `json:"birthday_visible" gorm:"default:true"` // Whether birthday is visible to others
+	HikeCycleMonths int        `json:"hike_cycle_months" gorm:"default:12"`  // Hike cycle in months (e.g., 12 for annual)
+	LastHikeDate    *time.Time `json:"last_hike_date"`                       // Last hike date
+	NextHikeDate    *time.Time `json:"next_hike_date"`                       // Next hike date (calculated)
 	IsActive        bool       `json:"is_active" gorm:"default:true"`
 	LastLoginAt     *time.Time `json:"last_login_at"`
 

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"time"
@@ -229,18 +230,21 @@ type AuditService interface {
 // Request/Response DTOs
 
 type CreateUserRequest struct {
-	OrganizationID string  `json:"organization_id" validate:"required"`
-	Username       string  `json:"username" validate:"required,min=3,max=50"`
-	Email          string  `json:"email" validate:"required,email"`
-	Password       string  `json:"password" validate:"required,min=8"`
-	Name           string  `json:"name" validate:"required,min=2,max=100"`
-	Designation    string  `json:"designation"`
-	Department     string  `json:"department" validate:"required"`
-	Role           string  `json:"role" validate:"required,oneof=Employee Manager HR Admin"`
-	ManagerID      string  `json:"manager_id"`
-	CTC            float64 `json:"ctc"`
-	JoiningDate    *string `json:"joining_date"`
-	Birthday       *string `json:"birthday"`
+	OrganizationID  string  `json:"organization_id" validate:"required"`
+	Username        string  `json:"username" validate:"required,min=3,max=50"`
+	Email           string  `json:"email" validate:"required,email"`
+	Password        string  `json:"password" validate:"required,min=8"`
+	Name            string  `json:"name" validate:"required,min=2,max=100"`
+	Designation     string  `json:"designation"`
+	Department      string  `json:"department" validate:"required"`
+	Role            string  `json:"role" validate:"required,oneof=Employee Manager HR Admin"`
+	ManagerID       string  `json:"manager_id"`
+	EmployeeID      string  `json:"employee_id"`
+	CTC             float64 `json:"ctc"`
+	JoiningDate     *string `json:"joining_date"`
+	Birthday        *string `json:"birthday"`
+	HikeCycleMonths *int    `json:"hike_cycle_months"` // Hike cycle in months (e.g., 12 for annual)
+	LastHikeDate    *string `json:"last_hike_date"`    // Last hike date
 }
 
 type UpdateUserRequest struct {
@@ -252,10 +256,13 @@ type UpdateUserRequest struct {
 	Role            *string  `json:"role"`
 	ManagerID       *string  `json:"manager_id"`
 	TransferReports *bool    `json:"transfer_reports"`
+	EmployeeID      *string  `json:"employee_id"`
 	CTC             *float64 `json:"ctc"`
 	IsActive        *bool    `json:"is_active"`
 	JoiningDate     *string  `json:"joining_date"`
 	Birthday        *string  `json:"birthday"`
+	HikeCycleMonths *int     `json:"hike_cycle_months"` // Hike cycle in months (e.g., 12 for annual)
+	LastHikeDate    *string  `json:"last_hike_date"`    // Last hike date
 }
 
 type LoginRequest struct {
@@ -272,22 +279,26 @@ type LoginResponse struct {
 
 // UserResponse represents a user response with decrypted CTC
 type UserResponse struct {
-	ID             uint       `json:"id"`
-	OrganizationID uint       `json:"organization_id"`
-	Username       string     `json:"username"`
-	Email          string     `json:"email"`
-	Name           string     `json:"name"`
-	Designation    string     `json:"designation"`
-	Department     string     `json:"department"`
-	Role           string     `json:"role"`
-	ManagerID      *uint      `json:"manager_id"`
-	CTC            float64    `json:"ctc"` // Decrypted CTC value
-	Phone          string     `json:"phone"`
-	JoiningDate    *time.Time `json:"joining_date"`
-	IsActive       bool       `json:"is_active"`
-	LastLoginAt    *time.Time `json:"last_login_at"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID              uint       `json:"id"`
+	OrganizationID  uint       `json:"organization_id"`
+	Username        string     `json:"username"`
+	Email           string     `json:"email"`
+	Name            string     `json:"name"`
+	Designation     string     `json:"designation"`
+	Department      string     `json:"department"`
+	Role            string     `json:"role"`
+	ManagerID       *uint      `json:"manager_id"`
+	EmployeeID      string     `json:"employee_id"`
+	CTC             float64    `json:"ctc"` // Decrypted CTC value
+	Phone           string     `json:"phone"`
+	JoiningDate     *time.Time `json:"joining_date"`
+	HikeCycleMonths int        `json:"hike_cycle_months"`
+	LastHikeDate    *time.Time `json:"last_hike_date"`
+	NextHikeDate    *time.Time `json:"next_hike_date"`
+	IsActive        bool       `json:"is_active"`
+	LastLoginAt     *time.Time `json:"last_login_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 
 	// Relationships
 	Organization *OrganizationResponse `json:"organization,omitempty"`
@@ -308,21 +319,25 @@ type OrganizationResponse struct {
 // ConvertUserToResponse converts a models.User to UserResponse with decrypted CTC
 func ConvertUserToResponse(user *models.User) (*UserResponse, error) {
 	response := &UserResponse{
-		ID:             user.ID,
-		OrganizationID: user.OrganizationID,
-		Username:       user.Username,
-		Email:          user.Email,
-		Name:           user.Name,
-		Designation:    user.Designation,
-		Department:     user.Department,
-		Role:           user.Role,
-		ManagerID:      user.ManagerID,
-		Phone:          user.Phone,
-		JoiningDate:    user.JoiningDate,
-		IsActive:       user.IsActive,
-		LastLoginAt:    user.LastLoginAt,
-		CreatedAt:      user.CreatedAt,
-		UpdatedAt:      user.UpdatedAt,
+		ID:              user.ID,
+		OrganizationID:  user.OrganizationID,
+		Username:        user.Username,
+		Email:           user.Email,
+		Name:            user.Name,
+		Designation:     user.Designation,
+		Department:      user.Department,
+		Role:            user.Role,
+		ManagerID:       user.ManagerID,
+		EmployeeID:      user.EmployeeID,
+		Phone:           user.Phone,
+		JoiningDate:     user.JoiningDate,
+		HikeCycleMonths: user.HikeCycleMonths,
+		LastHikeDate:    user.LastHikeDate,
+		NextHikeDate:    user.NextHikeDate,
+		IsActive:        user.IsActive,
+		LastLoginAt:     user.LastLoginAt,
+		CreatedAt:       user.CreatedAt,
+		UpdatedAt:       user.UpdatedAt,
 	}
 
 	// Decrypt CTC if it exists
@@ -352,6 +367,10 @@ func ConvertUserToResponse(user *models.User) (*UserResponse, error) {
 
 	// Convert manager if it exists
 	if user.Manager != nil {
+		// Ensure manager has Employee ID (generate if missing, but don't update DB)
+		if user.Manager.EmployeeID == "" {
+			user.Manager.EmployeeID = fmt.Sprintf("EMP%06d", user.Manager.ID)
+		}
 		managerResponse, err := ConvertUserToResponse(user.Manager)
 		if err != nil {
 			// If manager conversion fails, skip manager
@@ -365,6 +384,10 @@ func ConvertUserToResponse(user *models.User) (*UserResponse, error) {
 	if len(user.Subordinates) > 0 {
 		response.Subordinates = make([]UserResponse, 0, len(user.Subordinates))
 		for _, subordinate := range user.Subordinates {
+			// Ensure subordinate has Employee ID (generate if missing, but don't update DB)
+			if subordinate.EmployeeID == "" {
+				subordinate.EmployeeID = fmt.Sprintf("EMP%06d", subordinate.ID)
+			}
 			subResponse, err := ConvertUserToResponse(&subordinate)
 			if err != nil {
 				// Skip this subordinate if conversion fails
@@ -566,6 +589,7 @@ type DashboardStatsResponse struct {
 	LeaveBalances     []LeaveBalanceResponse `json:"leave_balances"`
 	RecentOffSites    []models.OffSite       `json:"recent_off_sites"`
 	UserBirthdays     []UserBirthdayResponse `json:"user_birthdays"`
+	HikeReminders     []HikeReminderResponse `json:"hike_reminders"`
 }
 
 // UserBirthdayResponse represents a user birthday for dashboard display
@@ -574,6 +598,17 @@ type UserBirthdayResponse struct {
 	Name            string `json:"name"`
 	Birthday        string `json:"birthday"`
 	BirthdayVisible bool   `json:"birthday_visible"`
+}
+
+// HikeReminderResponse represents a hike reminder for dashboard display
+type HikeReminderResponse struct {
+	UserID          string `json:"user_id"`
+	UserName        string `json:"user_name"`
+	EmployeeID      string `json:"employee_id"`
+	NextHikeDate    string `json:"next_hike_date"`
+	HikeCycleMonths int    `json:"hike_cycle_months"`
+	ManagerID       *uint  `json:"manager_id"`
+	ManagerName     string `json:"manager_name,omitempty"`
 }
 
 // AuditActionRequest represents the request to create an audit log

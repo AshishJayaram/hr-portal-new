@@ -890,6 +890,12 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		return nil, fmt.Errorf("failed to get user birthdays: %w", err)
 	}
 
+	// Get hike reminders for the organization (visible to Admin/HR and managers)
+	hikeReminders, err := s.getUserHikeReminders(organizationID, userID, userRole)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hike reminders: %w", err)
+	}
+
 	return &DashboardStatsResponse{
 		TotalUsers:        totalUsers,
 		TotalLeaves:       totalLeaves,
@@ -903,6 +909,7 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 		LeaveBalances:     leaveBalances,
 		RecentOffSites:    recentOffSites,
 		UserBirthdays:     userBirthdays,
+		HikeReminders:     hikeReminders,
 	}, nil
 }
 
@@ -1022,6 +1029,92 @@ func (s *dashboardService) getUserBirthdays(organizationID string) ([]UserBirthd
 	}
 
 	return birthdays, nil
+}
+
+// getUserHikeReminders fetches users with upcoming hike reminders for the organization
+func (s *dashboardService) getUserHikeReminders(organizationID, userID, userRole string) ([]HikeReminderResponse, error) {
+	// Only Admin/HR/Managers can see hike reminders; regular employees don't see them
+	if userRole != "HR" && userRole != "Admin" && userRole != "God" && userRole != "Manager" {
+		// Check if user is a manager (has subordinates)
+		users, _ := s.repos.User.List(organizationID, map[string]interface{}{})
+		isManager := false
+		currentUserID, _ := strconv.ParseUint(userID, 10, 32)
+		for _, u := range users {
+			if u.ManagerID != nil && *u.ManagerID == uint(currentUserID) {
+				isManager = true
+				break
+			}
+		}
+		if !isManager {
+			return []HikeReminderResponse{}, nil
+		}
+	}
+
+	// Get all users in the organization
+	users, err := s.repos.User.List(organizationID, map[string]interface{}{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+
+	var reminders []HikeReminderResponse
+	now := time.Now()
+
+	// Get user ID as uint for manager comparison
+	currentUserID, _ := strconv.ParseUint(userID, 10, 32)
+	currentUserIDUint := uint(currentUserID)
+
+	for _, user := range users {
+		// Skip if user doesn't have next hike date set
+		if user.NextHikeDate == nil {
+			continue
+		}
+
+		// For non-admin/HR users (managers), only show reminders for their direct reports
+		if userRole != "HR" && userRole != "Admin" && userRole != "God" {
+			if user.ManagerID == nil || *user.ManagerID != currentUserIDUint {
+				continue
+			}
+		}
+
+		// Only include reminders for hikes within the next 90 days
+		daysUntilHike := int(user.NextHikeDate.Sub(now).Hours() / 24)
+		if daysUntilHike > 90 || daysUntilHike < 0 {
+			continue
+		}
+
+		// Get manager name if exists
+		managerName := ""
+		if user.ManagerID != nil {
+			manager, err := s.repos.User.GetByID(strconv.FormatUint(uint64(*user.ManagerID), 10))
+			if err == nil && manager != nil {
+				managerName = manager.Name
+			}
+		}
+
+		reminders = append(reminders, HikeReminderResponse{
+			UserID:          strconv.FormatUint(uint64(user.ID), 10),
+			UserName:        user.Name,
+			EmployeeID:      user.EmployeeID,
+			NextHikeDate:    user.NextHikeDate.Format("2006-01-02"),
+			HikeCycleMonths: user.HikeCycleMonths,
+			ManagerID:       user.ManagerID,
+			ManagerName:     managerName,
+		})
+	}
+
+	// Sort by next hike date (earliest first)
+	sort.Slice(reminders, func(i, j int) bool {
+		dateI, _ := time.Parse("2006-01-02", reminders[i].NextHikeDate)
+		dateJ, _ := time.Parse("2006-01-02", reminders[j].NextHikeDate)
+		return dateI.Before(dateJ)
+	})
+
+	// Limit to reasonable number
+	if len(reminders) > 50 {
+		reminders = reminders[:50]
+	}
+
+	return reminders, nil
 }
 
 // isValidFileType checks if the file type is allowed

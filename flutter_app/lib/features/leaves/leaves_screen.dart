@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../shared/widgets/app_drawer.dart';
+import '../../shared/widgets/app_bar_title.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/liquid_glass_theme.dart';
 import '../../core/widgets/glass_components.dart';
@@ -83,7 +84,9 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-        title: const Text('Leaves'),
+        title: const AppBarTitle(
+          fallbackTitle: 'Leaves',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),

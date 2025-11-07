@@ -765,6 +765,7 @@ export default function DashboardPage() {
         <div className="space-y-3">
           {(() => {
             const holidays = dashboardData?.data?.upcoming_holidays || [];
+            const hikeReminders = dashboardData?.data?.hike_reminders || [];
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
@@ -824,29 +825,48 @@ export default function DashboardPage() {
                 if (dateB.getTime() === 0) return -1;
                 
                 return dateA.getTime() - dateB.getTime();
-              })
-              .slice(0, 3);
+              });
 
-            return processedEvents.length > 0 ? (
-              processedEvents.map((event: any) => {
+            // Add hike reminders to events
+            const hikeEvents = hikeReminders.map((reminder: any) => ({
+              id: `hike-${reminder.user_id}`,
+              type: 'hike',
+              name: `Hike Reminder: ${reminder.user_name}`,
+              date: reminder.next_hike_date,
+              description: `Employee ID: ${reminder.employee_id} | Cycle: ${reminder.hike_cycle_months} months`,
+              reminder: reminder,
+            }));
+
+            const allEvents = [...processedEvents, ...hikeEvents].sort((a: any, b: any) => {
+              const dateA = a.date ? new Date(a.date) : new Date(0);
+              const dateB = b.date ? new Date(b.date) : new Date(0);
+              if (dateA.getTime() === 0 && dateB.getTime() === 0) return 0;
+              if (dateA.getTime() === 0) return 1;
+              if (dateB.getTime() === 0) return -1;
+              return dateA.getTime() - dateB.getTime();
+            }).slice(0, 5); // Show top 5 events including hike reminders
+
+            return allEvents.length > 0 ? (
+              allEvents.map((event: any) => {
                 const dateRange = event.date_range || event.dateRange;
                 const isMultiDay = !!dateRange && dateRange.includes(' to ');
 
                 return (
                   <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
                     <div className="text-lg">
-                      {event.type === 'event' ? "📅" : event.type === 'notice' ? "📢" : "🎊"}
+                      {event.type === 'hike' ? "💰" : event.type === 'event' ? "📅" : event.type === 'notice' ? "📢" : "🎊"}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-medium text-primary">{event.name || event.title}</h4>
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          event.type === 'hike' ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/40' :
                           event.type === 'holiday' ? 'bg-red-500/30 text-red-300 border border-red-500/40' :
                           event.type === 'event' ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40' :
                           event.type === 'notice' ? 'bg-green-500/30 text-green-300 border border-green-500/40' :
                           'bg-purple-500/30 text-purple-300 border border-purple-500/40'
                         }`}>
-                          {event.type || 'holiday'}
+                          {event.type === 'hike' ? 'hike reminder' : event.type || 'holiday'}
                         </span>
                       </div>
                       {isMultiDay ? (

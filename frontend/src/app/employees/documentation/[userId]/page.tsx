@@ -473,7 +473,7 @@ export default function EmployeeDocumentationPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Employee ID:</span>
-                      <span className="text-gray-900 dark:text-white font-medium">{user.id}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">{user.employee_id}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Name:</span>

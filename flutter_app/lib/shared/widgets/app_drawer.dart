@@ -18,6 +18,7 @@ class AppDrawer extends ConsumerWidget {
     final currentRoute = GoRouterState.of(context).uri.path;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final drawerWidth = MediaQuery.of(context).size.width * 0.82;
+    
 
     return Drawer(
       width: drawerWidth,
@@ -54,7 +55,7 @@ class AppDrawer extends ConsumerWidget {
                   physics: const ClampingScrollPhysics(),
                 children: [
                   // Header Section
-                  _buildHeader(context, user, isDark)
+                  _buildHeader(context, user, isDark, ref)
                       .animate()
                       .fadeIn(duration: 600.ms, delay: 100.ms)
                       .slideX(begin: -0.2, end: 0),
@@ -227,89 +228,174 @@ class AppDrawer extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, user, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(LiquidGlassTheme.spacingL),
-      child: Column(
-        children: [
-          // Profile Avatar
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+  Widget _buildHeader(BuildContext context, user, bool isDark, WidgetRef ref) {
+    // Fetch organization data
+    final apiService = ref.read(apiServiceProvider);
+    
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: user != null && user.role != 'God'
+          ? apiService.getCurrentUser()
+          : Future.value(null),
+      builder: (context, snapshot) {
+        final userData = snapshot.data;
+        final organization = userData?['organization'] as Map<String, dynamic>?;
+        final organizationLogo = organization?['logo_url'] ?? organization?['logo'];
+        final organizationName = organization?['name'];
+        final hasLogo = organizationLogo != null && organizationLogo.toString().trim().isNotEmpty;
+        final baseUrl = 'http://localhost:8080';
+    
+        return Container(
+          padding: const EdgeInsets.all(LiquidGlassTheme.spacingL),
+          child: Column(
+            children: [
+              // Organization Logo or Title
+              if (hasLogo)
+                Container(
+                  margin: const EdgeInsets.only(bottom: LiquidGlassTheme.spacingM),
+                  constraints: const BoxConstraints(
+                    maxHeight: 48,
+                    maxWidth: double.infinity,
+                  ),
+                  child: Image.network(
+                    organizationLogo.toString().startsWith('http')
+                        ? organizationLogo.toString()
+                        : '$baseUrl${organizationLogo.toString().startsWith('/') ? organizationLogo : '/$organizationLogo'}',
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          organizationName ?? 'HR Portal',
+                          style: LiquidGlassTheme.heading3.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                      );
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const SizedBox(
+                        height: 48,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(bottom: LiquidGlassTheme.spacingM),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      organizationName ?? 'HR Portal',
+                      style: LiquidGlassTheme.heading3.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
                 ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 40,
-              backgroundColor: Colors.white.withOpacity(0.2),
-              child: Text(
-                user?.name.isNotEmpty == true
-                    ? user!.name[0].toUpperCase()
-                    : 'U',
-                style: LiquidGlassTheme.heading2.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+              
+              // Profile Avatar
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  child: Text(
+                    user?.name.isNotEmpty == true
+                        ? user!.name[0].toUpperCase()
+                        : 'U',
+                    style: LiquidGlassTheme.heading2.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          
-          const SizedBox(height: LiquidGlassTheme.spacingM),
-          
-          // User Info
-          Text(
-            user?.name ?? 'User',
-            style: LiquidGlassTheme.heading4.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-          ),
-          
-          const SizedBox(height: LiquidGlassTheme.spacingS),
-          
-          // Role Badge
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: LiquidGlassTheme.spacingM,
-              vertical: LiquidGlassTheme.spacingS,
-            ),
-            decoration: BoxDecoration(
-              color: _getRoleColor(user?.role ?? '').withOpacity(0.2),
-              borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusLarge),
-              border: Border.all(
-                color: _getRoleColor(user?.role ?? '').withOpacity(0.3),
-                width: 1,
+              
+              const SizedBox(height: LiquidGlassTheme.spacingM),
+              
+              // User Info
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  user?.name ?? 'User',
+                  style: LiquidGlassTheme.heading4.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
-            ),
-            child: Text(
-              user?.role ?? 'Role',
-              style: LiquidGlassTheme.bodySmall.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+              
+              const SizedBox(height: LiquidGlassTheme.spacingS),
+              
+              // Role Badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LiquidGlassTheme.spacingM,
+                  vertical: LiquidGlassTheme.spacingS,
+                ),
+                decoration: BoxDecoration(
+                  color: _getRoleColor(user?.role ?? '').withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(LiquidGlassTheme.radiusLarge),
+                  border: Border.all(
+                    color: _getRoleColor(user?.role ?? '').withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  user?.role ?? 'Role',
+                  style: LiquidGlassTheme.bodySmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
+              
+              const SizedBox(height: LiquidGlassTheme.spacingS),
+              
+              // Department
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  user?.department ?? 'Department',
+                  style: LiquidGlassTheme.bodyMedium.copyWith(
+                    color: Colors.white70,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ],
           ),
-          
-          const SizedBox(height: LiquidGlassTheme.spacingS),
-          
-          // Department
-          Text(
-            user?.department ?? 'Department',
-            style: LiquidGlassTheme.bodyMedium.copyWith(
-              color: Colors.white70,
-            ),
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

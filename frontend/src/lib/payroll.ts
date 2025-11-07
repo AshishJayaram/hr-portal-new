@@ -1,4 +1,4 @@
-export type PayrollMode = 'PERCENT_OF_CTC' | 'PERCENT_OF_BASIC' | 'FIXED' | 'REMAINDER';
+export type PayrollMode = 'PERCENT_OF_CTC' | 'PERCENT_OF_BASIC' | 'FIXED_MONTHLY' | 'FIXED_YEARLY' | 'REMAINDER' | 'FIXED'; // FIXED is legacy, treated as FIXED_MONTHLY
 
 export interface ComponentSetting {
   mode: PayrollMode;
@@ -109,6 +109,7 @@ export interface PayslipBreakdown {
     professionalTax: number;
     esi: number;
     tds: number; // monthly TDS (yearly override / 12)
+    lop?: number; // Loss of Pay amount (for live preview only)
   };
   totals: {
     totalEarnings: number;
@@ -129,15 +130,15 @@ export const defaultPayrollSettings: PayrollSettings = {
   earnings: {
     basic: { mode: 'PERCENT_OF_CTC', value: 50 },
     hra: { mode: 'PERCENT_OF_BASIC', value: 30 },
-    medical: { mode: 'FIXED', value: 1250 },
-    conveyance: { mode: 'FIXED', value: 800 },
+    medical: { mode: 'FIXED_MONTHLY', value: 1250 },
+    conveyance: { mode: 'FIXED_MONTHLY', value: 800 },
     lta: { mode: 'PERCENT_OF_BASIC', value: 15 },
     specialAllowance: { mode: 'REMAINDER' },
   },
   deductions: {
     employeePF: { mode: 'PERCENT_OF_BASIC', value: 12, capAt1800: false },
-    professionalTax: { mode: 'FIXED', value: 200 },
-    esi: { mode: 'FIXED', value: 0 },
+    professionalTax: { mode: 'FIXED_MONTHLY', value: 200 },
+    esi: { mode: 'FIXED_MONTHLY', value: 0 },
     esiEnabled: false,
   },
   employerPF: {
@@ -161,7 +162,7 @@ export const defaultPayrollSettings: PayrollSettings = {
 };
 
 function round2(n: number): number {
-  return Math.round(n);
+  return Math.round(n * 100) / 100;
 }
 
 export function calculateLOPAmount(
@@ -176,13 +177,13 @@ export function calculateLOPAmount(
   
   switch (settings.lop.calculationMethod) {
     case 'NET_PAY_BY_DAYS':
-      return (netPay / daysInMonth) * lopDays;
+      return round2((netPay / daysInMonth) * lopDays);
     case 'BASIC_BY_DAYS':
-      return (basicSalary / daysInMonth) * lopDays;
+      return round2((basicSalary / daysInMonth) * lopDays);
     case 'FIXED_AMOUNT':
-      return lopDays * 1000; // Default fixed amount per day
+      return round2(lopDays * 1000); // Default fixed amount per day
     default:
-      return (netPay / daysInMonth) * lopDays;
+      return round2((netPay / daysInMonth) * lopDays);
   }
 }
 
@@ -230,7 +231,7 @@ export function calculateOvertimePay(
 }
 
 export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettings, ctx?: ComputeContext): PayslipBreakdown {
-  const monthlyCTC = Math.round(annualCTC / 12);
+  const monthlyCTC = round2(annualCTC / 12);
   const workingDays = ctx?.workingDays ?? 30;
   const lopDays = ctx?.lopDays ?? 0;
   const proration = Math.max(0, Math.min(1, (workingDays - lopDays) / workingDays));
@@ -238,57 +239,88 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
   // Earnings
   const basic = settings.earnings.basic.mode === 'PERCENT_OF_CTC'
     ? round2(monthlyCTC * (settings.earnings.basic.value || 0) / 100)
-    : settings.earnings.basic.mode === 'FIXED'
+    : settings.earnings.basic.mode === 'FIXED_MONTHLY' || settings.earnings.basic.mode === 'FIXED'
       ? round2(settings.earnings.basic.value || 0)
-      : 0; // other modes for basic not used in defaults
+      : settings.earnings.basic.mode === 'FIXED_YEARLY'
+        ? round2((settings.earnings.basic.value || 0) / 12)
+        : 0; // other modes for basic not used in defaults
 
+  // Helper functions for percentage calculations
   const pctOfBasic = (pct?: number) => round2(basic * ((pct || 0) / 100));
   const pctOfCTC = (pct?: number) => round2(monthlyCTC * ((pct || 0) / 100));
 
+  const getFixedValue = (mode: PayrollMode, value?: number): number => {
+    if (mode === 'FIXED_MONTHLY' || mode === 'FIXED') {
+      return round2(value || 0);
+    } else if (mode === 'FIXED_YEARLY') {
+      return round2((value || 0) / 12);
+    }
+    return 0;
+  };
+
   const hra = settings.earnings.hra.mode === 'PERCENT_OF_BASIC' ? pctOfBasic(settings.earnings.hra.value) :
               settings.earnings.hra.mode === 'PERCENT_OF_CTC' ? pctOfCTC(settings.earnings.hra.value) :
-              settings.earnings.hra.mode === 'FIXED' ? round2(settings.earnings.hra.value || 0) : 0;
-  const medical = settings.earnings.medical.mode === 'FIXED' ? round2(settings.earnings.medical.value || 0) :
-                  settings.earnings.medical.mode === 'PERCENT_OF_BASIC' ? pctOfBasic(settings.earnings.medical.value) :
-                  settings.earnings.medical.mode === 'PERCENT_OF_CTC' ? pctOfCTC(settings.earnings.medical.value) : 0;
-  const conveyance = settings.earnings.conveyance.mode === 'FIXED' ? round2(settings.earnings.conveyance.value || 0) :
-                     settings.earnings.conveyance.mode === 'PERCENT_OF_BASIC' ? pctOfBasic(settings.earnings.conveyance.value) :
-                     settings.earnings.conveyance.mode === 'PERCENT_OF_CTC' ? pctOfCTC(settings.earnings.conveyance.value) : 0;
+              getFixedValue(settings.earnings.hra.mode, settings.earnings.hra.value);
+  const medical = settings.earnings.medical.mode === 'FIXED_MONTHLY' || settings.earnings.medical.mode === 'FIXED' || settings.earnings.medical.mode === 'FIXED_YEARLY'
+    ? getFixedValue(settings.earnings.medical.mode, settings.earnings.medical.value)
+    : settings.earnings.medical.mode === 'PERCENT_OF_BASIC' ? pctOfBasic(settings.earnings.medical.value) :
+      settings.earnings.medical.mode === 'PERCENT_OF_CTC' ? pctOfCTC(settings.earnings.medical.value) : 0;
+  const conveyance = settings.earnings.conveyance.mode === 'FIXED_MONTHLY' || settings.earnings.conveyance.mode === 'FIXED' || settings.earnings.conveyance.mode === 'FIXED_YEARLY'
+    ? getFixedValue(settings.earnings.conveyance.mode, settings.earnings.conveyance.value)
+    : settings.earnings.conveyance.mode === 'PERCENT_OF_BASIC' ? pctOfBasic(settings.earnings.conveyance.value) :
+      settings.earnings.conveyance.mode === 'PERCENT_OF_CTC' ? pctOfCTC(settings.earnings.conveyance.value) : 0;
   const lta = settings.earnings.lta.mode === 'PERCENT_OF_BASIC' ? pctOfBasic(settings.earnings.lta.value) :
               settings.earnings.lta.mode === 'PERCENT_OF_CTC' ? pctOfCTC(settings.earnings.lta.value) :
-              settings.earnings.lta.mode === 'FIXED' ? round2(settings.earnings.lta.value || 0) : 0;
+              getFixedValue(settings.earnings.lta.mode, settings.earnings.lta.value);
 
-  // Apply proration to proratable earnings (assume all except fixed allowances are proratable)
-  const proratedBasic = round2(basic * proration);
-  const proratedHra = round2(hra * proration);
-  const proratedLta = round2(lta * proration);
-  // Keep fixed ones as is
+  // Apply proration to proratable earnings ONLY if LOP is NOT being calculated as separate deduction
+  // If LOP will be calculated separately, don't prorate earnings (earnings stay full, LOP deducted separately)
+  // If LOP is handled via proration only, don't calculate separate LOP deduction
+  const shouldProrate = ctx?.lopDays ? false : true; // If LOP days provided, use separate deduction instead of proration
+  
+  const proratedBasic = shouldProrate ? round2(basic * proration) : basic;
+  const proratedHra = shouldProrate ? round2(hra * proration) : hra;
+  const proratedLta = shouldProrate ? round2(lta * proration) : lta;
+  // Keep fixed ones as is (they're typically not prorated)
   const effBasic = proratedBasic;
   const effHra = proratedHra;
   const effMedical = medical;
   const effConveyance = conveyance;
   const effLta = proratedLta;
 
+  // Helper function for percentage of effective basic (after proration)
+  // This is used for deductions that should be proportional to actual earnings
+  const pctOfEffBasic = (pct?: number) => round2(effBasic * ((pct || 0) / 100));
+
   // Employer PF (part of CTC):
   const employerPFTotal = round2(effBasic * (settings.employerPF.employerPFPercentOfBasic / 100));
-  const eps = Math.min(round2(effBasic * (settings.employerPF.epsPercentOfBasic / 100)), settings.employerPF.epsCap);
-  const epf = Math.max(employerPFTotal - eps, 0);
+  const eps = round2(Math.min(round2(effBasic * (settings.employerPF.epsPercentOfBasic / 100)), settings.employerPF.epsCap));
+  const epf = round2(Math.max(employerPFTotal - eps, 0));
 
   // Special as remainder so that Earnings + Employer PF = Monthly CTC
-  const earningsExceptSpecial = effBasic + effHra + effMedical + effConveyance + effLta;
-  const special = Math.max(monthlyCTC - employerPFTotal - earningsExceptSpecial, 0);
+  // Note: When there's LOP, we still use full monthlyCTC for special calculation
+  // because LOP is handled as a separate deduction, not through proration
+  const earningsExceptSpecial = round2(effBasic + effHra + effMedical + effConveyance + effLta);
+  const special = round2(Math.max(monthlyCTC - employerPFTotal - earningsExceptSpecial, 0));
 
   // Employee deductions
+  // Employee PF should be calculated on effective (prorated) basic when proration is used
+  // When LOP is separate deduction, use full basic for PF calculation
   let empPF = round2(effBasic * ((settings.deductions.employeePF.value || 0) / 100));
-  if (settings.deductions.employeePF.capAt1800) {
-    empPF = Math.min(empPF, 1800);
-  }
+  // Removed capAt1800 - no cap applied
   const computeByMode = (c: ComponentSetting): number => {
     if (!c) return 0;
     switch (c.mode) {
-      case 'PERCENT_OF_BASIC': return pctOfBasic(c.value);
+      case 'PERCENT_OF_BASIC': 
+        // Use effective basic (prorated if proration applied) for deductions
+        // This ensures deductions are proportional to actual earnings
+        return pctOfEffBasic(c.value);
       case 'PERCENT_OF_CTC': return pctOfCTC(c.value);
-      case 'FIXED': return round2(c.value || 0);
+      case 'FIXED_MONTHLY':
+      case 'FIXED': // backward compatibility - treat old FIXED as FIXED_MONTHLY
+        return round2(c.value || 0);
+      case 'FIXED_YEARLY':
+        return round2((c.value || 0) / 12);
       case 'REMAINDER': return 0;
       default: return 0;
     }
@@ -297,24 +329,34 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
   const professionalTax = computeByMode(settings.deductions.professionalTax);
   const esi = settings.deductions.esiEnabled ? computeByMode(settings.deductions.esi) : 0;
 
-  const totalEarningsBase = earningsExceptSpecial + special;
+  const totalEarningsBase = round2(earningsExceptSpecial + special);
   
   // Calculate overtime pay if overtime hours provided
   let overtimePay = 0;
   if (ctx?.overtimeHours && ctx.overtimeHours > 0) {
     // Calculate net pay first for overtime calculation
     const tdsForOvertime = round2((ctx?.tdsOverride || 0) / 12);
-    const totalDeductionsForOvertime = empPF + professionalTax + esi + tdsForOvertime;
-    const netPayForOvertime = totalEarningsBase - totalDeductionsForOvertime;
+    const totalDeductionsForOvertime = round2(empPF + professionalTax + esi + tdsForOvertime);
+    const netPayForOvertime = round2(totalEarningsBase - totalDeductionsForOvertime);
     overtimePay = calculateOvertimePay(ctx.overtimeHours, netPayForOvertime, effBasic, settings);
   }
   
-  const totalEarnings = totalEarningsBase + overtimePay;
+  const totalEarnings = round2(totalEarningsBase + overtimePay);
   
   // TDS override is yearly, so divide by 12 for monthly calculation
   const tds = round2((ctx?.tdsOverride || 0) / 12);
-  const totalDeductions = empPF + professionalTax + esi + tds;
-  const netPay = totalEarnings - totalDeductions;
+  
+  // Calculate LOP amount if LOP days provided (for live preview only)
+  let lopAmount = 0;
+  if (ctx?.lopDays && ctx.lopDays > 0) {
+    // Calculate net pay before LOP for LOP calculation
+    const totalDeductionsBeforeLOP = round2(empPF + professionalTax + esi + tds);
+    const netPayBeforeLOP = round2(totalEarnings - totalDeductionsBeforeLOP);
+    lopAmount = calculateLOPAmount(ctx.lopDays, netPayBeforeLOP, effBasic, settings);
+  }
+  
+  const totalDeductions = round2(empPF + professionalTax + esi + tds + lopAmount);
+  const netPay = round2(totalEarnings - totalDeductions);
 
   return {
     monthlyCTC,
@@ -328,7 +370,7 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
       overtime: overtimePay,
     },
     employer: { totalPF: employerPFTotal, eps, epf },
-    deductions: { empPF, professionalTax, esi, tds },
+    deductions: { empPF, professionalTax, esi, tds, lop: lopAmount },
     totals: { totalEarnings, totalDeductions, netPay },
   };
 }

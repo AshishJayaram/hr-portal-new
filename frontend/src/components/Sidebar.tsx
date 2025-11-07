@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { canManageUsers, isManager, getCurrentUser, hasRole, isGod } from "@/lib/api";
 import RoleGuard from "./RoleGuard";
 import FeedbackPopup from "./FeedbackPopup";
@@ -45,9 +46,75 @@ export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
+  const [logoError, setLogoError] = useState(false);
+  const [mobileLogoError, setMobileLogoError] = useState(false);
   const user = getCurrentUser();
   const canAccessSettings = hasRole(["HR", "Admin"]);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Fetch organization logo from current user
+  const { data: currentUserData } = useQuery({
+    queryKey: ["current-user", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      try {
+        const orgId = user.organization_id?.toString() || localStorage.getItem('organizationId') || '';
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Organization-ID': orgId,
+          },
+        });
+        if (!response.ok) {
+          console.error('Failed to fetch current user:', response.status, response.statusText);
+          return null;
+        }
+        const data = await response.json();
+        console.log('API Response:', data);
+        return data.user;
+      } catch (error) {
+        console.error('Failed to fetch current user:', error);
+        return null;
+      }
+    },
+    enabled: !!user && !isGod(),
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
+  // Get organization logo from current user data (backend returns logo_url in OrganizationResponse)
+  const organizationLogo = 
+    currentUserData?.organization?.logo_url || 
+    currentUserData?.organization?.logo || 
+    (user?.organization as any)?.logo_url ||
+    (user?.organization as any)?.logo;
+  
+  const organizationName = 
+    currentUserData?.organization?.name || 
+    (user?.organization as any)?.name;
+  
+  const hasLogo = organizationLogo && typeof organizationLogo === 'string' && organizationLogo.trim() !== '';
+
+  // Reset logo error state when organization logo changes
+  useEffect(() => {
+    setLogoError(false);
+    setMobileLogoError(false);
+  }, [organizationLogo]);
+
+  // Debug logging - more detailed
+  useEffect(() => {
+    if (user) {
+      console.log('=== Sidebar Logo Debug ===');
+      console.log('User:', user);
+      console.log('Current User Data:', currentUserData);
+      console.log('Organization from currentUserData:', currentUserData?.organization);
+      console.log('Organization Logo:', organizationLogo);
+      console.log('Has Logo:', hasLogo);
+      console.log('Query Enabled:', !!user && !isGod());
+      console.log('========================');
+    }
+  }, [user, currentUserData, organizationLogo, hasLogo]);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -82,9 +149,27 @@ export default function Sidebar() {
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-white/5 backdrop-blur-xl border-r border-white/10 p-6">
-        <h1 className="text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-yellow-400 bg-clip-text text-transparent">
-          HR Portal
-        </h1>
+        {hasLogo && !logoError ? (
+          <div className="mb-6">
+            <img 
+              src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${organizationLogo?.startsWith('/') ? organizationLogo : '/' + organizationLogo}`} 
+              alt={`${organizationName || 'Company'} logo`}
+              className="max-h-16 max-w-full object-contain"
+              onError={(e) => {
+                console.error('Failed to load logo image. URL:', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${organizationLogo}`);
+                setLogoError(true);
+              }}
+              onLoad={() => {
+                console.log('Logo loaded successfully:', organizationLogo);
+                setLogoError(false);
+              }}
+            />
+          </div>
+        ) : (
+          <h1 className="text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-yellow-400 bg-clip-text text-transparent mb-6 text-center">
+            HR Portal
+          </h1>
+        )}
 
         <nav className="mt-8 space-y-2 flex-1 overflow-y-auto pr-2 -mr-2">
           {links.map((link) => (
@@ -164,9 +249,27 @@ export default function Sidebar() {
             transition={{ type: "tween", duration: 0.3 }}
             className="fixed inset-y-0 left-0 w-64 bg-white/15 backdrop-blur-xl border-r border-white/10 p-6 z-40 flex flex-col"
           >
-            <h1 className="pl-8 text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-yellow-400 bg-clip-text text-transparent">
-              HR Portal
-            </h1>
+            {hasLogo && !mobileLogoError ? (
+              <div className="mb-6 pl-8">
+                <img 
+                  src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${organizationLogo?.startsWith('/') ? organizationLogo : '/' + organizationLogo}`} 
+                  alt={`${organizationName || 'Company'} logo`}
+                  className="max-h-16 max-w-full object-contain"
+                  onError={(e) => {
+                    console.error('Failed to load logo image. URL:', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${organizationLogo}`);
+                    setMobileLogoError(true);
+                  }}
+                  onLoad={() => {
+                    console.log('Logo loaded successfully:', organizationLogo);
+                    setMobileLogoError(false);
+                  }}
+                />
+              </div>
+            ) : (
+              <h1 className="pl-8 text-2xl font-extrabold bg-gradient-to-r from-pink-400 to-yellow-400 bg-clip-text text-transparent mb-6 text-center">
+                HR Portal
+              </h1>
+            )}
 
             <nav className="mt-6 space-y-2 flex-1 overflow-y-auto pr-2 -mr-2">
               {links.map((link) => (

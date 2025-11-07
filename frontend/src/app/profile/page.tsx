@@ -77,8 +77,8 @@ export default function ProfilePage() {
             <div className="font-medium">{user?.department || '—'}</div>
           </div>
           <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-            <div className="text-xs text-gray-400">User ID</div>
-            <div className="font-medium">{user?.id || '—'}</div>
+            <div className="text-xs text-gray-400">Employee ID</div>
+            <div className="font-medium">{user?.employee_id || '—'}</div>
           </div>
           <div className="p-4 rounded-lg bg-white/5 border border-white/10">
             <div className="text-xs text-gray-400">Member Since</div>

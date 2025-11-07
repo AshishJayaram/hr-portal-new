@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
@@ -40,18 +40,18 @@ export default function CompanySettingsPage() {
   // Custom categories state
   const [newEarningKey, setNewEarningKey] = useState('');
   const [newEarningLabel, setNewEarningLabel] = useState('');
-  const [newEarningMode, setNewEarningMode] = useState<PayrollMode>('FIXED');
+  const [newEarningMode, setNewEarningMode] = useState<PayrollMode>('FIXED_MONTHLY');
   const [newEarningValue, setNewEarningValue] = useState(0);
   
   const [newDeductionKey, setNewDeductionKey] = useState('');
   const [newDeductionLabel, setNewDeductionLabel] = useState('');
-  const [newDeductionMode, setNewDeductionMode] = useState<PayrollMode>('FIXED');
+  const [newDeductionMode, setNewDeductionMode] = useState<PayrollMode>('FIXED_MONTHLY');
   const [newDeductionValue, setNewDeductionValue] = useState(0);
 
   // Conditional categories state for Employer PF
   const [newConditionalEarningKey, setNewConditionalEarningKey] = useState('');
   const [newConditionalEarningLabel, setNewConditionalEarningLabel] = useState('');
-  const [newConditionalEarningMode, setNewConditionalEarningMode] = useState<PayrollMode>('FIXED');
+  const [newConditionalEarningMode, setNewConditionalEarningMode] = useState<PayrollMode>('FIXED_MONTHLY');
   const [newConditionalEarningValue, setNewConditionalEarningValue] = useState(0);
   const [newConditionalEarningConditionType, setNewConditionalEarningConditionType] = useState<ConditionType>('CTC_RANGE');
   const [newConditionalEarningCtcMin, setNewConditionalEarningCtcMin] = useState<number | undefined>(undefined);
@@ -61,7 +61,7 @@ export default function CompanySettingsPage() {
   
   const [newConditionalDeductionKey, setNewConditionalDeductionKey] = useState('');
   const [newConditionalDeductionLabel, setNewConditionalDeductionLabel] = useState('');
-  const [newConditionalDeductionMode, setNewConditionalDeductionMode] = useState<PayrollMode>('FIXED');
+  const [newConditionalDeductionMode, setNewConditionalDeductionMode] = useState<PayrollMode>('FIXED_MONTHLY');
   const [newConditionalDeductionValue, setNewConditionalDeductionValue] = useState(0);
   const [newConditionalDeductionConditionType, setNewConditionalDeductionConditionType] = useState<ConditionType>('CTC_RANGE');
   const [newConditionalDeductionCtcMin, setNewConditionalDeductionCtcMin] = useState<number | undefined>(undefined);
@@ -172,8 +172,42 @@ export default function CompanySettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      // Log change to console (backend already logs to audit)
+      console.log("[Settings] Auto-saved payroll settings:", new Date().toISOString());
+    },
+    onError: (error: any) => {
+      console.error("[Settings] Failed to auto-save:", error);
     },
   });
+
+  // Autosave with debouncing
+  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    // Skip autosave on initial load
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+
+    // Clear existing timeout
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    // Set new timeout for autosave (1 second debounce)
+    autosaveTimeoutRef.current = setTimeout(() => {
+      saveMutation.mutate();
+    }, 1000);
+
+    // Cleanup on unmount
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current);
+      }
+    };
+  }, [settings, currency]);
 
   const createCategoryMutation = useMutation({
     mutationFn: (category: Partial<LeaveCategory>) => createLeaveCategory(category),
@@ -447,11 +481,11 @@ export default function CompanySettingsPage() {
                         setIsConditionalEarning(false);
                         setNewEarningKey('');
                         setNewEarningLabel('');
-                        setNewEarningMode('FIXED');
+                        setNewEarningMode('FIXED_MONTHLY');
                         setNewEarningValue(0);
                         setNewConditionalEarningKey('');
                         setNewConditionalEarningLabel('');
-                        setNewConditionalEarningMode('FIXED');
+                        setNewConditionalEarningMode('FIXED_MONTHLY');
                         setNewConditionalEarningValue(0);
                         setNewConditionalEarningConditionType('CTC_RANGE');
                         setNewConditionalEarningCtcMin(undefined);
@@ -642,7 +676,8 @@ export default function CompanySettingsPage() {
                             }
                           }}
                           options={[
-                            { value: 'FIXED', label: 'Fixed Amount' },
+                            { value: 'FIXED_MONTHLY', label: 'Fixed Amount (Monthly)' },
+                            { value: 'FIXED_YEARLY', label: 'Fixed Amount (Yearly)' },
                             { value: 'PERCENT_OF_BASIC', label: 'Percentage of Basic Salary' },
                             { value: 'PERCENT_OF_CTC', label: 'Percentage of CTC' },
                             { value: 'REMAINDER', label: 'Remainder (Leftover amount)' },
@@ -652,7 +687,8 @@ export default function CompanySettingsPage() {
                         <p className="text-xs text-gray-500 mt-1">
                           {(() => {
                             const mode = isConditionalEarning ? newConditionalEarningMode : newEarningMode;
-                            if (mode === 'FIXED') return 'Fixed monthly amount in ₹';
+                            if (mode === 'FIXED_MONTHLY' || mode === 'FIXED') return 'Fixed monthly amount in ₹';
+                            if (mode === 'FIXED_YEARLY') return 'Fixed yearly amount in ₹ (divided by 12 for monthly)';
                             if (mode === 'PERCENT_OF_BASIC') return '% of employee\'s Basic Salary';
                             if (mode === 'PERCENT_OF_CTC') return '% of employee\'s Annual CTC (divided by 12 for monthly)';
                             return 'Automatically calculated as remaining amount after all other earnings';
@@ -677,14 +713,16 @@ export default function CompanySettingsPage() {
                           disabled={(isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'REMAINDER'}
                           className="text-sm"
                           min="0"
-                          step={(isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED' ? '1' : '0.01'}
+                          step={(isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED_MONTHLY' || (isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED_YEARLY' || (isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED' ? '1' : '0.01'}
                         />
                         <p className="text-xs text-gray-500 mt-1">
                           {(isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'REMAINDER' 
                             ? 'Disabled for Remainder mode' 
-                            : (isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED' 
+                            : (isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED_MONTHLY' || (isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED'
                               ? 'Fixed amount in ₹ per month' 
-                              : 'Percentage value (e.g., 10 for 10%)'}
+                              : (isConditionalEarning ? newConditionalEarningMode : newEarningMode) === 'FIXED_YEARLY'
+                                ? 'Fixed amount in ₹ per year (will be divided by 12 for monthly calculation)'
+                                : 'Percentage value (e.g., 10 for 10%)'}
                         </p>
                       </div>
                     </div>
@@ -741,7 +779,7 @@ export default function CompanySettingsPage() {
                             // Reset all form fields
                             setNewConditionalEarningKey('');
                             setNewConditionalEarningLabel('');
-                            setNewConditionalEarningMode('FIXED');
+                            setNewConditionalEarningMode('FIXED_MONTHLY');
                             setNewConditionalEarningValue(0);
                             setNewConditionalEarningConditionType('CTC_RANGE');
                             setNewConditionalEarningCtcMin(undefined);
@@ -794,7 +832,8 @@ export default function CompanySettingsPage() {
                               value={item.setting.mode}
                               onChange={(e) => setComponent((s) => s.earnings[item.key as keyof typeof s.earnings], 'mode', e.target.value)}
                               options={[
-                                { value: 'FIXED', label: 'Fixed' },
+                                { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
+                                { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
                                 { value: 'PERCENT_OF_BASIC', label: '% Basic' },
                                 { value: 'PERCENT_OF_CTC', label: '% CTC' },
                                 { value: 'REMAINDER', label: 'Remainder' },
@@ -862,7 +901,8 @@ export default function CompanySettingsPage() {
                               setSettings({ ...settings, customEarnings: updated });
                             }}
                             options={[
-                              { value: 'FIXED', label: 'Fixed' },
+                              { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
+                              { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
                               { value: 'PERCENT_OF_BASIC', label: '% Basic' },
                               { value: 'PERCENT_OF_CTC', label: '% CTC' },
                               { value: 'REMAINDER', label: 'Remainder' },
@@ -947,7 +987,8 @@ export default function CompanySettingsPage() {
                                 });
                               }}
                               options={[
-                                { value: 'FIXED', label: 'Fixed Amount' },
+                                { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
+                                { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
                                 { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
                                 { value: 'PERCENT_OF_CTC', label: '% of CTC' },
                                 { value: 'REMAINDER', label: 'Remainder' },
@@ -1018,11 +1059,11 @@ export default function CompanySettingsPage() {
                         setIsConditionalDeduction(false);
                         setNewDeductionKey('');
                         setNewDeductionLabel('');
-                        setNewDeductionMode('FIXED');
+                        setNewDeductionMode('FIXED_MONTHLY');
                         setNewDeductionValue(0);
                         setNewConditionalDeductionKey('');
                         setNewConditionalDeductionLabel('');
-                        setNewConditionalDeductionMode('FIXED');
+                        setNewConditionalDeductionMode('FIXED_MONTHLY');
                         setNewConditionalDeductionValue(0);
                         setNewConditionalDeductionConditionType('CTC_RANGE');
                         setNewConditionalDeductionCtcMin(undefined);
@@ -1213,7 +1254,8 @@ export default function CompanySettingsPage() {
                             }
                           }}
                           options={[
-                            { value: 'FIXED', label: 'Fixed Amount' },
+                            { value: 'FIXED_MONTHLY', label: 'Fixed Amount (Monthly)' },
+                            { value: 'FIXED_YEARLY', label: 'Fixed Amount (Yearly)' },
                             { value: 'PERCENT_OF_BASIC', label: 'Percentage of Basic Salary' },
                             { value: 'PERCENT_OF_CTC', label: 'Percentage of CTC' },
                             { value: 'REMAINDER', label: 'Remainder (Leftover amount)' },
@@ -1223,7 +1265,8 @@ export default function CompanySettingsPage() {
                         <p className="text-xs text-gray-500 mt-1">
                           {(() => {
                             const mode = isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode;
-                            if (mode === 'FIXED') return 'Fixed monthly amount in ₹';
+                            if (mode === 'FIXED_MONTHLY' || mode === 'FIXED') return 'Fixed monthly amount in ₹';
+                            if (mode === 'FIXED_YEARLY') return 'Fixed yearly amount in ₹ (divided by 12 for monthly)';
                             if (mode === 'PERCENT_OF_BASIC') return '% of employee\'s Basic Salary';
                             if (mode === 'PERCENT_OF_CTC') return '% of employee\'s Annual CTC (divided by 12 for monthly)';
                             return 'Automatically calculated as remaining amount after all other deductions';
@@ -1248,14 +1291,16 @@ export default function CompanySettingsPage() {
                           disabled={(isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'REMAINDER'}
                           className="text-sm"
                           min="0"
-                          step={(isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED' ? '1' : '0.01'}
+                          step={(isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED_MONTHLY' || (isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED_YEARLY' || (isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED' ? '1' : '0.01'}
                         />
                         <p className="text-xs text-gray-500 mt-1">
                           {(isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'REMAINDER' 
                             ? 'Disabled for Remainder mode' 
-                            : (isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED' 
+                            : (isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED_MONTHLY' || (isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED'
                               ? 'Fixed amount in ₹ per month' 
-                              : 'Percentage value (e.g., 10 for 10%)'}
+                              : (isConditionalDeduction ? newConditionalDeductionMode : newDeductionMode) === 'FIXED_YEARLY'
+                                ? 'Fixed amount in ₹ per year (will be divided by 12 for monthly calculation)'
+                                : 'Percentage value (e.g., 10 for 10%)'}
                         </p>
                       </div>
                     </div>
@@ -1312,7 +1357,7 @@ export default function CompanySettingsPage() {
                             // Reset all form fields
                             setNewConditionalDeductionKey('');
                             setNewConditionalDeductionLabel('');
-                            setNewConditionalDeductionMode('FIXED');
+                            setNewConditionalDeductionMode('FIXED_MONTHLY');
                             setNewConditionalDeductionValue(0);
                             setNewConditionalDeductionConditionType('CTC_RANGE');
                             setNewConditionalDeductionCtcMin(undefined);
@@ -1380,7 +1425,8 @@ export default function CompanySettingsPage() {
                                 }
                               }}
                               options={[
-                                { value: 'FIXED', label: 'Fixed' },
+                                { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
+                                { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
                                 { value: 'PERCENT_OF_BASIC', label: '% Basic' },
                                 { value: 'PERCENT_OF_CTC', label: '% CTC' },
                                 { value: 'REMAINDER', label: 'Remainder' },
@@ -1508,7 +1554,8 @@ export default function CompanySettingsPage() {
                               setSettings({ ...settings, customDeductions: updated });
                             }}
                             options={[
-                              { value: 'FIXED', label: 'Fixed' },
+                              { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
+                              { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
                               { value: 'PERCENT_OF_BASIC', label: '% Basic' },
                               { value: 'PERCENT_OF_CTC', label: '% CTC' },
                               { value: 'REMAINDER', label: 'Remainder' },
@@ -1593,7 +1640,8 @@ export default function CompanySettingsPage() {
                                 });
                               }}
                               options={[
-                                { value: 'FIXED', label: 'Fixed Amount' },
+                                { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
+                                { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
                                 { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
                                 { value: 'PERCENT_OF_CTC', label: '% of CTC' },
                                 { value: 'REMAINDER', label: 'Remainder' },
@@ -1646,7 +1694,7 @@ export default function CompanySettingsPage() {
 
           {/* Employer PF Configuration */}
           <Card>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="text-xl font-semibold text-blue-600 dark:text-blue-400">Employer PF Configuration</h3>
                 <p className="text-sm text-gray-400 mt-1">
@@ -1673,39 +1721,65 @@ export default function CompanySettingsPage() {
             </div>
             
             <div className="space-y-4">
-              {/* Dynamic Fields */}
-              {(settings.employerPF.fields || []).map((field) => (
-                <div key={field.id} className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 space-y-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
-                          Field Label
-                        </label>
-                        <Input
-                          type="text"
-                          value={field.label}
-                          onChange={(e) => {
-                            const updated = (settings.employerPF.fields || []).map(f =>
-                              f.id === field.id ? { ...f, label: e.target.value } : f
-                            );
-                            setSettings({
-                              ...settings,
-                              employerPF: {
-                                ...settings.employerPF,
-                                fields: updated
-                              }
-                            });
-                          }}
-                          className="text-sm"
-                          placeholder="e.g., Employer PF Percentage"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">
-                            Type
-                          </label>
+              {/* Employer PF Fields */}
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-medium text-blue-600 dark:text-blue-400">Employer PF Fields</h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newField = {
+                        id: `field_${Date.now()}`,
+                        label: 'New Field',
+                        value: 0,
+                        type: 'PERCENTAGE' as const,
+                      };
+                      setSettings({
+                        ...settings,
+                        employerPF: {
+                          ...settings.employerPF,
+                          fields: [
+                            ...(settings.employerPF.fields || []),
+                            newField
+                          ]
+                        }
+                      });
+                    }}
+                    className="flex items-center gap-2 text-blue-600 border-blue-500/30 hover:bg-blue-500/10"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Field
+                  </Button>
+                </div>
+                
+                {/* Fields List */}
+                <div className="space-y-2">
+                  {(settings.employerPF.fields || []).map((field) => (
+                    <div key={field.id} className="flex items-center justify-between p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-blue-600 dark:text-blue-400 text-sm">{field.label}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Input
+                            type="text"
+                            value={field.label}
+                            onChange={(e) => {
+                              const updated = (settings.employerPF.fields || []).map(f =>
+                                f.id === field.id ? { ...f, label: e.target.value } : f
+                              );
+                              setSettings({
+                                ...settings,
+                                employerPF: {
+                                  ...settings.employerPF,
+                                  fields: updated
+                                }
+                              });
+                            }}
+                            className="text-xs"
+                            placeholder="Field Label"
+                          />
                           <Select
                             value={field.type}
                             onChange={(e) => {
@@ -1724,14 +1798,9 @@ export default function CompanySettingsPage() {
                               { value: 'PERCENTAGE', label: 'Percentage' },
                               { value: 'FIXED_AMOUNT', label: 'Fixed Amount' },
                             ]}
-                            className="text-sm"
+                            className="text-xs"
                           />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 mb-1">
-                            Value
-                          </label>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
                             <Input
                               type="number"
                               value={String(field.value)}
@@ -1751,66 +1820,48 @@ export default function CompanySettingsPage() {
                               min="0"
                               step={field.type === 'PERCENTAGE' ? '0.01' : '1'}
                               max={field.type === 'PERCENTAGE' ? '100' : undefined}
-                              className="text-sm flex-1"
+                              className="text-xs flex-1"
                             />
-                            <span className="text-sm text-gray-400">
+                            <span className="text-xs text-gray-400">
                               {field.type === 'PERCENTAGE' ? '%' : '₹'}
                             </span>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    <Button
-                      onClick={() => {
-                        if (confirm(`Are you sure you want to remove "${field.label}"?`)) {
-                          const updated = (settings.employerPF.fields || []).filter(f => f.id !== field.id);
-                          setSettings({
-                            ...settings,
-                            employerPF: {
-                              ...settings.employerPF,
-                              fields: updated
+                      <div className="flex gap-2 ml-2">
+                        <Button
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to remove "${field.label}"?`)) {
+                              const updated = (settings.employerPF.fields || []).filter(f => f.id !== field.id);
+                              setSettings({
+                                ...settings,
+                                employerPF: {
+                                  ...settings.employerPF,
+                                  fields: updated
+                                }
+                              });
                             }
-                          });
-                        }
-                      }}
-                      className="bg-red-600 hover:bg-red-700 mt-6"
-                      size="sm"
-                      title="Remove field"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+                          }}
+                          className="bg-red-600 hover:bg-red-700"
+                          size="sm"
+                          title="Remove field"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {(settings.employerPF.fields || []).length === 0 && (
+                    <div className="text-center py-6 text-gray-400 text-sm">
+                      <div className="mb-2">No employer PF fields configured</div>
+                      <div className="text-xs">Add fields to configure employer PF contributions</div>
+                    </div>
+                  )}
                 </div>
-              ))}
+              </div>
 
-              {/* Add Field Button */}
-              <Button
-                onClick={() => {
-                  const newField = {
-                    id: `field_${Date.now()}`,
-                    label: 'New Field',
-                    value: 0,
-                    type: 'PERCENTAGE' as const,
-                  };
-                  setSettings({
-                    ...settings,
-                    employerPF: {
-                      ...settings.employerPF,
-                      fields: [
-                        ...(settings.employerPF.fields || []),
-                        newField
-                      ]
-                    }
-                  });
-                }}
-                className="bg-blue-600 hover:bg-blue-700 w-full"
-                size="sm"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Field
-              </Button>
-
-              <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              {/* Calculation Preview */}
+              <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
                 <h4 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">Calculation Preview</h4>
                 <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
                   <div>
@@ -1862,70 +1913,106 @@ export default function CompanySettingsPage() {
 
           {/* LOP Settings */}
           <Card>
-            <h2 className="text-xl font-semibold mb-4">LOP (Loss of Pay) Settings</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
-                <div className="text-sm text-gray-300">Calculation Method</div>
-                <Select
-                  value={settings.lop.calculationMethod}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    lop: { ...settings.lop, calculationMethod: e.target.value as any }
-                  })}
-                  options={[
-                    { value: 'NET_PAY_BY_DAYS', label: 'Net Pay ÷ Days in Month' },
-                    { value: 'BASIC_BY_DAYS', label: 'Basic Salary ÷ Days in Month' },
-                    { value: 'FIXED_AMOUNT', label: 'Fixed Amount per Day' },
-                  ]}
-                />
-              </div>
-              <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
-                <div className="text-sm text-gray-300">Default Days in Month</div>
-                <Input
-                  type="number"
-                  value={settings.lop.defaultDaysInMonth}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    lop: { ...settings.lop, defaultDaysInMonth: parseInt(e.target.value) || 30 }
-                  })}
-                  min="28"
-                  max="31"
-                />
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-xl font-semibold text-blue-600 dark:text-blue-400">LOP (Loss of Pay) Settings</h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  Configure how Loss of Pay (LOP) is calculated when employees take unpaid leave days.
+                </p>
               </div>
             </div>
-            <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <h3 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">LOP Calculation Preview</h3>
-              <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                <div>Method: {settings.lop.calculationMethod === 'NET_PAY_BY_DAYS' ? 'Net Pay ÷ Days' : 
-                              settings.lop.calculationMethod === 'BASIC_BY_DAYS' ? 'Basic ÷ Days' : 'Fixed Amount'}</div>
-                <div>Days in Month: {settings.lop.defaultDaysInMonth}</div>
-                <div className="text-xs text-gray-400 mt-2">
-                  {(() => {
-                    // Use breakdown values for dynamic calculation
-                    const exampleNetPay = breakdown.totals.netPay || 50000;
-                    const exampleBasic = breakdown.earnings.basic || 25000;
-                    let lopAmount = 0;
-                    let calculationText = '';
-                    
-                    switch (settings.lop.calculationMethod) {
-                      case 'NET_PAY_BY_DAYS':
-                        lopAmount = calculateLOPAmount(1, exampleNetPay, exampleBasic, settings);
-                        calculationText = `For 1 LOP day with ₹${exampleNetPay.toLocaleString('en-IN')} net pay: ₹${lopAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-                        break;
-                      case 'BASIC_BY_DAYS':
-                        lopAmount = calculateLOPAmount(1, exampleNetPay, exampleBasic, settings);
-                        calculationText = `For 1 LOP day with ₹${exampleBasic.toLocaleString('en-IN')} basic salary: ₹${lopAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-                        break;
-                      case 'FIXED_AMOUNT':
-                        // Fixed amount is 1000 per day (from calculateLOPAmount function)
-                        lopAmount = calculateLOPAmount(1, exampleNetPay, exampleBasic, settings);
-                        calculationText = `For 1 LOP day (fixed amount): ₹${lopAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-                        break;
-                      default:
-                        calculationText = `For 1 LOP day: Calculate based on selected method`;
-                    }
-                    return `Example: ${calculationText}`;
-                  })()}
+            
+            <div className="space-y-4">
+              {/* LOP Configuration */}
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-medium text-blue-600 dark:text-blue-400">LOP Configuration</h4>
+                </div>
+                
+                {/* LOP Settings List */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium text-blue-600 dark:text-blue-400 text-sm">Calculation Method</span>
+                      </div>
+                      <div className="w-full">
+                        <Select
+                          value={settings.lop.calculationMethod}
+                          onChange={(e) => setSettings({
+                            ...settings,
+                            lop: { ...settings.lop, calculationMethod: e.target.value as any }
+                          })}
+                          options={[
+                            { value: 'NET_PAY_BY_DAYS', label: 'Net Pay ÷ Days in Month' },
+                            { value: 'BASIC_BY_DAYS', label: 'Basic Salary ÷ Days in Month' },
+                            { value: 'FIXED_AMOUNT', label: 'Fixed Amount per Day' },
+                          ]}
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium text-blue-600 dark:text-blue-400 text-sm">Default Days in Month</span>
+                      </div>
+                      <div className="w-full">
+                        <Input
+                          type="number"
+                          value={settings.lop.defaultDaysInMonth}
+                          onChange={(e) => setSettings({
+                            ...settings,
+                            lop: { ...settings.lop, defaultDaysInMonth: parseInt(e.target.value) || 30 }
+                          })}
+                          min="28"
+                          max="31"
+                          className="text-xs"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Default working days per month for LOP calculation</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Calculation Preview */}
+              <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <h4 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">LOP Calculation Preview</h4>
+                <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                  <div>Method: {settings.lop.calculationMethod === 'NET_PAY_BY_DAYS' ? 'Net Pay ÷ Days' : 
+                                settings.lop.calculationMethod === 'BASIC_BY_DAYS' ? 'Basic ÷ Days' : 'Fixed Amount'}</div>
+                  <div>Days in Month: {settings.lop.defaultDaysInMonth}</div>
+                  <div className="text-xs text-gray-400 mt-2">
+                    {(() => {
+                      // Use breakdown values for dynamic calculation
+                      const exampleNetPay = breakdown.totals.netPay || 50000;
+                      const exampleBasic = breakdown.earnings.basic || 25000;
+                      let lopAmount = 0;
+                      let calculationText = '';
+                      
+                      switch (settings.lop.calculationMethod) {
+                        case 'NET_PAY_BY_DAYS':
+                          lopAmount = calculateLOPAmount(1, exampleNetPay, exampleBasic, settings);
+                          calculationText = `For 1 LOP day with ₹${exampleNetPay.toLocaleString('en-IN')} net pay: ₹${lopAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                          break;
+                        case 'BASIC_BY_DAYS':
+                          lopAmount = calculateLOPAmount(1, exampleNetPay, exampleBasic, settings);
+                          calculationText = `For 1 LOP day with ₹${exampleBasic.toLocaleString('en-IN')} basic salary: ₹${lopAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                          break;
+                        case 'FIXED_AMOUNT':
+                          // Fixed amount is 1000 per day (from calculateLOPAmount function)
+                          lopAmount = calculateLOPAmount(1, exampleNetPay, exampleBasic, settings);
+                          calculationText = `For 1 LOP day (fixed amount): ₹${lopAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                          break;
+                        default:
+                          calculationText = `For 1 LOP day: Calculate based on selected method`;
+                      }
+                      return `Example: ${calculationText}`;
+                    })()}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1933,122 +2020,161 @@ export default function CompanySettingsPage() {
 
           {/* Overtime Settings */}
           <Card>
-            <h2 className="text-xl font-semibold mb-4">Overtime Hours Pay Settings</h2>
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
-                <div className="text-sm text-gray-300">Calculation Method</div>
-                <Select
-                  value={settings.overtime?.calculationMethod || 'HOURLY_RATE_BY_BASIC'}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    overtime: { 
-                      ...settings.overtime || { hoursPerDay: 8, multiplier: 1.5 },
-                      calculationMethod: e.target.value as any 
-                    }
-                  })}
-                  options={[
-                    { value: 'HOURLY_RATE_BY_BASIC', label: 'Hourly Rate (Basic ÷ Hours)' },
-                    { value: 'HOURLY_RATE_BY_NET_PAY', label: 'Hourly Rate (Net Pay ÷ Hours)' },
-                    { value: 'FIXED_RATE_PER_HOUR', label: 'Fixed Rate per Hour' },
-                    { value: 'DOUBLE_RATE', label: 'Double Rate (2x)' },
-                  ]}
-                />
-              </div>
-              <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
-                <div className="text-sm text-gray-300">Hours Per Day</div>
-                <Input
-                  type="number"
-                  value={settings.overtime?.hoursPerDay || 8}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    overtime: { 
-                      ...settings.overtime || { calculationMethod: 'HOURLY_RATE_BY_BASIC', multiplier: 1.5 },
-                      hoursPerDay: parseInt(e.target.value) || 8 
-                    }
-                  })}
-                  min="1"
-                  max="24"
-                />
-                <p className="text-xs text-gray-400">Default working hours per day</p>
-              </div>
-              <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-2">
-                <div className="text-sm text-gray-300">Multiplier</div>
-                <Input
-                  type="number"
-                  value={settings.overtime?.multiplier || 1.5}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    overtime: { 
-                      ...settings.overtime || { calculationMethod: 'HOURLY_RATE_BY_BASIC', hoursPerDay: 8 },
-                      multiplier: parseFloat(e.target.value) || 1.5 
-                    }
-                  })}
-                  min="0.1"
-                  max="10"
-                  step="0.1"
-                />
-                <p className="text-xs text-gray-400">
-                  {settings.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR' 
-                    ? 'Fixed rate per hour (₹)' 
-                    : 'Overtime rate multiplier (e.g., 1.5 for 1.5x)'}
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-xl font-semibold text-blue-600 dark:text-blue-400">Overtime Hours Pay Settings</h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  Configure how overtime pay is calculated for employees who work beyond their regular hours.
                 </p>
               </div>
             </div>
-            <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <h3 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">Overtime Calculation Preview</h3>
-              <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                <div>Method: {
-                  settings.overtime?.calculationMethod === 'HOURLY_RATE_BY_BASIC' ? 'Basic ÷ Hours × Multiplier' :
-                  settings.overtime?.calculationMethod === 'HOURLY_RATE_BY_NET_PAY' ? 'Net Pay ÷ Hours × Multiplier' :
-                  settings.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR' ? 'Fixed Rate per Hour' :
-                  settings.overtime?.calculationMethod === 'DOUBLE_RATE' ? 'Double Rate (2x)' :
-                  'Hourly Rate (Basic ÷ Hours) × Multiplier'
-                }</div>
-                <div>Hours Per Day: {settings.overtime?.hoursPerDay || 8}</div>
-                <div>Multiplier: {
-                  settings.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR' 
-                    ? `₹${(settings.overtime?.multiplier || 1.5).toLocaleString('en-IN')} per hour`
-                    : `${settings.overtime?.multiplier || 1.5}x`
-                }</div>
-                <div className="text-xs text-gray-400 mt-2">
-                  {(() => {
-                    const exampleBasic = breakdown.earnings.basic || 25000;
-                    const exampleNetPay = breakdown.totals.netPay || 50000;
-                    const exampleHours = 1;
-                    let overtimeAmount = 0;
-                    let calculationText = '';
-                    
-                    switch (settings.overtime?.calculationMethod) {
-                      case 'HOURLY_RATE_BY_BASIC':
-                        overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
-                        calculationText = `For ${exampleHours} hour(s): (₹${exampleBasic.toLocaleString('en-IN')} ÷ ${settings.lop.defaultDaysInMonth || 30} days) ÷ ${settings.overtime?.hoursPerDay || 8} hours × ${settings.overtime?.multiplier || 1.5} = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-                        break;
-                      case 'HOURLY_RATE_BY_NET_PAY':
-                        overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
-                        calculationText = `For ${exampleHours} hour(s): (₹${exampleNetPay.toLocaleString('en-IN')} ÷ ${settings.lop.defaultDaysInMonth || 30} days) ÷ ${settings.overtime?.hoursPerDay || 8} hours × ${settings.overtime?.multiplier || 1.5} = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-                        break;
-                      case 'FIXED_RATE_PER_HOUR':
-                        overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
-                        calculationText = `For ${exampleHours} hour(s): ₹${(settings.overtime?.multiplier || 100).toLocaleString('en-IN')} × ${exampleHours} = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-                        break;
-                      case 'DOUBLE_RATE':
-                        overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
-                        calculationText = `For ${exampleHours} hour(s): (₹${exampleBasic.toLocaleString('en-IN')} ÷ ${settings.lop.defaultDaysInMonth || 30} days) ÷ ${settings.overtime?.hoursPerDay || 8} hours × 2 = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-                        break;
-                      default:
-                        calculationText = `For ${exampleHours} hour(s): Calculate based on selected method`;
-                    }
-                    return `Example: ${calculationText}`;
-                  })()}
+            
+            <div className="space-y-4">
+              {/* Overtime Configuration */}
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-medium text-blue-600 dark:text-blue-400">Overtime Configuration</h4>
+                </div>
+                
+                {/* Overtime Settings List */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium text-blue-600 dark:text-blue-400 text-sm">Calculation Method</span>
+                      </div>
+                      <div className="w-full">
+                        <Select
+                          value={settings.overtime?.calculationMethod || 'HOURLY_RATE_BY_BASIC'}
+                          onChange={(e) => setSettings({
+                            ...settings,
+                            overtime: { 
+                              ...settings.overtime || { hoursPerDay: 8, multiplier: 1.5 },
+                              calculationMethod: e.target.value as any 
+                            }
+                          })}
+                          options={[
+                            { value: 'HOURLY_RATE_BY_BASIC', label: 'Hourly Rate (Basic ÷ Hours)' },
+                            { value: 'HOURLY_RATE_BY_NET_PAY', label: 'Hourly Rate (Net Pay ÷ Hours)' },
+                            { value: 'FIXED_RATE_PER_HOUR', label: 'Fixed Rate per Hour' },
+                            { value: 'DOUBLE_RATE', label: 'Double Rate (2x)' },
+                          ]}
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium text-blue-600 dark:text-blue-400 text-sm">Hours Per Day</span>
+                      </div>
+                      <div className="w-full">
+                        <Input
+                          type="number"
+                          value={settings.overtime?.hoursPerDay || 8}
+                          onChange={(e) => setSettings({
+                            ...settings,
+                            overtime: { 
+                              ...settings.overtime || { calculationMethod: 'HOURLY_RATE_BY_BASIC', multiplier: 1.5 },
+                              hoursPerDay: parseInt(e.target.value) || 8 
+                            }
+                          })}
+                          min="1"
+                          max="24"
+                          className="text-xs"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Default working hours per day</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium text-blue-600 dark:text-blue-400 text-sm">Multiplier</span>
+                      </div>
+                      <div className="w-full">
+                        <Input
+                          type="number"
+                          value={settings.overtime?.multiplier || 1.5}
+                          onChange={(e) => setSettings({
+                            ...settings,
+                            overtime: { 
+                              ...settings.overtime || { calculationMethod: 'HOURLY_RATE_BY_BASIC', hoursPerDay: 8 },
+                              multiplier: parseFloat(e.target.value) || 1.5 
+                            }
+                          })}
+                          min="0.1"
+                          max="10"
+                          step="0.1"
+                          className="text-xs"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          {settings.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR' 
+                            ? 'Fixed rate per hour (₹)' 
+                            : 'Overtime rate multiplier (e.g., 1.5 for 1.5x)'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Calculation Preview */}
+              <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <h4 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">Overtime Calculation Preview</h4>
+                <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                  <div>Method: {
+                    settings.overtime?.calculationMethod === 'HOURLY_RATE_BY_BASIC' ? 'Basic ÷ Hours × Multiplier' :
+                    settings.overtime?.calculationMethod === 'HOURLY_RATE_BY_NET_PAY' ? 'Net Pay ÷ Hours × Multiplier' :
+                    settings.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR' ? 'Fixed Rate per Hour' :
+                    settings.overtime?.calculationMethod === 'DOUBLE_RATE' ? 'Double Rate (2x)' :
+                    'Hourly Rate (Basic ÷ Hours) × Multiplier'
+                  }</div>
+                  <div>Hours Per Day: {settings.overtime?.hoursPerDay || 8}</div>
+                  <div>Multiplier: {
+                    settings.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR' 
+                      ? `₹${(settings.overtime?.multiplier || 1.5).toLocaleString('en-IN')} per hour`
+                      : `${settings.overtime?.multiplier || 1.5}x`
+                  }</div>
+                  <div className="text-xs text-gray-400 mt-2">
+                    {(() => {
+                      const exampleBasic = breakdown.earnings.basic || 25000;
+                      const exampleNetPay = breakdown.totals.netPay || 50000;
+                      const exampleHours = 1;
+                      let overtimeAmount = 0;
+                      let calculationText = '';
+                      
+                      switch (settings.overtime?.calculationMethod) {
+                        case 'HOURLY_RATE_BY_BASIC':
+                          overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
+                          calculationText = `For ${exampleHours} hour(s): (₹${exampleBasic.toLocaleString('en-IN')} ÷ ${settings.lop.defaultDaysInMonth || 30} days) ÷ ${settings.overtime?.hoursPerDay || 8} hours × ${settings.overtime?.multiplier || 1.5} = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                          break;
+                        case 'HOURLY_RATE_BY_NET_PAY':
+                          overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
+                          calculationText = `For ${exampleHours} hour(s): (₹${exampleNetPay.toLocaleString('en-IN')} ÷ ${settings.lop.defaultDaysInMonth || 30} days) ÷ ${settings.overtime?.hoursPerDay || 8} hours × ${settings.overtime?.multiplier || 1.5} = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                          break;
+                        case 'FIXED_RATE_PER_HOUR':
+                          overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
+                          calculationText = `For ${exampleHours} hour(s): ₹${(settings.overtime?.multiplier || 100).toLocaleString('en-IN')} × ${exampleHours} = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                          break;
+                        case 'DOUBLE_RATE':
+                          overtimeAmount = calculateOvertimePay(exampleHours, exampleNetPay, exampleBasic, settings);
+                          calculationText = `For ${exampleHours} hour(s): (₹${exampleBasic.toLocaleString('en-IN')} ÷ ${settings.lop.defaultDaysInMonth || 30} days) ÷ ${settings.overtime?.hoursPerDay || 8} hours × 2 = ₹${overtimeAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+                          break;
+                        default:
+                          calculationText = `For ${exampleHours} hour(s): Calculate based on selected method`;
+                      }
+                      return `Example: ${calculationText}`;
+                    })()}
+                  </div>
                 </div>
               </div>
             </div>
           </Card>
 
-          <div className="flex gap-3">
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>Save Settings</Button>
-            <Button variant="outline" onClick={restoreDefaults}>Restore Defaults</Button>
-          </div>
 
           <Card>
             <h2 className="text-xl font-semibold mb-4">Live Preview</h2>
@@ -2078,6 +2204,12 @@ export default function CompanySettingsPage() {
                   <div className="flex justify-between text-sm"><span>Employee PF</span><span>₹{breakdown.deductions.empPF.toLocaleString('en-IN')}</span></div>
                   <div className="flex justify-between text-sm"><span>Professional Tax</span><span>₹{breakdown.deductions.professionalTax.toLocaleString('en-IN')}</span></div>
                   <div className="flex justify-between text-sm"><span>ESI</span><span>₹{breakdown.deductions.esi.toLocaleString('en-IN')}</span></div>
+                  {breakdown.deductions.tds > 0 && (
+                    <div className="flex justify-between text-sm"><span>TDS</span><span>₹{breakdown.deductions.tds.toLocaleString('en-IN')}</span></div>
+                  )}
+                  {breakdown.deductions.lop && breakdown.deductions.lop > 0 && (
+                    <div className="flex justify-between text-sm"><span>LOP</span><span>₹{breakdown.deductions.lop.toLocaleString('en-IN')}</span></div>
+                  )}
                   <div className="flex justify-between text-sm border-t border-white/10 pt-2"><span>Total</span><span>₹{breakdown.totals.totalDeductions.toLocaleString('en-IN')}</span></div>
                 </div>
                 <div>

@@ -30,9 +30,13 @@ export interface User {
   department?: string;
   manager_id?: number;
   manager?: User;
+  employee_id?: string;
   ctc?: string;
   joining_date?: string;
   birthday?: string;
+  hike_cycle_months?: number;
+  last_hike_date?: string;
+  next_hike_date?: string;
   organization_id?: number;
   organization?: Organization;
   created_at: string;
@@ -150,6 +154,17 @@ export interface DashboardStats {
   leave_balances: LeaveBalance[];
   recent_off_sites: OffSite[];
   user_birthdays: UserBirthday[];
+  hike_reminders?: HikeReminder[];
+}
+
+export interface HikeReminder {
+  user_id: string;
+  user_name: string;
+  employee_id: string;
+  next_hike_date: string;
+  hike_cycle_months: number;
+  manager_id?: number;
+  manager_name?: string;
 }
 
 export interface UserBirthday {
@@ -401,6 +416,7 @@ export const getUsers = (params?: Record<string, string>) =>
       role: toCanonicalRole(u.role) as Role,
       department: u.department,
       manager_id: u.manager_id !== undefined && u.manager_id !== null ? Number(u.manager_id) : undefined,
+      employee_id: u.employee_id,
       created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updated_at: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     }));
@@ -419,8 +435,12 @@ export const getUser = (id: string) =>
       designation: u.designation,
       ctc: u.ctc ? String(u.ctc) : undefined,
       manager_id: u.manager_id,
+      employee_id: u.employee_id,
       joining_date: u.joining_date ?? u.joiningDate ?? undefined,
       birthday: u.birthday ?? undefined,
+      hike_cycle_months: u.hike_cycle_months,
+      last_hike_date: u.last_hike_date,
+      next_hike_date: u.next_hike_date,
       created_at: u.created_at ?? u.createdAt ?? new Date().toISOString(),
       updated_at: u.updated_at ?? u.updatedAt ?? new Date().toISOString(),
     };
@@ -428,7 +448,7 @@ export const getUser = (id: string) =>
   }).catch(() => ({ data: [][0] } as ApiResponse<User>));
 
 export const createUser = (body: Partial<User> & any) => {
-  // Support backend schema: { username, password, name, email, role, department, manager_id, joining_date, birthday }
+  // Support backend schema: { username, password, name, email, role, department, manager_id, employee_id, joining_date, birthday }
   const hasRaw = body?.username || body?.password || typeof body?.manager_id !== 'undefined';
   const payload = hasRaw
     ? {
@@ -440,9 +460,12 @@ export const createUser = (body: Partial<User> & any) => {
         department: body.department,
         manager_id: body.manager_id,
         designation: body.designation,
+        employee_id: body.employee_id,
         ctc: body.ctc,
         joining_date: body.joining_date || undefined,
         birthday: body.birthday || undefined,
+        hike_cycle_months: body.hike_cycle_months,
+        last_hike_date: body.last_hike_date || undefined,
       }
     : {
         name: body.name,
@@ -450,8 +473,11 @@ export const createUser = (body: Partial<User> & any) => {
         role: body.role,
         department: body.department,
         managerId: body.managerId,
+        employee_id: body.employee_id,
         joining_date: body.joining_date || undefined,
         birthday: body.birthday || undefined,
+        hike_cycle_months: body.hike_cycle_months,
+        last_hike_date: body.last_hike_date || undefined,
       };
   return fetcher<ApiResponse<User>>("/users", {
     method: "POST",
@@ -1061,6 +1087,7 @@ export const getDashboardStats = () =>
       leave_balances: d.leave_balances ?? [],
       recent_off_sites: d.recent_off_sites ?? [],
       user_birthdays: d.user_birthdays ?? [],
+      hike_reminders: d.hike_reminders ?? [],
     };
     return { data: mapped } as ApiResponse<DashboardStats>;
   }).catch(() => ({
@@ -1076,7 +1103,8 @@ export const getDashboardStats = () =>
       recent_salary_slips: [],
       leave_balances: [],
       recent_off_sites: [],
-      user_birthdays: []
+      user_birthdays: [],
+      hike_reminders: []
     }
   } as ApiResponse<DashboardStats>));
 
@@ -1417,18 +1445,32 @@ export const uploadOrganizationLogo = async (organizationId: string, file: File)
   formData.append('logo', file);
 
   const token = localStorage.getItem("token");
+  const orgId = localStorage.getItem("organizationId") || organizationId;
+  const user = getCurrentUser();
+  const isGodUser = isGod();
 
-  const response = await fetch(`${API_URL}/api/god/organizations/${organizationId}/logo`, {
+  // Use God endpoint for God users, company endpoint for HR/Admin
+  const endpoint = isGodUser 
+    ? `/api/god/organizations/${organizationId}/logo`
+    : `/api/company/logo`;
+
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${token}`,
+  };
+
+  if (!isGodUser) {
+    headers['X-Organization-ID'] = orgId;
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers,
     body: formData,
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || 'Failed to upload logo');
+    throw new Error(error.error || 'Failed to update logo');
   }
 
   return response.json();

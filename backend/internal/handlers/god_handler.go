@@ -514,7 +514,7 @@ func (h *GodHandler) UploadOrganizationLogo(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "Logo uploaded successfully",
+		"message":  "Logo updated successfully",
 		"logo_url": logoURL,
 	})
 }

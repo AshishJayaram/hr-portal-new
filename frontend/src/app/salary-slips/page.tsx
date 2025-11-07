@@ -422,9 +422,9 @@ export default function SalarySlipsPage() {
                       type="button"
                       key={u.id}
                       className={`w-full text-left px-3 py-2 hover:bg-white/10 ${uploadData.userId === String(u.id) ? 'bg-white/5' : ''}`}
-                      onClick={() => { setUploadData({ ...uploadData, userId: String(u.id) }); setUserQuery(`${u.name} (ID: ${u.id})`); setSelectedUserName(u.name); }}
+                      onClick={() => { setUploadData({ ...uploadData, userId: String(u.id) }); setUserQuery(`${u.name} (Employee ID: ${u.employee_id})`); setSelectedUserName(u.name); }}
                     >
-                      {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
+                      {u.name} <span className="text-xs text-gray-400">(Employee ID: {u.employee_id})</span>
                     </button>
                   ))}
                   {allUsers.length === 0 && (
@@ -432,7 +432,7 @@ export default function SalarySlipsPage() {
                   )}
                 </div>
                 {uploadData.userId && (
-                  <p className="text-xs text-gray-400 mt-1">Selected: {selectedUserName || 'User'} (ID: {uploadData.userId})</p>
+                  <p className="text-xs text-gray-400 mt-1">Selected: {selectedUserName || 'User'} (Employee ID: {uploadData.userId})</p>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -561,11 +561,11 @@ export default function SalarySlipsPage() {
                       className={`w-full text-left px-3 py-2 hover:bg-white/10 ${generateData.userId === String(u.id) ? 'bg-white/5' : ''}`}
                       onClick={() => {
                         setGenerateData({ ...generateData, userId: String(u.id) });
-                        setGenerateUserQuery(`${u.name} (ID: ${u.id})`);
+                        setGenerateUserQuery(`${u.name} (Employee ID: ${u.employee_id})`);
                         setSelectedGenerateUserName(u.name);
                       }}
                     >
-                      {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
+                      {u.name} <span className="text-xs text-gray-400">(Employee ID: {u.employee_id})</span>
                     </button>
                   ))}
                   {getFilteredUsers(generateUserQuery).length === 0 && (
@@ -573,7 +573,7 @@ export default function SalarySlipsPage() {
                   )}
                 </div>
                 {generateData.userId && (
-                  <p className="text-xs text-gray-400 mt-1">Selected: {selectedGenerateUserName || 'User'} (ID: {generateData.userId})</p>
+                  <p className="text-xs text-gray-400 mt-1">Selected: {selectedGenerateUserName || 'User'} (Employee ID: {generateData.userId})</p>
                 )}
               </div>
 
@@ -662,11 +662,11 @@ export default function SalarySlipsPage() {
                       className={`w-full text-left px-3 py-2 hover:bg-white/10 ${privateDocData.userId === String(u.id) ? 'bg-white/5' : ''}`}
                       onClick={() => { 
                         setPrivateDocData({ ...privateDocData, userId: String(u.id) }); 
-                        setPrivateDocUserQuery(`${u.name} (ID: ${u.id})`); 
+                        setPrivateDocUserQuery(`${u.name} (Employee ID: ${u.employee_id})`); 
                         setSelectedPrivateUserName(u.name); 
                       }}
                     >
-                      {u.name} <span className="text-xs text-gray-400">(ID: {u.id})</span>
+                      {u.name} <span className="text-xs text-gray-400">(Employee ID: {u.employee_id})</span>
                     </button>
                   ))}
                   {getFilteredUsers(privateDocUserQuery).length === 0 && (
@@ -674,7 +674,7 @@ export default function SalarySlipsPage() {
                   )}
                 </div>
                 {privateDocData.userId && (
-                  <p className="text-xs text-gray-400 mt-1">Selected: {selectedPrivateUserName || 'User'} (ID: {privateDocData.userId})</p>
+                  <p className="text-xs text-gray-400 mt-1">Selected: {selectedPrivateUserName || 'User'} (Employee ID: {privateDocData.userId})</p>
                 )}
               </div>
               <div>
@@ -753,7 +753,7 @@ export default function SalarySlipsPage() {
                   className="list-none p-4 cursor-pointer flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="font-semibold">{allUsers.find((u: any) => String(u.id) === String(uid))?.name || `Employee`} (ID: {uid})</span>
+                    <span className="font-semibold">{allUsers.find((u: any) => String(u.id) === String(uid))?.name || `Employee`} (Employee ID: {allUsers.find((u: any) => String(u.id) === String(uid))?.employee_id})</span>
                     <PrivateDocumentsIndicator userId={String(uid)} />
                   </div>
                   <span className="text-xs text-gray-400">
@@ -1216,6 +1216,18 @@ function EmployeeSalaryBreakdown({ userId, companySettings, isCurrentUser = fals
             <span>ESI</span>
             <span>₹{payslip.deductions.esi.toLocaleString('en-IN')}</span>
           </div>
+          {payslip.deductions.tds > 0 && (
+            <div className="flex justify-between text-sm mb-1">
+              <span>TDS</span>
+              <span>₹{payslip.deductions.tds.toLocaleString('en-IN')}</span>
+            </div>
+          )}
+          {payslip.deductions.lop && payslip.deductions.lop > 0 && (
+            <div className="flex justify-between text-sm mb-1">
+              <span>LOP</span>
+              <span>₹{payslip.deductions.lop.toLocaleString('en-IN')}</span>
+            </div>
+          )}
         </div>
         <div>
           <div className="font-semibold mb-2">Employer PF</div>

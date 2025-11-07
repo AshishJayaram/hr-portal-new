@@ -286,6 +286,7 @@ func setupRouter(cfg *config.Config, handlers *handlers.Handlers) *gin.Engine {
 				settings.GET("/kra", handlers.Company.GetKRASettings)
 				settings.PATCH("/kra", handlers.Company.UpdateKRASettings)
 			}
+			company.POST("/logo", handlers.Company.UpdateOrganizationLogo)
 		}
 
 		// Leave category routes

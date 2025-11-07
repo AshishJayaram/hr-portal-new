@@ -23,8 +23,9 @@ import Select from "@/components/ui/Select";
 import Loader from "@/components/ui/Loader";
 import SearchFilter from "@/components/ui/SearchFilter";
 import { toast } from "sonner";
-import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit, ChevronDown, ChevronUp } from "lucide-react";
-import { formatDate, formatDateShort, capitalize } from "@/lib/utils";
+import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit, ChevronDown, ChevronUp, Download } from "lucide-react";
+import { formatDate, capitalize } from "@/lib/utils";
+import { downloadCSV, generateLeavesReport, filterByMonth } from "@/lib/reports";
 import ApplyLeaveForm from "@/components/ApplyLeaveForm";
 import EditLeaveForm from "@/components/EditLeaveForm";
 import LeaveBalanceCard from "@/components/LeaveBalanceCard";
@@ -343,6 +344,24 @@ export default function LeavesPage() {
               <p className="text-secondary mt-1">
                 {canApprove ? "Review and manage leave requests" : "Apply for and track your leaves"}
               </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const now = new Date();
+                  const month = String(now.getMonth() + 1).padStart(2, '0');
+                  const year = now.getFullYear();
+                  const filteredLeaves = filterByMonth(leaves, month, year);
+                  const csv = generateLeavesReport(filteredLeaves, month, year);
+                  downloadCSV(csv, `leaves-report-${year}-${month}.csv`);
+                  toast.success("Report downloaded successfully");
+                }}
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download Monthly Report
+              </Button>
             </div>
           </div>
 

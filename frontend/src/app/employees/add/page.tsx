@@ -30,8 +30,11 @@ export default function AddEmployeePage() {
     department: "HR",
     role: "Employee",
     manager_id: "",
+    employee_id: "",
     joining_date: "",
     birthday: "",
+    hike_cycle_months: "",
+    last_hike_date: "",
   });
   const [managerQuery, setManagerQuery] = useState("");
   const [selectedManagerName, setSelectedManagerName] = useState("");
@@ -79,10 +82,13 @@ export default function AddEmployeePage() {
         designation: body.designation,
         department: body.department,
         role: toCanonicalRole(body.role),
-        manager_id: body.manager_id ? String(body.manager_id) : undefined, // Convert to string
-        ctc: Number(ctcData.annualCTC) || 0, // Include CTC in initial user creation
+        manager_id: body.manager_id ? String(body.manager_id) : undefined,
+        employee_id: body.employee_id || undefined,
+        ctc: Number(ctcData.annualCTC) || 0,
         joining_date: body.joining_date || undefined,
         birthday: body.birthday || undefined,
+        hike_cycle_months: body.hike_cycle_months ? Number(body.hike_cycle_months) : undefined,
+        last_hike_date: body.last_hike_date || undefined,
       });
       
       // Create leave allocations for the new user
@@ -215,6 +221,7 @@ export default function AddEmployeePage() {
               <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
               <Input label="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required />
               <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+              <Input label="Employee ID" value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })} placeholder="e.g., EMP001" />
               <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} placeholder="e.g., Software Engineer, Manager" />
               <Input label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
               <Select 
@@ -225,7 +232,6 @@ export default function AddEmployeePage() {
                   { value: "Employee", label: "Employee" },
                   { value: "HR", label: "HR" },
                   ...(isAdmin ? [{ value: "Admin", label: "Admin" }] : []),
-                  { value: "Manager", label: "Manager" }
                 ]} 
               />
               <Input 
@@ -240,11 +246,25 @@ export default function AddEmployeePage() {
                 value={form.birthday} 
                 onChange={(e) => setForm({ ...form, birthday: e.target.value })} 
               />
+              <Input 
+                label="Hike Cycle (months)" 
+                type="number"
+                min="1"
+                value={form.hike_cycle_months} 
+                onChange={(e) => setForm({ ...form, hike_cycle_months: e.target.value })} 
+                placeholder="e.g., 12 for annual hike"
+              />
+              <Input 
+                label="Last Hike Date" 
+                type="date"
+                value={form.last_hike_date} 
+                onChange={(e) => setForm({ ...form, last_hike_date: e.target.value })} 
+              />
             </div>
             <div>
               <label className="block text-sm mb-2">Manager (search and select)</label>
               <Input value={managerQuery} onChange={(e) => setManagerQuery(e.target.value)} placeholder="Search by name or ID..." />
-              <ManagerSearch query={managerQuery} onSelect={(id, name) => { setForm({ ...form, manager_id: String(id) }); setSelectedManagerName(name); setManagerQuery(`${name} (ID: ${id})`); }} selectedId={form.manager_id} />
+              <ManagerSearch query={managerQuery} onSelect={(id, name) => { setForm({ ...form, manager_id: String(id) }); setSelectedManagerName(name); setManagerQuery(`${name} (Employee ID: ${id})`); }} selectedId={form.manager_id} />
             </div>
             <div className="flex gap-3 justify-between">
               <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
@@ -296,7 +316,7 @@ function ManagerSearch({ query, onSelect, selectedId }: { query: string; onSelec
           className={`w-full text-left px-3 py-2 hover:bg-white/10 dark:hover:bg-white/20 text-primary dark:text-white transition-colors ${selectedId === String(u.id) ? 'bg-indigo-500/20 dark:bg-indigo-500/30 border-l-4 border-indigo-500' : ''}`}
           onClick={() => onSelect(String(u.id), u.name)}
         >
-          {u.name} <span className="text-xs text-secondary dark:text-gray-400">(ID: {u.id})</span>
+          {u.name} <span className="text-xs text-secondary dark:text-gray-400">(Employee ID: {u.employee_id})</span>
         </button>
       ))}
       {users.length === 0 && (
@@ -569,6 +589,18 @@ function CTCAddManager({
                     <span>ESI</span>
                     <span>{formatCurrency(breakdown.deductions.esi, getDefaultCurrency())}</span>
                   </div>
+                  {breakdown.deductions.tds > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span>TDS</span>
+                      <span>{formatCurrency(breakdown.deductions.tds, getDefaultCurrency())}</span>
+                    </div>
+                  )}
+                  {breakdown.deductions.lop && breakdown.deductions.lop > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span>LOP</span>
+                      <span>{formatCurrency(breakdown.deductions.lop, getDefaultCurrency())}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm border-t border-white/10 pt-2">
                     <span>Total</span>
                     <span>{formatCurrency(breakdown.totals.totalDeductions, getDefaultCurrency())}</span>

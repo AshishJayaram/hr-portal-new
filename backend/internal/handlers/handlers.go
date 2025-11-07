@@ -45,7 +45,7 @@ func New(services *services.Services, repos *repositories.Repositories, cfg *con
 		Document:               NewDocumentHandler(services.Document),
 		SalarySlip:             NewSalarySlipHandler(services.SalarySlip),
 		Holiday:                NewHolidayHandler(services.Holiday),
-		Company:                NewCompanyHandler(services.CompanySettings),
+		Company:                NewCompanyHandler(services.CompanySettings, services.Audit, repos.Organization),
 		Dashboard:              NewDashboardHandler(services.Dashboard),
 		God:                    NewGodHandler(services, repos),
 		Audit:                  NewAuditHandler(services.Audit),

@@ -86,6 +86,7 @@ type UserRepository interface {
 	GetByID(id string) (*models.User, error)
 	GetByEmail(email, organizationID string) (*models.User, error)
 	GetByUsername(username, organizationID string) (*models.User, error)
+	GetByEmployeeID(employeeID, organizationID string) (*models.User, error)
 	GetByUsernameAcrossOrgs(username string) (*models.User, error)
 	GetByEmailAcrossOrgs(email string) (*models.User, error)
 	List(organizationID string, filters map[string]interface{}) ([]models.User, error)

@@ -110,6 +110,8 @@ func createIndexes(db *gorm.DB) error {
 		"CREATE INDEX IF NOT EXISTS idx_users_organization_role ON users(organization_id, role)",
 		"CREATE INDEX IF NOT EXISTS idx_users_manager ON users(manager_id)",
 		"CREATE INDEX IF NOT EXISTS idx_users_department ON users(organization_id, department)",
+		// Unique constraint for employee_id per organization
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_id_org ON users(organization_id, employee_id)",
 
 		// Leave indexes
 		"CREATE INDEX IF NOT EXISTS idx_leaves_user_status ON leaves(user_id, status)",

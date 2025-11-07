@@ -129,10 +129,26 @@ export default function GodDashboard() {
 
   // Upload logo mutation
   const uploadLogoMutation = useMutation({
-    mutationFn: ({ orgId, file }: { orgId: string; file: File }) => uploadOrganizationLogo(orgId, file),
-    onSuccess: () => {
+    mutationFn: async ({ orgId, file }: { orgId: string; file: File }) => {
+      return await uploadOrganizationLogo(orgId, file);
+    },
+    onSuccess: async (data, variables) => {
+      // Invalidate organizations query to refresh the list
       queryClient.invalidateQueries({ queryKey: ["god-organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["god-stats"] });
+      // Invalidate current-user query so logo appears immediately in sidebar/topbar
+      queryClient.invalidateQueries({ queryKey: ["current-user"] });
       setLogoFile(null);
+      
+      // If modal is open, refresh the selected organization data
+      if (selectedOrg) {
+        try {
+          const updatedOrgDetails = await getOrganizationDetails(selectedOrg.organization.id);
+          setSelectedOrg(updatedOrgDetails);
+        } catch (error) {
+          console.error('Failed to refresh organization details:', error);
+        }
+      }
     },
   });
 
@@ -545,11 +561,12 @@ export default function GodDashboard() {
                 >
                   Edit
                 </Button>
-                <label className="cursor-pointer">
+                <div>
                   <input
                     type="file"
                     accept="image/*"
                     className="hidden"
+                    id={`logo-upload-${org.id}`}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
@@ -561,10 +578,14 @@ export default function GodDashboard() {
                     size="sm"
                     variant="outline"
                     disabled={uploadLogoMutation.isPending}
+                    onClick={() => {
+                      const input = document.getElementById(`logo-upload-${org.id}`) as HTMLInputElement;
+                      input?.click();
+                    }}
                   >
-                    {uploadLogoMutation.isPending ? "Uploading..." : "Upload Logo"}
+                    {uploadLogoMutation.isPending ? "Updating..." : "Update Logo"}
                   </Button>
-                </label>
+                </div>
               </div>
             </Card>
           </div>

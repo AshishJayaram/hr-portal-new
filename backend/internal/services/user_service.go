@@ -33,6 +33,31 @@ func NewUserService(userRepo repositories.UserRepository, organizationRepo repos
 	}
 }
 
+// generateEmployeeID generates a unique Employee ID based on the user's database ID
+// Format: EMP{padded_id} where id is padded to 6 digits (e.g., EMP000001, EMP000123)
+// If the generated ID already exists, it will try alternative formats
+func (s *userService) generateEmployeeID(userID uint, organizationID string) string {
+	baseID := fmt.Sprintf("EMP%06d", userID)
+
+	// Check if this ID already exists in the organization
+	existingUser, _ := s.userRepo.GetByEmployeeID(baseID, organizationID)
+	if existingUser == nil {
+		return baseID
+	}
+
+	// If ID exists, try alternative formats
+	for i := 1; i < 1000; i++ {
+		altID := fmt.Sprintf("EMP%06d-%d", userID, i)
+		existingUser, _ := s.userRepo.GetByEmployeeID(altID, organizationID)
+		if existingUser == nil {
+			return altID
+		}
+	}
+
+	// Fallback: use timestamp-based ID if all alternatives fail
+	return fmt.Sprintf("EMP%06d-%d", userID, time.Now().Unix()%10000)
+}
+
 func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (*models.User, error) {
 	// Validate organization exists and get organization details
 	org, err := s.organizationRepo.GetByID(req.OrganizationID)
@@ -50,6 +75,14 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 	existingUser, _ = s.userRepo.GetByEmail(req.Email, req.OrganizationID)
 	if existingUser != nil {
 		return nil, fmt.Errorf("email already exists")
+	}
+
+	// Check if employee_id already exists in organization (if provided)
+	if req.EmployeeID != "" {
+		existingUser, _ = s.userRepo.GetByEmployeeID(req.EmployeeID, req.OrganizationID)
+		if existingUser != nil {
+			return nil, fmt.Errorf("employee ID already exists in this organization")
+		}
 	}
 
 	// Hash password
@@ -86,6 +119,7 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 		Department:     req.Department,
 		Role:           req.Role,
 		ManagerID:      managerID,
+		EmployeeID:     req.EmployeeID,
 		CTC:            "", // Will be set after encryption
 		IsActive:       true,
 	}
@@ -117,8 +151,41 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 		user.Birthday = &birthday
 	}
 
+	// Set hike cycle and calculate next hike date
+	hikeCycleMonths := 12 // Default to 12 months
+	if req.HikeCycleMonths != nil && *req.HikeCycleMonths > 0 {
+		hikeCycleMonths = *req.HikeCycleMonths
+	}
+	user.HikeCycleMonths = hikeCycleMonths
+
+	// Set last hike date if provided
+	if req.LastHikeDate != nil && *req.LastHikeDate != "" {
+		lastHikeDate, err := time.Parse("2006-01-02", *req.LastHikeDate)
+		if err != nil {
+			return nil, fmt.Errorf("invalid last hike date format: %w", err)
+		}
+		user.LastHikeDate = &lastHikeDate
+		// Calculate next hike date from last hike date
+		nextHikeDate := lastHikeDate.AddDate(0, hikeCycleMonths, 0)
+		user.NextHikeDate = &nextHikeDate
+	} else if user.JoiningDate != nil {
+		// If no last hike date but joining date exists, calculate from joining date
+		nextHikeDate := user.JoiningDate.AddDate(0, hikeCycleMonths, 0)
+		user.NextHikeDate = &nextHikeDate
+	}
+
 	if err := s.userRepo.Create(user); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// Generate Employee ID if not provided
+	if user.EmployeeID == "" {
+		orgIDStr := strconv.FormatUint(uint64(user.OrganizationID), 10)
+		user.EmployeeID = s.generateEmployeeID(user.ID, orgIDStr)
+		// Update the user with the generated Employee ID
+		if err := s.userRepo.Update(user); err != nil {
+			// Non-critical error, log but don't fail
+		}
 	}
 
 	// Note: Leave allocations are created by the frontend after user creation
@@ -152,7 +219,7 @@ func (s *userService) CreateUser(req CreateUserRequest, httpReq *http.Request) (
 			senderName = org.Name
 		}
 
-		if err := s.notificationService.SendWelcomeEmail(user, senderName); err != nil {
+		if err := s.notificationService.SendWelcomeEmail(user, senderName, req.Password); err != nil {
 		}
 	}()
 
@@ -163,6 +230,17 @@ func (s *userService) GetUser(id string) (*models.User, error) {
 	user, err := s.userRepo.GetByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Generate Employee ID if missing
+	hadEmployeeID := user.EmployeeID != ""
+	if !hadEmployeeID {
+		orgIDStr := strconv.FormatUint(uint64(user.OrganizationID), 10)
+		user.EmployeeID = s.generateEmployeeID(user.ID, orgIDStr)
+		// Update the user with the generated Employee ID if it was missing
+		if err := s.userRepo.Update(user); err != nil {
+			// Non-critical error, log but don't fail
+		}
 	}
 
 	// Decrypt CTC for display
@@ -185,16 +263,33 @@ func (s *userService) ListUsers(organizationID string, filters map[string]interf
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
 
-	// Decrypt CTC for all users
-	for i := range users {
-		if users[i].CTC != "" {
-			decryptedCTC, err := utils.DecryptFloat64(users[i].CTC)
-			if err != nil {
-				// If decryption fails, set CTC to 0 (might be old unencrypted data)
-				users[i].CTC = "0"
-			} else {
-				users[i].CTC = fmt.Sprintf("%.2f", decryptedCTC)
+	// Generate Employee IDs for users that don't have one
+	usersToUpdate := make([]*models.User, 0)
+	if len(users) > 0 {
+		orgIDStr := organizationID // Use the organizationID parameter directly
+		for i := range users {
+			if users[i].EmployeeID == "" {
+				users[i].EmployeeID = s.generateEmployeeID(users[i].ID, orgIDStr)
+				usersToUpdate = append(usersToUpdate, &users[i])
 			}
+
+			// Decrypt CTC for all users
+			if users[i].CTC != "" {
+				decryptedCTC, err := utils.DecryptFloat64(users[i].CTC)
+				if err != nil {
+					// If decryption fails, set CTC to 0 (might be old unencrypted data)
+					users[i].CTC = "0"
+				} else {
+					users[i].CTC = fmt.Sprintf("%.2f", decryptedCTC)
+				}
+			}
+		}
+	}
+
+	// Update users in batch if any Employee IDs were generated
+	for _, userToUpdate := range usersToUpdate {
+		if err := s.userRepo.Update(userToUpdate); err != nil {
+			// Non-critical error, continue
 		}
 	}
 
@@ -246,6 +341,17 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 
 	if req.Role != nil {
 		user.Role = *req.Role
+	}
+
+	if req.EmployeeID != nil {
+		// Check if the new employee_id already exists in the organization (excluding current user)
+		if *req.EmployeeID != "" {
+			existingUser, _ := s.userRepo.GetByEmployeeID(*req.EmployeeID, strconv.FormatUint(uint64(user.OrganizationID), 10))
+			if existingUser != nil && existingUser.ID != user.ID {
+				return nil, fmt.Errorf("employee ID already exists in this organization")
+			}
+		}
+		user.EmployeeID = *req.EmployeeID
 	}
 
 	// Track manager reassignment; perform atomically later
@@ -316,6 +422,41 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 		}
 	}
 
+	// Update hike cycle and recalculate next hike date
+	if req.HikeCycleMonths != nil {
+		user.HikeCycleMonths = *req.HikeCycleMonths
+		// Recalculate next hike date if hike cycle changed
+		if user.LastHikeDate != nil {
+			nextHikeDate := user.LastHikeDate.AddDate(0, user.HikeCycleMonths, 0)
+			user.NextHikeDate = &nextHikeDate
+		} else if user.JoiningDate != nil {
+			nextHikeDate := user.JoiningDate.AddDate(0, user.HikeCycleMonths, 0)
+			user.NextHikeDate = &nextHikeDate
+		}
+	}
+
+	if req.LastHikeDate != nil {
+		if *req.LastHikeDate == "" {
+			user.LastHikeDate = nil
+			// Recalculate next hike date from joining date if last hike date is cleared
+			if user.JoiningDate != nil {
+				nextHikeDate := user.JoiningDate.AddDate(0, user.HikeCycleMonths, 0)
+				user.NextHikeDate = &nextHikeDate
+			} else {
+				user.NextHikeDate = nil
+			}
+		} else {
+			lastHikeDate, err := time.Parse("2006-01-02", *req.LastHikeDate)
+			if err != nil {
+				return nil, fmt.Errorf("invalid last hike date format: %w", err)
+			}
+			user.LastHikeDate = &lastHikeDate
+			// Recalculate next hike date from last hike date
+			nextHikeDate := lastHikeDate.AddDate(0, user.HikeCycleMonths, 0)
+			user.NextHikeDate = &nextHikeDate
+		}
+	}
+
 	// Update non-manager fields first
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
@@ -340,6 +481,16 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 		return nil, fmt.Errorf("failed to refetch updated user: %w", err)
 	}
 	user = updatedUser
+
+	// Generate Employee ID if missing
+	hadEmployeeID := user.EmployeeID != ""
+	if !hadEmployeeID {
+		orgIDStr := strconv.FormatUint(uint64(user.OrganizationID), 10)
+		user.EmployeeID = s.generateEmployeeID(user.ID, orgIDStr)
+		if err := s.userRepo.Update(user); err != nil {
+			// Non-critical error, log but don't fail
+		}
+	}
 
 	// Log audit entry for user update
 	if req.CTC != nil || req.Name != nil || req.Role != nil || req.Department != nil || req.Designation != nil || req.ManagerID != nil {

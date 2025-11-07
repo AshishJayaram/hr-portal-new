@@ -20,8 +20,9 @@ import Loader from "@/components/ui/Loader";
 import SearchFilter from "@/components/ui/SearchFilter";
 import Tabs from "@/components/ui/Tabs";
 import { toast } from "sonner";
-import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit, Trash2, MapPin, Briefcase } from "lucide-react";
-import { formatDate, formatDateShort, capitalize } from "@/lib/utils";
+import { Search, Plus, Calendar, CheckCircle, XCircle, Clock, User, Edit, Trash2, MapPin, Briefcase, Download } from "lucide-react";
+import { formatDate, capitalize } from "@/lib/utils";
+import { downloadCSV, generateOffSitesReport, filterByMonth } from "@/lib/reports";
 import { motion } from "framer-motion";
 
 export default function OffSitePage() {
@@ -205,13 +206,31 @@ export default function OffSitePage() {
           <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Off-site Tracker</h1>
           <p className="text-gray-400">Track and manage off-site work activities</p>
         </div>
-        <Button
-          onClick={() => setEditingOffSite({})}
-          className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Off-site
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const now = new Date();
+              const month = String(now.getMonth() + 1).padStart(2, '0');
+              const year = now.getFullYear();
+              const filteredOffSites = filterByMonth(offSites, month, year);
+              const csv = generateOffSitesReport(filteredOffSites, month, year);
+              downloadCSV(csv, `offsites-report-${year}-${month}.csv`);
+              toast.success("Report downloaded successfully");
+            }}
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download Monthly Report
+          </Button>
+          <Button
+            onClick={() => setEditingOffSite({})}
+            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Off-site
+          </Button>
+        </div>
       </div>
 
       {/* Tab Navigation for Managers */}

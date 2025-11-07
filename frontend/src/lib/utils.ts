@@ -13,14 +13,6 @@ export function formatDate(date: string | Date) {
   });
 }
 
-export function formatDateShort(date: string | Date) {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
-}
-
 export function formatDateTime(date: string | Date) {
   return new Date(date).toLocaleString('en-US', {
     year: 'numeric',

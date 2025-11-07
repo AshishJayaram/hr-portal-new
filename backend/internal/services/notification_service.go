@@ -23,7 +23,7 @@ type NotificationService interface {
 	SendReimbursementNotification(reimbursement *models.Reimbursement, recipient *models.User, notificationType string) error
 	SendHolidayNotification(holiday *models.Holiday, recipient *models.User) error
 	SendBirthdayNotification(user *models.User, recipient *models.User, notificationType string) error
-	SendWelcomeEmail(user *models.User, senderName string) error
+	SendWelcomeEmail(user *models.User, senderName string, password string) error
 }
 
 // notificationService implements NotificationService interface
@@ -486,7 +486,7 @@ func (s *notificationService) SendBirthdayNotification(user *models.User, recipi
 }
 
 // SendWelcomeEmail sends a welcome email to newly created users
-func (s *notificationService) SendWelcomeEmail(user *models.User, senderName string) error {
+func (s *notificationService) SendWelcomeEmail(user *models.User, senderName string, password string) error {
 	subject := fmt.Sprintf("Welcome to HR Portal - %s", senderName)
 
 	// Build welcome message
@@ -495,11 +495,13 @@ func (s *notificationService) SendWelcomeEmail(user *models.User, senderName str
 			"Welcome to the HR Portal! We're excited to have you on board.\n\n"+
 			"Your account has been successfully created with the following details:\n\n"+
 			"Username: %s\n"+
+			"Password: %s\n"+
 			"Email: %s\n"+
 			"Role: %s\n"+
 			"Department: %s\n",
 		user.Name,
 		user.Username,
+		password,
 		user.Email,
 		user.Role,
 		user.Department,
@@ -515,7 +517,10 @@ func (s *notificationService) SendWelcomeEmail(user *models.User, senderName str
 		message += fmt.Sprintf("Joining Date: %s\n", user.JoiningDate.Format("January 2, 2006"))
 	}
 
-	message += "\nYou can now log in to the HR Portal using your username and password.\n\n"
+	message += "\n" +
+		"Please use the above credentials to log in to the HR Portal.\n\n" +
+		"⚠️ IMPORTANT: For security reasons, please change your password after your first login.\n" +
+		"You can change your password in the Profile page once you log in.\n\n"
 
 	// Add role-specific information
 	if user.Role == "Admin" || user.Role == "HR" {

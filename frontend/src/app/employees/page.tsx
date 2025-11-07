@@ -10,6 +10,9 @@ import Select from "@/components/ui/Select";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import GrowthTracker from "@/components/GrowthTracker";
+import { Download } from "lucide-react";
+import { downloadCSV, generateNewEmployeesReport, filterByMonth } from "@/lib/reports";
+import { toast } from "sonner";
 
 export default function EmployeesPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -91,9 +94,27 @@ export default function EmployeesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-extrabold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Employees</h1>
-        <Link href="/employees/add">
-          <Button>New Employee</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const now = new Date();
+              const month = String(now.getMonth() + 1).padStart(2, '0');
+              const year = now.getFullYear();
+              const filteredEmployees = filterByMonth(filteredUsers, month, year);
+              const csv = generateNewEmployeesReport(filteredEmployees, month, year);
+              downloadCSV(csv, `new-employees-report-${year}-${month}.csv`);
+              toast.success("Report downloaded successfully");
+            }}
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download Monthly Report
+          </Button>
+          <Link href="/employees/add">
+            <Button>New Employee</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Search and Filters */}
