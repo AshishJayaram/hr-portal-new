@@ -58,43 +58,25 @@ func main() {
 
 	fmt.Println("Starting to update employer PF defaults for all organizations...")
 
-	// Default employer PF fields
+	// Default employer PF fields (matching Calculation Preview)
 	defaultEmployerPFFields := []EmployerPFField{
 		{
-			ID:    "total_pf",
-			Label: "Total PF",
+			ID:    "employer_pf_total",
+			Label: "Employer PF Total",
 			Value: 12,
-			Type:  "PERCENTAGE",
+			Type:  "PERCENT_OF_BASIC",
 		},
 		{
 			ID:    "eps",
 			Label: "EPS",
 			Value: 8.33,
-			Type:  "PERCENTAGE",
+			Type:  "PERCENT_OF_BASIC",
 		},
 		{
 			ID:    "epf",
 			Label: "EPF",
 			Value: 3.67,
-			Type:  "PERCENTAGE",
-		},
-		{
-			ID:    "admin_charges",
-			Label: "Administration Charges",
-			Value: 0.5,
-			Type:  "PERCENTAGE",
-		},
-		{
-			ID:    "edli",
-			Label: "EDLI",
-			Value: 0.5,
-			Type:  "PERCENTAGE",
-		},
-		{
-			ID:    "inspection_charges",
-			Label: "Inspection Charges",
-			Value: 5,
-			Type:  "FIXED_AMOUNT",
+			Type:  "PERCENT_OF_BASIC",
 		},
 	}
 

@@ -31,7 +31,7 @@ export interface EmployerPFField {
   id: string;
   label: string;
   value: number;
-  type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT' | 'PERCENT_OF_CTC' | 'PERCENT_OF_BASIC' | 'FIXED_MONTHLY' | 'FIXED_YEARLY';
   unit?: string; // Optional unit label
 }
 
@@ -148,40 +148,22 @@ export const defaultPayrollSettings: PayrollSettings = {
     enabled: true,
     fields: [
       {
-        id: 'total_pf',
-        label: 'Total PF',
+        id: 'employer_pf_total',
+        label: 'Employer PF Total',
         value: 12,
-        type: 'PERCENTAGE' as const,
+        type: 'PERCENT_OF_BASIC' as const,
       },
       {
         id: 'eps',
         label: 'EPS',
         value: 8.33,
-        type: 'PERCENTAGE' as const,
+        type: 'PERCENT_OF_BASIC' as const,
       },
       {
         id: 'epf',
         label: 'EPF',
         value: 3.67,
-        type: 'PERCENTAGE' as const,
-      },
-      {
-        id: 'admin_charges',
-        label: 'Administration Charges',
-        value: 0.5,
-        type: 'PERCENTAGE' as const,
-      },
-      {
-        id: 'edli',
-        label: 'EDLI',
-        value: 0.5,
-        type: 'PERCENTAGE' as const,
-      },
-      {
-        id: 'inspection_charges',
-        label: 'Inspection Charges',
-        value: 5,
-        type: 'FIXED_AMOUNT' as const,
+        type: 'PERCENT_OF_BASIC' as const,
       },
     ],
     conditionalEarnings: [],
@@ -367,12 +349,92 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
 
   // Employer PF (part of CTC):
   const employerPFSettings = settings.employerPF || defaultPayrollSettings.employerPF;
-  const employerPFTotal = round2(effBasic * ((employerPFSettings.employerPFPercentOfBasic || 0) / 100));
-  const eps = round2(Math.min(
-    round2(effBasic * ((employerPFSettings.epsPercentOfBasic || 0) / 100)),
-    employerPFSettings.epsCap || 0
-  ));
-  const epf = round2(Math.max(employerPFTotal - eps, 0));
+  
+  // Helper function to calculate field value based on type
+  const calculateFieldValue = (field: EmployerPFField): number => {
+    if (!field || !field.value) return 0;
+    
+    switch (field.type) {
+      case 'PERCENT_OF_BASIC':
+        return round2(effBasic * (field.value / 100));
+      case 'PERCENT_OF_CTC':
+        return round2(monthlyCTC * (field.value / 100));
+      case 'FIXED_MONTHLY':
+      case 'FIXED_AMOUNT':
+        return round2(field.value);
+      case 'FIXED_YEARLY':
+        return round2(field.value / 12);
+      case 'PERCENTAGE':
+        // Legacy: treat as PERCENT_OF_BASIC for backward compatibility
+        return round2(effBasic * (field.value / 100));
+      default:
+        return 0;
+    }
+  };
+  
+  // Calculate employer PF components from fields if available
+  let employerPFTotal = 0;
+  let eps = 0;
+  let epf = 0;
+  
+  if (employerPFSettings.fields && employerPFSettings.fields.length > 0) {
+    // Find specific fields by ID or label (case-insensitive, flexible matching)
+    const totalPFField = employerPFSettings.fields.find(f => {
+      const labelLower = f.label.toLowerCase();
+      return f.id === 'employer_pf_total' || 
+             labelLower.includes('total pf') || 
+             labelLower.includes('employer pf total') ||
+             labelLower === 'employer pf' ||
+             (labelLower.includes('pf') && !labelLower.includes('eps') && !labelLower.includes('epf'));
+    });
+    const epsField = employerPFSettings.fields.find(f => {
+      const labelLower = f.label.toLowerCase();
+      return f.id === 'eps' || labelLower === 'eps';
+    });
+    const epfField = employerPFSettings.fields.find(f => {
+      const labelLower = f.label.toLowerCase();
+      return f.id === 'epf' || labelLower === 'epf';
+    });
+    
+    // Calculate Total PF
+    if (totalPFField) {
+      employerPFTotal = calculateFieldValue(totalPFField);
+    } else {
+      // Fallback: sum all fields if no specific total PF field
+      employerPFTotal = round2(employerPFSettings.fields.reduce((sum, f) => sum + calculateFieldValue(f), 0));
+    }
+    
+    // Calculate EPS
+    if (epsField) {
+      eps = calculateFieldValue(epsField);
+      // Apply EPS cap if it exists (for backward compatibility)
+      if (employerPFSettings.epsCap && epsField.type === 'PERCENT_OF_BASIC') {
+        eps = round2(Math.min(eps, employerPFSettings.epsCap));
+      }
+    } else {
+      // Fallback to old calculation
+      eps = round2(Math.min(
+        round2(effBasic * ((employerPFSettings.epsPercentOfBasic || 0) / 100)),
+        employerPFSettings.epsCap || 0
+      ));
+    }
+    
+    // Calculate EPF
+    if (epfField) {
+      epf = calculateFieldValue(epfField);
+    } else {
+      // EPF = Total PF - EPS
+      epf = round2(Math.max(employerPFTotal - eps, 0));
+    }
+  } else {
+    // Fallback to old calculation method if no fields configured
+    employerPFTotal = round2(effBasic * ((employerPFSettings.employerPFPercentOfBasic || 0) / 100));
+    eps = round2(Math.min(
+      round2(effBasic * ((employerPFSettings.epsPercentOfBasic || 0) / 100)),
+      employerPFSettings.epsCap || 0
+    ));
+    epf = round2(Math.max(employerPFTotal - eps, 0));
+  }
 
   // Special as remainder so that Earnings + Employer PF = Monthly CTC
   // Note: When there's LOP, we still use full monthlyCTC for special calculation

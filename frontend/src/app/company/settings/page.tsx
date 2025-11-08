@@ -741,11 +741,11 @@ export default function CompanySettingsPage() {
                             }
                           }}
                           options={[
-                            { value: 'FIXED_MONTHLY', label: 'Fixed Amount (Monthly)' },
-                            { value: 'FIXED_YEARLY', label: 'Fixed Amount (Yearly)' },
-                            { value: 'PERCENT_OF_BASIC', label: 'Percentage of Basic Salary' },
-                            { value: 'PERCENT_OF_CTC', label: 'Percentage of CTC' },
-                            { value: 'REMAINDER', label: 'Remainder (Leftover amount)' },
+                            { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
+                            { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
+                            { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                            { value: 'PERCENT_OF_CTC', label: '% of CTC' },
+                            { value: 'REMAINDER', label: 'Remainder' },
                           ]}
                           className="text-sm"
                         />
@@ -900,8 +900,8 @@ export default function CompanySettingsPage() {
                               options={[
                                 { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
                                 { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
-                                { value: 'PERCENT_OF_BASIC', label: '% Basic' },
-                                { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                                { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                                { value: 'PERCENT_OF_CTC', label: '% of CTC' },
                                 { value: 'REMAINDER', label: 'Remainder' },
                               ]}
                               className="text-xs"
@@ -955,8 +955,8 @@ export default function CompanySettingsPage() {
                             options={[
                               { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
                               { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
-                              { value: 'PERCENT_OF_BASIC', label: '% Basic' },
-                              { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                              { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                              { value: 'PERCENT_OF_CTC', label: '% of CTC' },
                               { value: 'REMAINDER', label: 'Remainder' },
                             ]}
                             className="text-xs"
@@ -1306,11 +1306,11 @@ export default function CompanySettingsPage() {
                             }
                           }}
                           options={[
-                            { value: 'FIXED_MONTHLY', label: 'Fixed Amount (Monthly)' },
-                            { value: 'FIXED_YEARLY', label: 'Fixed Amount (Yearly)' },
-                            { value: 'PERCENT_OF_BASIC', label: 'Percentage of Basic Salary' },
-                            { value: 'PERCENT_OF_CTC', label: 'Percentage of CTC' },
-                            { value: 'REMAINDER', label: 'Remainder (Leftover amount)' },
+                            { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
+                            { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
+                            { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                            { value: 'PERCENT_OF_CTC', label: '% of CTC' },
+                            { value: 'REMAINDER', label: 'Remainder' },
                           ]}
                           className="text-sm"
                         />
@@ -1474,8 +1474,8 @@ export default function CompanySettingsPage() {
                               options={[
                                 { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
                                 { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
-                                { value: 'PERCENT_OF_BASIC', label: '% Basic' },
-                                { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                                { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                                { value: 'PERCENT_OF_CTC', label: '% of CTC' },
                                 { value: 'REMAINDER', label: 'Remainder' },
                               ]}
                               className="text-xs"
@@ -1543,8 +1543,8 @@ export default function CompanySettingsPage() {
                             options={[
                               { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
                               { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
-                              { value: 'PERCENT_OF_BASIC', label: '% Basic' },
-                              { value: 'PERCENT_OF_CTC', label: '% CTC' },
+                              { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                              { value: 'PERCENT_OF_CTC', label: '% of CTC' },
                               { value: 'REMAINDER', label: 'Remainder' },
                             ]}
                             className="text-xs"
@@ -1771,7 +1771,7 @@ export default function CompanySettingsPage() {
                             value={field.type}
                             onChange={(e) => {
                               const updated = (settings.employerPF.fields || []).map(f =>
-                                f.id === field.id ? { ...f, type: e.target.value as 'PERCENTAGE' | 'FIXED_AMOUNT' } : f
+                                f.id === field.id ? { ...f, type: e.target.value as 'FIXED_AMOUNT' | 'PERCENT_OF_CTC' | 'PERCENT_OF_BASIC' | 'FIXED_MONTHLY' | 'FIXED_YEARLY' } : f
                               );
                               setSettings({
                                 ...settings,
@@ -1782,8 +1782,11 @@ export default function CompanySettingsPage() {
                               });
                             }}
                             options={[
-                              { value: 'PERCENTAGE', label: 'Percentage' },
-                              { value: 'FIXED_AMOUNT', label: 'Fixed Amount' },
+                              { value: 'PERCENT_OF_BASIC', label: '% of Basic' },
+                              { value: 'PERCENT_OF_CTC', label: '% of CTC' },
+                              { value: 'FIXED_MONTHLY', label: 'Fixed (Monthly)' },
+                              { value: 'FIXED_YEARLY', label: 'Fixed (Yearly)' },
+                              { value: 'FIXED_AMOUNT', label: 'Fixed Amount' }, // Keep for backward compatibility
                             ]}
                             className="text-xs"
                           />
@@ -1805,12 +1808,30 @@ export default function CompanySettingsPage() {
                                 });
                               }}
                               min="0"
-                              step={field.type === 'PERCENTAGE' ? '0.01' : '1'}
-                              max={field.type === 'PERCENTAGE' ? '100' : undefined}
+                              step={
+                                field.type === 'PERCENTAGE' ||
+                                field.type === 'PERCENT_OF_BASIC' ||
+                                field.type === 'PERCENT_OF_CTC' ? '0.01' : '1'
+                              }
+                              max={
+                                field.type === 'PERCENTAGE' ||
+                                field.type === 'PERCENT_OF_BASIC' ||
+                                field.type === 'PERCENT_OF_CTC' ? '100' : undefined
+                              }
                               className="text-xs flex-1"
+                              placeholder={
+                                field.type === 'PERCENTAGE' ||
+                                field.type === 'PERCENT_OF_BASIC' ||
+                                field.type === 'PERCENT_OF_CTC' ? 'e.g., 10 (for 10%)' :
+                                field.type === 'FIXED_MONTHLY' ||
+                                field.type === 'FIXED_AMOUNT' ? 'e.g., 5000' :
+                                field.type === 'FIXED_YEARLY' ? 'e.g., 60000' : 'Enter value'
+                              }
                             />
                             <span className="text-xs text-gray-400">
-                              {field.type === 'PERCENTAGE' ? '%' : '₹'}
+                              {field.type === 'PERCENTAGE' ||
+                               field.type === 'PERCENT_OF_BASIC' ||
+                               field.type === 'PERCENT_OF_CTC' ? '%' : '₹'}
                             </span>
                           </div>
                         </div>
@@ -1851,24 +1872,86 @@ export default function CompanySettingsPage() {
               <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
                 <h4 className="text-sm font-medium text-blue-600 dark:text-blue-300 mb-2">Calculation Preview</h4>
                 <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                  <div>
-                    Employer PF Total: ₹{breakdown.employer.totalPF.toLocaleString('en-IN', { maximumFractionDigits: 2 })} 
-                    <span className="text-xs text-gray-400 ml-2">
-                      ({settings.employerPF.employerPFPercentOfBasic}% of Basic: ₹{breakdown.earnings.basic.toLocaleString('en-IN')})
-                    </span>
-                  </div>
-                  <div>
-                    EPS: ₹{breakdown.employer.eps.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    <span className="text-xs text-gray-400 ml-2">
-                      (min of {settings.employerPF.epsPercentOfBasic}% of Basic or ₹{settings.employerPF.epsCap.toLocaleString('en-IN')})
-                    </span>
-                  </div>
-                  <div>
-                    EPF: ₹{breakdown.employer.epf.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                    <span className="text-xs text-gray-400 ml-2">
-                      (Total PF - EPS)
-                    </span>
-                  </div>
+                  {(() => {
+                    const fields = settings.employerPF.fields || [];
+                    const totalPFField = fields.find(f => {
+                      const labelLower = f.label.toLowerCase();
+                      return f.id === 'employer_pf_total' || 
+                             labelLower.includes('total pf') || 
+                             labelLower.includes('employer pf total') ||
+                             labelLower === 'employer pf' ||
+                             (labelLower.includes('pf') && !labelLower.includes('eps') && !labelLower.includes('epf'));
+                    });
+                    const epsField = fields.find(f => {
+                      const labelLower = f.label.toLowerCase();
+                      return f.id === 'eps' || labelLower === 'eps';
+                    });
+                    const epfField = fields.find(f => {
+                      const labelLower = f.label.toLowerCase();
+                      return f.id === 'epf' || labelLower === 'epf';
+                    });
+                    
+                    const formatFieldDescription = (field: any) => {
+                      if (!field) return '';
+                      switch (field.type) {
+                        case 'PERCENT_OF_BASIC':
+                          return `${field.value}% of Basic: ₹${breakdown.earnings.basic.toLocaleString('en-IN')}`;
+                        case 'PERCENT_OF_CTC':
+                          return `${field.value}% of CTC: ₹${breakdown.monthlyCTC.toLocaleString('en-IN')}`;
+                        case 'FIXED_MONTHLY':
+                        case 'FIXED_AMOUNT':
+                          return `Fixed: ₹${field.value.toLocaleString('en-IN')}`;
+                        case 'FIXED_YEARLY':
+                          return `Fixed Yearly: ₹${field.value.toLocaleString('en-IN')} (₹${(field.value / 12).toLocaleString('en-IN')}/month)`;
+                        case 'PERCENTAGE':
+                          return `${field.value}% of Basic: ₹${breakdown.earnings.basic.toLocaleString('en-IN')}`;
+                        default:
+                          return '';
+                      }
+                    };
+                    
+                    return (
+                      <>
+                        <div>
+                          Employer PF Total: ₹{breakdown.employer.totalPF.toLocaleString('en-IN', { maximumFractionDigits: 2 })} 
+                          {totalPFField ? (
+                            <span className="text-xs text-gray-400 ml-2">
+                              ({formatFieldDescription(totalPFField)})
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400 ml-2">
+                              ({settings.employerPF.employerPFPercentOfBasic}% of Basic: ₹{breakdown.earnings.basic.toLocaleString('en-IN')})
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          EPS: ₹{breakdown.employer.eps.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          {epsField ? (
+                            <span className="text-xs text-gray-400 ml-2">
+                              ({formatFieldDescription(epsField)}
+                              {settings.employerPF.epsCap && epsField.type === 'PERCENT_OF_BASIC' ? `, capped at ₹${settings.employerPF.epsCap.toLocaleString('en-IN')}` : ''})
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400 ml-2">
+                              (min of {settings.employerPF.epsPercentOfBasic}% of Basic or ₹{settings.employerPF.epsCap.toLocaleString('en-IN')})
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          EPF: ₹{breakdown.employer.epf.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          {epfField ? (
+                            <span className="text-xs text-gray-400 ml-2">
+                              ({formatFieldDescription(epfField)})
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400 ml-2">
+                              (Total PF - EPS)
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
                   {(settings.employerPF.conditionalEarnings || []).filter(cat => isConditionActive(cat, annualCTC)).length > 0 && (
                     <div className="mt-2 pt-2 border-t border-blue-500/20">
                       <div className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Active Conditional Earnings:</div>
@@ -2180,20 +2263,55 @@ export default function CompanySettingsPage() {
               </div>
               <div className="space-y-2">
                 <div className="font-semibold">Earnings</div>
-                {Object.entries(breakdown.earnings).map(([k, v]) => (
-                  <div key={k} className="flex justify-between text-sm"><span className="capitalize">{k}</span><span>₹{v.toLocaleString('en-IN')}</span></div>
-                ))}
+                {Object.entries(breakdown.earnings)
+                  .filter(([k, v]) => v > 0 || k === 'basic' || k === 'hra' || k === 'medical' || k === 'conveyance' || k === 'lta' || k === 'special')
+                  .map(([k, v]) => {
+                    // Map internal keys to display labels
+                    const labelMap: Record<string, string> = {
+                      basic: 'Basic',
+                      hra: 'HRA',
+                      medical: 'Medical',
+                      conveyance: 'Conveyance',
+                      lta: 'LTA',
+                      special: 'Special',
+                      overtime: 'Overtime',
+                    };
+                    // Check if it's a custom earning
+                    const customEarning = settings.customEarnings?.find(e => e.key === k);
+                    const label = customEarning?.label || labelMap[k] || k.split(/(?=[A-Z])/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    return (
+                      <div key={k} className="flex justify-between text-sm">
+                        <span>{label}</span>
+                        <span>₹{Number(v).toLocaleString('en-IN')}</span>
+                      </div>
+                    );
+                  })}
                 <div className="flex justify-between text-sm border-t border-white/10 pt-2"><span>Total</span><span>₹{breakdown.totals.totalEarnings.toLocaleString('en-IN')}</span></div>
               </div>
               <div className="space-y-4">
                 <div>
                   <div className="font-semibold mb-1">Deductions</div>
-                  <div className="flex justify-between text-sm"><span>Employee PF</span><span>₹{breakdown.deductions.empPF.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-sm"><span>Professional Tax</span><span>₹{breakdown.deductions.professionalTax.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-sm"><span>ESI</span><span>₹{breakdown.deductions.esi.toLocaleString('en-IN')}</span></div>
-                  {breakdown.deductions.tds > 0 && (
-                    <div className="flex justify-between text-sm"><span>TDS</span><span>₹{breakdown.deductions.tds.toLocaleString('en-IN')}</span></div>
-                  )}
+                  {/* Show all configured deductions dynamically */}
+                  {Object.entries(breakdown.deductions)
+                    .filter(([key, value]) => key !== 'lop' && (value > 0 || key === 'empPF' || key === 'professionalTax' || key === 'esi'))
+                    .map(([key, value]) => {
+                      // Map internal keys to display labels
+                      const labelMap: Record<string, string> = {
+                        empPF: 'Employee PF',
+                        professionalTax: 'Professional Tax',
+                        esi: 'ESI',
+                        tds: 'TDS',
+                      };
+                      // Check if it's a custom deduction
+                      const customDeduction = settings.customDeductions?.find(d => d.key === key);
+                      const label = customDeduction?.label || labelMap[key] || key.split(/(?=[A-Z])/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                      return (
+                        <div key={key} className="flex justify-between text-sm">
+                          <span>{label}</span>
+                          <span>₹{Number(value).toLocaleString('en-IN')}</span>
+                        </div>
+                      );
+                    })}
                   {(breakdown.deductions.lop ?? 0) > 0 && (
                     <div className="flex justify-between text-sm"><span>LOP</span><span>₹{(breakdown.deductions.lop ?? 0).toLocaleString('en-IN')}</span></div>
                   )}
