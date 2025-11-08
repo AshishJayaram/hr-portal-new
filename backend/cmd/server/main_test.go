@@ -31,6 +31,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			deleted_at DATETIME,
 			name TEXT NOT NULL,
 			domain TEXT UNIQUE,
+			logo TEXT DEFAULT '',
 			settings TEXT,
 			is_active BOOLEAN DEFAULT 1
 		)
@@ -52,7 +53,15 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			department TEXT NOT NULL,
 			role TEXT NOT NULL,
 			manager_id INTEGER,
-			ctc REAL DEFAULT 0,
+			employee_id TEXT,
+			ctc TEXT DEFAULT '',
+			phone TEXT,
+			joining_date DATETIME,
+			birthday DATETIME,
+			birthday_visible BOOLEAN DEFAULT 1,
+			hike_cycle_months INTEGER DEFAULT 12,
+			last_hike_date DATETIME,
+			next_hike_date DATETIME,
 			is_active BOOLEAN DEFAULT 1,
 			last_login_at DATETIME,
 			UNIQUE(username, organization_id),
@@ -104,10 +113,14 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			organization_id INTEGER NOT NULL,
 			name TEXT NOT NULL,
 			date DATETIME,
+			date_range TEXT,
 			type TEXT NOT NULL,
 			description TEXT,
 			is_calendar_event BOOLEAN DEFAULT 0,
-			color TEXT
+			color TEXT,
+			media_url TEXT,
+			media_type TEXT,
+			media_file_name TEXT
 		)
 	`).Error
 	require.NoError(t, err)

@@ -101,7 +101,7 @@ func (s *auditService) LogUserChange(organizationID, userID, changedBy string, a
 				changes = append(changes, fmt.Sprintf("Role: %s → %s", oldUser.Role, newUser.Role))
 			}
 			if oldUser.CTC != newUser.CTC {
-				changes = append(changes, fmt.Sprintf("CTC: ₹%.0f → ₹%.0f", oldUser.CTC, newUser.CTC))
+				changes = append(changes, "CTC: Changed")
 			}
 			if oldUser.Department != newUser.Department {
 				changes = append(changes, fmt.Sprintf("Department: %s → %s", oldUser.Department, newUser.Department))
@@ -126,7 +126,11 @@ func (s *auditService) LogUserChange(organizationID, userID, changedBy string, a
 		}
 	}
 
-	changeSummary += fmt.Sprintf(" - By %s", changedByUser.Name)
+	changedByName := "unknown"
+	if changedByUser != nil {
+		changedByName = changedByUser.Name
+	}
+	changeSummary += fmt.Sprintf(" - By %s", changedByName)
 
 	return s.LogAction(AuditActionRequest{
 		OrganizationID: organizationID,
@@ -149,7 +153,11 @@ func (s *auditService) LogDocumentChange(organizationID, documentID, changedBy s
 		}
 	}
 
-	changeSummary += fmt.Sprintf(" - By %s", changedByUser.Name)
+	changedByName := "unknown"
+	if changedByUser != nil {
+		changedByName = changedByUser.Name
+	}
+	changeSummary += fmt.Sprintf(" - By %s", changedByName)
 
 	return s.LogAction(AuditActionRequest{
 		OrganizationID: organizationID,
@@ -170,7 +178,11 @@ func (s *auditService) LogLeaveChange(organizationID, leaveID, changedBy string,
 		}
 	}
 
-	changeSummary += fmt.Sprintf(" - By %s", changedByUser.Name)
+	changedByName := "unknown"
+	if changedByUser != nil {
+		changedByName = changedByUser.Name
+	}
+	changeSummary += fmt.Sprintf(" - By %s", changedByName)
 
 	return s.LogAction(AuditActionRequest{
 		OrganizationID: organizationID,
@@ -191,7 +203,11 @@ func (s *auditService) LogOffSiteChange(organizationID, offSiteID, changedBy str
 		}
 	}
 
-	changeSummary += fmt.Sprintf(" - By %s", changedByUser.Name)
+	changedByName := "unknown"
+	if changedByUser != nil {
+		changedByName = changedByUser.Name
+	}
+	changeSummary += fmt.Sprintf(" - By %s", changedByName)
 
 	return s.LogAction(AuditActionRequest{
 		OrganizationID: organizationID,
@@ -212,7 +228,11 @@ func (s *auditService) LogSalarySlipChange(organizationID, salarySlipID, changed
 		}
 	}
 
-	changeSummary += fmt.Sprintf(" - By %s", changedByUser.Name)
+	changedByName := "unknown"
+	if changedByUser != nil {
+		changedByName = changedByUser.Name
+	}
+	changeSummary += fmt.Sprintf(" - By %s", changedByName)
 
 	return s.LogAction(AuditActionRequest{
 		OrganizationID: organizationID,
