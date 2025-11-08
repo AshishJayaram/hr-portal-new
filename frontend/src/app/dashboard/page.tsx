@@ -16,7 +16,7 @@ export default function DashboardPage() {
   const user = getCurrentUser();
   const userId = user?.id || "u1";
   const userRole = user?.role || "Employee";
-  const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
+  const companyId = typeof window !== 'undefined' ? (localStorage.getItem('organizationId') || localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
 
 
   // Single API call for all dashboard data

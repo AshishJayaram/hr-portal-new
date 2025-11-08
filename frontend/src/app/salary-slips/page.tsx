@@ -139,7 +139,7 @@ export default function SalarySlipsPage() {
     return Array.from(allRelevantUserIdsSet);
   }, [data?.data, allPrivateDocs?.data]);
 
-  const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
+  const companyId = typeof window !== 'undefined' ? (localStorage.getItem('organizationId') || localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
   const { data: companySettings } = useQuery({
     queryKey: ["company-settings", companyId],
     queryFn: () => getCompanySettings(companyId),

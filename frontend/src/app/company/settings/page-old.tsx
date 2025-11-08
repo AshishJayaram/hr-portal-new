@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 function getCompanyId(): string {
   if (typeof window === 'undefined') return 'demo-company';
-  return localStorage.getItem('companyId') || 'demo-company';
+  return localStorage.getItem('organizationId') || localStorage.getItem('companyId') || 'demo-company';
 }
 
 export default function CompanySettingsPage() {

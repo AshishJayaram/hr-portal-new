@@ -43,7 +43,7 @@ export default function AddEmployeePage() {
   const [ctcData, setCtcData] = useState({ annualCTC: 0, lopDays: 0, tdsOverride: 0 });
   const [leaveAllocations, setLeaveAllocations] = useState<Record<string, number>>({});
   const [leaveApplicable, setLeaveApplicable] = useState<Record<string, boolean>>({});
-  const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
+  const companyId = typeof window !== 'undefined' ? (localStorage.getItem('organizationId') || localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
   const { data: companySettings, isLoading: companySettingsLoading } = useQuery({
     queryKey: ["company-settings", companyId],
     queryFn: () => getCompanySettings(companyId),

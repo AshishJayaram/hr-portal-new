@@ -15,15 +15,83 @@ import { Plus, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
 function getCompanyId(): string {
   if (typeof window === 'undefined') return 'demo-company';
-  return localStorage.getItem('companyId') || 'demo-company';
+  // Use organizationId which is set during login, fallback to companyId for compatibility
+  return localStorage.getItem('organizationId') || localStorage.getItem('companyId') || 'demo-company';
 }
 
 export default function CompanySettingsPage() {
+  const [currentCompanyId, setCurrentCompanyId] = useState<string>(() => getCompanyId());
   const companyId = getCompanyId();
+  
+  // Autosave refs (declared early for use in companyId change detection)
+  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoad = useRef(true);
   const queryClient = useQueryClient();
+  
+  // Detect companyId changes and reset state
+  useEffect(() => {
+    const checkCompanyId = () => {
+      const latestCompanyId = getCompanyId();
+      if (latestCompanyId !== currentCompanyId) {
+        const oldCompanyId = currentCompanyId;
+        console.log('[Company Settings] Organization changed:', { from: oldCompanyId, to: latestCompanyId });
+        setCurrentCompanyId(latestCompanyId);
+        // Reset settings to default when switching organizations
+        setSettings(defaultPayrollSettings);
+        setCurrency('INR');
+        // Reset autosave state
+        isInitialLoad.current = true;
+        // Clear any pending autosave
+        if (autosaveTimeoutRef.current) {
+          clearTimeout(autosaveTimeoutRef.current);
+          autosaveTimeoutRef.current = null;
+        }
+        // Invalidate old company's settings cache
+        if (oldCompanyId && oldCompanyId !== latestCompanyId) {
+          queryClient.removeQueries({ queryKey: ["company-settings", oldCompanyId] });
+          console.log('[Company Settings] Cleared cache for old organization:', oldCompanyId);
+        }
+      }
+    };
+    
+    // Check immediately
+    checkCompanyId();
+    
+    // Listen for storage changes (when companyId is updated in another tab/window)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'companyId') {
+        checkCompanyId();
+      }
+    };
+    
+    // Listen for custom storage events (when companyId is updated in same window)
+    const handleCustomStorageChange = () => {
+      checkCompanyId();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('companyIdChanged', handleCustomStorageChange);
+    
+    // Check when window gains focus (user might have switched org in another tab)
+    const handleFocus = () => checkCompanyId();
+    window.addEventListener('focus', handleFocus);
+    
+    // Also check periodically (every 5 seconds) in case localStorage is changed directly
+    const interval = setInterval(checkCompanyId, 5000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('companyIdChanged', handleCustomStorageChange);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
+  }, [currentCompanyId, queryClient]);
+  
   const { data, isLoading } = useQuery({
-    queryKey: ["company-settings", companyId],
-    queryFn: () => getCompanySettings(companyId),
+    queryKey: ["company-settings", currentCompanyId],
+    queryFn: () => getCompanySettings(currentCompanyId),
+    enabled: !!currentCompanyId, // Only fetch if companyId is available
+    staleTime: 0, // Always refetch when companyId changes
   });
   const { data: leaveCategories, isLoading: categoriesLoading } = useQuery({
     queryKey: ["leave-categories"],
@@ -126,6 +194,12 @@ export default function CompanySettingsPage() {
   }, [designationsData, designations, designationsLoading, designationsError]);
 
   useEffect(() => {
+    // Reset settings when companyId changes
+    if (!data?.data) {
+      setSettings(defaultPayrollSettings);
+      return;
+    }
+    
     if (data?.data) {
       const settingsData = data.data;
       // Initialize fields if not present (migration from old format)
@@ -213,22 +287,22 @@ export default function CompanySettingsPage() {
       if (injectedDefaults) {
         // Persist defaults immediately for this organization only
         setTimeout(() => {
-          updateCompanySettings(companyId, normalized, (data?.data as any)?.currency).catch(() => {});
+          updateCompanySettings(currentCompanyId, normalized, (data?.data as any)?.currency).catch(() => {});
         }, 0);
       }
       // Extract currency from company settings if available
       const incomingCurrency = (data?.data as any)?.currency;
       if (incomingCurrency) setCurrency(incomingCurrency);
     }
-  }, [data]);
+  }, [data, currentCompanyId]);
 
   const saveMutation = useMutation({
-    mutationFn: () => updateCompanySettings(companyId, settings, currency),
+    mutationFn: () => updateCompanySettings(currentCompanyId, settings, currency),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["company-settings", currentCompanyId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       // Log change to console (backend already logs to audit)
-      console.log("[Settings] Auto-saved payroll settings:", new Date().toISOString());
+      console.log("[Settings] Auto-saved payroll settings for company:", currentCompanyId, new Date().toISOString());
     },
     onError: (error: any) => {
       console.error("[Settings] Failed to auto-save:", error);
@@ -236,9 +310,6 @@ export default function CompanySettingsPage() {
   });
 
   // Autosave with debouncing
-  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isInitialLoad = useRef(true);
-
   useEffect(() => {
     // Skip autosave on initial load
     if (isInitialLoad.current) {

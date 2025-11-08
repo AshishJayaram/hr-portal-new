@@ -414,9 +414,9 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
     } else {
       // Fallback to old calculation
       eps = round2(Math.min(
-        round2(effBasic * ((employerPFSettings.epsPercentOfBasic || 0) / 100)),
-        employerPFSettings.epsCap || 0
-      ));
+    round2(effBasic * ((employerPFSettings.epsPercentOfBasic || 0) / 100)),
+    employerPFSettings.epsCap || 0
+  ));
     }
     
     // Calculate EPF
