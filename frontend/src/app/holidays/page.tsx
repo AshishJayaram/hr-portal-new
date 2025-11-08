@@ -257,7 +257,7 @@ export default function HolidaysPage() {
               onClick={() => setTypeFilter("holiday")}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
                 typeFilter === "holiday"
-                  ? "bg-red-500/30 text-red-300 border-red-500/40 shadow-md"
+                  ? "bg-transparent text-red-300 border-red-500/40 shadow-md"
                   : "bg-white/5 dark:bg-white/10 text-secondary dark:text-gray-300 hover:bg-white/10 dark:hover:bg-white/20 border-card dark:border-white/10"
               }`}
             >
@@ -267,7 +267,7 @@ export default function HolidaysPage() {
               onClick={() => setTypeFilter("event")}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
                 typeFilter === "event"
-                  ? "bg-amber-500/30 text-amber-300 border-amber-500/40 shadow-md"
+                  ? "bg-transparent text-amber-300 border-amber-500/40 shadow-md"
                   : "bg-white/5 dark:bg-white/10 text-secondary dark:text-gray-300 hover:bg-white/10 dark:hover:bg-white/20 border-card dark:border-white/10"
               }`}
             >
@@ -277,7 +277,7 @@ export default function HolidaysPage() {
               onClick={() => setTypeFilter("notice")}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors border ${
                 typeFilter === "notice"
-                  ? "bg-green-500/30 text-green-300 border-green-500/40 shadow-md"
+                  ? "bg-transparent text-green-300 border-green-500/40 shadow-md"
                   : "bg-white/5 dark:bg-white/10 text-secondary dark:text-gray-300 hover:bg-white/10 dark:hover:bg-white/20 border-card dark:border-white/10"
               }`}
             >

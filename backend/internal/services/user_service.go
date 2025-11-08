@@ -422,6 +422,11 @@ func (s *userService) UpdateUser(id string, req UpdateUserRequest, httpReq *http
 		}
 	}
 
+	// Update birthday visibility
+	if req.BirthdayVisible != nil {
+		user.BirthdayVisible = *req.BirthdayVisible
+	}
+
 	// Update hike cycle and recalculate next hike date
 	if req.HikeCycleMonths != nil {
 		user.HikeCycleMonths = *req.HikeCycleMonths

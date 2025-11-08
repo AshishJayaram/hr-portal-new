@@ -25,6 +25,10 @@ type NotificationService interface {
 	SendReimbursementNotification(reimbursement *models.Reimbursement, recipient *models.User, notificationType string) error
 	SendHolidayNotification(holiday *models.Holiday, recipient *models.User) error
 	SendBirthdayNotification(user *models.User, recipient *models.User, notificationType string) error
+	// Birthday emails aligned with templates
+	SendBirthdayEmployee(user *models.User, orgName string) error
+	SendBirthdayAdminToday(recipients []*models.User, orgName string, items []BirthdayItem) error
+	SendBirthdayAdminMonthlyDigest(recipients []*models.User, orgName string, month time.Month, year int, items []BirthdayItem) error
 	SendWelcomeEmail(user *models.User, senderName string, password string) error
 	CreateNotification(notification *models.Notification) error
 	// Work anniversary emails
@@ -35,7 +39,7 @@ type NotificationService interface {
 
 // notificationService implements NotificationService interface
 type notificationService struct {
-	notificationRepo repositories.NotificationRepository
+	notificationRepo    repositories.NotificationRepository
 	companySettingsRepo repositories.CompanySettingsRepository
 }
 
@@ -47,7 +51,7 @@ func NewNotificationService() NotificationService {
 // NewNotificationServiceWithRepo creates a new notification service with repository
 func NewNotificationServiceWithRepo(notificationRepo repositories.NotificationRepository, companySettingsRepo repositories.CompanySettingsRepository) NotificationService {
 	return &notificationService{
-		notificationRepo: notificationRepo,
+		notificationRepo:    notificationRepo,
 		companySettingsRepo: companySettingsRepo,
 	}
 }
@@ -330,6 +334,13 @@ type WorkAnniversaryItem struct {
 	JoiningDate time.Time
 }
 
+// BirthdayItem represents a single birthday entry for emails
+type BirthdayItem struct {
+	Name     string
+	Email    string
+	Birthday time.Time
+}
+
 // SendWorkAnniversaryEmployee sends a congratulations email to the employee on their work anniversary
 func (s *notificationService) SendWorkAnniversaryEmployee(user *models.User, orgName string, years int) error {
 	if user == nil {
@@ -463,8 +474,8 @@ func (s *notificationService) getTemplateForAnniversaryEmployee(orgID uint, user
 		return "", "", false
 	}
 	replacements := map[string]string{
-		"{{employee_name}}":    user.Name,
-		"{{years}}":            fmt.Sprintf("%d", years),
+		"{{employee_name}}":     user.Name,
+		"{{years}}":             fmt.Sprintf("%d", years),
 		"{{organization_name}}": orgName,
 	}
 	for k, v := range replacements {
@@ -794,16 +805,226 @@ func (s *notificationService) getTemplateForBirthdayToday(orgID uint, birthdayUs
 	}
 	// Simple placeholder replacement
 	replacements := map[string]string{
-		"{{recipient_name}}":     recipient.Name,
-		"{{birthday_name}}":      birthdayUser.Name,
-		"{{birthday_date}}":      birthdayUser.Birthday.Format("January 2, 2006"),
-		"{{organization_name}}":  "",
+		"{{recipient_name}}":    recipient.Name,
+		"{{birthday_name}}":     birthdayUser.Name,
+		"{{birthday_date}}":     birthdayUser.Birthday.Format("January 2, 2006"),
+		"{{organization_name}}": "",
 	}
 	for k, v := range replacements {
 		subj = strings.ReplaceAll(subj, k, v)
 		body = strings.ReplaceAll(body, k, v)
 	}
 	return subj, body, true
+}
+
+// SendBirthdayEmployee sends a happy birthday email to the employee
+func (s *notificationService) SendBirthdayEmployee(user *models.User, orgName string) error {
+	if user == nil {
+		return nil
+	}
+	var subject, body string
+	if subj, b, ok := s.getTemplateForBirthdayEmployee(user.OrganizationID, user, orgName); ok {
+		subject = subj
+		body = b
+	}
+	if subject == "" {
+		subject = fmt.Sprintf("Happy Birthday, %s! 🎂", user.Name)
+	}
+	if body == "" {
+		body = fmt.Sprintf("Dear %s,\n\nWishing you a very Happy Birthday from all of us at %s! 🎉\n\nHave a wonderful day and a fantastic year ahead.\n\nWarm regards,\n%s", user.Name, orgName, orgName)
+	}
+	return s.sendEmail(user.Email, subject, body)
+}
+
+// SendBirthdayAdminToday sends today's birthdays list to HR/Admin
+func (s *notificationService) SendBirthdayAdminToday(recipients []*models.User, orgName string, items []BirthdayItem) error {
+	if len(recipients) == 0 || len(items) == 0 {
+		return nil
+	}
+	dateStr := time.Now().Format("January 2, 2006")
+	listStr := buildBirthdayList(items)
+	var subject, body string
+	if len(recipients) > 0 {
+		if subj, b, ok := s.getTemplateForBirthdayAdminToday(recipients[0].OrganizationID, orgName, dateStr, listStr); ok {
+			subject = subj
+			body = b
+		}
+	}
+	if subject == "" {
+		subject = fmt.Sprintf("Today's Birthdays - %s", dateStr)
+	}
+	if body == "" {
+		var lines []string
+		lines = append(lines, fmt.Sprintf("Hello Team,\n\nHere are today's birthdays at %s:\n", orgName))
+		lines = append(lines, listStr)
+		lines = append(lines, "\nPlease take a moment to send your wishes.\n\nRegards,\nHR Portal System")
+		body = strings.Join(lines, "\n")
+	}
+	for _, r := range recipients {
+		_ = s.sendEmail(r.Email, subject, body)
+	}
+	return nil
+}
+
+// SendBirthdayAdminMonthlyDigest sends a monthly digest of birthdays to HR/Admin
+func (s *notificationService) SendBirthdayAdminMonthlyDigest(recipients []*models.User, orgName string, month time.Month, year int, items []BirthdayItem) error {
+	if len(recipients) == 0 {
+		return nil
+	}
+	listStr := buildBirthdayDigestList(month, items)
+	var subject, body string
+	if len(recipients) > 0 {
+		if subj, b, ok := s.getTemplateForBirthdayAdminMonthly(recipients[0].OrganizationID, orgName, month.String(), year, listStr); ok {
+			subject = subj
+			body = b
+		}
+	}
+	if subject == "" {
+		subject = fmt.Sprintf("Birthdays — %s %d", month.String(), year)
+	}
+	if body == "" {
+		var lines []string
+		lines = append(lines, fmt.Sprintf("Hello Team,\n\nHere are the birthdays for %s %d at %s:\n", month.String(), year, orgName))
+		if len(items) == 0 {
+			lines = append(lines, "• No birthdays this month.")
+		} else {
+			lines = append(lines, listStr)
+		}
+		lines = append(lines, "\nPlease plan any celebrations accordingly.\n\nRegards,\nHR Portal System")
+		body = strings.Join(lines, "\n")
+	}
+	for _, r := range recipients {
+		_ = s.sendEmail(r.Email, subject, body)
+	}
+	return nil
+}
+
+func (s *notificationService) getTemplateForBirthdayEmployee(orgID uint, user *models.User, orgName string) (string, string, bool) {
+	if s.companySettingsRepo == nil {
+		return "", "", false
+	}
+	orgIDStr := fmt.Sprintf("%d", orgID)
+	settings, err := s.companySettingsRepo.GetByOrganizationID(orgIDStr)
+	if err != nil || settings == nil || settings.Settings == "" {
+		return "", "", false
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(settings.Settings), &m); err != nil {
+		return "", "", false
+	}
+	notif, _ := m["notifications"].(map[string]interface{})
+	bday, _ := notif["birthday"].(map[string]interface{})
+	templates, _ := bday["templates"].(map[string]interface{})
+	subj, _ := templates["employee_subject"].(string)
+	body, _ := templates["employee_body"].(string)
+	if subj == "" && body == "" {
+		return "", "", false
+	}
+	replacements := map[string]string{
+		"{{employee_name}}":     user.Name,
+		"{{organization_name}}": orgName,
+	}
+	for k, v := range replacements {
+		subj = strings.ReplaceAll(subj, k, v)
+		body = strings.ReplaceAll(body, k, v)
+	}
+	return subj, body, true
+}
+
+func (s *notificationService) getTemplateForBirthdayAdminToday(orgID uint, orgName, dateStr, list string) (string, string, bool) {
+	if s.companySettingsRepo == nil {
+		return "", "", false
+	}
+	orgIDStr := fmt.Sprintf("%d", orgID)
+	settings, err := s.companySettingsRepo.GetByOrganizationID(orgIDStr)
+	if err != nil || settings == nil || settings.Settings == "" {
+		return "", "", false
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(settings.Settings), &m); err != nil {
+		return "", "", false
+	}
+	notif, _ := m["notifications"].(map[string]interface{})
+	bday, _ := notif["birthday"].(map[string]interface{})
+	templates, _ := bday["templates"].(map[string]interface{})
+	subj, _ := templates["admin_today_subject"].(string)
+	body, _ := templates["admin_today_body"].(string)
+	if subj == "" && body == "" {
+		return "", "", false
+	}
+	replacements := map[string]string{
+		"{{date}}":              dateStr,
+		"{{organization_name}}": orgName,
+		"{{list}}":              list,
+	}
+	for k, v := range replacements {
+		subj = strings.ReplaceAll(subj, k, v)
+		body = strings.ReplaceAll(body, k, v)
+	}
+	return subj, body, true
+}
+
+func (s *notificationService) getTemplateForBirthdayAdminMonthly(orgID uint, orgName, month string, year int, list string) (string, string, bool) {
+	if s.companySettingsRepo == nil {
+		return "", "", false
+	}
+	orgIDStr := fmt.Sprintf("%d", orgID)
+	settings, err := s.companySettingsRepo.GetByOrganizationID(orgIDStr)
+	if err != nil || settings == nil || settings.Settings == "" {
+		return "", "", false
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(settings.Settings), &m); err != nil {
+		return "", "", false
+	}
+	notif, _ := m["notifications"].(map[string]interface{})
+	bday, _ := notif["birthday"].(map[string]interface{})
+	templates, _ := bday["templates"].(map[string]interface{})
+	subj, _ := templates["admin_monthly_subject"].(string)
+	body, _ := templates["admin_monthly_body"].(string)
+	if subj == "" && body == "" {
+		return "", "", false
+	}
+	replacements := map[string]string{
+		"{{month}}":             month,
+		"{{year}}":              fmt.Sprintf("%d", year),
+		"{{organization_name}}": orgName,
+		"{{list}}":              list,
+	}
+	for k, v := range replacements {
+		subj = strings.ReplaceAll(subj, k, v)
+		body = strings.ReplaceAll(body, k, v)
+	}
+	return subj, body, true
+}
+
+func buildBirthdayList(items []BirthdayItem) string {
+	var lines []string
+	for _, it := range items {
+		lines = append(lines, fmt.Sprintf("• %s (Born: %s)", it.Name, it.Birthday.Format("January 2")))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func buildBirthdayDigestList(month time.Month, items []BirthdayItem) string {
+	if len(items) == 0 {
+		return ""
+	}
+	byDay := map[int][]BirthdayItem{}
+	for _, it := range items {
+		day := it.Birthday.Day()
+		byDay[day] = append(byDay[day], it)
+	}
+	var lines []string
+	for day := 1; day <= 31; day++ {
+		if dayItems, ok := byDay[day]; ok {
+			lines = append(lines, fmt.Sprintf("\n%s %d:", month.String(), day))
+			for _, it := range dayItems {
+				lines = append(lines, fmt.Sprintf("  • %s", it.Name))
+			}
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // SendWelcomeEmail sends a welcome email to newly created users

@@ -62,7 +62,7 @@ export default function Sidebar() {
 
   // Get organization logo from current user data (backend returns logo_url in OrganizationResponse)
   const organizationLogo = 
-    currentUserData?.organization?.logo_url || 
+    (currentUserData?.organization as any)?.logo_url || 
     currentUserData?.organization?.logo || 
     (user?.organization as any)?.logo_url ||
     (user?.organization as any)?.logo;

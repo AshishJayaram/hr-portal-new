@@ -13,7 +13,6 @@ export interface Organization {
   name: string;
   domain: string;
   logo?: string;
-  logo_url?: string;
   description: string;
   is_active: boolean;
   user_count: number;
@@ -32,6 +31,7 @@ export interface User {
   email: string;
   name: string;
   role: Role;
+  birthday_visible?: boolean;
   designation?: string;
   department?: string;
   manager_id?: number;

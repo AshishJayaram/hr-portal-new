@@ -172,16 +172,26 @@ export default function CompanySettingsPage() {
       // Ensure notifications defaults with template placeholders as default values
       (normalized as any).notifications = (normalized as any).notifications || {};
       const prevNotif = JSON.stringify((normalized as any).notifications);
-      // Birthday defaults
+      // Birthday defaults (no advance or lookahead)
       (normalized as any).notifications.birthday = (normalized as any).notifications.birthday || {};
       (normalized as any).notifications.birthday.enabled = (normalized as any).notifications.birthday.enabled ?? true;
-      (normalized as any).notifications.birthday.windowDays = (normalized as any).notifications.birthday.windowDays ?? 7;
-      // Remove advance wishes threshold (no longer used)
+      (normalized as any).notifications.birthday.allowEmployeesSeeAll =
+        (normalized as any).notifications.birthday.allowEmployeesSeeAll ?? false;
       (normalized as any).notifications.birthday.templates = (normalized as any).notifications.birthday.templates || {};
-      (normalized as any).notifications.birthday.templates.today_subject =
-        (normalized as any).notifications.birthday.templates.today_subject ?? "Happy Birthday - {{birthday_name}}! 🎂";
-      (normalized as any).notifications.birthday.templates.today_body =
-        (normalized as any).notifications.birthday.templates.today_body ?? "Dear {{recipient_name}},\n\nToday is {{birthday_name}}'s birthday! 🎂\n\nBest regards,\n{{organization_name}}";
+      // Remove per-recipient 'today' template defaults; rely on employee/admin templates instead
+      // Align birthday templates with work-anniversary (employee + admin today + admin monthly)
+      ;(normalized as any).notifications.birthday.templates.employee_subject =
+        (normalized as any).notifications.birthday.templates.employee_subject ?? "Happy Birthday, {{employee_name}}! 🎂";
+      ;(normalized as any).notifications.birthday.templates.employee_body =
+        (normalized as any).notifications.birthday.templates.employee_body ?? "Dear {{employee_name}},\n\nWishing you a very Happy Birthday from all of us at {{organization_name}}! 🎉\n\nHave a wonderful day and a fantastic year ahead.\n\nWarm regards,\n{{organization_name}}";
+      ;(normalized as any).notifications.birthday.templates.admin_today_subject =
+        (normalized as any).notifications.birthday.templates.admin_today_subject ?? "Today's Birthdays - {{date}}";
+      ;(normalized as any).notifications.birthday.templates.admin_today_body =
+        (normalized as any).notifications.birthday.templates.admin_today_body ?? "Hello Team,\n\nHere are today's birthdays at {{organization_name}}:\n\n{{list}}\n\nPlease take a moment to send your wishes.\n\nRegards,\nHR Portal System";
+      ;(normalized as any).notifications.birthday.templates.admin_monthly_subject =
+        (normalized as any).notifications.birthday.templates.admin_monthly_subject ?? "Birthdays — {{month}} {{year}}";
+      ;(normalized as any).notifications.birthday.templates.admin_monthly_body =
+        (normalized as any).notifications.birthday.templates.admin_monthly_body ?? "Hello Team,\n\nHere are the birthdays for {{month}} {{year}} at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System";
       // Anniversary defaults
       (normalized as any).notifications.anniversary = (normalized as any).notifications.anniversary || {};
       (normalized as any).notifications.anniversary.templates = (normalized as any).notifications.anniversary.templates || {};
@@ -2203,7 +2213,6 @@ export default function CompanySettingsPage() {
       )}
 
       {activeTab === 'notifications' && (
-        <>
         <Card className="p-4">
           <h2 className="text-2xl font-bold text-primary mb-2">Notifications</h2>
           <p className="text-gray-400 mb-6">Configure organization-wide notification preferences.</p>
@@ -2229,39 +2238,34 @@ export default function CompanySettingsPage() {
                   />
                   <span>Enable birthday notifications</span>
                 </label>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-secondary mb-1">Days to look ahead for reminders</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={String((settings as any).notifications?.birthday?.windowDays ?? 7)}
-                      onChange={(e) => {
-                        const val = Math.max(0, Number(e.target.value) || 0);
-                        setSettings(prev => {
-                          const next: any = JSON.parse(JSON.stringify(prev));
-                          next.notifications = next.notifications || {};
-                          next.notifications.birthday = next.notifications.birthday || {};
-                          next.notifications.birthday.windowDays = val;
-                          return next;
-                        });
-                      }}
-                      placeholder="7"
-                    />
-                  </div>
-                  {/* Advance wishes threshold removed */}
-                </div>
-                <p className="text-xs text-gray-500">
-                  “Today” notifications are sent at 12:00 AM on the birthday (day 0).
-                </p>
-                {/* Birthday email templates */}
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={Boolean((settings as any).notifications?.birthday?.allowEmployeesSeeAll)}
+                    onChange={(e) => {
+                      setSettings(prev => {
+                        const next: any = JSON.parse(JSON.stringify(prev));
+                        next.notifications = next.notifications || {};
+                        next.notifications.birthday = next.notifications.birthday || {};
+                        next.notifications.birthday.allowEmployeesSeeAll = e.target.checked;
+                        return next;
+                      });
+                    }}
+                    className="rounded"
+                  />
+                  <span>Allow employees to see all birthdays (else only their own)</span>
+                </label>
+                {/* No advance or lookahead configuration; birthdays are sent only on the day */}
+                {/* Birthday email templates (Employee + Admin digests) */}
                 <div className="mt-4 space-y-2">
                   <div className="text-sm font-medium text-secondary">Email Templates</div>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  {/* Employee email on birthday day */}
+                  <div className="grid md:grid-cols-2 gap-4 mt-4">
                     <div>
-                      <label className="block text-sm text-secondary mb-1">Birthday (Today) Subject</label>
+                      <div className="font-medium mb-2">Employee Email (on birthday)</div>
+                      <label className="block text-sm text-secondary mb-1">Subject</label>
                       <Input
-                        value={String((settings as any).notifications?.birthday?.templates?.today_subject ?? '')}
+                        value={String((settings as any).notifications?.birthday?.templates?.employee_subject ?? '')}
                         onChange={(e) => {
                           const val = e.target.value;
                           setSettings(prev => {
@@ -2269,19 +2273,19 @@ export default function CompanySettingsPage() {
                             next.notifications = next.notifications || {};
                             next.notifications.birthday = next.notifications.birthday || {};
                             next.notifications.birthday.templates = next.notifications.birthday.templates || {};
-                            next.notifications.birthday.templates.today_subject = val;
+                            next.notifications.birthday.templates.employee_subject = val;
                             return next;
                           });
                         }}
-                        placeholder="e.g., Happy Birthday - {{birthday_name}}! 🎂"
+                        placeholder="e.g., Happy Birthday, {{employee_name}}! 🎂"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-secondary mb-1">Birthday (Today) Body</label>
+                      <label className="block text-sm text-secondary mb-1">Body</label>
                       <textarea
                         className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
                         rows={6}
-                        value={String((settings as any).notifications?.birthday?.templates?.today_body ?? '')}
+                        value={String((settings as any).notifications?.birthday?.templates?.employee_body ?? '')}
                         onChange={(e) => {
                           const val = e.target.value;
                           setSettings(prev => {
@@ -2289,159 +2293,247 @@ export default function CompanySettingsPage() {
                             next.notifications = next.notifications || {};
                             next.notifications.birthday = next.notifications.birthday || {};
                             next.notifications.birthday.templates = next.notifications.birthday.templates || {};
-                            next.notifications.birthday.templates.today_body = val;
+                            next.notifications.birthday.templates.employee_body = val;
                             return next;
                           });
                         }}
-                        placeholder={"Dear {{recipient_name}},\n\nToday is {{birthday_name}}'s birthday! 🎂\n\nBest regards,\n{{organization_name}}"}
+                        placeholder={"Dear {{employee_name}},\n\nWishing you a very Happy Birthday from all of us at {{organization_name}}! 🎉\n\nWarm regards,\n{{organization_name}}"}
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Placeholders: {'{{recipient_name}}'}, {'{{birthday_name}}'}, {'{{birthday_date}}'}, {'{{organization_name}}'}
+                        Placeholders: {'{{employee_name}}'}, {'{{organization_name}}'}
+                      </p>
+                    </div>
+                  </div>
+                  {/* HR/Admin templates: today's list and monthly digest */}
+                  <div className="grid md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <div className="font-medium mb-2">HR/Admin Email (Today's birthdays)</div>
+                      <label className="block text-sm text-secondary mb-1">Subject</label>
+                      <Input
+                        value={String((settings as any).notifications?.birthday?.templates?.admin_today_subject ?? '')}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(prev => {
+                            const next: any = JSON.parse(JSON.stringify(prev));
+                            next.notifications = next.notifications || {};
+                            next.notifications.birthday = next.notifications.birthday || {};
+                            next.notifications.birthday.templates = next.notifications.birthday.templates || {};
+                            next.notifications.birthday.templates.admin_today_subject = val;
+                            return next;
+                          });
+                        }}
+                        placeholder="e.g., Today's Birthdays - {{date}}"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-secondary mb-1">Body</label>
+                      <textarea
+                        className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
+                        rows={6}
+                        value={String((settings as any).notifications?.birthday?.templates?.admin_today_body ?? '')}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(prev => {
+                            const next: any = JSON.parse(JSON.stringify(prev));
+                            next.notifications = next.notifications || {};
+                            next.notifications.birthday = next.notifications.birthday || {};
+                            next.notifications.birthday.templates = next.notifications.birthday.templates || {};
+                            next.notifications.birthday.templates.admin_today_body = val;
+                            return next;
+                          });
+                        }}
+                        placeholder={"Hello Team,\n\nHere are today's birthdays at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System"}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Placeholders: {'{{date}}'}, {'{{organization_name}}'}, {'{{list}}'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <div className="font-medium mb-2">HR/Admin Email (Monthly digest on 1st)</div>
+                      <label className="block text-sm text-secondary mb-1">Subject</label>
+                      <Input
+                        value={String((settings as any).notifications?.birthday?.templates?.admin_monthly_subject ?? '')}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(prev => {
+                            const next: any = JSON.parse(JSON.stringify(prev));
+                            next.notifications = next.notifications || {};
+                            next.notifications.birthday = next.notifications.birthday || {};
+                            next.notifications.birthday.templates = next.notifications.birthday.templates || {};
+                            next.notifications.birthday.templates.admin_monthly_subject = val;
+                            return next;
+                          });
+                        }}
+                        placeholder="e.g., Birthdays — {{month}} {{year}}"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-secondary mb-1">Body</label>
+                      <textarea
+                        className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
+                        rows={6}
+                        value={String((settings as any).notifications?.birthday?.templates?.admin_monthly_body ?? '')}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(prev => {
+                            const next: any = JSON.parse(JSON.stringify(prev));
+                            next.notifications = next.notifications || {};
+                            next.notifications.birthday = next.notifications.birthday || {};
+                            next.notifications.birthday.templates = next.notifications.birthday.templates || {};
+                            next.notifications.birthday.templates.admin_monthly_body = val;
+                            return next;
+                          });
+                        }}
+                        placeholder={"Hello Team,\n\nHere are the birthdays for {{month}} {{year}} at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System"}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Placeholders: {'{{month}}'}, {'{{year}}'}, {'{{organization_name}}'}, {'{{list}}'}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </Card>
-        
-        {/* Work Anniversary Notifications */}
-        <Card className="mt-6 p-4">
-          <h3 className="text-lg font-semibold text-primary mb-2">Work Anniversary Notifications</h3>
-          <p className="text-sm text-secondary mb-4">Configure email templates for employee congratulations and HR/Admin notifications.</p>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <div className="font-medium mb-2">Employee Email (on anniversary day)</div>
-              <label className="block text-sm text-secondary mb-1">Subject</label>
-              <Input
-                value={String((settings as any).notifications?.anniversary?.templates?.employee_subject ?? '')}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSettings(prev => {
-                    const next: any = JSON.parse(JSON.stringify(prev));
-                    next.notifications = next.notifications || {};
-                    next.notifications.anniversary = next.notifications.anniversary || {};
-                    next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
-                    next.notifications.anniversary.templates.employee_subject = val;
-                    return next;
-                  });
-                }}
-                placeholder="e.g., Happy Work Anniversary, {{employee_name}}! 🎉"
-              />
-              <label className="block text-sm text-secondary mt-3 mb-1">Body</label>
-              <textarea
-                className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
-                rows={6}
-                value={String((settings as any).notifications?.anniversary?.templates?.employee_body ?? '')}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSettings(prev => {
-                    const next: any = JSON.parse(JSON.stringify(prev));
-                    next.notifications = next.notifications || {};
-                    next.notifications.anniversary = next.notifications.anniversary || {};
-                    next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
-                    next.notifications.anniversary.templates.employee_body = val;
-                    return next;
-                  });
-                }}
-                placeholder={"Dear {{employee_name}},\n\nCongratulations on your {{years}}-year work anniversary with {{organization_name}}!\n\nWarm regards,\n{{organization_name}}"}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Placeholders: {'{{employee_name}}'}, {'{{years}}'}, {'{{organization_name}}'}
-              </p>
-            </div>
             
-            <div>
-              <div className="font-medium mb-2">HR/Admin Email (Today's anniversaries)</div>
-              <label className="block text-sm text-secondary mb-1">Subject</label>
-              <Input
-                value={String((settings as any).notifications?.anniversary?.templates?.admin_today_subject ?? '')}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSettings(prev => {
-                    const next: any = JSON.parse(JSON.stringify(prev));
-                    next.notifications = next.notifications || {};
-                    next.notifications.anniversary = next.notifications.anniversary || {};
-                    next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
-                    next.notifications.anniversary.templates.admin_today_subject = val;
-                    return next;
-                  });
-                }}
-                placeholder="e.g., Today's Work Anniversaries - {{date}}"
-              />
-              <label className="block text-sm text-secondary mt-3 mb-1">Body</label>
-              <textarea
-                className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
-                rows={6}
-                value={String((settings as any).notifications?.anniversary?.templates?.admin_today_body ?? '')}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSettings(prev => {
-                    const next: any = JSON.parse(JSON.stringify(prev));
-                    next.notifications = next.notifications || {};
-                    next.notifications.anniversary = next.notifications.anniversary || {};
-                    next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
-                    next.notifications.anniversary.templates.admin_today_body = val;
-                    return next;
-                  });
-                }}
-                placeholder={"Hello Team,\n\nHere are today's work anniversaries at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System"}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Placeholders: {'{{date}}'}, {'{{organization_name}}'}, {'{{list}}'}
-              </p>
-            </div>
-          </div>
-          
-          <div className="mt-6">
-            <div className="font-medium mb-2">HR/Admin Email (Monthly digest on 1st)</div>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm text-secondary mb-1">Subject</label>
-                <Input
-                  value={String((settings as any).notifications?.anniversary?.templates?.admin_monthly_subject ?? '')}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSettings(prev => {
-                      const next: any = JSON.parse(JSON.stringify(prev));
-                      next.notifications = next.notifications || {};
-                      next.notifications.anniversary = next.notifications.anniversary || {};
-                      next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
-                      next.notifications.anniversary.templates.admin_monthly_subject = val;
-                      return next;
-                    });
-                  }}
-                  placeholder="e.g., Work Anniversaries — {{month}} {{year}}"
-                />
+            {/* Work Anniversary Notifications - sub-category */}
+            <div className="mt-8 p-4 rounded-lg bg-amber-500/5 border border-amber-500/10">
+              <h3 className="text-lg font-semibold text-amber-400 mb-2">Work Anniversary Notifications</h3>
+              <p className="text-sm text-secondary mb-4">Configure email templates for employee congratulations and HR/Admin notifications.</p>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <div className="font-medium mb-2">Employee Email (on anniversary day)</div>
+                  <label className="block text-sm text-secondary mb-1">Subject</label>
+                  <Input
+                    value={String((settings as any).notifications?.anniversary?.templates?.employee_subject ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSettings(prev => {
+                        const next: any = JSON.parse(JSON.stringify(prev));
+                        next.notifications = next.notifications || {};
+                        next.notifications.anniversary = next.notifications.anniversary || {};
+                        next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                        next.notifications.anniversary.templates.employee_subject = val;
+                        return next;
+                      });
+                    }}
+                    placeholder="e.g., Happy Work Anniversary, {{employee_name}}! 🎉"
+                  />
+                  <label className="block text-sm text-secondary mt-3 mb-1">Body</label>
+                  <textarea
+                    className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
+                    rows={6}
+                    value={String((settings as any).notifications?.anniversary?.templates?.employee_body ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSettings(prev => {
+                        const next: any = JSON.parse(JSON.stringify(prev));
+                        next.notifications = next.notifications || {};
+                        next.notifications.anniversary = next.notifications.anniversary || {};
+                        next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                        next.notifications.anniversary.templates.employee_body = val;
+                        return next;
+                      });
+                    }}
+                    placeholder={"Dear {{employee_name}},\n\nCongratulations on your {{years}}-year work anniversary with {{organization_name}}!\n\nWarm regards,\n{{organization_name}}"}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Placeholders: {'{{employee_name}}'}, {'{{years}}'}, {'{{organization_name}}'}
+                  </p>
+                </div>
+                
+                <div>
+                  <div className="font-medium mb-2">HR/Admin Email (Today's anniversaries)</div>
+                  <label className="block text-sm text-secondary mb-1">Subject</label>
+                  <Input
+                    value={String((settings as any).notifications?.anniversary?.templates?.admin_today_subject ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSettings(prev => {
+                        const next: any = JSON.parse(JSON.stringify(prev));
+                        next.notifications = next.notifications || {};
+                        next.notifications.anniversary = next.notifications.anniversary || {};
+                        next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                        next.notifications.anniversary.templates.admin_today_subject = val;
+                        return next;
+                      });
+                    }}
+                    placeholder="e.g., Today's Work Anniversaries - {{date}}"
+                  />
+                  <label className="block text-sm text-secondary mt-3 mb-1">Body</label>
+                  <textarea
+                    className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
+                    rows={6}
+                    value={String((settings as any).notifications?.anniversary?.templates?.admin_today_body ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSettings(prev => {
+                        const next: any = JSON.parse(JSON.stringify(prev));
+                        next.notifications = next.notifications || {};
+                        next.notifications.anniversary = next.notifications.anniversary || {};
+                        next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                        next.notifications.anniversary.templates.admin_today_body = val;
+                        return next;
+                      });
+                    }}
+                    placeholder={"Hello Team,\n\nHere are today's work anniversaries at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System"}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Placeholders: {'{{date}}'}, {'{{organization_name}}'}, {'{{list}}'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm text-secondary mb-1">Body</label>
-                <textarea
-                  className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
-                  rows={6}
-                  value={String((settings as any).notifications?.anniversary?.templates?.admin_monthly_body ?? '')}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSettings(prev => {
-                      const next: any = JSON.parse(JSON.stringify(prev));
-                      next.notifications = next.notifications || {};
-                      next.notifications.anniversary = next.notifications.anniversary || {};
-                      next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
-                      next.notifications.anniversary.templates.admin_monthly_body = val;
-                      return next;
-                    });
-                  }}
-                  placeholder={"Hello Team,\n\nHere are the work anniversaries for {{month}} {{year}} at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System"}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Placeholders: {'{{month}}'}, {'{{year}}'}, {'{{organization_name}}'}, {'{{list}}'}
-                </p>
+              
+              <div className="mt-6">
+                <div className="font-medium mb-2">HR/Admin Email (Monthly digest on 1st)</div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm text-secondary mb-1">Subject</label>
+                    <Input
+                      value={String((settings as any).notifications?.anniversary?.templates?.admin_monthly_subject ?? '')}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSettings(prev => {
+                          const next: any = JSON.parse(JSON.stringify(prev));
+                          next.notifications = next.notifications || {};
+                          next.notifications.anniversary = next.notifications.anniversary || {};
+                          next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                          next.notifications.anniversary.templates.admin_monthly_subject = val;
+                          return next;
+                        });
+                      }}
+                      placeholder="e.g., Work Anniversaries — {{month}} {{year}}"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-secondary mb-1">Body</label>
+                    <textarea
+                      className="w-full rounded-md bg-white/10 border border-white/10 p-2 text-sm"
+                      rows={6}
+                      value={String((settings as any).notifications?.anniversary?.templates?.admin_monthly_body ?? '')}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSettings(prev => {
+                          const next: any = JSON.parse(JSON.stringify(prev));
+                          next.notifications = next.notifications || {};
+                          next.notifications.anniversary = next.notifications.anniversary || {};
+                          next.notifications.anniversary.templates = next.notifications.anniversary.templates || {};
+                          next.notifications.anniversary.templates.admin_monthly_body = val;
+                          return next;
+                        });
+                      }}
+                      placeholder={"Hello Team,\n\nHere are the work anniversaries for {{month}} {{year}} at {{organization_name}}:\n\n{{list}}\n\nRegards,\nHR Portal System"}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Placeholders: {'{{month}}'}, {'{{year}}'}, {'{{organization_name}}'}, {'{{list}}'}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </Card>
-        </>
       )}
 
       {activeTab === 'leaves' && (

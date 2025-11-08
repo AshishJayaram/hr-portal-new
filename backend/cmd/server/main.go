@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -549,7 +550,31 @@ func sendBirthdayNotifications(repos *repositories.Repositories, notificationSer
 			continue
 		}
 
+		// Check organization settings → notifications.birthday.enabled
+		orgIDStr := strconv.FormatUint(uint64(org.ID), 10)
+		settings, err := repos.CompanySettings.GetByOrganizationID(orgIDStr)
+		if err == nil && settings != nil && settings.Settings != "" {
+			var m map[string]interface{}
+			if err := json.Unmarshal([]byte(settings.Settings), &m); err == nil {
+				if notifRaw, ok := m["notifications"].(map[string]interface{}); ok {
+					if bdayRaw, ok := notifRaw["birthday"].(map[string]interface{}); ok {
+						if en, ok := bdayRaw["enabled"].(bool); ok && !en {
+							// Disabled at org level - skip this organization entirely
+							continue
+						}
+					}
+				}
+			}
+		}
+
 		var birthdayUsers []models.User
+		var adminRecipients []*models.User
+		for idx := range users {
+			u := &users[idx]
+			if u.Role == "HR" || u.Role == "Admin" {
+				adminRecipients = append(adminRecipients, u)
+			}
+		}
 
 		for _, user := range users {
 			if user.Birthday != nil && user.BirthdayVisible {
@@ -576,15 +601,57 @@ func sendBirthdayNotifications(repos *repositories.Repositories, notificationSer
 			}
 		}
 
-		// Send notifications for each birthday person (today)
+		// 1) Send email to each birthday employee
 		for _, birthdayUser := range birthdayUsers {
-			for _, recipient := range users {
-				// Don't send birthday notifications to the person themselves
-				if recipient.ID != birthdayUser.ID {
-					if err := notificationService.SendBirthdayNotification(&birthdayUser, &recipient, "today"); err != nil {
-						logrus.Errorf("Failed to send birthday notification for %s to %s: %v", birthdayUser.Name, recipient.Name, err)
-					}
+			if err := notificationService.SendBirthdayEmployee(&birthdayUser, org.Name); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"user_id":  birthdayUser.ID,
+					"org_id":   org.ID,
+					"org_name": org.Name,
+				}).Error("Failed to send employee birthday email")
+			}
+		}
+
+		// 2) Send today's birthdays list to HR/Admin
+		if len(birthdayUsers) > 0 && len(adminRecipients) > 0 {
+			var items []services.BirthdayItem
+			for _, u := range birthdayUsers {
+				items = append(items, services.BirthdayItem{
+					Name:     u.Name,
+					Email:    u.Email,
+					Birthday: *u.Birthday,
+				})
+			}
+			if err := notificationService.SendBirthdayAdminToday(adminRecipients, org.Name, items); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"org_id": org.ID,
+				}).Error("Failed to send today's birthday admin email")
+			}
+		}
+
+		// 3) On 1st of the month, send monthly birthday digest to HR/Admin
+		if now.Day() == 1 && len(adminRecipients) > 0 {
+			month := now.Month()
+			year := now.Year()
+			var monthItems []services.BirthdayItem
+			for idx := range users {
+				u := &users[idx]
+				if u.Birthday == nil || !u.BirthdayVisible {
+					continue
 				}
+				b := u.Birthday.In(now.Location())
+				if b.Month() == month {
+					monthItems = append(monthItems, services.BirthdayItem{
+						Name:     u.Name,
+						Email:    u.Email,
+						Birthday: *u.Birthday,
+					})
+				}
+			}
+			if err := notificationService.SendBirthdayAdminMonthlyDigest(adminRecipients, org.Name, month, year, monthItems); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"org_id": org.ID,
+				}).Error("Failed to send monthly birthday digest to admin")
 			}
 		}
 	}

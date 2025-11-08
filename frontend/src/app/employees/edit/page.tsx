@@ -408,7 +408,7 @@ function EditEmployeeForm({ id }: { id: string }) {
     // Additional validation will be handled by the backend to prevent circular references
 
     const payload = {
-      name: formData.name || undefined,
+      name: formData.name,
       username: formData.username,
       email: formData.email,
       designation: formData.designation,
@@ -510,7 +510,6 @@ function EditEmployeeForm({ id }: { id: string }) {
                   label="Full Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Employee's full name"
                   required
                 />
                 <Input

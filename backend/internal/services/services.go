@@ -264,6 +264,7 @@ type UpdateUserRequest struct {
 	IsActive        *bool    `json:"is_active"`
 	JoiningDate     *string  `json:"joining_date"`
 	Birthday        *string  `json:"birthday"`
+	BirthdayVisible *bool    `json:"birthday_visible"`
 	HikeCycleMonths *int     `json:"hike_cycle_months"` // Hike cycle in months (e.g., 12 for annual)
 	LastHikeDate    *string  `json:"last_hike_date"`    // Last hike date
 }

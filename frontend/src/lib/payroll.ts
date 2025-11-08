@@ -146,7 +146,44 @@ export const defaultPayrollSettings: PayrollSettings = {
     epsPercentOfBasic: 8.33,
     epsCap: 1250,
     enabled: true,
-    fields: [],
+    fields: [
+      {
+        id: 'total_pf',
+        label: 'Total PF',
+        value: 12,
+        type: 'PERCENTAGE' as const,
+      },
+      {
+        id: 'eps',
+        label: 'EPS',
+        value: 8.33,
+        type: 'PERCENTAGE' as const,
+      },
+      {
+        id: 'epf',
+        label: 'EPF',
+        value: 3.67,
+        type: 'PERCENTAGE' as const,
+      },
+      {
+        id: 'admin_charges',
+        label: 'Administration Charges',
+        value: 0.5,
+        type: 'PERCENTAGE' as const,
+      },
+      {
+        id: 'edli',
+        label: 'EDLI',
+        value: 0.5,
+        type: 'PERCENTAGE' as const,
+      },
+      {
+        id: 'inspection_charges',
+        label: 'Inspection Charges',
+        value: 5,
+        type: 'FIXED_AMOUNT' as const,
+      },
+    ],
     conditionalEarnings: [],
     conditionalDeductions: [],
   },
@@ -354,7 +391,7 @@ export function computePayslipFromCTC(annualCTC: number, settings: PayrollSettin
     // Compute by mode (using effective basic when needed)
     let computed = 0;
     switch (empPFConfig.mode) {
-      case 'PERCENT_OF_BASIC':
+      case 'PERCENT_OF_BASIC': 
         computed = pctOfEffBasic(empPFConfig.value);
         break;
       case 'PERCENT_OF_CTC':

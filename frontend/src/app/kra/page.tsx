@@ -1084,14 +1084,14 @@ function SampleKRASheetModal({
 
         <div className="p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="sample-kra-title">
           <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
-            <Tabs
+          <Tabs
             tabs={[
               { id: 'samples', label: 'Sample Formats', icon: '📋' },
               ...(isWeightageFull ? [] : [{ id: 'create', label: 'Create KRA', icon: '➕' }]),
             ]}
             activeTab={activeTab}
             onTabChange={(tab) => setActiveTab(tab as 'samples' | 'create')}
-            />
+          />
           </div>
 
           {activeTab === 'samples' && (

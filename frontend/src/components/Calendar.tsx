@@ -55,7 +55,6 @@ type CalendarEvent = {
       description?: string;
     }>;
     anniversaries?: Array<{
-      id?: string;
       name: string;
       years: number;
       description?: string;
@@ -669,22 +668,18 @@ export default function Calendar({ events, userRole }: { events: CalendarEvent[]
                       <div className="text-sm font-semibold text-primary dark:text-white mb-2">
                         Celebrations:
                       </div>
-                      {selectedEvent.extendedProps.anniversaries.map((a: any, index: number) => {
-                        const displayName = a.id ? (getUserNameById(a.id) || a.name) : a.name;
-                        return (
+                      {selectedEvent.extendedProps.anniversaries.map((a: any, index: number) => (
                         <div key={index} className="text-sm text-secondary dark:text-gray-300 pl-3 border-l-4 border-amber-500 py-1">
-                          🎉 {displayName} — {a.years} year{a.years === 1 ? '' : 's'}
+                          🎉 {a.name} — {a.years} year{a.years === 1 ? '' : 's'}
                         </div>
-                        );
-                      })}
+                      ))}
                     </div>
                   ) : (
                     <div className="text-sm text-secondary dark:text-gray-300">
                       {(() => {
                         const a = selectedEvent.extendedProps?.anniversaries?.[0];
                         if (a) {
-                          const displayName = a.id ? (getUserNameById(a.id) || a.name) : a.name;
-                          return `${displayName} — ${a.years} year${a.years === 1 ? '' : 's'} at the company`;
+                          return `${a.name} — ${a.years} year${a.years === 1 ? '' : 's'} at the company`;
                         }
                         return selectedEvent.extendedProps?.description || 'Work anniversary';
                       })()}

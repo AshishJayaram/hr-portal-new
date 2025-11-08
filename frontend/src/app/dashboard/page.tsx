@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getDashboardStats, getCurrentUser } from "../../lib/api";
+import { getDashboardStats, getCurrentUser, getCompanySettings } from "../../lib/api";
 import Loader from "../../components/Loader";
 import LeaveBalanceCard from "../../components/LeaveBalanceCard";
 import Calendar from "../../components/Calendar";
@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const user = getCurrentUser();
   const userId = user?.id || "u1";
   const userRole = user?.role || "Employee";
+  const companyId = typeof window !== 'undefined' ? (localStorage.getItem('companyId') || 'demo-company') : 'demo-company';
 
 
   // Single API call for all dashboard data
@@ -24,6 +25,12 @@ export default function DashboardPage() {
     queryFn: getDashboardStats,
   });
 
+  // Fetch company settings for visibility rules
+  const { data: companySettingsData } = useQuery({
+    queryKey: ["company-settings", companyId],
+    queryFn: () => getCompanySettings(companyId),
+  });
+  const allowEmployeesSeeAllBirthdays = Boolean((companySettingsData?.data as any)?.notifications?.birthday?.allowEmployeesSeeAll);
 
   if (isLoading) return <Loader />;
 
@@ -552,7 +559,13 @@ export default function DashboardPage() {
     const birthdaysByDate = new Map<string, any[]>();
     
     (dashboardData?.data?.user_birthdays || [])
-      .filter((b: any) => b.birthday_visible)
+      .filter((b: any) => {
+        if (!b.birthday_visible) return false;
+        if (userRole === "HR" || userRole === "Admin" || userRole === "God") return true;
+        // Employee role
+        if (allowEmployeesSeeAllBirthdays) return true;
+        return String(b.id) === String(userId);
+      })
       .forEach((b: any) => {
         const birthdayDate = new Date(b.birthday);
 
@@ -634,12 +647,20 @@ export default function DashboardPage() {
     
     // Add work anniversaries - group multiple anniversaries on the same day
     const anniversariesByDate = new Map<string, any[]>();
-    const anniversarySeenByDate = new Map<string, Set<string>>();
     const workAnniversaries = (dashboardData?.data?.work_anniversaries || []) as any[];
+    // Dedupe by user ID to avoid duplicate anniversary entries for the same person
+    const uniqueAnniversariesMap = new Map<string, any>();
+    workAnniversaries.forEach((a: any) => {
+      const uid = String(a.id ?? a.user_id ?? a.userId ?? a.name);
+      if (!uniqueAnniversariesMap.has(uid)) {
+        uniqueAnniversariesMap.set(uid, a);
+      }
+    });
+    const uniqueAnniversaries = Array.from(uniqueAnniversariesMap.values());
     // Role-based filter: Employees see only their own anniversaries
     const filteredAnniversaries = (userRole === "HR" || userRole === "Admin" || userRole === "God")
-      ? workAnniversaries
-      : workAnniversaries.filter((a: any) => String(a.id) === String(userId));
+      ? uniqueAnniversaries
+      : uniqueAnniversaries.filter((a: any) => String(a.id) === String(userId));
     
     filteredAnniversaries.forEach((a: any) => {
       const joiningDate = new Date(a.joining_date);
@@ -650,21 +671,14 @@ export default function DashboardPage() {
         if (yearOffset === 0 && annivThisYear < new Date()) continue;
         const dateKey = getDateKey(annivThisYear);
         if (!anniversariesByDate.has(dateKey)) anniversariesByDate.set(dateKey, []);
-        if (!anniversarySeenByDate.has(dateKey)) anniversarySeenByDate.set(dateKey, new Set());
         // Compute years completed on that anniversary year
         const years = (currentYear + yearOffset) - joiningDate.getFullYear();
-        const uid = String(a.id);
-        const seen = anniversarySeenByDate.get(dateKey)!;
-        if (!seen.has(uid)) {
-          seen.add(uid);
-          anniversariesByDate.get(dateKey)!.push({
-            id: uid,
-            name: a.name,
-            joining_date: a.joining_date,
-            years,
-            date: annivThisYear
-          });
-        }
+        anniversariesByDate.get(dateKey)!.push({
+          name: a.name,
+          joining_date: a.joining_date,
+          years,
+          date: annivThisYear
+        });
       }
     });
     
@@ -683,7 +697,6 @@ export default function DashboardPage() {
           extendedProps: {
             type: 'anniversary',
             anniversaries: annivs.map(a => ({
-              id: a.id,
               name: a.name,
               years: a.years,
               description: `${a.name} — ${a.years} year(s)`
@@ -704,7 +717,6 @@ export default function DashboardPage() {
           extendedProps: {
             type: 'anniversary',
             anniversaries: [{
-              id: a.id,
               name: a.name,
               years: a.years,
               description: `${a.name} — ${a.years} year(s)`
