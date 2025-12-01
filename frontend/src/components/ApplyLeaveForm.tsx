@@ -144,7 +144,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-card dark:bg-white/10 dark:border-white/10">
+    <div className="bg-white rounded-xl shadow-sm border border-card dark:bg-white/30 dark:border-white/20">
       <form onSubmit={handleSubmit} className="px-6 pt-6 pb-6 space-y-4">
         {/* Employee Selection for HR/Admin - Show when showApplyForField is true */}
         {canApplyForOthers && showApplyForField && (
@@ -153,7 +153,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
             <select
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
-              className="w-full p-3 rounded border border-card bg-gray-100 text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full p-3 rounded border border-card bg-gray-100 text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
               required
             >
               <option value="">Select Employee</option>
@@ -177,7 +177,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full p-3 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full p-3 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             >
               {availableLeaveTypes.map((leaveType) => (
                 <option key={leaveType} value={leaveType}>
@@ -197,14 +197,14 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             />
             <select
               value={startHalf}
               onChange={(e) =>
                 setStartHalf(e.target.value as "FULL" | "AM" | "PM")
               }
-              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             >
               <option value="FULL">Full Day</option>
               <option value="AM">First Half</option>
@@ -220,12 +220,12 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
               value={endDate}
               min={startDate || undefined}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             />
             <select
               value={endHalf}
               onChange={(e) => setEndHalf(e.target.value as "FULL" | "AM" | "PM")}
-              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             >
               <option value="FULL">Full Day</option>
               <option value="AM" disabled={!!(startDate && endDate && startDate === endDate)}>First Half</option>
@@ -241,7 +241,7 @@ export default function ApplyLeaveForm({ bankHolidays = [], forUserId, showApply
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+            className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             placeholder="Enter reason for leave..."
           />
         </div>

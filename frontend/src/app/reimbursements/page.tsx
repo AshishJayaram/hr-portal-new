@@ -490,7 +490,7 @@ export default function ReimbursementsPage() {
       {/* Tabs for HR/Admin */}
       {isHRorAdmin() && (
         <Card className="p-4">
-          <div className="flex space-x-1 bg-white/5 dark:bg-white/10 p-1 rounded-lg border border-card dark:border-white/10">
+          <div className="flex space-x-1 bg-white/5 dark:bg-white/30 p-1 rounded-lg border border-card dark:border-white/20">
             <button
               onClick={() => setActiveTab('my')}
               className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
@@ -849,7 +849,7 @@ export default function ReimbursementsPage() {
                         placeholder="Search files..."
                         value={billsSearchTerm}
                         onChange={(e) => setBillsSearchTerm(e.target.value)}
-                        className="w-48 px-3 py-1.5 bg-gray-100 dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-48 px-3 py-1.5 bg-gray-100 dark:bg-white/30 border border-gray-300 dark:border-white/20 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -859,7 +859,7 @@ export default function ReimbursementsPage() {
                         bill.file_name.toLowerCase().includes(billsSearchTerm.toLowerCase())
                       )
                       .map((bill, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-white/5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-white/25 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                             <span className="text-gray-900 dark:text-white font-medium truncate" title={bill.file_name}>

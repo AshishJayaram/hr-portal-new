@@ -858,6 +858,14 @@ func (s *dashboardService) GetStats(organizationID, userID, userRole string) (*D
 			shouldInclude = true
 		}
 
+		// Only include holidays that are marked as calendar events
+		// Match frontend behavior: include if isCalendarEvent !== false
+		// Database default is true, so we only exclude if explicitly false
+		if !holiday.IsCalendarEvent {
+			// Skip holidays that are explicitly marked as not being calendar events
+			shouldInclude = false
+		}
+
 		if shouldInclude {
 			upcomingHolidays = append(upcomingHolidays, holiday)
 		}

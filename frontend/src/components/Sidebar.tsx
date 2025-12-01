@@ -125,7 +125,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col bg-white/5 backdrop-blur-xl border-r border-white/10 p-6">
+      <aside className="hidden md:flex w-64 flex-col bg-card/80 backdrop-blur-sm border-r border-card dark:bg-gray-900/60 dark:border-gray-700/50 p-6">
         {hasLogo && !logoError ? (
           <div className="mb-6">
             <img 
@@ -166,7 +166,7 @@ export default function Sidebar() {
         </nav>
 
         {/* User dropdown at bottom */}
-        <div className="mt-6 pt-6 border-t border-white/10 relative" ref={userMenuRef}>
+        <div className="mt-6 pt-6 border-t border-card dark:border-gray-700/50 relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"
@@ -184,7 +184,7 @@ export default function Sidebar() {
             </div>
           </button>
           {userMenuOpen && (
-            <div className="absolute bottom-14 left-0 w-full bg-white/10 backdrop-blur-xl border border-white/10 rounded-lg shadow-xl p-2">
+            <div className="absolute bottom-14 left-0 w-full bg-card/80 backdrop-blur-sm border border-card dark:bg-white/30 dark:border-white/20 rounded-lg shadow-xl p-2">
               <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10" onClick={() => { setUserMenuOpen(false); router.push('/profile'); }}>Profile</button>
               <button className="w-full text-left px-3 py-2 rounded hover:bg-white/10" onClick={() => { setUserMenuOpen(false); setShowFeedbackPopup(true); }}>Feedback</button>
               {canAccessSettings && (
@@ -211,7 +211,7 @@ export default function Sidebar() {
       {/* Mobile Sidebar Toggle */}
       <button
         onClick={() => setOpen(!open)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white/10 backdrop-blur hover:bg-white/20"
+        className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-card/80 backdrop-blur-sm border border-card dark:bg-gray-900/60 dark:border-gray-700/50 hover:bg-card dark:hover:bg-gray-800/70"
       >
         {open ? "✖️" : "☰"}
       </button>
@@ -224,7 +224,7 @@ export default function Sidebar() {
             animate={{ x: 0 }}
             exit={{ x: -250 }}
             transition={{ type: "tween", duration: 0.3 }}
-            className="fixed inset-y-0 left-0 w-64 bg-white/15 backdrop-blur-xl border-r border-white/10 p-6 z-40 flex flex-col"
+            className="fixed inset-y-0 left-0 w-64 bg-card/80 backdrop-blur-sm border-r border-card dark:bg-gray-900/60 dark:border-gray-700/50 p-6 z-40 flex flex-col"
           >
             {hasLogo && !mobileLogoError ? (
               <div className="mb-6 pl-8">
@@ -267,7 +267,7 @@ export default function Sidebar() {
             </nav>
 
             {/* Mobile user tile */}
-            <div className="mt-6 pt-6 border-t border-white/10">
+            <div className="mt-6 pt-6 border-t border-card dark:border-white/10">
               <button
                 onClick={() => { setOpen(false); router.push('/profile'); }}
                 className="w-full flex items-center justify-between px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"

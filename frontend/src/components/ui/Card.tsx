@@ -10,7 +10,7 @@ interface CardProps {
 export default function Card({ children, className, title }: CardProps) {
   return (
     <div className={cn(
-      "rounded-xl p-6 transition-shadow border border-card bg-card shadow-sm dark:bg-white/5 dark:border-white/10",
+      "rounded-xl p-6 transition-shadow border border-card bg-card shadow-sm dark:bg-white/25 dark:border-white/10",
       className
     )}>
       {title && (

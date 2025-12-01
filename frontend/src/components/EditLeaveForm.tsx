@@ -134,7 +134,7 @@ export default function EditLeaveForm({ leave, onClose, onSuccess }: EditLeaveFo
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-card dark:bg-white/10 dark:border-white/10">
+    <div className="bg-white rounded-xl shadow-sm border border-card dark:bg-white/30 dark:border-white/20">
       <div className="px-6 pt-6 pb-2">
         <h3 className="text-lg font-semibold text-primary mb-4">Edit Leave Request</h3>
       </div>
@@ -151,7 +151,7 @@ export default function EditLeaveForm({ leave, onClose, onSuccess }: EditLeaveFo
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full p-3 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full p-3 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             >
               {availableLeaveTypes.map((leaveType) => (
                 <option key={leaveType} value={leaveType}>
@@ -171,14 +171,14 @@ export default function EditLeaveForm({ leave, onClose, onSuccess }: EditLeaveFo
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             />
             <select
               value={startHalf}
               onChange={(e) =>
                 setStartHalf(e.target.value as "FULL" | "AM" | "PM")
               }
-              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             >
               <option value="FULL">Full Day</option>
               <option value="AM">First Half</option>
@@ -194,12 +194,12 @@ export default function EditLeaveForm({ leave, onClose, onSuccess }: EditLeaveFo
               value={endDate}
               min={startDate || undefined}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             />
             <select
               value={endHalf}
               onChange={(e) => setEndHalf(e.target.value as "FULL" | "AM" | "PM")}
-              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+              className="w-full mt-2 p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             >
               <option value="FULL">Full Day</option>
               <option value="AM">First Half</option>
@@ -215,7 +215,7 @@ export default function EditLeaveForm({ leave, onClose, onSuccess }: EditLeaveFo
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white"
+            className="w-full p-2 rounded border border-card bg-white text-gray-900 dark:border-white/20 dark:bg-white/30 dark:text-white"
             placeholder="Enter reason for leave..."
           />
         </div>

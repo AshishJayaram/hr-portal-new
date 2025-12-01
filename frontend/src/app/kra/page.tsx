@@ -1067,14 +1067,14 @@ function SampleKRASheetModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg sm:rounded-xl shadow-xl max-w-4xl w-full h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 sm:px-6 border-b border-card dark:border-white/10 bg-card dark:bg-white/10 backdrop-blur">
+      <div className="bg-card/95 backdrop-blur-sm border border-card dark:bg-gray-900/60 dark:border-gray-700/50 rounded-lg sm:rounded-xl shadow-xl max-w-4xl w-full h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 sm:px-6 border-b border-card dark:border-gray-700/50 bg-card/95 backdrop-blur-sm dark:bg-gray-900/60">
           <h2 id="sample-kra-title" className="text-lg sm:text-xl font-semibold text-primary dark:text-white">
             Sample KRA Formats & Creation
           </h2>
           <button
             onClick={onClose}
-            className="text-muted hover:text-primary dark:text-gray-400 dark:hover:text-white transition-colors"
+            className="text-muted hover:text-primary dark:text-gray-300 dark:hover:text-white transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1100,7 +1100,7 @@ function SampleKRASheetModal({
                 <h3 className="text-lg font-semibold text-primary dark:text-white mb-4">
                   Sample KRA Formats
                 </h3>
-                <p className="text-secondary dark:text-gray-400 mb-4">
+                <p className="text-secondary dark:text-gray-200 mb-4">
                   Here are some sample KRAs to help you understand the format and structure. 
                   You can use these as templates for creating your own KRAs.
                 </p>
@@ -1112,23 +1112,23 @@ function SampleKRASheetModal({
                     <div className="space-y-3">
                       <div>
                         <h4 className="font-semibold text-primary dark:text-white">{sample.title}</h4>
-                        <p className="text-sm text-secondary dark:text-gray-400">{sample.description}</p>
+                        <p className="text-sm text-secondary dark:text-gray-200">{sample.description}</p>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="text-muted dark:text-gray-500">Target:</span>
+                          <span className="text-muted dark:text-gray-300">Target:</span>
                           <span className="ml-2 font-medium text-primary dark:text-white">
                             {sample.target_value} {sample.measurement_unit}
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted dark:text-gray-500">Weight:</span>
+                          <span className="text-muted dark:text-gray-300">Weight:</span>
                           <span className="ml-2 font-medium text-primary dark:text-white">
                             {sample.weight}%
                           </span>
                         </div>
                         <div className="col-span-2">
-                          <span className="text-muted dark:text-gray-500">Domain:</span>
+                          <span className="text-muted dark:text-gray-300">Domain:</span>
                           <span className="ml-2 font-medium text-primary dark:text-white">
                             {sample.domain}
                           </span>
@@ -1252,7 +1252,7 @@ function SampleKRASheetModal({
                         placeholder="Enter weight percentage"
                         required
                       />
-                      <div className="text-sm text-secondary dark:text-gray-400">
+                      <div className="text-sm text-secondary dark:text-gray-200">
                         Remaining weight: {calculateRemainingWeight()}%
                       </div>
                       <div className="w-full bg-white/5 dark:bg-white/10 rounded-full h-2 border border-card dark:border-white/10">
@@ -1367,12 +1367,12 @@ function CreateKRAModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-card dark:border-white/10">
+      <div className="bg-card/95 backdrop-blur-sm border border-card dark:bg-gray-900/60 dark:border-gray-700/50 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-card dark:border-gray-700/50">
           <h2 className="text-xl font-semibold text-primary dark:text-white">Create New KRA</h2>
           <button
             onClick={onClose}
-            className="text-muted hover:text-primary dark:text-gray-400 dark:hover:text-white transition-colors"
+            className="text-muted hover:text-primary dark:text-gray-300 dark:hover:text-white transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1706,12 +1706,12 @@ function EvaluateKRAModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-card/95 backdrop-blur-sm border border-card dark:bg-gray-900/60 dark:border-gray-700/50 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-card dark:border-gray-700/50">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Assess KRA</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-white"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1720,11 +1720,11 @@ function EvaluateKRAModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+          <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700/50">
             <h3 className="font-medium text-gray-900 dark:text-white mb-2">{kra.title}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{kra.description}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-200">{kra.description}</p>
             <div className="mt-2 text-sm">
-              <span className="text-gray-500 dark:text-gray-400">Target: </span>
+              <span className="text-gray-500 dark:text-gray-300">Target: </span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {kra.target_value} {kra.measurement_unit}
               </span>

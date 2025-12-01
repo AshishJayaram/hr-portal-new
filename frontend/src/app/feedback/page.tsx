@@ -382,7 +382,7 @@ export default function FeedbackPage() {
 
       {/* Guidelines Modal */}
       {showGuidelines && (
-        <Card className="p-6 bg-card border border-card dark:bg-white/10 dark:border-white/10">
+        <Card className="p-6 bg-card/95 backdrop-blur-sm border border-card dark:bg-gray-900/60 dark:border-gray-700/50">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-2">
               <Info className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
@@ -431,7 +431,7 @@ export default function FeedbackPage() {
                 <li>Explain the expected improvement in user experience</li>
               </ul>
             </div>
-            <div className="pt-3 border-t border-card dark:border-white/10">
+            <div className="pt-3 border-t border-card dark:border-white/20">
               <p className="text-xs text-muted dark:text-gray-500">
                 <strong className="text-secondary dark:text-gray-400">Priority Guide:</strong> Use <span className="text-red-500 dark:text-red-400">Critical</span> for blocking issues, 
                 <span className="text-orange-500 dark:text-orange-400"> High</span> for important items, 
@@ -536,7 +536,7 @@ export default function FeedbackPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Please provide detailed information about the issue or suggestion..."
-                  className="w-full px-3 py-2 bg-card border border-card text-primary placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent rounded-lg"
+                  className="w-full px-3 py-2 bg-card border border-card text-primary placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/30 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent rounded-lg"
                   rows={6}
                   required
                 />
@@ -571,7 +571,7 @@ export default function FeedbackPage() {
                 <p className="text-sm text-secondary dark:text-gray-400">Total Feedback</p>
                 <div className="relative group/tooltip">
                   <Info className="h-3 w-3 text-muted dark:text-gray-500 cursor-help" />
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/30 dark:border-white/20 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
                     Total number of feedback submissions across all types and statuses
                   </div>
                 </div>
@@ -589,7 +589,7 @@ export default function FeedbackPage() {
                 <p className="text-sm text-secondary dark:text-gray-400">Open Issues</p>
                 <div className="relative group/tooltip">
                   <Info className="h-3 w-3 text-muted dark:text-gray-500 cursor-help" />
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/30 dark:border-white/20 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
                     Feedback items waiting for review or action
                   </div>
                 </div>
@@ -609,7 +609,7 @@ export default function FeedbackPage() {
                 <p className="text-sm text-secondary dark:text-gray-400">In Progress</p>
                 <div className="relative group/tooltip">
                   <Info className="h-3 w-3 text-muted dark:text-gray-500 cursor-help" />
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/30 dark:border-white/20 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
                     Feedback items currently being worked on by the team
                   </div>
                 </div>
@@ -631,7 +631,7 @@ export default function FeedbackPage() {
                 <p className="text-sm text-secondary dark:text-gray-400">Resolved</p>
                 <div className="relative group/tooltip">
                   <Info className="h-3 w-3 text-muted dark:text-gray-500 cursor-help" />
-                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-48 bg-card border border-card dark:bg-white/30 dark:border-white/20 rounded-lg p-2 text-xs text-secondary dark:text-gray-300 z-10 shadow-lg">
                     Feedback items that have been completed or resolved
                   </div>
                 </div>
@@ -678,7 +678,7 @@ export default function FeedbackPage() {
                 </div>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
+                <div className="h-1.5 bg-white/5 dark:bg-white/30 rounded-full overflow-hidden border border-card dark:border-white/20">
                   <div 
                     className="h-full bg-red-500 dark:bg-red-400 rounded-full transition-all"
                     style={{ width: `${(stats.byType.bug / stats.total) * 100}%` }}
@@ -702,7 +702,7 @@ export default function FeedbackPage() {
                 </div>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
+                <div className="h-1.5 bg-white/5 dark:bg-white/30 rounded-full overflow-hidden border border-card dark:border-white/20">
                   <div 
                     className="h-full bg-blue-500 dark:bg-blue-400 rounded-full transition-all"
                     style={{ width: `${(stats.byType.feature / stats.total) * 100}%` }}
@@ -726,7 +726,7 @@ export default function FeedbackPage() {
                 </div>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
+                <div className="h-1.5 bg-white/5 dark:bg-white/30 rounded-full overflow-hidden border border-card dark:border-white/20">
                   <div 
                     className="h-full bg-green-500 dark:bg-green-400 rounded-full transition-all"
                     style={{ width: `${(stats.byType.improvement / stats.total) * 100}%` }}
@@ -747,7 +747,7 @@ export default function FeedbackPage() {
                 </div>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
+                <div className="h-1.5 bg-white/5 dark:bg-white/30 rounded-full overflow-hidden border border-card dark:border-white/20">
                   <div 
                     className="h-full bg-gray-500 dark:bg-gray-400 rounded-full transition-all"
                     style={{ width: `${(stats.byType.other / stats.total) * 100}%` }}
@@ -769,7 +769,7 @@ export default function FeedbackPage() {
               <span className="text-sm font-semibold text-red-500 dark:text-red-400">{stats.byPriority.critical}</span>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
+                <div className="h-1.5 bg-white/5 dark:bg-white/30 rounded-full overflow-hidden border border-card dark:border-white/20">
                   <div 
                     className="h-full bg-red-500 dark:bg-red-400 rounded-full transition-all"
                     style={{ width: `${(stats.byPriority.critical / stats.total) * 100}%` }}
@@ -783,7 +783,7 @@ export default function FeedbackPage() {
               <span className="text-sm font-semibold text-orange-500 dark:text-orange-400">{stats.byPriority.high}</span>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
+                <div className="h-1.5 bg-white/5 dark:bg-white/30 rounded-full overflow-hidden border border-card dark:border-white/20">
                   <div 
                     className="h-full bg-orange-500 dark:bg-orange-400 rounded-full transition-all"
                     style={{ width: `${(stats.byPriority.high / stats.total) * 100}%` }}
@@ -797,7 +797,7 @@ export default function FeedbackPage() {
               <span className="text-sm font-semibold text-amber-500 dark:text-amber-400">{stats.byPriority.medium}</span>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
+                <div className="h-1.5 bg-white/5 dark:bg-white/30 rounded-full overflow-hidden border border-card dark:border-white/20">
                   <div 
                     className="h-full bg-amber-500 dark:bg-amber-400 rounded-full transition-all"
                     style={{ width: `${(stats.byPriority.medium / stats.total) * 100}%` }}
@@ -811,7 +811,7 @@ export default function FeedbackPage() {
               <span className="text-sm font-semibold text-green-500 dark:text-green-400">{stats.byPriority.low}</span>
               </div>
               {stats.total > 0 && (
-                <div className="h-1.5 bg-white/5 dark:bg-white/10 rounded-full overflow-hidden border border-card dark:border-white/10">
+                <div className="h-1.5 bg-white/5 dark:bg-white/30 rounded-full overflow-hidden border border-card dark:border-white/20">
                   <div 
                     className="h-full bg-green-500 dark:bg-green-400 rounded-full transition-all"
                     style={{ width: `${(stats.byPriority.low / stats.total) * 100}%` }}
@@ -837,7 +837,7 @@ export default function FeedbackPage() {
               </div>
               <p className="text-xs text-muted dark:text-gray-500 mt-1">New submissions this week</p>
             </div>
-            <div className="pt-2 border-t border-card dark:border-white/10">
+            <div className="pt-2 border-t border-card dark:border-white/20">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm text-secondary dark:text-gray-400 flex items-center gap-2">
                   <Zap className="h-3 w-3 text-green-500 dark:text-green-400" />
@@ -851,7 +851,7 @@ export default function FeedbackPage() {
                 Average time to resolve feedback
               </p>
             </div>
-            <div className="pt-2 border-t border-card dark:border-white/10">
+            <div className="pt-2 border-t border-card dark:border-white/20">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-muted dark:text-gray-500">Resolution Rate</span>
                 <span className="text-sm font-semibold text-green-500 dark:text-green-400 flex items-center gap-1">
@@ -863,7 +863,7 @@ export default function FeedbackPage() {
                 {stats.byStatus.resolved + stats.byStatus.closed} of {stats.total} items resolved
               </p>
             </div>
-            <div className="pt-2 border-t border-card dark:border-white/10">
+            <div className="pt-2 border-t border-card dark:border-white/20">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-secondary dark:text-gray-400">Closed Items</span>
                 <span className="text-sm font-semibold text-muted dark:text-gray-400">{stats.byStatus.closed}</span>
@@ -1030,7 +1030,7 @@ export default function FeedbackPage() {
                               updateEditingResolution(String(actualId), e.target.value);
                             }}
                             placeholder="Resolution notes (optional)..."
-                            className="w-full px-3 py-2 bg-card border border-card text-primary placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent rounded-lg text-sm"
+                            className="w-full px-3 py-2 bg-card border border-card text-primary placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/30 dark:text-white dark:placeholder:text-gray-400 dark:focus:ring-offset-transparent rounded-lg text-sm"
                             rows={2}
                             onClick={(e) => e.stopPropagation()}
                           />

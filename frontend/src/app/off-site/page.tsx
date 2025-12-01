@@ -656,7 +656,7 @@ function OffSiteModal({ offSite, onClose, onSave, isLoading }: any) {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-card border border-card dark:bg-white/10 dark:border-white/10 rounded-xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-card/95 backdrop-blur-sm border border-card dark:bg-gray-900/60 dark:border-gray-700/50 rounded-xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-primary dark:text-white">
             {offSite.id ? "Edit Off-site Entry" : "Add Off-site Entry"}

@@ -133,7 +133,7 @@ export default function FeedbackPopup({ isOpen, onClose }: FeedbackPopupProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-md mx-4">
+      <Card className="w-full max-w-md mx-4 dark:bg-white/30 dark:border-white/20 backdrop-blur-md">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Bug className="h-5 w-5 text-orange-500 dark:text-orange-400" />

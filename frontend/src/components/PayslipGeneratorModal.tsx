@@ -345,23 +345,23 @@ export default function PayslipGeneratorModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-card/95 backdrop-blur-sm border border-card dark:bg-gray-900/60 dark:border-gray-700/50 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center">
+        <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-card dark:bg-gray-900/60 dark:border-gray-700/50 px-6 py-4 flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               Generate Payslip
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-sm text-gray-600 dark:text-gray-200 mt-1">
               {userName} - {new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
               Annual CTC: ₹{userCTC.toLocaleString('en-IN')} | Monthly: ₹{(userCTC / 12).toLocaleString('en-IN')}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-white"
           >
             <X className="h-6 w-6" />
           </button>
@@ -389,7 +389,7 @@ export default function PayslipGeneratorModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Basic Salary */}
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('basic')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Basic Salary
                 </label>
                 <div className="flex gap-2">
@@ -416,14 +416,14 @@ export default function PayslipGeneratorModal({
                       placeholder="%"
                       className="w-20"
                     />
-                    <span className="text-sm text-gray-500">% of CTC</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-300">% of CTC</span>
                   </div>
                 </div>
               </div>
 
               {/* HRA */}
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('hra')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   House Rent Allowance (HRA)
                 </label>
                 <div className="flex gap-2">
@@ -449,14 +449,14 @@ export default function PayslipGeneratorModal({
                       placeholder="% of Basic"
                       className="w-20"
                     />
-                    <span className="text-sm text-gray-500">%</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-300">%</span>
                   </div>
                 </div>
               </div>
 
               {/* Special Allowance */}
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('special')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Special Allowance
                 </label>
                 <Input
@@ -472,7 +472,7 @@ export default function PayslipGeneratorModal({
 
               {/* Other Allowances */}
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('other')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Other Allowances
                 </label>
                 <Input
@@ -491,7 +491,7 @@ export default function PayslipGeneratorModal({
             {customEarnings.map((category) => (
               <div key={category.id} className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass(category.id)}`}>
                 <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     {category.name}
                   </label>
                   <button
@@ -550,7 +550,7 @@ export default function PayslipGeneratorModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Provident Fund */}
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('pf')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Provident Fund (PF)
                 </label>
                 <div className="flex gap-2">
@@ -576,15 +576,15 @@ export default function PayslipGeneratorModal({
                       placeholder="% of Basic"
                       className="w-20"
                     />
-                    <span className="text-sm text-gray-500">%</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-300">%</span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">Employee contribution to Provident Fund</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">Employee contribution to Provident Fund</p>
               </div>
 
               {/* ESI */}
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('esi')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Employee State Insurance (ESI)
                 </label>
                 <div className="flex gap-2">
@@ -606,15 +606,15 @@ export default function PayslipGeneratorModal({
                       placeholder="%"
                       className="w-20"
                     />
-                    <span className="text-sm text-gray-500">%</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-300">%</span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">Employee State Insurance contribution</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">Employee State Insurance contribution</p>
               </div>
 
               {/* Professional Tax */}
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('professionalTax')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Professional Tax
                 </label>
                 <Input
@@ -626,12 +626,12 @@ export default function PayslipGeneratorModal({
                   }}
                   placeholder="Professional Tax"
                 />
-                <p className="text-xs text-gray-500">State-wise professional tax deduction</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">State-wise professional tax deduction</p>
               </div>
 
               {/* TDS */}
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('tds')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Tax Deducted at Source (TDS)
                 </label>
                 <div className="flex gap-2">
@@ -653,15 +653,15 @@ export default function PayslipGeneratorModal({
                       placeholder="%"
                       className="w-20"
                     />
-                    <span className="text-sm text-gray-500">%</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-300">%</span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">Income tax deducted at source</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">Income tax deducted at source</p>
               </div>
 
               {/* Other Deductions */}
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('otherDeductions')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Other Deductions
                 </label>
                 <Input
@@ -673,7 +673,7 @@ export default function PayslipGeneratorModal({
                   }}
                   placeholder="Other Deductions"
                 />
-                <p className="text-xs text-gray-500">Any other miscellaneous deductions</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">Any other miscellaneous deductions</p>
               </div>
             </div>
 
@@ -681,7 +681,7 @@ export default function PayslipGeneratorModal({
             {customDeductions.map((category) => (
               <div key={category.id} className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass(category.id)}`}>
                 <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     {category.name}
                   </label>
                   <button
@@ -723,7 +723,7 @@ export default function PayslipGeneratorModal({
             {/* Show fixed amount input if method is FIXED_AMOUNT */}
             {companySettings?.lop?.calculationMethod === 'FIXED_AMOUNT' && (
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('lopFixedAmountPerDay')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Fixed Amount per Day (₹)
                 </label>
                 <Input
@@ -742,13 +742,13 @@ export default function PayslipGeneratorModal({
                   min="0"
                   step="1"
                 />
-                <p className="text-xs text-gray-500">Amount to deduct per LOP day</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">Amount to deduct per LOP day</p>
               </div>
             )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('lopDays')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   LOP Days
                 </label>
                 <Input
@@ -777,11 +777,11 @@ export default function PayslipGeneratorModal({
                   }}
                   placeholder="Number of LOP days"
                 />
-                <p className="text-xs text-gray-500">Number of days without pay</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">Number of days without pay</p>
               </div>
 
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('lopAmount')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   LOP Amount
                 </label>
                 <Input
@@ -793,7 +793,7 @@ export default function PayslipGeneratorModal({
                   }}
                   placeholder="LOP Amount"
                 />
-                <p className="text-xs text-gray-500">Amount deducted for LOP days</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">Amount deducted for LOP days</p>
               </div>
             </div>
           </div>
@@ -806,7 +806,7 @@ export default function PayslipGeneratorModal({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('overtimeHours')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Overtime Hours
                 </label>
                 <Input
@@ -826,11 +826,11 @@ export default function PayslipGeneratorModal({
                   min="0"
                   step="0.5"
                 />
-                <p className="text-xs text-gray-500">Number of overtime hours worked</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300">Number of overtime hours worked</p>
               </div>
 
               <div className={`space-y-2 p-3 rounded-lg border transition-all ${getFieldHighlightClass('overtimeAmount')}`}>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Overtime Amount
                 </label>
                 <Input
@@ -843,7 +843,7 @@ export default function PayslipGeneratorModal({
                   placeholder="Overtime Amount"
                   min="0"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-gray-300">
                   {companySettings?.overtime?.calculationMethod === 'FIXED_RATE_PER_HOUR'
                     ? `Calculated: ₹${(companySettings?.overtime?.multiplier || 100).toLocaleString('en-IN')} per hour`
                     : `Calculated based on ${companySettings?.overtime?.calculationMethod || 'default'} method`}
@@ -853,16 +853,16 @@ export default function PayslipGeneratorModal({
           </div>
 
           {/* Totals Summary */}
-          <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg space-y-2">
+          <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg space-y-2 border border-gray-200 dark:border-gray-700/50">
             <div className="flex justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Gross Earnings:</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Gross Earnings:</span>
               <span className="text-sm font-semibold text-gray-900 dark:text-white">₹{totals.grossEarnings.toLocaleString('en-IN')}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Deductions:</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Total Deductions:</span>
               <span className="text-sm font-semibold text-red-600 dark:text-red-400">₹{totals.totalDeductions.toLocaleString('en-IN')}</span>
             </div>
-            <div className="border-t border-gray-300 dark:border-gray-600 pt-2 flex justify-between">
+            <div className="border-t border-gray-300 dark:border-white/20 pt-2 flex justify-between">
               <span className="text-base font-bold text-gray-900 dark:text-white">Net Pay:</span>
               <span className="text-base font-bold text-green-600 dark:text-green-400">₹{totals.netPay.toLocaleString('en-IN')}</span>
             </div>
@@ -870,7 +870,7 @@ export default function PayslipGeneratorModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3">
+        <div className="sticky bottom-0 bg-card/95 backdrop-blur-sm border-t border-card dark:bg-gray-900/60 dark:border-gray-700/50 px-6 py-4 flex justify-end gap-3">
           <Button
             variant="outline"
             onClick={onClose}
