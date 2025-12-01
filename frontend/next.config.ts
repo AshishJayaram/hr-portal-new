@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  trailingSlash: true,
+  trailingSlash: false, // Changed to false to prevent 308 redirects on API routes
   images: {
     unoptimized: true,
   },
